@@ -5,7 +5,7 @@
 #include <string>
 #include <cassert>
 #include <stdexcept>
-#include <vector>
+#include <stack>
 
 namespace sqlstl
 {
@@ -67,7 +67,7 @@ namespace sqlstl
 
         template < typename... Args > int operator()(Args&&... args)
         {
-            sqlite3_check(sqlite3_reset(stmt_));
+            sqlite3_reset(stmt_);
             sqlite3_check(sqlite3_clear_bindings(stmt_));
 
             auto binder = [this](std::size_t index, const auto& value) { bind_parameter(index, value); };
@@ -220,7 +220,7 @@ namespace sqlstl
             {
                 if(cache_)
                 {
-                    // cache_->statements_.emplace_back(std::move(*this));
+                    cache_->statements_.push(std::move(static_cast<sqlstl::statement&>(*this)));
                 }
             }
 
@@ -237,12 +237,10 @@ namespace sqlstl
 
         statement acquire()
         {
-            return statement(this, db_.prepare(sql_));
-
             if (!statements_.empty())
             {
-                statement stmt(this, std::move(statements_.back()));
-                statements_.pop_back();
+                statement stmt(this, std::move(statements_.top()));
+                statements_.pop();
                 return stmt;
             }
             else
@@ -259,7 +257,7 @@ namespace sqlstl
     private:
         db& db_;
         std::string sql_;
-        std::vector< statement > statements_;
+        std::stack< sqlstl::statement > statements_;
     };
 
     

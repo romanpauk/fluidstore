@@ -39,34 +39,29 @@ namespace sqlstl
             iterator(iterator&& other)
                 : statement_(std::move(other.statement_))
                 , result_(other.result_)
+                , rowid_(other.rowid_)
             {}
 
             iterator(iterator&& other, int result)
                 : statement_(std::move(other.statement_))
                 , result_(result)
+                , rowid_(other.rowid)
             {}
 
             iterator(sqlstl::statement_cache::statement&& statement, int result)
                 : statement_(std::move(statement))
                 , result_(result)
+                , rowid_(result == SQLITE_ROW ? statement_.extract< uint64_t >(1) : 0)
             {}
 
-            bool operator == (const iterator& other) const
-            {
-                // TODO: this is not right
-                // return std::tie(statement_, result_) == std::tie(other.statement_, other.result_);
-                return result_ == other.result_;
-            }
-
-            bool operator != (const iterator& other) const
-            {
-                return !(*this == other);
-            }
+            bool operator == (const iterator& other) const { return rowid_ == other.rowid_; }
+            bool operator != (const iterator& other) const { return !(*this == other); }
 
             const Key& operator*()
             {
                 if (!key_)
                 {
+                    assert(result_ == SQLITE_ROW);
                     key_ = std::move(statement_.extract< Key >(0));
                 }
 
@@ -77,13 +72,15 @@ namespace sqlstl
             {
                 key_.reset();
                 result_ = statement_.step();
+                rowid_ = result_ == SQLITE_ROW ? statement_.extract< uint64_t >(1) : 0;
                 return *this;
             }
-
+            
         private:
-            std::optional< Key > key_;
             sqlstl::statement_cache::statement statement_;
+            uint64_t rowid_;
             int result_;
+            std::optional< Key > key_;
         };
 
         iterator begin(const std::string& name)

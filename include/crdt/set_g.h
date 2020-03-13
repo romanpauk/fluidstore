@@ -32,11 +32,8 @@ namespace crdt
         {}
 
         iterator begin() { return iterator(values_.begin()); }
-        //iterator begin() const { return iterator(values_.begin()); }
-
         iterator end() { return iterator(values_.end()); }
-        //iterator end() const { return iterator(values_.end()); }
-
+        
         template < typename K > std::pair< iterator, bool > insert(K&& value)
         {
             auto pairb = values_.insert(value);

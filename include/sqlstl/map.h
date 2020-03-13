@@ -138,7 +138,7 @@ namespace sqlstl
             bool operator == (const iterator& other) const { return it_ == other.it_; }
             bool operator != (const iterator& other) const { return it_ != other.it_; }
 
-            iterator& operator++() { ++it_; pair_.emplace(std::make_pair(*it_, map_.get_value(*it_)));  return *this; }
+            iterator& operator++() { pair_.reset(); ++it_; return *this; }
 
         private:
             map_base< Key, Value, Factory >& map_;

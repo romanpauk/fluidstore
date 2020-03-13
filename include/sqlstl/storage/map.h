@@ -19,26 +19,19 @@ namespace sqlstl
                 : statement_(std::move(other.statement_))
                 , result_(other.result_)
                 , pair_(std::move(other.pair_))
+                , rowid_(other.rowid_)
             {}
 
             iterator(sqlstl::statement_cache::statement&& statement, int result)
                 : statement_(std::move(statement))
                 , result_(result)
+                , rowid_(result == SQLITE_ROW ? statement_.extract< uint64_t >(2) : 0)
             {}
 
-            bool operator == (const iterator& other) const
-            {
-                // TODO: this is not right
-                // return std::tie(statement_, result_) == std::tie(other.statement_, other.result_);
-                return result_ == other.result_;
-            }
+            bool operator == (const iterator& other) const { return rowid_ == other.rowid_; }
+            bool operator != (const iterator& other) const { return !(*this == other); }
 
-            bool operator != (const iterator& other) const
-            {
-                return !(*this == other);
-            }
-
-            std::pair< const Key, Value >& operator *()
+            auto& operator *()
             {
                 if (!pair_)
                 {
@@ -48,19 +41,21 @@ namespace sqlstl
                 return *pair_;
             }
 
-            auto operator ->() { return &this->operator*(); }
+            auto& operator ->() { return &this->operator*(); }
 
             iterator& operator++()
             {
                 pair_.reset();
                 result_ = statement_.step();
+                rowid_ = result_ == SQLITE_ROW ? statement_.extract< uint64_t >(2) : 0;
                 return *this;
             }
 
         private:
             sqlstl::statement_cache::statement statement_;
-            std::optional< std::pair< const Key, Value > > pair_;
+            uint64_t rowid_;
             int result_;
+            std::optional< std::pair< const Key, Value > > pair_;
         };
 
         map_storage(sqlstl::db& db)

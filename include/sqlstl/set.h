@@ -22,12 +22,12 @@ namespace sqlstl
             {}
 
             auto& operator*() { return *it_; }
-
+            
             bool operator == (const iterator& other) const { return it_ == other.it_; }
             bool operator != (const iterator& other) const { return it_ != other.it_; }
 
             iterator& operator++() { ++it_; return *this; }
-
+            
         private:
             typename set_storage< Key >::iterator it_;
         };

@@ -32,23 +32,22 @@ namespace crdt
 
     template < typename Key, typename Value, typename Traits > class map_g
     {
-    public:
-        struct iterator
+        template < typename It > struct iterator_base
         {
-            iterator(const iterator&) = delete;
-            iterator& operator = (const iterator&) = delete;
+            iterator_base(const iterator_base< It >&) = delete;
+            iterator_base& operator = (const iterator_base< It >&) = delete;
 
-            iterator(
+            iterator_base(
                 map_g< Key, Value, Traits >& map,
-                typename set_g< Key, Traits >::iterator&& it
+                typename It&& it
             )
                 : it_(std::move(it))
                 , map_(map)
             {}
 
-            iterator(
+            iterator_base(
                 map_g< Key, Value, Traits >& map,
-                typename set_g< Key, Traits >::iterator&& it,
+                typename It&& it,
                 Value&& value
             )
                 : map_(map)
@@ -56,7 +55,7 @@ namespace crdt
                 , pair_(std::pair< const Key, Value >(*it_, std::move(value)))
             {}
 
-            iterator(iterator&& other)
+            iterator_base(iterator_base< It >&& other)
                 : map_(other.map_)
                 , it_(std::move(other.it_))
                 , pair_(std::move(other.pair_))
@@ -65,16 +64,20 @@ namespace crdt
             auto& operator*() { if (!pair_) pair_.emplace(*it_, map_.get_value(*it_)); return *pair_; }
             auto operator->() { return &this->operator*(); }
 
-            bool operator == (const iterator& other) const { return it_ == other.it_; }
-            bool operator != (const iterator& other) const { return it_ != other.it_; }
+            bool operator == (const iterator_base< It >& other) const { return it_ == other.it_; }
+            bool operator != (const iterator_base< It >& other) const { return it_ != other.it_; }
 
-            iterator& operator++() { ++it_; pair_.emplace(std::make_pair(*it_, map_.get_value(*it_)));  return *this; }
+            iterator_base< It >& operator++() { ++it_; pair_.emplace(std::make_pair(*it_, map_.get_value(*it_)));  return *this; }
 
         private:
             map_g< Key, Value, Traits >& map_;
-            typename set_g< Key, Traits >::iterator it_;
+            typename It it_;
             std::optional< std::pair< const Key, Value > > pair_;
         };
+
+    public:
+        typedef iterator_base< typename set_g< Key, Traits >::iterator > iterator;
+        typedef iterator_base< typename set_g< Key, Traits >::const_iterator > const_iterator;
 
         struct value_proxy
             : public Value
@@ -98,8 +101,12 @@ namespace crdt
         {}
 
         iterator begin() { return iterator(*this, set_.begin()); }
+        const_iterator begin() const { return const_iterator(const_cast< map_g< Key, Value, Traits >& >(*this), set_.begin()); }
+
         iterator end() { return iterator(*this, set_.end()); }
-        size_t size() { return set_.size(); }
+        const_iterator end() const { return const_iterator(const_cast< map_g< Key, Value, Traits >& >(*this), set_.end()); }
+
+        size_t size() const { return set_.size(); }
 
         template < typename K > value_proxy operator[](K&& key)
         {
@@ -130,7 +137,7 @@ namespace crdt
 
         template < typename K > iterator find(K&& key) { return iterator(*this, set_.find(std::forward< K >(key))); }
 
-        template < typename Map > void merge(Map& other)
+        template < typename Map > void merge(const Map& other)
         {
             for (auto&& value : other)
             {
@@ -144,7 +151,7 @@ namespace crdt
             pairb.first->second.merge(std::forward< V >(v));
         }
 
-        template < typename K > Value get_value(K&& key)
+        template < typename K > Value get_value(K&& key) const
         {
             return Value(factory_, name_ + ".value." + std::to_string(key));
         }

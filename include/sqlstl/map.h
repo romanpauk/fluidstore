@@ -12,6 +12,7 @@ namespace sqlstl
 
     template < typename Key, typename Value, typename Factory > class map_base< Key, Value, Factory, true > 
     {
+    public:
         struct iterator
         {
             iterator(const iterator&) = delete;
@@ -59,7 +60,6 @@ namespace sqlstl
             Key key_;
         };
 
-    public:
         template < typename K > auto operator[](K&& key)
         {
             map_.insert(name_, key, Value());
@@ -103,6 +103,7 @@ namespace sqlstl
 
     template < typename Key, typename Value, typename Factory > class map_base< Key, Value, Factory, false > 
     {
+    public:
         struct iterator
         {
             iterator(const iterator&) = delete;
@@ -161,7 +162,8 @@ namespace sqlstl
             }
         };
 
-    public:
+        typedef iterator const_iterator;
+
         map_base(Factory& factory, const std::string& name)
             : factory_(factory)
             , name_(name)
@@ -176,9 +178,14 @@ namespace sqlstl
         }
 
         template < typename K > iterator find(K&& key) { return iterator(*this, set_.find(std::forward< K >(key))); }
+
         iterator begin() { return iterator(*this, set_.begin()); }
+        iterator begin() const { return iterator(const_cast<map_base< Key, Value, Factory >&>(*this), set_.begin()); }
+
         iterator end() { return iterator(*this, set_.end()); }
-        size_t size() { return set_.size(); }
+        iterator end() const { return iterator(const_cast< map_base< Key, Value, Factory >& >(*this), set_.end()); }
+
+        size_t size() const { return set_.size(); }
 
         template < typename K, typename V > std::pair< iterator, bool > emplace(K&& key, V&& value)
         {

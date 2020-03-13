@@ -68,6 +68,8 @@ namespace sqlstl
                 return *key_; 
             }
 
+            const Key& operator*() const { return const_cast< iterator& >(*this).operator*(); }
+
             iterator& operator++()
             {
                 key_.reset();
@@ -82,7 +84,7 @@ namespace sqlstl
             int result_;
             std::optional< Key > key_;
         };
-
+        
         iterator begin(const std::string& name)
         {
             auto stmt = begin_.acquire();
@@ -90,10 +92,9 @@ namespace sqlstl
             return iterator(std::move(stmt), result);
         }
 
-        iterator end(const std::string& name) const
-        {
-            return iterator(statement_cache::null_statement(), SQLITE_DONE);
-        }
+        iterator begin(const std::string& name) const { return const_cast< iterator& >(*this).begin(name); }
+        
+        iterator end(const std::string& name) const { return iterator(statement_cache::null_statement(), SQLITE_DONE); }
 
         template < typename K > iterator find(const std::string& name, K&& key)
         {

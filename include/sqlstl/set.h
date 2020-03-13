@@ -21,7 +21,7 @@ namespace sqlstl
                 : it_(std::move(other.it_))
             {}
 
-            auto& operator*() { return *it_; }
+            auto& operator*() const { return *it_; }
             
             bool operator == (const iterator& other) const { return it_ == other.it_; }
             bool operator != (const iterator& other) const { return it_ != other.it_; }
@@ -31,6 +31,8 @@ namespace sqlstl
         private:
             typename set_storage< Key >::iterator it_;
         };
+
+        typedef iterator const_iterator;
 
         set(Factory& factory, const std::string& name)
             : set_(factory.template create_storage< set_storage< Key > >())
@@ -50,9 +52,13 @@ namespace sqlstl
         }
 
         iterator begin() { return set_.begin(name_); }
+        const_iterator begin() const { return set_.begin(name_); }
+
         iterator end() { return set_.end(name_); }
-        size_t size() { return set_.size(name_); }
-        bool empty() { return size() == 0; }
+        const_iterator end() const { return set_.end(name_); }
+
+        size_t size() const { return set_.size(name_); }
+        bool empty() const { return size() == 0; }
 
     private:
         set_storage< Key >& set_;

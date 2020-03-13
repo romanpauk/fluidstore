@@ -4,48 +4,51 @@ namespace crdt
 {
     template < typename T, typename Traits > class set_g
     {
-    public:
-        class iterator
+        template < typename It > class iterator_base
         {
         public:
-            iterator(typename Traits::template Set< T, typename Traits::Factory >::iterator&& it)
+            iterator_base(typename It&& it)
                 : it_(std::move(it))
             {}
 
-            iterator(iterator&& other)
+            iterator_base(iterator_base< It >&& other)
                 : it_(std::move(other.it_))
             {}
 
-            bool operator == (const iterator& other) const { return it_ == other.it_; }
-            bool operator != (const iterator& other) const { return it_ != other.it_; }
+            bool operator == (const iterator_base< It >& other) const { return it_ == other.it_; }
+            bool operator != (const iterator_base< It >& other) const { return it_ != other.it_; }
 
-            T operator*() { return *it_; }
+            T operator*() const { return *it_; }
 
-            iterator& operator++() { ++it_; return *this; }
+            iterator_base< It >& operator++() { ++it_; return *this; }
 
         private:
-            typename Traits::template Set< T, typename Traits::Factory >::iterator it_;
+            typename It it_;
         };
+
+    public:
+        typedef iterator_base< typename Traits::template Set< T, typename Traits::Factory >::iterator > iterator;
+        typedef iterator_base< typename Traits::template Set< T, typename Traits::Factory >::const_iterator > const_iterator;
 
         set_g(typename Traits::Factory& factory = factory::static_factory(), const std::string& name = "")
             : values_(factory.template create_container< typename Traits::template Set< T, typename Traits::Factory > >(name))
         {}
 
-        iterator begin() { return iterator(values_.begin()); }
-        iterator end() { return iterator(values_.end()); }
-        
+        iterator begin() { return values_.begin(); }
+        const_iterator begin() const { return values_.begin(); }
+
+        iterator end() { return values_.end(); }
+        const_iterator end() const { return values_.end(); }
+
         template < typename K > std::pair< iterator, bool > insert(K&& value)
         {
             auto pairb = values_.insert(value);
             return { std::move(pairb.first), pairb.second };
         }
 
-        size_t size()
-        {
-            return values_.size();
-        }
+        size_t size() const { return values_.size(); }
 
-        template < typename Set > void merge(Set& other)
+        template < typename Set > void merge(const Set& other)
         {
             values_.insert(other.begin(), other.end());
         }

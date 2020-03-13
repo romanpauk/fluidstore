@@ -15,7 +15,7 @@ namespace crdt
             set_g< T, Traits > added;
             set_g< T, Traits > removed;
 
-            template < typename Container > void merge(Container& other)
+            template < typename Container > void merge(const Container& other)
             {
                 added.merge(other.added);
                 removed.merge(other.removed);
@@ -29,30 +29,32 @@ namespace crdt
             : factory_(factory)
             , values_(factory.template create_container< typename Traits::template Map< T, set_or_tags, typename Traits::Factory > >(name))
             , name_(name)
-            , empty_tags_(factory, name + ".emptytags")
         {}
 
-        class iterator
+        template < typename It > class iterator_base
         {
         public:
-            iterator(
-                typename Traits::template Map< T, set_or_tags, 
-                typename Traits::Factory >::iterator&& it
-            )
+            iterator_base(It&& it)
                 : it_(std::move(it))
             {}
 
-            bool operator == (const iterator& other) { return it_ == other.it_; }
-            bool operator != (const iterator& other) { return it_ != other.it_; }
-            iterator& operator++() { ++it_; return *this; }
-            T& operator*() { return it_->first; }
+            bool operator == (const iterator_base< It >& other) { return it_ == other.it_; }
+            bool operator != (const iterator_base< It >& other) { return it_ != other.it_; }
+            iterator_base< It >& operator++() { ++it_; return *this; }
+            const T& operator*() { return it_->first; }
 
         private:
-            typename Traits::template Map< T, set_or_tags, typename Traits::Factory >::iterator it_;
+            It it_;
         };
 
+        typedef iterator_base< typename Traits::template Map< T, set_or_tags, typename Traits::Factory >::iterator > iterator;
+        typedef iterator_base< typename Traits::template Map< T, set_or_tags, typename Traits::Factory >::const_iterator > const_iterator;
+
         iterator begin() { return values_.begin(); }
+        const_iterator begin() const { return values_.begin(); }
+
         iterator end() { return values_.end(); }
+        const_iterator end() const { return values_.end(); }
 
         template < typename K > void insert(K&& value)
         {
@@ -102,7 +104,7 @@ namespace crdt
             return values_.end();
         }
 
-        size_t size()
+        size_t size() const
         {
             size_t count = 0;
             for (auto&& value : values_)
@@ -112,9 +114,9 @@ namespace crdt
             return count;
         }
 
-        template < typename Set > void merge(/*const*/ Set& other)
+        template < typename Set > void merge(const Set& other)
         {
-            for (auto& element : other.values_)
+            for (auto&& element : other.values_)
             {
                 values_[element.first].merge(element.second);
             }
@@ -127,12 +129,11 @@ namespace crdt
 
     protected:
         typename Traits::Factory& factory_;
-        set_or_tags empty_tags_;
 
     private:
         Tag get_tag() const { return rand(); }
 
-        template < typename Tags > bool is_added(Tags&& tags)
+        template < typename Tags > bool is_added(const Tags& tags) const
         {
             return tags.added.size() > tags.removed.size();
         }

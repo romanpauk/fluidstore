@@ -28,7 +28,7 @@ namespace crdt
             return T();
         }
 
-        T value() // const
+        T value() const
         {
             T result = 0;
             return sqlstl::accumulate(values_.begin(), values_.end(), result, [](T init, auto&& p) { return init + p.second; });
@@ -60,12 +60,11 @@ namespace crdt
             : counter_g< T, Node, StateTraits >(allocator, name)
         {}
 
-        counter_g< T, Node, DeltaTraits > add(const Node& node, T value)
+        void add(const Node& node, T value)
         {
             counter_g< T, Node, DeltaTraits > delta;
             delta.add(node, value);
             this->merge(delta);
-            return delta;
         }
     };
 }

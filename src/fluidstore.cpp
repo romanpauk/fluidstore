@@ -132,5 +132,4 @@ int main()
     mapg2[2].insert(1);
     mapg1.merge(mapg2);
     assert(mapg1[1].size() == 3);
-
 } 

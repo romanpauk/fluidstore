@@ -121,7 +121,8 @@ namespace sqlstl
 
         void extract_parameter(int index, std::string& value)
         {
-            value.assign((const char*)sqlite3_column_text(stmt_, index));
+            int length = sqlite3_column_bytes(stmt_, index);
+            value.assign((const char*)sqlite3_column_text(stmt_, index), length);
         }
 
         mutable sqlite3_stmt* stmt_;

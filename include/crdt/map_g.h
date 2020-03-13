@@ -2,35 +2,9 @@
 
 namespace crdt
 {
-    //
-    // schema
-    //     mapg of name, classtype
-    // classtype
-    //     mapg of name, field
-    // fieldtype
-    //     name
-    //     type, conflict policy
-    //
-    // classinstance
-    //     schema::class
-    //     name
-    //     mapg of schema::field, value
-    // instances
-    //     mapg of name, instance
-    //
-    //   classtype     
-    // map< name, // fieldtype
-    //    map< name, tuple< name, type, conflictpolicy > >
-    // >
-    //
-    //   classinstance
-    // map< name, // variables
-    //    map< name, tuple< fieldtype, value >
-    // >
-    //
+    template < typename Key, typename Value, typename Traits, bool IsStandardLayout = std::is_standard_layout_v< Value > > class map_g_base;
 
-
-    template < typename Key, typename Value, typename Traits > class map_g
+    template < typename Key, typename Value, typename Traits > class map_g_base< Key, Value, Traits, false >
     {
         template < typename It > struct iterator_base
         {
@@ -38,7 +12,7 @@ namespace crdt
             iterator_base& operator = (const iterator_base< It >&) = delete;
 
             iterator_base(
-                map_g< Key, Value, Traits >& map,
+                map_g_base< Key, Value, Traits >& map,
                 typename It&& it
             )
                 : it_(std::move(it))
@@ -46,7 +20,7 @@ namespace crdt
             {}
 
             iterator_base(
-                map_g< Key, Value, Traits >& map,
+                map_g_base< Key, Value, Traits >& map,
                 typename It&& it,
                 Value&& value
             )
@@ -70,7 +44,7 @@ namespace crdt
             iterator_base< It >& operator++() { ++it_; pair_.emplace(std::make_pair(*it_, map_.get_value(*it_)));  return *this; }
 
         private:
-            map_g< Key, Value, Traits >& map_;
+            map_g_base< Key, Value, Traits >& map_;
             typename It it_;
             std::optional< std::pair< const Key, Value > > pair_;
         };
@@ -94,17 +68,17 @@ namespace crdt
             }
         };
 
-        map_g(typename Traits::Allocator& allocator, const std::string& name)
+        map_g_base(typename Traits::Allocator& allocator, const std::string& name)
             : allocator_(allocator)
             , set_(allocator, name)
             , name_(name)
         {}
 
         iterator begin() { return iterator(*this, set_.begin()); }
-        const_iterator begin() const { return const_iterator(const_cast< map_g< Key, Value, Traits >& >(*this), set_.begin()); }
+        const_iterator begin() const { return const_iterator(const_cast< map_g_base< Key, Value, Traits >& >(*this), set_.begin()); }
 
         iterator end() { return iterator(*this, set_.end()); }
-        const_iterator end() const { return const_iterator(const_cast< map_g< Key, Value, Traits >& >(*this), set_.end()); }
+        const_iterator end() const { return const_iterator(const_cast< map_g_base< Key, Value, Traits >& >(*this), set_.end()); }
 
         size_t size() const { return set_.size(); }
 
@@ -159,5 +133,33 @@ namespace crdt
         typename Traits::Allocator& allocator_;
         set_g< Key, Traits > set_;
         std::string name_;
+    };
+
+    template < typename Key, typename Value, typename Traits > class map_g
+        : public map_g_base< Key, Value, Traits >
+    {
+    public:
+        map_g(typename Traits::Allocator& allocator, const std::string& name)
+            : map_g_base< Key, Value, Traits >(allocator, name)
+        {}
+    };
+
+    template < typename K, typename V, typename DeltaTraits, typename StateTraits = DeltaTraits > class delta_map_g
+        : public map_g< K, V, StateTraits >
+    {
+    public:
+        delta_map_g(typename StateTraits::Allocator& allocator, const std::string& name = "")
+            : map_g< K, V, StateTraits >(allocator, name)
+        {}
+
+/*
+        map_g< K, V, DeltaTraits > insert(T value)
+        {
+            map_g< K, V, DeltaTraits > delta;
+            delta.insert(value);
+            this->merge(delta);
+            return delta;
+        }
+*/
     };
 }

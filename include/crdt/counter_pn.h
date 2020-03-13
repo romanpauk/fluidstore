@@ -20,7 +20,7 @@ namespace crdt
             dec_.add(node, value);
         }
 
-        T value() // const
+        T value() const
         {
             return inc_.value() - dec_.value();
         }

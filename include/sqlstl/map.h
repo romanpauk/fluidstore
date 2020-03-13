@@ -8,7 +8,7 @@
 
 namespace sqlstl
 {
-    template < typename Key, typename Value, typename Allocator, bool StandardLayout = std::is_standard_layout_v< Value > > class map_base;
+    template < typename Key, typename Value, typename Allocator, bool IsStandardLayout = std::is_standard_layout_v< Value > > class map_base;
 
     template < typename Key, typename Value, typename Allocator > class map_base< Key, Value, Allocator, true > 
     {
@@ -72,9 +72,13 @@ namespace sqlstl
         {}
 
         template < typename K > iterator find(K&& key) { return map_.find(name_, std::forward< K >(key)); }
+
         iterator begin() { return map_.begin(name_); }
+        iterator begin() const { return map_.begin(name_); }
+
         iterator end() { return map_.end(name_); }
-        
+        iterator end() const { return map_.end(name_); }
+
         template < typename K, typename V > std::pair< iterator, bool > emplace(K&& key, V&& value)
         {
             auto pairb = map_.insert(name_, std::forward< K >(key), std::forward< V >(value));

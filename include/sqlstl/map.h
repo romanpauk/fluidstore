@@ -1,6 +1,6 @@
 #pragma once
 
-#include <sqlstl/factory.h>
+#include <sqlstl/Allocator.h>
 #include <sqlstl/storage/map.h>
 #include <sqlstl/set.h>
 
@@ -8,9 +8,9 @@
 
 namespace sqlstl
 {
-    template < typename Key, typename Value, typename Factory, bool StandardLayout = std::is_standard_layout_v< Value > > class map_base;
+    template < typename Key, typename Value, typename Allocator, bool StandardLayout = std::is_standard_layout_v< Value > > class map_base;
 
-    template < typename Key, typename Value, typename Factory > class map_base< Key, Value, Factory, true > 
+    template < typename Key, typename Value, typename Allocator > class map_base< Key, Value, Allocator, true > 
     {
     public:
         struct iterator
@@ -39,7 +39,7 @@ namespace sqlstl
 
         struct value_proxy
         {
-            template < typename K > value_proxy(map_base< Key, Value, Factory >& map, K&& key)
+            template < typename K > value_proxy(map_base< Key, Value, Allocator >& map, K&& key)
                 : map_(map)
                 , key_(std::forward< K >(key))
             {}
@@ -56,7 +56,7 @@ namespace sqlstl
             }
 
         private:
-            map_base< Key, Value, Factory, true >& map_;
+            map_base< Key, Value, Allocator, true >& map_;
             Key key_;
         };
 
@@ -66,8 +66,8 @@ namespace sqlstl
             return value_proxy(*this, std::forward< K >(key));
         }
 
-        map_base(Factory& factory, const std::string& name)
-            : map_(factory.template create_storage< map_storage< Key, Value > >())
+        map_base(Allocator& Allocator, const std::string& name)
+            : map_(Allocator.template create_storage< map_storage< Key, Value > >())
             , name_(name)
         {}
 
@@ -101,7 +101,7 @@ namespace sqlstl
         std::string name_;
     };
 
-    template < typename Key, typename Value, typename Factory > class map_base< Key, Value, Factory, false > 
+    template < typename Key, typename Value, typename Allocator > class map_base< Key, Value, Allocator, false > 
     {
     public:
         struct iterator
@@ -110,16 +110,16 @@ namespace sqlstl
             iterator& operator = (const iterator&) = delete;
 
             iterator(
-                map_base< Key, Value, Factory >& map,
-                typename set< Key, Factory >::iterator&& it
+                map_base< Key, Value, Allocator >& map,
+                typename set< Key, Allocator >::iterator&& it
             )
                 : it_(std::move(it))
                 , map_(map)
             {}
 
             iterator(
-                map_base< Key, Value, Factory >& map,
-                typename set< Key, Factory >::iterator&& it,
+                map_base< Key, Value, Allocator >& map,
+                typename set< Key, Allocator >::iterator&& it,
                 Value&& value
             )
                 : map_(map)
@@ -142,8 +142,8 @@ namespace sqlstl
             iterator& operator++() { pair_.reset(); ++it_; return *this; }
 
         private:
-            map_base< Key, Value, Factory >& map_;
-            typename set< Key, Factory >::iterator it_;
+            map_base< Key, Value, Allocator >& map_;
+            typename set< Key, Allocator >::iterator it_;
             std::optional< std::pair< const Key, Value > > pair_;
         };
 
@@ -164,10 +164,10 @@ namespace sqlstl
 
         typedef iterator const_iterator;
 
-        map_base(Factory& factory, const std::string& name)
-            : factory_(factory)
+        map_base(Allocator& allocator, const std::string& name)
+            : allocator_(allocator)
             , name_(name)
-            , set_(factory, name)
+            , set_(allocator, name)
         {}
 
         template < typename K > value_proxy operator[](K&& key)
@@ -180,10 +180,10 @@ namespace sqlstl
         template < typename K > iterator find(K&& key) { return iterator(*this, set_.find(std::forward< K >(key))); }
 
         iterator begin() { return iterator(*this, set_.begin()); }
-        iterator begin() const { return iterator(const_cast<map_base< Key, Value, Factory >&>(*this), set_.begin()); }
+        iterator begin() const { return iterator(const_cast<map_base< Key, Value, Allocator >&>(*this), set_.begin()); }
 
         iterator end() { return iterator(*this, set_.end()); }
-        iterator end() const { return iterator(const_cast< map_base< Key, Value, Factory >& >(*this), set_.end()); }
+        iterator end() const { return iterator(const_cast< map_base< Key, Value, Allocator >& >(*this), set_.end()); }
 
         size_t size() const { return set_.size(); }
 
@@ -209,24 +209,24 @@ namespace sqlstl
 
         template < typename K > Value get_value(K& key)
         {
-            return Value(factory_, name_ + ".value." + std::to_string(key));
+            return Value(allocator_, name_ + ".value." + std::to_string(key));
         }
 
-        Factory& factory_;
-        set< Key, Factory > set_;
+        Allocator& allocator_;
+        set< Key, Allocator > set_;
         std::string name_;
     };
 
-    template < typename Key, typename Value, typename Factory > class map
-        : public map_base< Key, Value, Factory >
+    template < typename Key, typename Value, typename Allocator > class map
+        : public map_base< Key, Value, Allocator >
     {
     public:
-        map(Factory& factory, const std::string& name)
-            : map_base< Key, Value, Factory >(factory, name)
+        map(Allocator& allocator, const std::string& name)
+            : map_base< Key, Value, Allocator >(allocator, name)
         {}
     };
 
-    template < typename Key, typename Value, typename Factory > struct container_traits< sqlstl::map< Key, Value, Factory > >
+    template < typename Key, typename Value, typename Allocator > struct container_traits< sqlstl::map< Key, Value, Allocator > >
     {
         static const bool has_storage_type = true;
     };

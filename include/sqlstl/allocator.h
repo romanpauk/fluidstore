@@ -11,10 +11,10 @@ namespace sqlstl
 {
     template < typename Container > struct container_traits { static const bool has_storage_type = false; };
 
-    class factory
+    class allocator
     {
     public:
-        factory(sqlstl::db& db)
+        allocator(sqlstl::db& db)
             : db_(db)
         {}
 

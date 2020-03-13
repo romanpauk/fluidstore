@@ -5,9 +5,9 @@ namespace crdt
     template < typename T, typename Node, typename Traits > class counter_pn
     {
     public:
-        counter_pn(typename Traits::Factory& factory = factory::static_factory(), const std::string& name = "")
-            : inc_(factory, name + ".inc")
-            , dec_(factory, name + ".dec")
+        counter_pn(typename Traits::Allocator& allocator = allocator::static_allocator(), const std::string& name = "")
+            : inc_(allocator, name + ".inc")
+            , dec_(allocator, name + ".dec")
         {}
 
         void add(const Node& node, T value)
@@ -44,8 +44,8 @@ namespace crdt
         : public counter_pn< T, Node, StateTraits >
     {
     public:
-        delta_counter_pn(typename StateTraits::Factory& factory, const std::string& name = "")
-            : counter_pn< T, Node, StateTraits >(factory, name)
+        delta_counter_pn(typename StateTraits::Allocator& allocator, const std::string& name = "")
+            : counter_pn< T, Node, StateTraits >(allocator, name)
         {}
 
         counter_pn< T, Node, DeltaTraits > add(const Node& node, T value)

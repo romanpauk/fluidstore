@@ -1,15 +1,15 @@
 #pragma once
 
 #include <sqlstl/algorithm.h>
-#include <crdt/factory.h>
+#include <crdt/Allocator.h>
 
 namespace crdt
 {
     template < typename T, typename Node, typename Traits > class counter_g
     {
     public:
-        counter_g(typename Traits::Factory& factory = factory::static_factory(), const std::string& name = "")
-            : values_(factory.create_container< typename Traits::template Map< Node, T, typename Traits::Factory > >(name))
+        counter_g(typename Traits::Allocator& allocator = allocator::static_allocator(), const std::string& name = "")
+            : values_(allocator.create_container< typename Traits::template Map< Node, T, typename Traits::Allocator > >(name))
         {}
 
         void add(const Node& node, T value)
@@ -49,15 +49,15 @@ namespace crdt
         }
 
         // private:
-        typename Traits::template Map< Node, T, typename Traits::Factory > values_;
+        typename Traits::template Map< Node, T, typename Traits::Allocator > values_;
     };
 
     template < typename T, typename Node, typename DeltaTraits, typename StateTraits = DeltaTraits > class delta_counter_g
         : public counter_g< T, Node, StateTraits >
     {
     public:
-        delta_counter_g(typename StateTraits::Factory& factory = factory::static_factory(), const std::string& name = "")
-            : counter_g< T, Node, StateTraits >(factory, name)
+        delta_counter_g(typename StateTraits::Allocator& allocator = allocator::static_allocator(), const std::string& name = "")
+            : counter_g< T, Node, StateTraits >(allocator, name)
         {}
 
         counter_g< T, Node, DeltaTraits > add(const Node& node, T value)

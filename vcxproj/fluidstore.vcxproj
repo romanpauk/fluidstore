@@ -27,13 +27,13 @@
   <ItemGroup>
     <ClInclude Include="..\include\crdt\counter_g.h" />
     <ClInclude Include="..\include\crdt\counter_pn.h" />
-    <ClInclude Include="..\include\crdt\factory.h" />
+    <ClInclude Include="..\include\crdt\allocator.h" />
     <ClInclude Include="..\include\crdt\map_g.h" />
     <ClInclude Include="..\include\crdt\set_g.h" />
     <ClInclude Include="..\include\crdt\set_or.h" />
     <ClInclude Include="..\include\crdt\traits.h" />
     <ClInclude Include="..\include\sqlstl\algorithm.h" />
-    <ClInclude Include="..\include\sqlstl\factory.h" />
+    <ClInclude Include="..\include\sqlstl\allocator.h" />
     <ClInclude Include="..\include\sqlstl\map.h" />
     <ClInclude Include="..\include\sqlstl\set.h" />
     <ClInclude Include="..\include\sqlstl\sqlite.h" />

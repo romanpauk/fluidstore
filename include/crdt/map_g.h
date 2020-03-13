@@ -94,9 +94,9 @@ namespace crdt
             }
         };
 
-        map_g(typename Traits::Factory& factory, const std::string& name)
-            : factory_(factory)
-            , set_(factory, name)
+        map_g(typename Traits::Allocator& allocator, const std::string& name)
+            : allocator_(allocator)
+            , set_(allocator, name)
             , name_(name)
         {}
 
@@ -153,10 +153,10 @@ namespace crdt
 
         template < typename K > Value get_value(K&& key) const
         {
-            return Value(factory_, name_ + ".value." + std::to_string(key));
+            return Value(allocator_, name_ + ".value." + std::to_string(key));
         }
 
-        typename Traits::Factory& factory_;
+        typename Traits::Allocator& allocator_;
         set_g< Key, Traits > set_;
         std::string name_;
     };

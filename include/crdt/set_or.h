@@ -7,9 +7,9 @@ namespace crdt
     {
         struct set_or_tags
         {
-            set_or_tags(typename Traits::Factory& factory = factory::static_factory(), const std::string& name = "")
-                : added(factory, name + ".added")
-                , removed(factory, name + ".removed")
+            set_or_tags(typename Traits::Allocator& allocator = allocator::static_allocator(), const std::string& name = "")
+                : added(allocator, name + ".added")
+                , removed(allocator, name + ".removed")
             {}
 
             set_g< T, Traits > added;
@@ -25,9 +25,8 @@ namespace crdt
         typedef uint64_t Tag;
 
     public:
-        set_or(typename Traits::Factory& factory = factory::static_factory(), const std::string& name = "")
-            : factory_(factory)
-            , values_(factory.template create_container< typename Traits::template Map< T, set_or_tags, typename Traits::Factory > >(name))
+        set_or(typename Traits::Allocator& allocator = allocator::static_allocator(), const std::string& name = "")
+            : values_(allocator.template create_container< typename Traits::template Map< T, set_or_tags, typename Traits::Allocator > >(name))
             , name_(name)
         {}
 
@@ -47,8 +46,8 @@ namespace crdt
             It it_;
         };
 
-        typedef iterator_base< typename Traits::template Map< T, set_or_tags, typename Traits::Factory >::iterator > iterator;
-        typedef iterator_base< typename Traits::template Map< T, set_or_tags, typename Traits::Factory >::const_iterator > const_iterator;
+        typedef iterator_base< typename Traits::template Map< T, set_or_tags, typename Traits::Allocator >::iterator > iterator;
+        typedef iterator_base< typename Traits::template Map< T, set_or_tags, typename Traits::Allocator >::const_iterator > const_iterator;
 
         iterator begin() { return values_.begin(); }
         const_iterator begin() const { return values_.begin(); }
@@ -127,9 +126,6 @@ namespace crdt
             return values_ == other.values_;
         }
 
-    protected:
-        typename Traits::Factory& factory_;
-
     private:
         Tag get_tag() const { return rand(); }
 
@@ -139,7 +135,7 @@ namespace crdt
         }
 
     public:
-        typename Traits::template Map< T, set_or_tags, typename Traits::Factory > values_;
+        typename Traits::template Map< T, set_or_tags, typename Traits::Allocator > values_;
         std::string name_;
     };
 
@@ -147,8 +143,8 @@ namespace crdt
         : public set_or< T, StateTraits >
     {
     public:
-        delta_set_or(typename StateTraits::Factory& factory, const std::string& name)
-            : set_or< T, StateTraits >(factory, name)
+        delta_set_or(typename StateTraits::Allocator& allocator, const std::string& name)
+            : set_or< T, StateTraits >(allocator, name)
         {}
 
         set_or< T, DeltaTraits > insert(T value)

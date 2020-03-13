@@ -1,11 +1,11 @@
 #pragma once
 
-#include <sqlstl/factory.h>
+#include <sqlstl/allocator.h>
 #include <sqlstl/storage/set.h>
 
 namespace sqlstl
 {
-    template < typename Key, typename Factory > class set
+    template < typename Key, typename Allocator > class set
     {
     public:
         struct iterator
@@ -34,8 +34,8 @@ namespace sqlstl
 
         typedef iterator const_iterator;
 
-        set(Factory& factory, const std::string& name)
-            : set_(factory.template create_storage< set_storage< Key > >())
+        set(Allocator& allocator, const std::string& name)
+            : set_(allocator.template create_storage< set_storage< Key > >())
             , name_(name)
         {}
 
@@ -65,7 +65,7 @@ namespace sqlstl
         std::string name_;        
     };
 
-    template < typename Key, typename Factory > struct container_traits< sqlstl::set< Key, Factory > >
+    template < typename Key, typename Allocator > struct container_traits< sqlstl::set< Key, Allocator > >
     {
         static const bool has_storage_type = true;
     };

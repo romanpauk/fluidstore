@@ -2,7 +2,7 @@
 
 namespace crdt
 {
-    class factory
+    class allocator
     {
     public:
         template < typename Container > Container create_container(const std::string&)
@@ -10,6 +10,6 @@ namespace crdt
             return Container();
         }
 
-        static factory& static_factory() { static factory fy; return fy; }
+        static allocator& static_allocator() { static allocator al; return al; }
     };
 }

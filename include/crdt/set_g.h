@@ -27,11 +27,11 @@ namespace crdt
         };
 
     public:
-        typedef iterator_base< typename Traits::template Set< T, typename Traits::Factory >::iterator > iterator;
-        typedef iterator_base< typename Traits::template Set< T, typename Traits::Factory >::const_iterator > const_iterator;
+        typedef iterator_base< typename Traits::template Set< T, typename Traits::Allocator >::iterator > iterator;
+        typedef iterator_base< typename Traits::template Set< T, typename Traits::Allocator >::const_iterator > const_iterator;
 
-        set_g(typename Traits::Factory& factory = factory::static_factory(), const std::string& name = "")
-            : values_(factory.template create_container< typename Traits::template Set< T, typename Traits::Factory > >(name))
+        set_g(typename Traits::Allocator& allocator = allocator::static_allocator(), const std::string& name = "")
+            : values_(allocator.template create_container< typename Traits::template Set< T, typename Traits::Allocator > >(name))
         {}
 
         iterator begin() { return values_.begin(); }
@@ -59,15 +59,15 @@ namespace crdt
         }
 
     private:
-        typename Traits::template Set< T, typename Traits::Factory > values_;
+        typename Traits::template Set< T, typename Traits::Allocator > values_;
     };
 
-    template < typename T, typename DeltaTraits, typename StateTraits = DeltaTraits, typename Factory = factory > class delta_set_g
+    template < typename T, typename DeltaTraits, typename StateTraits = DeltaTraits > class delta_set_g
         : public set_g< T, StateTraits >
     {
     public:
-        delta_set_g(typename StateTraits::Factory& factory, const std::string& name = "")
-            : set_g< T, StateTraits >(factory, name)
+        delta_set_g(typename StateTraits::Allocator& allocator, const std::string& name = "")
+            : set_g< T, StateTraits >(allocator, name)
         {}
 
         set_g< T, DeltaTraits > insert(T value)

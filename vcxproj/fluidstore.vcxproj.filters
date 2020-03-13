@@ -50,9 +50,6 @@
     <ClInclude Include="..\include\sqlstl\storage\storage.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\sqlstl\factory.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\crdt\counter_g.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -65,13 +62,16 @@
     <ClInclude Include="..\include\crdt\set_or.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\crdt\factory.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\crdt\traits.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\include\crdt\map_g.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\sqlstl\allocator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\crdt\allocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

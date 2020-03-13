@@ -1,12 +1,12 @@
 #include <sqlstl/sqlite.h>
 #include <sqlstl/map.h>
-#include <sqlstl/factory.h>
+#include <sqlstl/allocator.h>
 
 void map_test()
 {
     sqlstl::db db(":memory:");
-    sqlstl::factory factory(db);
-    sqlstl::map< int, int, sqlstl::factory > map(factory, "Map");
+    sqlstl::allocator allocator(db);
+    sqlstl::map< int, int, sqlstl::allocator > map(allocator, "Map");
 
     assert(map.size() == 0);
 
@@ -38,7 +38,7 @@ void map_test()
         assert(count == 2);
     }
 
-    sqlstl::map< int, sqlstl::map< int, int, sqlstl::factory >, sqlstl::factory > nested(factory, "Map2");
+    sqlstl::map< int, sqlstl::map< int, int, sqlstl::allocator >, sqlstl::allocator > nested(allocator, "Map2");
     nested[1][10] = 100;
     nested[2][20] = 200;
 

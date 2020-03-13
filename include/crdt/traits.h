@@ -1,6 +1,6 @@
 #pragma once
 
-#include <sqlstl/factory.h>
+#include <sqlstl/allocator.h>
 
 namespace crdt
 {
@@ -12,13 +12,13 @@ namespace crdt
     {
         template < typename T, typename Factory > using Set = std::set< T >;
         template < typename K, typename V, typename Factory > using Map = std::map< K, V >;
-        using Factory = factory;
+        using Allocator = allocator;
     };
 
     template <> struct traits< sqlite >
     {
         template < typename T, typename Factory > using Set = sqlstl::set< T, Factory >;
         template < typename K, typename V, typename Factory > using Map = sqlstl::map< K, V, Factory >;
-        using Factory = sqlstl::factory;
+        using Allocator = sqlstl::allocator;
     };
 }

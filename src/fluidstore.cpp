@@ -12,6 +12,7 @@
 #include <crdt/counter_pn.h>
 #include <crdt/set_g.h>
 #include <crdt/set_or.h>
+#include <crdt/map_g.h>
 #include <crdt/traits.h>
 
 void set_test();
@@ -80,9 +81,9 @@ int main()
     setorx.erase(1);
 */
     crdt::set_or< int,
-        crdt::traits< crdt::memory >
-    > setor;
-    // > setor(factory, "SetOR2");
+        crdt::traits< crdt::sqlite >
+    //> setor;
+    > setor(factory, "SetOR2");
 
     setor.insert(1);
     assert(setor.size() == 1);
@@ -122,4 +123,15 @@ int main()
     mapsetg[1].insert(2);
     assert(mapsetg[0].size() == 0);
     assert(mapsetg[1].size() == 2);
+
+    crdt::map_g< int, crdt::set_g< int, crdt::traits< crdt::sqlite > >, crdt::traits< crdt::sqlite > > mapg1(factory, "CrdtMapG1");
+    crdt::map_g< int, crdt::set_g< int, crdt::traits< crdt::sqlite > >, crdt::traits< crdt::sqlite > > mapg2(factory, "CrdtMapG2");
+
+    mapg1[1].insert(1);
+    mapg1[1].insert(2);
+    mapg2[1].insert(3);
+    mapg2[2].insert(1);
+    mapg1.merge(mapg2);
+    assert(mapg1[1].size() == 3);
+
 } 

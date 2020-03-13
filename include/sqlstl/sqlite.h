@@ -76,12 +76,7 @@ namespace sqlstl
             return sqlite3_step(stmt_);
         }
 
-        bool operator == (const statement& other) const
-        {
-            return stmt_ == other.stmt_;
-        }
-
-        template < typename V > V extract(int column) const
+        template < typename V > V extract(int column)
         {
             V value;
             extract_parameter(column, value);
@@ -109,27 +104,27 @@ namespace sqlstl
             sqlite3_check(sqlite3_bind_text(stmt_, index, value, strlen(value), 0));
         }
 
-        void extract_parameter(int index, uint64_t& value) const
+        void extract_parameter(int index, uint64_t& value)
         {
             value = sqlite3_column_int64(stmt_, index);
         }
 
-        void extract_parameter(int index, unsigned& value) const
+        void extract_parameter(int index, unsigned& value)
         {
             value = sqlite3_column_int(stmt_, index);
         }
 
-        void extract_parameter(int index, int& value) const
+        void extract_parameter(int index, int& value)
         {
             value = sqlite3_column_int(stmt_, index);
         }
 
-        void extract_parameter(int index, std::string& value) const
+        void extract_parameter(int index, std::string& value)
         {
             value.assign((const char*)sqlite3_column_text(stmt_, index));
         }
 
-        sqlite3_stmt* stmt_;
+        mutable sqlite3_stmt* stmt_;
     };
 
     class db
@@ -205,15 +200,20 @@ namespace sqlstl
         public:
             statement(const statement&) = delete;
 
-            statement(statement_cache* cache, sqlstl::statement&& stmt)
-                : sqlstl::statement(std::move(stmt))
-                , cache_(cache)
+            statement()
+                : cache_()
             {}
 
             statement(statement&& other)
                 : cache_()
             {
                 *this = std::move(other);
+            }
+
+            statement(statement_cache* cache, sqlstl::statement&& stmt)
+                : cache_(cache)
+            {
+                static_cast<sqlstl::statement&>(*this) = std::move(stmt);
             }
 
             ~statement()
@@ -238,7 +238,7 @@ namespace sqlstl
         statement acquire()
         {
             return statement(this, db_.prepare(sql_));
-/*
+
             if (!statements_.empty())
             {
                 statement stmt(this, std::move(statements_.back()));
@@ -249,7 +249,11 @@ namespace sqlstl
             {
                 return statement(this, db_.prepare(sql_));
             }
-*/
+        }
+
+        static statement null_statement()
+        {
+            return statement(nullptr, sqlstl::statement());
         }
 
     private:

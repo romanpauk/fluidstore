@@ -18,8 +18,8 @@ namespace sqlstl
                 "PRIMARY KEY(name, key)" +
                 ");"
             ))
-            , begin_(db, "SELECT key FROM " + get_table_type() + " WHERE name=? ORDER BY key ASC;")
-            , find_(db, "SELECT key FROM " + get_table_type() + " WHERE name=? AND key>=? ORDER BY key ASC;")
+            , begin_(db, "SELECT key, rowid FROM " + get_table_type() + " WHERE name=? ORDER BY key ASC;")
+            , find_(db, "SELECT key, rowid FROM " + get_table_type() + " WHERE name=? AND key>=? ORDER BY key ASC;")
             , insert_(db, "INSERT INTO " + get_table_type() + " VALUES(?,?);")
             , size_(db, "SELECT count(*) FROM " + get_table_type() + " WHERE name=?;")
         {
@@ -93,11 +93,9 @@ namespace sqlstl
             return iterator(std::move(stmt), result);
         }
 
-        iterator end(const std::string& name)
+        iterator end(const std::string& name) const
         {
-            // TODO: no need to acquire anything for end
-            auto stmt = begin_.acquire();
-            return iterator(std::move(stmt), SQLITE_DONE);
+            return iterator(statement_cache::null_statement(), SQLITE_DONE);
         }
 
         template < typename K > iterator find(const std::string& name, K&& key)
@@ -111,18 +109,12 @@ namespace sqlstl
         {
             auto stmt = insert_.acquire();
             auto result = stmt(name, key);
-
-            // TODO: can we return it without second search?
             auto it = find(name, key);
-            if (it == end(name))
-            {
-                std::abort();
-            }
-
+            assert(it != end(name));
             return { std::move(it), result == SQLITE_DONE };
         }
 
-        size_t size(const std::string& name)
+        size_t size(const std::string& name) const
         {
             auto stmt = size_.acquire();
             stmt(name);
@@ -132,6 +124,7 @@ namespace sqlstl
     private:
         sqlstl::db& db_;
         sqlstl::statement create_table_;
-        sqlstl::statement_cache begin_, find_, insert_, size_;
+        sqlstl::statement_cache begin_, find_, insert_;
+        mutable sqlstl::statement_cache size_;
     };
 }

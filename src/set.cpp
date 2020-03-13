@@ -37,6 +37,5 @@ void set_test()
         }
         assert(count == 2);
     }
-    
 }
 

@@ -10,31 +10,6 @@ namespace sqlstl
     template < typename Key, typename Value > class map_storage : public storage
     {
     public:
-        map_storage(sqlstl::db& db)
-            : db_(db)
-            , create_table_(db.prepare(
-                "CREATE TABLE " + get_table_type() + "(" +
-                "name TEXT NOT NULL," +
-                "key " + type_trait< Key >::sqltype + " NOT NULL," +
-                "value " + type_trait< Value >::sqltype + " NOT NULL," +
-                "PRIMARY KEY(name, key)" +
-                ");"
-            ))
-            , begin_(db, "SELECT key, value FROM " + get_table_type() + " WHERE name=? ORDER BY key ASC;")
-            , find_(db, "SELECT key, value FROM " + get_table_type() + " WHERE name=? AND key>=? ORDER BY key ASC;")
-            , update_(db, "UPDATE " + get_table_type() + " SET value=? WHERE name=? AND key=?;")
-            , insert_(db, "INSERT INTO " + get_table_type() + " VALUES(?,?,?);")
-            , value_(db, "SELECT value FROM " + get_table_type() + " WHERE name=? AND key=?;")
-            , size_(db, "SELECT count(*) FROM " + get_table_type() + " WHERE name=?;")
-        {
-            create_table_();
-        }
-
-        static std::string get_table_type()
-        {
-            return "MAP_" + type_trait< Key >::sqltype + "_" + type_trait< Value >::sqltype;
-        }
-
         struct iterator
         {
             iterator(const iterator&) = delete;
@@ -69,9 +44,11 @@ namespace sqlstl
                 {
                     pair_.emplace(statement_.extract< Key >(0), statement_.extract< Value >(1));
                 }
-                
+
                 return *pair_;
             }
+
+            auto operator ->() { return &this->operator*(); }
 
             iterator& operator++()
             {
@@ -81,10 +58,35 @@ namespace sqlstl
             }
 
         private:
-            std::optional< std::pair< const Key, Value > > pair_;
             sqlstl::statement_cache::statement statement_;
+            std::optional< std::pair< const Key, Value > > pair_;
             int result_;
         };
+
+        map_storage(sqlstl::db& db)
+            : db_(db)
+            , create_table_(db.prepare(
+                "CREATE TABLE " + get_table_type() + "(" +
+                "name TEXT NOT NULL," +
+                "key " + type_trait< Key >::sqltype + " NOT NULL," +
+                "value " + type_trait< Value >::sqltype + " NOT NULL," +
+                "PRIMARY KEY(name, key)" +
+                ");"
+            ))
+            , begin_(db, "SELECT key, value, rowid FROM " + get_table_type() + " WHERE name=? ORDER BY key ASC;")
+            , find_(db, "SELECT key, value, rowid FROM " + get_table_type() + " WHERE name=? AND key>=? ORDER BY key ASC;")
+            , update_(db, "UPDATE " + get_table_type() + " SET value=? WHERE name=? AND key=?;")
+            , insert_(db, "INSERT INTO " + get_table_type() + " VALUES(?,?,?);")
+            , value_(db, "SELECT value FROM " + get_table_type() + " WHERE name=? AND key=?;")
+            , size_(db, "SELECT count(*) FROM " + get_table_type() + " WHERE name=?;")
+        {
+            create_table_();
+        }
+
+        static std::string get_table_type()
+        {
+            return "MAP_" + type_trait< Key >::sqltype + "_" + type_trait< Value >::sqltype;
+        }
 
         iterator begin(const std::string& name)
         {
@@ -95,9 +97,7 @@ namespace sqlstl
 
         iterator end(const std::string& name)
         {
-            // TODO: no need to acquire anything for end
-            auto stmt = begin_.acquire();
-            return iterator(std::move(stmt), SQLITE_DONE);
+            return iterator(statement_cache::null_statement(), SQLITE_DONE);
         }
 
         template < typename K > iterator find(const std::string& name, K&& key)
@@ -113,10 +113,13 @@ namespace sqlstl
             assert(stmt(std::forward< V >(value), name, std::forward< K >(key)) == SQLITE_DONE);
         }
 
-        template < typename K, typename V > void insert(const std::string& name, K&& key, V&& value)
+        template < typename K, typename V > std::pair< iterator, bool > insert(const std::string& name, K&& key, V&& value)
         {
             auto stmt = insert_.acquire();
-            assert(stmt(name, std::forward< K >(key), std::forward< V >(value)) == SQLITE_DONE);
+            auto result = stmt(name, std::forward< K >(key), std::forward< V >(value));
+            auto it = find(name, key);
+            assert(it != end(name));
+            return { std::move(it), result == SQLITE_DONE };
         }
 
         template < typename K > Value value(const std::string& name, K&& key)

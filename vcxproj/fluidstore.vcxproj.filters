@@ -71,5 +71,8 @@
     <ClInclude Include="..\include\crdt\traits.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\include\crdt\map_g.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

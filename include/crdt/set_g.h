@@ -5,12 +5,6 @@ namespace crdt
     template < typename T, typename Traits > class set_g
     {
     public:
-        typedef T value_type;
-
-        set_g(typename Traits::Factory& factory = factory::static_factory(), const std::string& name = "")
-            : values_(factory.template create_container< typename Traits::template Set< T, typename Traits::Factory > >(name))
-        {}
-
         class iterator
         {
         public:
@@ -33,15 +27,20 @@ namespace crdt
             typename Traits::template Set< T, typename Traits::Factory >::iterator it_;
         };
 
+        set_g(typename Traits::Factory& factory = factory::static_factory(), const std::string& name = "")
+            : values_(factory.template create_container< typename Traits::template Set< T, typename Traits::Factory > >(name))
+        {}
+
         iterator begin() { return iterator(values_.begin()); }
-        iterator begin() const { return iterator(values_.begin()); }
+        //iterator begin() const { return iterator(values_.begin()); }
 
         iterator end() { return iterator(values_.end()); }
-        iterator end() const { return iterator(values_.end()); }
+        //iterator end() const { return iterator(values_.end()); }
 
-        void insert(T value)
+        template < typename K > std::pair< iterator, bool > insert(K&& value)
         {
-            values_.insert(value);
+            auto pairb = values_.insert(value);
+            return { std::move(pairb.first), pairb.second };
         }
 
         size_t size()
@@ -49,7 +48,7 @@ namespace crdt
             return values_.size();
         }
 
-        template < typename Set > void merge(const Set& other)
+        template < typename Set > void merge(Set& other)
         {
             values_.insert(other.begin(), other.end());
         }
@@ -58,7 +57,6 @@ namespace crdt
         {
             return values_ == other.values_;
         }
-
 
     private:
         typename Traits::template Set< T, typename Traits::Factory > values_;

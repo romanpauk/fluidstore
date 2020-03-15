@@ -1,4 +1,4 @@
-#include <crdt/set_or.h>
+#include <crdt/set_g.h>
 #include <crdt/traits.h>
 
 template < typename Traits > void set_g_test_impl(typename Traits::Allocator& allocator)
@@ -21,11 +21,11 @@ template < typename Traits > void set_g_test_impl(typename Traits::Allocator& al
     assert(set.size() == 2);
     assert(set.find(2) != set.end());
 
-    int count = 1;
+    int count = 0;
     for(auto&& value: set)
     {
-        assert(value == count);
         ++count;
+        assert(value == count);
     }
 
     assert(count == 2);

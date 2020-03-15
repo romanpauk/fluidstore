@@ -1,5 +1,7 @@
 #pragma once
 
+#include <type_traits>
+
 namespace sqlstl
 {
     template < typename Iterator, typename Value, typename BinaryFunction > Value accumulate(Iterator&& begin, Iterator&& end, Value&& init, BinaryFunction&& fn)

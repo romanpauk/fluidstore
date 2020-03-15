@@ -19,6 +19,8 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\src\counter_g.cpp" />
+    <ClCompile Include="..\src\counter_pn.cpp" />
     <ClCompile Include="..\src\fluidstore.cpp" />
     <ClCompile Include="..\src\map.cpp" />
     <ClCompile Include="..\src\set.cpp" />
@@ -37,7 +39,6 @@
     <ClInclude Include="..\include\crdt\traits.h" />
     <ClInclude Include="..\include\crdt\value_lww.h" />
     <ClInclude Include="..\include\crdt\value_mv.h" />
-    <ClInclude Include="..\include\schema\schema.h" />
     <ClInclude Include="..\include\sqlstl\algorithm.h" />
     <ClInclude Include="..\include\sqlstl\allocator.h" />
     <ClInclude Include="..\include\sqlstl\map.h" />

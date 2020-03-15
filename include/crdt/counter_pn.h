@@ -1,5 +1,8 @@
 #pragma once
 
+#include <crdt/allocator.h>
+#include <crdt/counter_g.h>
+
 namespace crdt
 {
     template < typename T, typename Node, typename Traits > class counter_pn

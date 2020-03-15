@@ -2,6 +2,7 @@
 
 #include <sqlstl/algorithm.h>
 #include <crdt/Allocator.h>
+#include <algorithm>
 
 namespace crdt
 {

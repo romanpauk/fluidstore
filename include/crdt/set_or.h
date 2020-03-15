@@ -27,14 +27,6 @@ namespace crdt
             }
         };
 
-    public:
-        set_or(typename Traits::Allocator& allocator = allocator::static_allocator(), const std::string& name = "")
-            : values_(allocator.template create_container< typename Traits::template Map< T, set_or_tags, typename Traits::Allocator > >(name))
-            , name_(name)
-            , allocator_(allocator)
-            , empty_tags_(allocator, "none")
-        {}
-
         template < typename It > class iterator_base
         {
         public:
@@ -42,14 +34,22 @@ namespace crdt
                 : it_(std::move(it))
             {}
 
-            bool operator == (const iterator_base< It >& other) { return it_ == other.it_; }
-            bool operator != (const iterator_base< It >& other) { return it_ != other.it_; }
+            bool operator == (const iterator_base< It >& other) const { return it_ == other.it_; }
+            bool operator != (const iterator_base< It >& other) const { return it_ != other.it_; }
             iterator_base< It >& operator++() { ++it_; return *this; }
             const T& operator*() { return it_->first; }
 
         private:
-            It it_;
+            typename It it_;
         };
+
+    public:
+        set_or(typename Traits::Allocator& allocator = allocator::static_allocator(), const std::string& name = "")
+            : values_(allocator.template create_container< typename Traits::template Map< T, set_or_tags, typename Traits::Allocator > >(name))
+            , name_(name)
+            , allocator_(allocator)
+            , empty_tags_(allocator, "none")
+        {}
 
         typedef iterator_base< typename Traits::template Map< T, set_or_tags, typename Traits::Allocator >::iterator > iterator;
         typedef iterator_base< typename Traits::template Map< T, set_or_tags, typename Traits::Allocator >::const_iterator > const_iterator;
@@ -68,10 +68,11 @@ namespace crdt
             }
         }
 
-        template < typename K > void insert(K&& value)
+        template < typename K > std::pair< iterator, bool > insert(K&& value)
         {
             auto it = values_.emplace(std::forward< K >(value), empty_tags_);
             it.first->second.added.insert(get_tag());
+            return { std::move(it.first), it.second };
         }
 
         template < typename It > void insert_erase_node(It& it)
@@ -95,15 +96,18 @@ namespace crdt
             }
         }
 
-        template < typename K > bool find(K&& key) 
+        template < typename K > iterator find(K&& key) 
         {
             auto it = values_.find(std::forward< K >(key));
             if (it != values_.end())
             {
-                return is_added(it->second);
+                if (is_added(it->second))
+                {
+                    return it;
+                }
             }
 
-            return false;
+            return end();
         }
 
         template < typename K > auto find_node(K&& key)

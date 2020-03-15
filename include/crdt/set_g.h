@@ -1,5 +1,7 @@
 #pragma once
 
+#include <crdt/allocator.h>
+
 namespace crdt
 {
     template < typename T, typename Traits > class set_g

@@ -3,7 +3,7 @@
 
 template < typename Traits > void set_or_test_impl(typename Traits::Allocator& allocator)
 {
-    crdt::set_g< int, Traits > set(allocator, "set");
+    crdt::set_or< int, Traits > set(allocator, "set");
     assert(set.size() == 0);
     {
         auto it = set.insert(1);
@@ -21,14 +21,29 @@ template < typename Traits > void set_or_test_impl(typename Traits::Allocator& a
     assert(set.size() == 2);
     assert(set.find(2) != set.end());
 
-    int count = 1;
+    int count = 0;
     for (auto&& value : set)
     {
-        assert(value == count);
         ++count;
+        assert(value == count);
     }
 
     assert(count == 2);
+
+    set.erase(2);
+    assert(set.find(2) == set.end());
+
+/*
+    // TODO: we need to skip fields that are removed during iteration
+
+    count = 0;
+    for (auto&& value : set)
+    {
+        ++count;
+        assert(value == count);
+    }
+    assert(count == 1);
+*/
 }
 
 void set_or_test()

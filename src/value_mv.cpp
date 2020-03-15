@@ -5,6 +5,9 @@ template < typename Traits > void value_mv_test_impl(typename Traits::Allocator&
 {
     crdt::value_mv< int, Traits > value(allocator, "value");
     value = 1;
+    assert(value == 1);
+    value = 2;
+    assert(value == 2);
 }
 
 void value_mv_test()

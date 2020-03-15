@@ -5,18 +5,36 @@
 #include <algorithm>
 #include <numeric>
 
+namespace std
+{
+    std::string to_string(const char* s) { return s; }
+    std::string to_string(const std::string& s) { return s; }
+    std::string to_string(std::string&& s) { return std::move(s); }
+}
+
 #include <sqlstl/allocator.h>
 #include <sqlstl/map.h>
 #include <sqlstl/set.h>
+#include <sqlstl/tuple.h>
+
 #include <crdt/counter_g.h>
 #include <crdt/counter_pn.h>
 #include <crdt/set_g.h>
 #include <crdt/set_or.h>
 #include <crdt/map_g.h>
+#include <crdt/value_lww.h>
+#include <crdt/value_mv.h>
 #include <crdt/traits.h>
+
+// #include <schema/schema.h>
 
 void set_test();
 void map_test();
+void set_g_test();
+void set_or_test();
+void value_mv_test();
+void counter_g_test();
+void counter_pn_test();
 
 int main()
 {
@@ -26,79 +44,16 @@ int main()
     set_test();
     map_test();
 
-    // Fully in-memory counter
-    crdt::delta_counter_g< int, int, 
-        crdt::traits< crdt::memory > > counterg_memory;
-
-    // Sqlite-backed counter with in memory delta, eg. counterg_sqlite.add(1, 1) will return in-memory counter_g<>, that 
-    // can be sent to replicas and merged with their counter_g.
-    crdt::delta_counter_g< int, int, 
-        crdt::traits< crdt::memory >, 
-        crdt::traits< crdt::sqlite >
-    > counterg(allocator, "CounterG");
-
-    counterg.add(1, 1);
-    counterg.add(2, 3);
-    assert(counterg.value() == 4);
-
-    {
-        // Due to sqlite persistence, we will reconnect to existing instance.
-        // There might be cases when we would like not to reconnect.
-        decltype(counterg) counterg1(allocator, "CounterG");
-        assert(counterg1.value() == 4);
-    }
-
-    // Positive-negative counter
-    crdt::delta_counter_pn< int, int,
-        crdt::traits< crdt::memory >,
-        crdt::traits< crdt::sqlite >
-    > counterpn(allocator, "CounterPN");
-
-    counterpn.add(1, 1);
-    counterpn.add(2, 1);
-    counterpn.sub(3, 3);
-
-    assert(counterpn.value() == -1);
-
-    crdt::delta_set_g< int,
-        crdt::traits< crdt::memory >,
-        crdt::traits< crdt::sqlite >
-    > setg(allocator, "SetG");
-
-    assert(setg.size() == 0);
-    setg.insert(1);
-    assert(setg.size() == 1);
-    setg.insert(2);
-    assert(setg.size() == 2);
-
-// Delta version has some issues with removal
-/*
-    crdt::delta_set_or< int,
-        crdt::traits< crdt::memory >,
-        crdt::traits< crdt::sqlite >
-    > setorx(factory, "SetOR2");
-    setorx.erase(1);
-*/
-    crdt::set_or< int,
-        crdt::traits< crdt::sqlite >
-    //> setor;
-    > setor(allocator, "SetOR2");
-
-    setor.insert(1);
-    assert(setor.size() == 1);
-    setor.insert(1);
-    assert(setor.size() == 1);
-    assert(setor.find(1) == true);
-    // Delta version has some issues.
-    setor.erase(1);
-    assert(setor.size() == 0);
-    assert(setor.find(1) == false);
+    counter_g_test();
+    counter_pn_test();
+    set_g_test();
+    set_or_test();
+    value_mv_test();
 
     // Sql-based map of delta-counters that themselves are sql-based.
     sqlstl::map< 
         int, 
-        crdt::delta_counter_pn< int, int,
-            crdt::traits< crdt::memory >,
+        crdt::counter_pn< int, int,
             crdt::traits< crdt::sqlite >
         >,
         sqlstl::allocator
@@ -111,8 +66,7 @@ int main()
 
     sqlstl::map<
         int,
-        crdt::delta_set_g< int,
-            crdt::traits< crdt::memory >,
+        crdt::set_g< int,
             crdt::traits< crdt::sqlite >
         >,
         sqlstl::allocator

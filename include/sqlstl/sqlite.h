@@ -167,21 +167,21 @@ namespace sqlstl
         sqlite3* db_;
     };
 
-    template < typename T > class type_trait;
+    template < typename T > class type_traits;
 
-    template <> struct type_trait< int > 
+    template <> struct type_traits< int > 
     {
         inline static const std::string cpptype = "int";
         inline static const std::string sqltype = "INTEGER";
     };
 
-    template <> struct type_trait< uint64_t >
+    template <> struct type_traits< uint64_t >
     {
         inline static const std::string cpptype = "uint64_t";
         inline static const std::string sqltype = "INTEGER";
     };
 
-    template <> struct type_trait< std::string >
+    template <> struct type_traits< std::string >
     {
         inline static const std::string cpptype = "string";
         inline static const std::string sqltype = "TEXT";

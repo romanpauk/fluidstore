@@ -51,20 +51,4 @@ namespace crdt
         // private:
         typename Traits::template Map< Node, T, typename Traits::Allocator > values_;
     };
-
-    template < typename T, typename Node, typename DeltaTraits, typename StateTraits = DeltaTraits > class delta_counter_g
-        : public counter_g< T, Node, StateTraits >
-    {
-    public:
-        delta_counter_g(typename StateTraits::Allocator& allocator = allocator::static_allocator(), const std::string& name = "")
-            : counter_g< T, Node, StateTraits >(allocator, name)
-        {}
-
-        void add(const Node& node, T value)
-        {
-            counter_g< T, Node, DeltaTraits > delta;
-            delta.add(node, value);
-            this->merge(delta);
-        }
-    };
 }

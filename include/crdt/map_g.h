@@ -41,7 +41,7 @@ namespace crdt
             bool operator == (const iterator_base< It >& other) const { return it_ == other.it_; }
             bool operator != (const iterator_base< It >& other) const { return it_ != other.it_; }
 
-            iterator_base< It >& operator++() { ++it_; pair_.emplace(std::make_pair(*it_, map_.get_value(*it_)));  return *this; }
+            iterator_base< It >& operator++() { ++it_; return *this; }
 
         private:
             map_g_base< Key, Value, Traits >& map_;
@@ -62,8 +62,9 @@ namespace crdt
 
             template < typename V > value_proxy& operator = (V&& value)
             {
+                Value::operator = (std::move(value));
                 // TODO: Assignment means V is part of this map now, all its fields need to be renamed.
-                std::abort();
+                // std::abort();
                 return *this;
             }
         };
@@ -91,7 +92,7 @@ namespace crdt
 
         template < typename K, typename V > std::pair< iterator, bool > emplace(K&& key, V&& value)
         {
-            auto pairb = emplace(std::forward< K >(key));
+            auto pairb = insert(std::forward< K >(key));
 
             if (pairb.second)
             {
@@ -139,27 +140,8 @@ namespace crdt
         : public map_g_base< Key, Value, Traits >
     {
     public:
-        map_g(typename Traits::Allocator& allocator, const std::string& name)
+        map_g(typename Traits::Allocator& allocator = allocator::static_allocator(), const std::string& name = "")
             : map_g_base< Key, Value, Traits >(allocator, name)
         {}
-    };
-
-    template < typename K, typename V, typename DeltaTraits, typename StateTraits = DeltaTraits > class delta_map_g
-        : public map_g< K, V, StateTraits >
-    {
-    public:
-        delta_map_g(typename StateTraits::Allocator& allocator, const std::string& name = "")
-            : map_g< K, V, StateTraits >(allocator, name)
-        {}
-
-/*
-        map_g< K, V, DeltaTraits > insert(T value)
-        {
-            map_g< K, V, DeltaTraits > delta;
-            delta.insert(value);
-            this->merge(delta);
-            return delta;
-        }
-*/
     };
 }

@@ -138,33 +138,4 @@ namespace crdt
         typename Traits::template Map< T, set_or_tags, typename Traits::Allocator > values_;
         std::string name_;
     };
-
-    template < typename T, typename DeltaTraits, typename StateTraits > class delta_set_or
-        : public set_or< T, StateTraits >
-    {
-    public:
-        delta_set_or(typename StateTraits::Allocator& allocator, const std::string& name)
-            : set_or< T, StateTraits >(allocator, name)
-        {}
-
-        set_or< T, DeltaTraits > insert(T value)
-        {
-            set_or< T, DeltaTraits > delta;
-            delta.insert(value);
-            this->merge(delta);
-            return delta;
-        }
-
-        set_or< T, DeltaTraits > erase(T value)
-        {
-            set_or< T, DeltaTraits > delta;
-            auto it = this->find_node(value);
-            if (it != this->end_node())
-            {
-                delta.insert_erase_node(it);
-                this->merge(delta);
-            }
-            return delta;
-        }
-    };
 }

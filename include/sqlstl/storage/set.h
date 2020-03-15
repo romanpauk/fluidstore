@@ -14,7 +14,7 @@ namespace sqlstl
             , create_table_(db.prepare(
                 "CREATE TABLE " + get_table_type() + "(" +
                 "name TEXT NOT NULL," +
-                "key " + type_trait< Key >::sqltype + "," +
+                "key " + type_traits< Key >::sqltype + "," +
                 "PRIMARY KEY(name, key)" +
                 ");"
             ))
@@ -28,7 +28,7 @@ namespace sqlstl
 
         static std::string get_table_type()
         {
-            return "SET_" + type_trait< Key >::cpptype;
+            return "SET_" + type_traits< Key >::cpptype;
         }
 
         struct iterator

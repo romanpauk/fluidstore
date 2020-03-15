@@ -42,7 +42,7 @@ namespace crdt
 
         template < typename K > std::pair< iterator, bool > insert(K&& value)
         {
-            auto pairb = values_.insert(value);
+            auto pairb = values_.insert(std::forward< K >(value));
             return { std::move(pairb.first), pairb.second };
         }
 
@@ -60,22 +60,5 @@ namespace crdt
 
     private:
         typename Traits::template Set< T, typename Traits::Allocator > values_;
-    };
-
-    template < typename T, typename DeltaTraits, typename StateTraits = DeltaTraits > class delta_set_g
-        : public set_g< T, StateTraits >
-    {
-    public:
-        delta_set_g(typename StateTraits::Allocator& allocator, const std::string& name = "")
-            : set_g< T, StateTraits >(allocator, name)
-        {}
-
-        set_g< T, DeltaTraits > insert(T value)
-        {
-            set_g< T, DeltaTraits > delta;
-            delta.insert(value);
-            this->merge(delta);
-            return delta;
-        }
     };
 }

@@ -39,29 +39,4 @@ namespace crdt
         // private:
         counter_g< T, Node, Traits > inc_, dec_;
     };
-
-    template < typename T, typename Node, typename DeltaTraits, typename StateTraits = DeltaTraits > class delta_counter_pn
-        : public counter_pn< T, Node, StateTraits >
-    {
-    public:
-        delta_counter_pn(typename StateTraits::Allocator& allocator, const std::string& name = "")
-            : counter_pn< T, Node, StateTraits >(allocator, name)
-        {}
-
-        counter_pn< T, Node, DeltaTraits > add(const Node& node, T value)
-        {
-            counter_pn< T, Node, DeltaTraits > delta;
-            delta.add(node, value);
-            this->merge(delta);
-            return delta;
-        }
-
-        counter_pn< T, Node, DeltaTraits > sub(const Node& node, T value)
-        {
-            counter_pn< T, Node, DeltaTraits > delta;
-            delta.sub(node, value);
-            this->merge(delta);
-            return delta;
-        }
-    };
 }

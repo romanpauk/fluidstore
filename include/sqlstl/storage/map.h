@@ -55,7 +55,7 @@ namespace sqlstl
             sqlstl::statement_cache::statement statement_;
             uint64_t rowid_;
             int result_;
-            std::optional< std::pair< const Key, Value > > pair_;
+            std::optional< std::pair< const Key, const Value > > pair_;
         };
 
         map_storage(sqlstl::db& db)
@@ -63,8 +63,8 @@ namespace sqlstl
             , create_table_(db.prepare(
                 "CREATE TABLE " + get_table_type() + "(" +
                 "name TEXT NOT NULL," +
-                "key " + type_trait< Key >::sqltype + " NOT NULL," +
-                "value " + type_trait< Value >::sqltype + " NOT NULL," +
+                "key " + type_traits< Key >::sqltype + " NOT NULL," +
+                "value " + type_traits< Value >::sqltype + " NOT NULL," +
                 "PRIMARY KEY(name, key)" +
                 ");"
             ))
@@ -80,7 +80,7 @@ namespace sqlstl
 
         static std::string get_table_type()
         {
-            return "MAP_" + type_trait< Key >::sqltype + "_" + type_trait< Value >::sqltype;
+            return "MAP_" + type_traits< Key >::sqltype + "_" + type_traits< Value >::sqltype;
         }
 
         iterator begin(const std::string& name)

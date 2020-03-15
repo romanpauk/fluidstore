@@ -10,15 +10,17 @@ namespace crdt
 
     template <> struct traits< memory >
     {
-        template < typename T, typename Factory > using Set = std::set< T >;
-        template < typename K, typename V, typename Factory > using Map = std::map< K, V >;
+        template < typename T, typename Allocator > using Set = std::set< T >;
+        template < typename K, typename V, typename Allocator > using Map = std::map< K, V >;
+        template < typename Allocator, typename... Args > using Tuple = std::tuple< Args... >;
         using Allocator = allocator;
     };
 
     template <> struct traits< sqlite >
     {
-        template < typename T, typename Factory > using Set = sqlstl::set< T, Factory >;
-        template < typename K, typename V, typename Factory > using Map = sqlstl::map< K, V, Factory >;
+        template < typename T, typename Allocator > using Set = sqlstl::set< T, Allocator >;
+        template < typename K, typename V, typename Allocator > using Map = sqlstl::map< K, V, Allocator >;
+        template < typename Allocator, typename... Args > using Tuple = sqlstl::tuple< Allocator, Args... >;
         using Allocator = sqlstl::allocator;
     };
 }

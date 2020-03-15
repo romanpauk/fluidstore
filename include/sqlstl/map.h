@@ -55,6 +55,12 @@ namespace sqlstl
                 return map_.value(key_);
             }
 
+            template < typename V > value_proxy& operator += (V&& value)
+            {
+                this->operator = (map_.value(key_) + value);
+                return *this;
+            }
+
         private:
             map_base< Key, Value, Allocator, true >& map_;
             Key key_;

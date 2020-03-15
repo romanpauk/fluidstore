@@ -46,6 +46,20 @@ namespace crdt
             return { std::move(pairb.first), pairb.second };
         }
 
+        template < typename It > void insert(It&& from, It&& to)
+        {
+            while (from != to)
+            {
+                insert(*from);
+                ++from;
+            }
+        }
+
+        template < typename K > iterator find(K&& key)
+        {
+            return values_.find(std::forward< K >(key));
+        }
+
         size_t size() const { return values_.size(); }
 
         template < typename Set > void merge(const Set& other)

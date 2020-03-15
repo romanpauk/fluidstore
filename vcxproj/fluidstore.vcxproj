@@ -22,7 +22,10 @@
     <ClCompile Include="..\src\fluidstore.cpp" />
     <ClCompile Include="..\src\map.cpp" />
     <ClCompile Include="..\src\set.cpp" />
+    <ClCompile Include="..\src\set_g.cpp" />
+    <ClCompile Include="..\src\set_or.cpp" />
     <ClCompile Include="..\src\sqlite3.c" />
+    <ClCompile Include="..\src\value_mv.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\crdt\counter_g.h" />
@@ -32,6 +35,9 @@
     <ClInclude Include="..\include\crdt\set_g.h" />
     <ClInclude Include="..\include\crdt\set_or.h" />
     <ClInclude Include="..\include\crdt\traits.h" />
+    <ClInclude Include="..\include\crdt\value_lww.h" />
+    <ClInclude Include="..\include\crdt\value_mv.h" />
+    <ClInclude Include="..\include\schema\schema.h" />
     <ClInclude Include="..\include\sqlstl\algorithm.h" />
     <ClInclude Include="..\include\sqlstl\allocator.h" />
     <ClInclude Include="..\include\sqlstl\map.h" />
@@ -40,6 +46,8 @@
     <ClInclude Include="..\include\sqlstl\storage\map.h" />
     <ClInclude Include="..\include\sqlstl\storage\set.h" />
     <ClInclude Include="..\include\sqlstl\storage\storage.h" />
+    <ClInclude Include="..\include\sqlstl\storage\tuple.h" />
+    <ClInclude Include="..\include\sqlstl\tuple.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

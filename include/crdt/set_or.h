@@ -1,10 +1,15 @@
 #pragma once
-#include <iterator>
+// #include <iterator>
+#include <crdt/allocator.h>
+#include <crdt/set_g.h>
+#include <sqlstl/algorithm.h>
 
 namespace crdt
 {
     template < typename T, typename Traits > class set_or
     {
+        typedef uint64_t Tag;
+
         struct set_or_tags
         {
             set_or_tags(typename Traits::Allocator& allocator = allocator::static_allocator(), const std::string& name = "")
@@ -12,8 +17,8 @@ namespace crdt
                 , removed(allocator, name + ".removed")
             {}
 
-            set_g< T, Traits > added;
-            set_g< T, Traits > removed;
+            set_g< Tag, Traits > added;
+            set_g< Tag, Traits > removed;
 
             template < typename Container > void merge(const Container& other)
             {
@@ -22,12 +27,12 @@ namespace crdt
             }
         };
 
-        typedef uint64_t Tag;
-
     public:
         set_or(typename Traits::Allocator& allocator = allocator::static_allocator(), const std::string& name = "")
             : values_(allocator.template create_container< typename Traits::template Map< T, set_or_tags, typename Traits::Allocator > >(name))
             , name_(name)
+            , allocator_(allocator)
+            , empty_tags_(allocator, "none")
         {}
 
         template < typename It > class iterator_base
@@ -55,9 +60,17 @@ namespace crdt
         iterator end() { return values_.end(); }
         const_iterator end() const { return values_.end(); }
 
+        void clear()
+        {
+            for (auto&& value : values_)
+            {
+                value.second.removed.insert(value.second.added.begin(), value.second.added.end());
+            }
+        }
+
         template < typename K > void insert(K&& value)
         {
-            auto it = values_.insert(std::forward< K >(value));
+            auto it = values_.emplace(std::forward< K >(value), empty_tags_);
             it.first->second.added.insert(get_tag());
         }
 
@@ -135,7 +148,9 @@ namespace crdt
         }
 
     public:
+        typename Traits::Allocator& allocator_;
         typename Traits::template Map< T, set_or_tags, typename Traits::Allocator > values_;
         std::string name_;
+        const set_or_tags empty_tags_;
     };
 }

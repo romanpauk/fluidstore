@@ -1,6 +1,13 @@
 #pragma once
 
 #include <sqlstl/allocator.h>
+#include <sqlstl/set.h>
+#include <sqlstl/map.h>
+#include <sqlstl/tuple.h>
+
+#include <set>
+#include <map>
+#include <tuple>
 
 namespace crdt
 {

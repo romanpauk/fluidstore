@@ -66,12 +66,12 @@ namespace crdt
         typedef iterator_base< typename Traits::template Map< T, set_or_tags, typename Traits::Allocator >::iterator > iterator;
         typedef iterator_base< typename Traits::template Map< T, set_or_tags, typename Traits::Allocator >::const_iterator > const_iterator;
 
-        iterator begin() { return {*this, values_.begin()}; }
-        const_iterator begin() const { return {*this, values_.begin()}; }
+        iterator begin() { return {*this, advance(values_.begin())}; }
+        const_iterator begin() const { return {*this, advance(values_.begin())}; }
 
         iterator end() { return {*this, values_.end()}; }
         const_iterator end() const { return {*this, values_.end()}; }
-
+        
         void clear()
         {
             for (auto&& value : values_)
@@ -79,19 +79,12 @@ namespace crdt
                 value.second.removed.insert(value.second.added.begin(), value.second.added.end());
             }
         }
-
+        
         template < typename K > std::pair< iterator, bool > insert(K&& value)
         {
             auto it = values_.emplace(std::forward< K >(value), empty_tags_);
             it.first->second.added.insert(get_tag());
             return { iterator(*this, std::move(it.first)), it.second };
-        }
-
-        template < typename It > void insert_erase_node(It& it)
-        {
-            const auto& data = (*it);
-            values_[data.first].merge(data.second);
-            erase(data.first);
         }
 
         template < typename K > void erase(K&& key)
@@ -108,28 +101,18 @@ namespace crdt
             }
         }
 
-        template < typename K > iterator find(K&& key) 
+        template < typename K > iterator find(K&& key)
         {
             auto it = values_.find(std::forward< K >(key));
             if (it != values_.end())
             {
                 if (is_added(it->second))
                 {
-                    return {*this, std::move(it)};
+                    return { *this, std::move(it) };
                 }
             }
 
             return end();
-        }
-
-        template < typename K > auto find_node(K&& key)
-        {
-            return {*this, values_.find(std::forward< K >(key))};
-        }
-
-        auto end_node()
-        {
-            return {*this, values_.end()};
         }
 
         size_t size() const
@@ -156,6 +139,33 @@ namespace crdt
         }
 
     private:
+        template < typename It > void insert_erase_node(It& it)
+        {
+            const auto& data = (*it);
+            values_[data.first].merge(data.second);
+            erase(data.first);
+        }
+
+        template < typename K > auto find_node(K&& key)
+        {
+            return { *this, values_.find(std::forward< K >(key)) };
+        }
+
+        auto end_node()
+        {
+            return { *this, values_.end() };
+        }
+
+        template < typename It > It advance(It&& it)
+        {
+            while (it != values_.end() && !is_added(it->second))
+            {
+                ++it;
+            }
+
+            return std::move(it);
+        }
+
         Tag get_tag() const { return rand(); }
 
         template < typename Tags > bool is_added(const Tags& tags) const

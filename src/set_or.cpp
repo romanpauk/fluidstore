@@ -33,9 +33,6 @@ template < typename Traits > void set_or_test_impl(typename Traits::Allocator& a
     set.erase(2);
     assert(set.find(2) == set.end());
 
-/*
-    // TODO: we need to skip fields that are removed during iteration
-
     count = 0;
     for (auto&& value : set)
     {
@@ -43,7 +40,6 @@ template < typename Traits > void set_or_test_impl(typename Traits::Allocator& a
         assert(value == count);
     }
     assert(count == 1);
-*/
 }
 
 void set_or_test()

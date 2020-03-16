@@ -30,16 +30,28 @@ namespace crdt
         template < typename It > class iterator_base
         {
         public:
-            iterator_base(It&& it)
+            iterator_base(set_or< T, Traits >& set, It&& it)
                 : it_(std::move(it))
+                , set_(set)
             {}
 
             bool operator == (const iterator_base< It >& other) const { return it_ == other.it_; }
             bool operator != (const iterator_base< It >& other) const { return it_ != other.it_; }
-            iterator_base< It >& operator++() { ++it_; return *this; }
             const T& operator*() { return it_->first; }
 
+            iterator_base< It >& operator++() 
+            {
+                do
+                {
+                    ++it_;
+                }
+                while(*this != set_.end() && !set_.is_added(it_->second));
+                
+                return *this;
+            }
+            
         private:
+            set_or< T, Traits >& set_;
             typename It it_;
         };
 
@@ -54,11 +66,11 @@ namespace crdt
         typedef iterator_base< typename Traits::template Map< T, set_or_tags, typename Traits::Allocator >::iterator > iterator;
         typedef iterator_base< typename Traits::template Map< T, set_or_tags, typename Traits::Allocator >::const_iterator > const_iterator;
 
-        iterator begin() { return values_.begin(); }
-        const_iterator begin() const { return values_.begin(); }
+        iterator begin() { return {*this, values_.begin()}; }
+        const_iterator begin() const { return {*this, values_.begin()}; }
 
-        iterator end() { return values_.end(); }
-        const_iterator end() const { return values_.end(); }
+        iterator end() { return {*this, values_.end()}; }
+        const_iterator end() const { return {*this, values_.end()}; }
 
         void clear()
         {
@@ -72,7 +84,7 @@ namespace crdt
         {
             auto it = values_.emplace(std::forward< K >(value), empty_tags_);
             it.first->second.added.insert(get_tag());
-            return { std::move(it.first), it.second };
+            return { iterator(*this, std::move(it.first)), it.second };
         }
 
         template < typename It > void insert_erase_node(It& it)
@@ -103,7 +115,7 @@ namespace crdt
             {
                 if (is_added(it->second))
                 {
-                    return it;
+                    return {*this, std::move(it)};
                 }
             }
 
@@ -112,12 +124,12 @@ namespace crdt
 
         template < typename K > auto find_node(K&& key)
         {
-            return values_.find(std::forward< K >(key));
+            return {*this, values_.find(std::forward< K >(key))};
         }
 
         auto end_node()
         {
-            return values_.end();
+            return {*this, values_.end()};
         }
 
         size_t size() const

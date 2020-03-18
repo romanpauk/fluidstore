@@ -6,6 +6,7 @@
 #include <cassert>
 #include <stdexcept>
 #include <stack>
+#include <optional>
 
 namespace sqlstl
 {
@@ -102,6 +103,12 @@ namespace sqlstl
         void bind_parameter(int index, const char* value)
         {
             sqlite3_check(sqlite3_bind_text(stmt_, index, value, strlen(value), 0));
+        }
+
+        template < typename T > void bind_parameter(int index, const std::optional< T >& value)
+        {
+            assert(value.has_value());
+            bind_parameter(index, *value);
         }
 
         void extract_parameter(int index, uint64_t& value)

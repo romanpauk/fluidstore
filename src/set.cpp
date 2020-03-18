@@ -11,6 +11,7 @@ void set_test()
     {
         auto it = set.insert(1);
         assert(it.first == set.find(1));
+        assert(*it.first == 1);
         assert(it.first != set.find(2));
         assert(it.second == true);
     }
@@ -18,13 +19,14 @@ void set_test()
     {
         auto it = set.insert(1);
         assert(it.second == false);
+        assert(*it.first == 1);
     }
 
     assert(set.size() == 1);
     
     {
         auto it = set.insert(2);
-        assert(it.first == set.find(2));
+        assert(set.find(2) == it.first);
     }
 
     assert(set.size() == 2);

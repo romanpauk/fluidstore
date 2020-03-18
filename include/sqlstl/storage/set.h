@@ -36,6 +36,11 @@ namespace sqlstl
             iterator(const iterator&) = delete;
             iterator& operator = (const iterator&) = delete;
 
+            iterator()
+                : result_(SQLITE_OK)
+                , rowid_(0)
+            {}
+
             iterator(iterator&& other)
                 : statement_(std::move(other.statement_))
                 , result_(other.result_)
@@ -54,35 +59,39 @@ namespace sqlstl
                 , rowid_(result == SQLITE_ROW ? statement_.extract< uint64_t >(1) : 0)
             {}
 
+            iterator& operator = (iterator&& other)
+            {
+                std::swap(statement_, other.statement_);
+                std::swap(result_, other.result_);
+                std::swap(rowid_, other.rowid_);
+                return *this;
+            }
+
             bool operator == (const iterator& other) const { return rowid_ == other.rowid_; }
             bool operator != (const iterator& other) const { return !(*this == other); }
 
-            const Key& operator*()
+            Key operator*()
             {
-                if (!key_)
-                {
-                    assert(result_ == SQLITE_ROW);
-                    key_ = std::move(statement_.extract< Key >(0));
-                }
-
-                return *key_; 
+                assert(result_ == SQLITE_ROW);
+                return statement_.extract< Key >(0);
             }
 
-            const Key& operator*() const { return const_cast< iterator& >(*this).operator*(); }
+            Key operator*() const { return const_cast< iterator& >(*this).operator*(); }
 
             iterator& operator++()
             {
-                key_.reset();
+                assert(result_ == SQLITE_ROW);
                 result_ = statement_.step();
                 rowid_ = result_ == SQLITE_ROW ? statement_.extract< uint64_t >(1) : 0;
                 return *this;
             }
             
+            int result() const { return result_; }
+
         private:
             sqlstl::statement_cache::statement statement_;
             uint64_t rowid_;
             int result_;
-            std::optional< Key > key_;
         };
         
         iterator begin(const std::string& name)
@@ -103,13 +112,11 @@ namespace sqlstl
             return iterator(std::move(stmt), result);
         }
 
-        template < typename K > std::pair< iterator, bool > insert(const std::string& name, K&& key)
+        template < typename K > bool insert(const std::string& name, K&& key)
         {
             auto stmt = insert_.acquire();
             auto result = stmt(name, key);
-            auto it = find(name, key);
-            assert(it != end(name));
-            return { std::move(it), result == SQLITE_DONE };
+            return result == SQLITE_DONE;
         }
 
         size_t size(const std::string& name) const

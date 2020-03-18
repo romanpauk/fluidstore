@@ -2,110 +2,16 @@
 
 #include <sqlstl/allocator.h>
 #include <sqlstl/storage/set.h>
+#include <sqlstl/iterator.h>
 
 namespace sqlstl
 {
     template < typename Key, typename Allocator > class set
     {
     public:
-        struct iterator
-        {
-            iterator(const iterator&) = delete;
-            iterator& operator = (const iterator&) = delete;
-
-            // insert variant
-            template < typename K > iterator(const set< Key, Allocator >* set, K&& key)
-                : set_(set)
-                , key_(std::forward< K >(key))
-            {}
-
-            // find variant
-            template < typename K > iterator(const set< Key, Allocator >* set, K&& key, typename set_storage< Key >::iterator&& it)
-                : it_(std::move(it))
-                , set_(set)
-                , key_(std::forward< K >(key))
-            {}
-
-            // begin / end variant
-            iterator(const set< Key, Allocator >* set, typename set_storage< Key >::iterator&& it)
-                : it_(std::move(it))
-                , set_(set)
-            {}
-
-            iterator(iterator&& other)
-                : it_(std::move(other.it_))
-                , set_(other.set_)
-                , key_(std::move(other.key_))
-            {}
-
-            const Key& operator*() const 
-            {
-                init_key();
-                return *key_;
-            }
-            
-            bool operator == (const iterator& other) const 
-            {
-                // We can have any combination out of those on both sides of ==:
-                //    uninitialized (SQLITE_OK), initailized (SQLITE_ROW) and end (SQLITE_END)
-                // Deal with trivial cases that do not need initialized iterator to compare
-
-                if (it_.result() == other.it_.result())
-                {
-                    if (it_.result() == SQLITE_DONE)
-                    {
-                        return true;
-                    }
-                }
-                else
-                {
-                    if (it_.result() == SQLITE_DONE || other.it_.result() == SQLITE_DONE)
-                    {
-                        return false;
-                    }
-                }
-                    
-                init_iterator();
-                other.init_iterator();
-                return it_ == other.it_;
-            }
-
-            bool operator != (const iterator& other) const 
-            {
-                return !(*this == other);
-            }
-
-            iterator& operator++() const 
-            {
-                init_iterator(); 
-                key_.reset();
-                ++it_; 
-                return const_cast<iterator&>(*this);
-            }
-            
-        private:
-            void init_iterator() const
-            {
-                if(it_.result() == SQLITE_OK)
-                {
-                    it_ = std::move(set_->storage_.find(set_->name_, key_));
-                }
-            }
-
-            void init_key() const
-            {
-                if(!key_)
-                {
-                    key_ = *it_;
-                }
-            }
-
-            const set< Key, Allocator >* set_;
-            mutable typename set_storage< Key >::iterator it_;
-            mutable std::optional< Key > key_;
-        };
-
+        typedef ::sqlstl::iterator< set< Key, Allocator >, typename set_storage< Key >::iterator > iterator;
         typedef iterator const_iterator;
+        typedef Key value_type;
 
         set(Allocator& allocator, const std::string& name)
             : storage_(allocator.template create_storage< set_storage< Key > >())
@@ -141,6 +47,8 @@ namespace sqlstl
 
         size_t size() const { return storage_.size(name_); }
         bool empty() const { return size() == 0; }
+
+        template < typename K > auto find_value(K&& key) const { return storage_.find(name_, std::forward< K >(key)); }
 
     private:
         set_storage< Key >& storage_;

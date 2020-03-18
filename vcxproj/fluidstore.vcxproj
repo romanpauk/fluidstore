@@ -41,6 +41,7 @@
     <ClInclude Include="..\include\crdt\value_mv.h" />
     <ClInclude Include="..\include\sqlstl\algorithm.h" />
     <ClInclude Include="..\include\sqlstl\allocator.h" />
+    <ClInclude Include="..\include\sqlstl\iterator.h" />
     <ClInclude Include="..\include\sqlstl\map.h" />
     <ClInclude Include="..\include\sqlstl\set.h" />
     <ClInclude Include="..\include\sqlstl\sqlite.h" />

@@ -18,7 +18,6 @@ namespace sqlstl
             iterator(iterator&& other)
                 : statement_(std::move(other.statement_))
                 , result_(other.result_)
-                , pair_(std::move(other.pair_))
                 , rowid_(other.rowid_)
             {}
 
@@ -28,34 +27,39 @@ namespace sqlstl
                 , rowid_(result == SQLITE_ROW ? statement_.extract< uint64_t >(2) : 0)
             {}
 
+            iterator& operator = (iterator&& other)
+            {
+                std::swap(statement_, other.statement_);
+                std::swap(result_, other.result_);
+                std::swap(rowid_, other.rowid_);
+                return *this;
+            }
+
             bool operator == (const iterator& other) const { return rowid_ == other.rowid_; }
             bool operator != (const iterator& other) const { return !(*this == other); }
 
-            auto& operator *()
+            std::pair< const Key, const Value > operator *()
             {
-                if (!pair_)
-                {
-                    pair_.emplace(statement_.extract< Key >(0), statement_.extract< Value >(1));
-                }
-
-                return *pair_;
+                assert(result_ == SQLITE_ROW);
+                return { statement_.extract< Key >(0), statement_.extract< Value >(1) };
             }
 
-            auto& operator ->() { return &this->operator*(); }
+            std::pair< const Key, const Value > operator *() const { return const_cast<iterator&>(*this).operator*(); }
 
             iterator& operator++()
             {
-                pair_.reset();
+                assert(result_ == SQLITE_ROW);
                 result_ = statement_.step();
                 rowid_ = result_ == SQLITE_ROW ? statement_.extract< uint64_t >(2) : 0;
                 return *this;
             }
 
+            int result() const { return result_; }
+
         private:
             sqlstl::statement_cache::statement statement_;
             uint64_t rowid_;
             int result_;
-            std::optional< std::pair< const Key, const Value > > pair_;
         };
 
         map_storage(sqlstl::db& db)
@@ -108,13 +112,11 @@ namespace sqlstl
             assert(stmt(std::forward< V >(value), name, std::forward< K >(key)) == SQLITE_DONE);
         }
 
-        template < typename K, typename V > std::pair< iterator, bool > insert(const std::string& name, K&& key, V&& value)
+        template < typename K, typename V > bool insert(const std::string& name, K&& key, V&& value)
         {
             auto stmt = insert_.acquire();
             auto result = stmt(name, std::forward< K >(key), std::forward< V >(value));
-            auto it = find(name, key);
-            assert(it != end(name));
-            return { std::move(it), result == SQLITE_DONE };
+            return result == SQLITE_DONE;
         }
 
         template < typename K > Value value(const std::string& name, K&& key)

@@ -48,7 +48,8 @@ namespace sqlstl
         size_t size() const { return storage_.size(name_); }
         bool empty() const { return size() == 0; }
 
-        template < typename K > auto find_value(K&& key) const { return storage_.find(name_, std::forward< K >(key)); }
+        template < typename K > auto get_storage_iterator(K&& key) const { return storage_.find(name_, std::forward< K >(key)); }
+        auto get_value_type(typename set_storage< Key >::iterator& it) const { return *it; }
 
     private:
         set_storage< Key >& storage_;

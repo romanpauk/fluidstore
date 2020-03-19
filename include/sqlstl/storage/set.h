@@ -9,28 +9,6 @@ namespace sqlstl
     template < typename Key > class set_storage : public storage
     {
     public:
-        set_storage(sqlstl::db& db)
-            : db_(db)
-            , create_table_(db.prepare(
-                "CREATE TABLE " + get_table_type() + "(" +
-                "name TEXT NOT NULL," +
-                "key " + type_traits< Key >::sqltype + "," +
-                "PRIMARY KEY(name, key)" +
-                ");"
-            ))
-            , begin_(db, "SELECT key, rowid FROM " + get_table_type() + " WHERE name=? ORDER BY key ASC;")
-            , find_(db, "SELECT key, rowid FROM " + get_table_type() + " WHERE name=? AND key>=? ORDER BY key ASC;")
-            , insert_(db, "INSERT INTO " + get_table_type() + " VALUES(?,?);")
-            , size_(db, "SELECT count(*) FROM " + get_table_type() + " WHERE name=?;")
-        {
-            create_table_();
-        }
-
-        static std::string get_table_type()
-        {
-            return "SET_" + type_traits< Key >::cpptype;
-        }
-
         struct iterator
         {
             iterator(const iterator&) = delete;
@@ -76,24 +54,46 @@ namespace sqlstl
                 return statement_.extract< Key >(0);
             }
 
-            Key operator*() const { return const_cast< iterator& >(*this).operator*(); }
+            Key operator*() const { return const_cast<iterator&>(*this).operator*(); }
 
-            iterator& operator++()
+            iterator& operator++() const
             {
                 assert(result_ == SQLITE_ROW);
                 result_ = statement_.step();
                 rowid_ = result_ == SQLITE_ROW ? statement_.extract< uint64_t >(1) : 0;
-                return *this;
+                return const_cast< iterator& >(*this);
             }
-            
+
             int result() const { return result_; }
 
         private:
-            sqlstl::statement_cache::statement statement_;
-            uint64_t rowid_;
-            int result_;
+            mutable sqlstl::statement_cache::statement statement_;
+            mutable uint64_t rowid_;
+            mutable int result_;
         };
-        
+
+        set_storage(sqlstl::db& db)
+            : db_(db)
+            , create_table_(db.prepare(
+                "CREATE TABLE " + get_table_type() + "(" +
+                "name TEXT NOT NULL," +
+                "key " + type_traits< Key >::sqltype + "," +
+                "PRIMARY KEY(name, key)" +
+                ");"
+            ))
+            , begin_(db, "SELECT key, rowid FROM " + get_table_type() + " WHERE name=? ORDER BY key ASC;")
+            , find_(db, "SELECT key, rowid FROM " + get_table_type() + " WHERE name=? AND key>=? ORDER BY key ASC;")
+            , insert_(db, "INSERT INTO " + get_table_type() + " VALUES(?,?);")
+            , size_(db, "SELECT count(*) FROM " + get_table_type() + " WHERE name=?;")
+        {
+            create_table_();
+        }
+
+        static std::string get_table_type()
+        {
+            return "SET_" + type_traits< Key >::cpptype;
+        }
+
         iterator begin(const std::string& name)
         {
             auto stmt = begin_.acquire();

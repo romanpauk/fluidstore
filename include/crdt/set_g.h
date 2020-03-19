@@ -20,7 +20,7 @@ namespace crdt
             bool operator == (const iterator_base< It >& other) const { return it_ == other.it_; }
             bool operator != (const iterator_base< It >& other) const { return it_ != other.it_; }
 
-            T operator*() const { return *it_; }
+            const T& operator*() const { return *it_; }
 
             iterator_base< It >& operator++() { ++it_; return *this; }
 

@@ -10,7 +10,7 @@ namespace sqlstl
         iterator& operator = (const iterator&) = delete;
 
         // Insert
-        template < typename V > iterator(const Container* container, typename V&& value)
+        template < typename V > iterator(const Container* container, V&& value)
             : container_(container)
             , value_(std::forward< V >(value))
         {}
@@ -42,13 +42,13 @@ namespace sqlstl
             return *this;
         }
 
-        const typename Container::value_type& operator*() const
+        typename Container::value_type& operator*() const
         {
             init_value();
             return *value_;
         }
 
-        const typename Container::value_type* operator->() const
+        typename Container::value_type* operator->() const
         {
             return &operator*();
         }
@@ -92,14 +92,12 @@ namespace sqlstl
             return const_cast<iterator&>(*this);
         }
 
-        int result() const { return it_.result(); }
-
     protected:
         void init_iterator() const
         {
             if (it_.result() == SQLITE_OK)
             {
-                it_ = std::move(container_->find_value(*value_));
+                it_ = std::move(container_->get_storage_iterator(*value_));
             }
         }
 
@@ -107,7 +105,7 @@ namespace sqlstl
         {
             if (!value_)
             {
-                value_.emplace(*it_);
+                value_.emplace(container_->get_value_type(it_));
             }
         }
 

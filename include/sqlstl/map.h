@@ -15,7 +15,8 @@ namespace sqlstl
     {
     public:
         typedef ::sqlstl::iterator< map_base< Key, Value, Allocator >, typename map_storage< Key, Value >::iterator > iterator;
-        typedef std::pair< const Key, const Value > value_type;
+        typedef iterator const_iterator;
+        typedef std::pair< const Key, Value > value_type;
 
         struct value_proxy
         {
@@ -60,10 +61,10 @@ namespace sqlstl
         template < typename K > iterator find(K&& key) { return { this, storage_.find(name_, std::forward< K >(key)) }; }
 
         iterator begin() { return { this, storage_.begin(name_) }; }
-        iterator begin() const { return { this, storage_.begin(name_) }; }
+        const_iterator begin() const { return { this, storage_.begin(name_) }; }
 
         iterator end() { return { this, storage_.end(name_) }; }
-        iterator end() const { return { this, storage_.end(name_) }; }
+        const_iterator end() const { return { this, storage_.end(name_) }; }
 
         template < typename K, typename V > std::pair< iterator, bool > emplace(K&& key, V&& value)
         {
@@ -98,49 +99,28 @@ namespace sqlstl
 
     template < typename Key, typename Value, typename Allocator > class map_base< Key, Value, Allocator, false > 
     {
+        typedef ::sqlstl::iterator< map_base< Key, Value, Allocator >, typename set< Key, Allocator >::iterator > iterator_base;
+
     public:
-        struct iterator
+        struct iterator: iterator_base 
         {
-            iterator(const iterator&) = delete;
-            iterator& operator = (const iterator&) = delete;
+            using iterator_base::iterator_base;
 
-            iterator(
-                map_base< Key, Value, Allocator >& map,
-                typename set< Key, Allocator >::iterator&& it
-            )
-                : it_(std::move(it))
-                , map_(map)
-            {}
+            auto& operator*() 
+            {
+                if (!this->value_) 
+                {
+                    this->value_.emplace(*this->it_, this->container_->get_value(*this->it_)); 
+                }
 
-            iterator(
-                map_base< Key, Value, Allocator >& map,
-                typename set< Key, Allocator >::iterator&& it,
-                Value&& value
-            )
-                : map_(map)
-                , it_(std::move(it))
-                , pair_(std::pair< const Key, Value >(*it_, std::move(value)))
-            {}
+                return *this->value_;
+            }
 
-            iterator(iterator&& other)
-                : map_(other.map_)
-                , it_(std::move(other.it_))
-                , pair_(std::move(other.pair_))
-            {}
-
-            auto& operator*() { if (!pair_) pair_.emplace(*it_, map_.get_value(*it_)); return *pair_; }
-            auto operator->() { return &this->operator*(); }
-
-            bool operator == (const iterator& other) const { return it_ == other.it_; }
-            bool operator != (const iterator& other) const { return it_ != other.it_; }
-
-            iterator& operator++() { pair_.reset(); ++it_; return *this; }
-
-        private:
-            map_base< Key, Value, Allocator >& map_;
-            typename set< Key, Allocator >::iterator it_;
-            std::optional< std::pair< const Key, Value > > pair_;
+            auto operator->() const { return &const_cast< iterator& >(*this).operator*(); }
         };
+
+        typedef iterator const_iterator;
+        typedef std::pair< const Key, Value > value_type;
 
         struct value_proxy
             : public Value
@@ -157,8 +137,6 @@ namespace sqlstl
             }
         };
 
-        typedef iterator const_iterator;
-
         map_base(Allocator& allocator, const std::string& name)
             : allocator_(allocator)
             , name_(name)
@@ -172,13 +150,18 @@ namespace sqlstl
             return value_proxy(std::move(value));
         }
 
-        template < typename K > iterator find(K&& key) { return iterator(*this, set_.find(std::forward< K >(key))); }
+        template < typename K > iterator find(K&& key) 
+        {
+            auto value = get_value(key);
+            auto it = set_.find(key);
+            return iterator(this, std::make_pair(std::forward< K >(key), std::move(value)), std::move(it));
+        }
 
-        iterator begin() { return iterator(*this, set_.begin()); }
-        iterator begin() const { return iterator(const_cast<map_base< Key, Value, Allocator >&>(*this), set_.begin()); }
+        iterator begin() { return { this, set_.begin() }; }
+        iterator begin() const { return { this, set_.begin() }; }
 
-        iterator end() { return iterator(*this, set_.end()); }
-        iterator end() const { return iterator(const_cast< map_base< Key, Value, Allocator >& >(*this), set_.end()); }
+        iterator end() { return { this, set_.end() }; }
+        iterator end() const { return { this, set_.end() }; }
 
         size_t size() const { return set_.size(); }
 
@@ -197,14 +180,22 @@ namespace sqlstl
 
         template < typename K > std::pair< iterator, bool > insert(K&& key)
         {
+            auto pairb = set_.insert(key);
             auto value = get_value(key);
-            auto pairb = set_.insert(std::forward< K >(key));
-            return std::make_pair(iterator(*this, std::move(pairb.first), std::move(value)), pairb.second);
+            
+            return std::make_pair(
+                iterator(this, std::make_pair(std::forward< K >(key), std::move(value)), std::move(pairb.first)),
+                pairb.second);
         }
 
-        template < typename K > Value get_value(K& key)
+        template < typename K > Value get_value(K&& key) const
         {
-            return Value(allocator_, name_ + ".value." + std::to_string(key));
+            return Value(allocator_, name_ + ".value." + std::to_string(std::forward< K >(key)));
+        }
+
+        auto find_value(const value_type& value) const
+        {
+            return set_.find(value.first);
         }
 
         Allocator& allocator_;

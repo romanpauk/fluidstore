@@ -40,6 +40,12 @@ template < typename Traits > void set_or_test_impl(typename Traits::Allocator& a
         assert(value == count);
     }
     assert(count == 1);
+
+    crdt::set_or< int, Traits > set2 = std::move(set);
+    assert(set2.size() == 1);
+
+    typename crdt::set_or< int, Traits >::set_or_tags tags(allocator, "tags");
+    std::optional< std::pair< int, typename crdt::set_or< int, Traits >::set_or_tags > > tagsopt(std::make_pair(1, std::move(tags)));
 }
 
 void set_or_test()

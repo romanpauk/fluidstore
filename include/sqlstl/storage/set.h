@@ -105,7 +105,7 @@ namespace sqlstl
         
         iterator end(const std::string& name) const { return iterator(statement_cache::null_statement(), SQLITE_DONE); }
 
-        template < typename K > iterator find(const std::string& name, K&& key)
+        template < typename K > iterator find(const std::string& name, K&& key) const
         {
             auto stmt = find_.acquire();
             auto result = stmt(name, std::forward< K >(key));
@@ -129,7 +129,7 @@ namespace sqlstl
     private:
         sqlstl::db& db_;
         sqlstl::statement create_table_;
-        sqlstl::statement_cache begin_, find_, insert_;
-        mutable sqlstl::statement_cache size_;
+        sqlstl::statement_cache begin_, insert_;
+        mutable sqlstl::statement_cache size_, find_;
     };
 }

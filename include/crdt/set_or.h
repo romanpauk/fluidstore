@@ -8,6 +8,7 @@ namespace crdt
 {
     template < typename T, typename Traits > class set_or
     {
+    public:
         typedef uint64_t Tag;
 
         struct set_or_tags
@@ -16,6 +17,17 @@ namespace crdt
                 : added(allocator, name + ".added")
                 , removed(allocator, name + ".removed")
             {}
+
+            set_or_tags(set_or_tags&& other)
+                : added(std::move(other.added))
+                , removed(std::move(other.removed))
+            {}
+
+            set_or_tags& operator = (set_or_tags&& other)
+            {
+                std::swap(added, other.added);
+                std::swap(removed, other.removed);
+            }
 
             set_g< Tag, Traits > added;
             set_g< Tag, Traits > removed;
@@ -60,7 +72,12 @@ namespace crdt
             : values_(allocator.template create_container< typename Traits::template Map< T, set_or_tags, typename Traits::Allocator > >(name))
             , name_(name)
             , allocator_(allocator)
-            , empty_tags_(allocator, "none")
+        {}
+
+        set_or(set_or&& other)
+            : values_(std::move(other.values_))
+            , name_(std::move(other.name_))
+            , allocator_(allocator_)
         {}
 
         typedef iterator_base< typename Traits::template Map< T, set_or_tags, typename Traits::Allocator >::iterator > iterator;
@@ -82,9 +99,10 @@ namespace crdt
         
         template < typename K > std::pair< iterator, bool > insert(K&& value)
         {
-            auto it = values_.emplace(std::forward< K >(value), empty_tags_);
-            it.first->second.added.insert(get_tag());
-            return { iterator(*this, std::move(it.first)), it.second };
+            const std::string& name = name_ + ".value." + std::to_string(value);
+            auto pairb = values_.emplace(std::forward< K >(value), set_or_tags(allocator_, name));
+            pairb.first->second.added.insert(get_tag());
+            return { iterator(*this, std::move(pairb.first)), pairb.second };
         }
 
         template < typename K > void erase(K&& key)
@@ -177,6 +195,5 @@ namespace crdt
         typename Traits::Allocator& allocator_;
         typename Traits::template Map< T, set_or_tags, typename Traits::Allocator > values_;
         std::string name_;
-        const set_or_tags empty_tags_;
     };
 }

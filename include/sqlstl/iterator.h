@@ -1,5 +1,7 @@
 #pragma once
 
+#include <utility>
+
 namespace sqlstl
 {
     template < typename Container, typename StorageIterator > struct iterator
@@ -31,6 +33,14 @@ namespace sqlstl
             , value_(std::move(other.value_))
             , it_(std::move(other.it_))
         {}
+
+        iterator& operator = (iterator&& other)
+        {
+            std::swap(container_, other.container_);
+            std::swap(value_, other.value_);
+            std::swap(it_, other.it_);
+            return *this;
+        }
 
         const typename Container::value_type& operator*() const
         {
@@ -81,6 +91,8 @@ namespace sqlstl
             ++it_;
             return const_cast<iterator&>(*this);
         }
+
+        int result() const { return it_.result(); }
 
     protected:
         void init_iterator() const

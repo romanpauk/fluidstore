@@ -18,7 +18,7 @@ namespace sqlstl
             , name_(name)
         {}
 
-        template < typename K > iterator find(K&& key) 
+        template < typename K > iterator find(K&& key) const
         {
             auto it = storage_.find(name_, key);
             return { this, std::forward< K >(key), std::move(it) };

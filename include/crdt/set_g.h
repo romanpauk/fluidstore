@@ -36,6 +36,10 @@ namespace crdt
             : values_(allocator.template create_container< typename Traits::template Set< T, typename Traits::Allocator > >(name))
         {}
 
+        set_g(set_g&& other)
+            : values_(std::move(other.values_))
+        {}
+
         iterator begin() { return values_.begin(); }
         const_iterator begin() const { return values_.begin(); }
 

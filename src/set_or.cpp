@@ -1,9 +1,9 @@
 #include <crdt/set_or.h>
 #include <crdt/traits.h>
 
-template < typename Traits > void set_or_test_impl(typename Traits::Allocator& allocator)
+template < typename Traits, typename Allocator > void set_or_test_impl(typename Allocator allocator)
 {
-    crdt::set_or< int, Traits > set(allocator, "set");
+    crdt::set_or< int, Traits > set(Allocator(allocator, "set"));
     assert(set.size() == 0);
     {
         auto it = set.insert(1);
@@ -44,7 +44,7 @@ template < typename Traits > void set_or_test_impl(typename Traits::Allocator& a
     crdt::set_or< int, Traits > set2 = std::move(set);
     assert(set2.size() == 1);
 
-    typename crdt::set_or< int, Traits >::set_or_tags tags(allocator, "tags");
+    typename crdt::set_or< int, Traits >::set_or_tags tags(Allocator(allocator, "tags"));
     std::optional< std::pair< int, typename crdt::set_or< int, Traits >::set_or_tags > > tagsopt(std::make_pair(1, std::move(tags)));
 }
 
@@ -52,13 +52,13 @@ void set_or_test()
 {
     {
         sqlstl::db db(":memory:");
-        sqlstl::allocator allocator(db);
+        sqlstl::factory factory(db);
 
-        set_or_test_impl< crdt::traits< crdt::sqlite > >(allocator);
+        set_or_test_impl< crdt::traits< crdt::sqlite > >(sqlstl::allocator<void>(factory));
     }
 
     {
-        crdt::allocator allocator;
+        crdt::allocator<void> allocator;
         set_or_test_impl< crdt::traits< crdt::memory > >(allocator);
     }
 }

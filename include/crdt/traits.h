@@ -1,4 +1,4 @@
-#pragma once
+ #pragma once
 
 #include <sqlstl/allocator.h>
 #include <sqlstl/set.h>
@@ -17,17 +17,17 @@ namespace crdt
 
     template <> struct traits< memory >
     {
-        template < typename T, typename Allocator > using Set = std::set< T >;
-        template < typename K, typename V, typename Allocator > using Map = std::map< K, V >;
+        template < typename T > using Allocator = allocator< T >;
+        template < typename T > using Set = std::set< T, std::less< T >, Allocator< T > >;
+        template < typename K, typename V > using Map = std::map< K, V, std::less< K >, Allocator< std::pair< const K, V > > >;
         template < typename Allocator, typename... Args > using Tuple = std::tuple< Args... >;
-        using Allocator = allocator;
     };
 
     template <> struct traits< sqlite >
     {
-        template < typename T, typename Allocator > using Set = sqlstl::set< T, Allocator >;
-        template < typename K, typename V, typename Allocator > using Map = sqlstl::map< K, V, Allocator >;
-        template < typename Allocator, typename... Args > using Tuple = sqlstl::tuple< Allocator, Args... >;
-        using Allocator = sqlstl::allocator;
+        template < typename T > using Allocator = sqlstl::allocator< T >;
+        template < typename T > using Set = sqlstl::set< T, Allocator< T > >;
+        template < typename K, typename V > using Map = sqlstl::map< K, V, Allocator< void > >;
+        template < typename... Args > using Tuple = sqlstl::tuple< Allocator< void >, Args... >;
     };
 }

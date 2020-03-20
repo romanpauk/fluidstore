@@ -7,8 +7,8 @@ namespace crdt
     template < typename T, typename Traits > class value_lww
     {
     public:
-        value_lww(typename Traits::Allocator& allocator = allocator::static_allocator(), const std::string& name = "")
-            : value_(allocator.template create_container< typename Traits::template Tuple< typename Traits::Allocator, uint64_t, T > >(name))
+        template< typename Allocator > value_lww(Allocator&& allocator)
+            : value_(allocator)
         {}
 
         operator T() 
@@ -31,6 +31,6 @@ namespace crdt
         }
 
     private:
-        typename Traits::template Tuple< typename Traits::Allocator, uint64_t, T > value_;
+        typename Traits::template Tuple< uint64_t, T > value_;
     };
 }

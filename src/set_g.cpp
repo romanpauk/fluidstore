@@ -1,9 +1,9 @@
 #include <crdt/set_g.h>
 #include <crdt/traits.h>
 
-template < typename Traits > void set_g_test_impl(typename Traits::Allocator& allocator)
+template < typename Traits, typename Allocator > void set_g_test_impl(typename Allocator allocator)
 {
-    crdt::set_g< int, Traits > set(allocator, "set");
+    crdt::set_g< int, Traits > set(Allocator(allocator, "set"));
     assert(set.size() == 0);
     {
         auto it = set.insert(1);
@@ -43,13 +43,13 @@ void set_g_test()
 {
     {
         sqlstl::db db(":memory:");
-        sqlstl::allocator allocator(db);
+        sqlstl::factory factory(db);
 
-        set_g_test_impl< crdt::traits< crdt::sqlite > >(allocator);
+        set_g_test_impl< crdt::traits< crdt::sqlite > >(sqlstl::allocator<void>(factory));
     }
 
     {
-        crdt::allocator allocator;
+        crdt::allocator<void> allocator;
         set_g_test_impl< crdt::traits< crdt::memory > >(allocator);
     }
 }

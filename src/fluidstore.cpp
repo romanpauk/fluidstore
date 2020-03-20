@@ -39,7 +39,7 @@ void counter_pn_test();
 int main()
 {
     sqlstl::db db(":memory:");
-    sqlstl::allocator allocator(db);
+    sqlstl::factory factory(db);
 
     set_test();
     map_test();
@@ -56,8 +56,8 @@ int main()
         crdt::counter_pn< int, int,
             crdt::traits< crdt::sqlite >
         >,
-        sqlstl::allocator
-    > mapcounterg(allocator, "MapCounterG");
+        sqlstl::allocator<void>
+    > mapcounterg(sqlstl::allocator<void>(factory, "MapCounterG"));
 
     mapcounterg[1].add(1, 4);
     mapcounterg[1].add(2, 4);
@@ -69,16 +69,18 @@ int main()
         crdt::set_g< int,
             crdt::traits< crdt::sqlite >
         >,
-        sqlstl::allocator
-    > mapsetg(allocator, "MapSetG");
+        sqlstl::allocator<void>
+    > mapsetg(sqlstl::allocator<void>(factory, "MapSetG"));
 
     mapsetg[1].insert(1);
     mapsetg[1].insert(2);
     assert(mapsetg[0].size() == 0);
     assert(mapsetg[1].size() == 2);
 
-    crdt::map_g< int, crdt::set_g< int, crdt::traits< crdt::sqlite > >, crdt::traits< crdt::sqlite > > mapg1(allocator, "CrdtMapG1");
-    crdt::map_g< int, crdt::set_g< int, crdt::traits< crdt::sqlite > >, crdt::traits< crdt::sqlite > > mapg2(allocator, "CrdtMapG2");
+    crdt::map_g< int, crdt::set_g< int, crdt::traits< crdt::sqlite > >, crdt::traits< crdt::sqlite > > mapg1(
+        sqlstl::allocator<void>(factory, "CrdtMapG1"));
+    crdt::map_g< int, crdt::set_g< int, crdt::traits< crdt::sqlite > >, crdt::traits< crdt::sqlite > > mapg2(
+        sqlstl::allocator<void>(factory, "CrdtMapG2"));
 
     mapg1[1].insert(1);
     mapg1[1].insert(2);

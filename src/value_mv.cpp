@@ -1,9 +1,9 @@
 #include <crdt/value_mv.h>
 #include <crdt/traits.h>
 
-template < typename Traits > void value_mv_test_impl(typename Traits::Allocator& allocator)
+template < typename Traits, typename Allocator > void value_mv_test_impl(typename Allocator allocator)
 {
-    crdt::value_mv< int, Traits > value(allocator, "value");
+    crdt::value_mv< int, Traits > value(Allocator(allocator, "value_mv"));
     value = 1;
     assert(value == 1);
     value = 2;
@@ -14,13 +14,13 @@ void value_mv_test()
 {
     {
         sqlstl::db db(":memory:");
-        sqlstl::allocator allocator(db);
+        sqlstl::factory factory(db);
 
-        value_mv_test_impl< crdt::traits< crdt::sqlite > >(allocator);
+        value_mv_test_impl< crdt::traits< crdt::sqlite > >(sqlstl::allocator< void >(factory));
     }
 
     {
-        crdt::allocator allocator;
+        crdt::allocator<void> allocator;
         value_mv_test_impl< crdt::traits< crdt::memory > >(allocator);
     }
 }

@@ -6,6 +6,8 @@ namespace crdt
 
     template < typename Key, typename Value, typename Traits > class map_g_base< Key, Value, Traits, false >
     {
+        typedef typename Traits::template Allocator<void> allocator_type;
+
         template < typename It > struct iterator_base
         {
             iterator_base(const iterator_base< It >&) = delete;
@@ -69,10 +71,9 @@ namespace crdt
             }
         };
 
-        map_g_base(typename Traits::Allocator& allocator, const std::string& name)
+        template < typename Allocator > map_g_base(Allocator&& allocator)
             : allocator_(allocator)
-            , set_(allocator, name)
-            , name_(name)
+            , set_(allocator)
         {}
 
         iterator begin() { return iterator(*this, set_.begin()); }
@@ -128,20 +129,19 @@ namespace crdt
 
         template < typename K > Value get_value(K&& key) const
         {
-            return Value(allocator_, name_ + ".value." + std::to_string(key));
+            return Value(allocator_type(allocator_, std::to_string(key)));
         }
 
-        typename Traits::Allocator& allocator_;
+        typename Traits::template Allocator<void>& allocator_;
         set_g< Key, Traits > set_;
-        std::string name_;
     };
 
     template < typename Key, typename Value, typename Traits > class map_g
         : public map_g_base< Key, Value, Traits >
     {
     public:
-        map_g(typename Traits::Allocator& allocator = allocator::static_allocator(), const std::string& name = "")
-            : map_g_base< Key, Value, Traits >(allocator, name)
+        template < typename Allocator > map_g(Allocator&& allocator)
+            : map_g_base< Key, Value, Traits >(allocator)
         {}
     };
 }

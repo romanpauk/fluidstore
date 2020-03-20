@@ -13,9 +13,9 @@ namespace crdt
 
         struct set_or_tags
         {
-            set_or_tags(typename Traits::Allocator& allocator = allocator::static_allocator(), const std::string& name = "")
-                : added(allocator, name + ".added")
-                , removed(allocator, name + ".removed")
+            template < typename Allocator > set_or_tags(Allocator&& allocator)
+                : added(Allocator(allocator, "added"))
+                , removed(Allocator(allocator, "removed"))
             {}
 
             set_or_tags(set_or_tags&& other)
@@ -67,21 +67,21 @@ namespace crdt
             typename It it_;
         };
 
+        typedef typename Traits::template Map< T, set_or_tags >::allocator_type allocator_type;
+
     public:
-        set_or(typename Traits::Allocator& allocator = allocator::static_allocator(), const std::string& name = "")
-            : values_(allocator.template create_container< typename Traits::template Map< T, set_or_tags, typename Traits::Allocator > >(name))
-            , name_(name)
+        template < typename Allocator > set_or(Allocator&& allocator)
+            : values_(allocator_type(allocator, "values"))
             , allocator_(allocator)
         {}
 
         set_or(set_or&& other)
             : values_(std::move(other.values_))
-            , name_(std::move(other.name_))
             , allocator_(allocator_)
         {}
 
-        typedef iterator_base< typename Traits::template Map< T, set_or_tags, typename Traits::Allocator >::iterator > iterator;
-        typedef iterator_base< typename Traits::template Map< T, set_or_tags, typename Traits::Allocator >::const_iterator > const_iterator;
+        typedef iterator_base< typename Traits::template Map< T, set_or_tags >::iterator > iterator;
+        typedef iterator_base< typename Traits::template Map< T, set_or_tags >::const_iterator > const_iterator;
 
         iterator begin() { return {*this, advance(values_.begin())}; }
         const_iterator begin() const { return {*this, advance(values_.begin())}; }
@@ -99,8 +99,10 @@ namespace crdt
         
         template < typename K > std::pair< iterator, bool > insert(K&& value)
         {
-            const std::string& name = name_ + ".value." + std::to_string(value);
-            auto pairb = values_.emplace(std::forward< K >(value), set_or_tags(allocator_, name));
+            auto pairb = values_.emplace(
+                std::forward< K >(value), 
+                set_or_tags(typename Traits::template Allocator< void >(allocator_, std::to_string(value))));
+
             pairb.first->second.added.insert(get_tag());
             return { iterator(*this, std::move(pairb.first)), pairb.second };
         }
@@ -192,8 +194,7 @@ namespace crdt
         }
 
     public:
-        typename Traits::Allocator& allocator_;
-        typename Traits::template Map< T, set_or_tags, typename Traits::Allocator > values_;
-        std::string name_;
+        typename Traits::template Allocator< void >& allocator_;
+        typename Traits::template Map< T, set_or_tags > values_;
     };
 }

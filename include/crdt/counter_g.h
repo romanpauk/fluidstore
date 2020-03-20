@@ -8,9 +8,11 @@ namespace crdt
 {
     template < typename T, typename Node, typename Traits > class counter_g
     {
+        typedef typename Traits::template Map< Node, T > container_type;
+        typedef typename container_type::allocator_type allocator_type;
     public:
-        counter_g(typename Traits::Allocator& allocator = allocator::static_allocator(), const std::string& name = "")
-            : values_(allocator.create_container< typename Traits::template Map< Node, T, typename Traits::Allocator > >(name))
+        template < typename Allocator > counter_g(Allocator&& allocator)
+            : values_(allocator_type(allocator, "values"))
         {}
 
         void add(const Node& node, T value)
@@ -50,6 +52,6 @@ namespace crdt
         }
 
         // private:
-        typename Traits::template Map< Node, T, typename Traits::Allocator > values_;
+        typename Traits::template Map< Node, T > values_;
     };
 }

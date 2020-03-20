@@ -4,33 +4,28 @@
 
 namespace sqlstl
 {
-    template < typename Allocator, typename... Args > class tuple
+    template < typename... Args > class tuple
     {
     public:
-        tuple(Allocator& allocator, const std::string& name)
+        template < typename Allocator > tuple(Allocator&& allocator)
             : storage_(allocator.template create_storage< tuple_storage< Args... > >())
-            , name_(name)
+            , allocator_(allocator)
         {}
 
-        template < typename... V > tuple< Allocator, Args... >& operator = (std::tuple< V... >&& v)
+        template < typename... V > tuple< Args... >& operator = (std::tuple< V... >&& v)
         {
-            storage_.replace(name_, std::forward< std::tuple< V... > >(v));
+            storage_.replace(allocator_.get_name(), std::forward< std::tuple< V... > >(v));
             return *this;
         }
 
         std::tuple< Args... > value()
         {
-            return storage_.value(name_);
+            return storage_.value(allocator_.get_name());
         }
 
     private:
         tuple_storage< Args... >& storage_;
-        std::string name_;
-    };
-
-    template < typename Allocator, typename... Args > struct container_traits< tuple< Allocator, Args... > >
-    {
-        static const bool has_storage_type = true;
+        allocator< void > allocator_;
     };
 }
 

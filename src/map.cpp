@@ -5,8 +5,8 @@
 void map_test()
 {
     sqlstl::db db(":memory:");
-    sqlstl::allocator allocator(db);
-    sqlstl::map< int, int, sqlstl::allocator > map(allocator, "Map");
+    sqlstl::factory factory(db);
+    sqlstl::map< int, int, sqlstl::allocator< std::pair< const int, int > > > map(sqlstl::allocator<void>(factory, "Map"));
 
     assert(map.size() == 0);
 
@@ -38,6 +38,7 @@ void map_test()
         assert(count == 2);
     }
 
+/*
     sqlstl::map< int, sqlstl::map< int, int, sqlstl::allocator >, sqlstl::allocator > nested(allocator, "Map2");
     nested[1][10] = 100;
     nested[2][20] = 200;
@@ -51,5 +52,5 @@ void map_test()
         }
         assert(count == 2);
     }
-
+*/
 }

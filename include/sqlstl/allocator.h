@@ -9,31 +9,12 @@
 
 namespace sqlstl
 {
-    template < typename Container > struct container_traits { static const bool has_storage_type = false; };
-
-    class allocator
+    class factory
     {
     public:
-        allocator(sqlstl::db& db)
+        factory(sqlstl::db& db)
             : db_(db)
         {}
-
-        template < typename Container > Container create_container()
-        {
-            return Container();
-        }
-
-        template < typename Container > Container create_container(const std::string& name)
-        {
-            if constexpr (container_traits< Container >::has_storage_type)
-            {
-                return Container(*this, name);
-            }
-            else
-            {
-                return Container();
-            }
-        }
 
         template < typename Storage > Storage& create_storage()
         {
@@ -49,5 +30,38 @@ namespace sqlstl
     private:
         sqlstl::db& db_;
         std::map< std::type_index, std::unique_ptr< storage > > storages_;
+    };
+
+    template < typename T > class allocator
+    {
+    public:
+        typedef T value_type;
+
+        allocator(factory& factory)
+            : factory_(factory)
+        {}
+
+        allocator(factory& factory, const std::string& name)
+            : factory_(factory)
+            , name_(name)
+        {}
+
+        template < typename Allocator > allocator(Allocator&& allocator)
+            : factory_(allocator.factory_)
+            , name_(allocator.name_)
+        {}
+
+        template < typename Allocator > allocator(Allocator&& allocator, const std::string& name)
+            : factory_(allocator.factory_)
+            , name_(allocator.name_ + "." + name)
+        {}
+        
+        template < typename Storage > Storage& create_storage() { return factory_.create_storage< Storage >(); }
+
+        const std::string& get_name() const { return name_; }
+
+    // private:
+        factory& factory_;
+        std::string name_;
     };
 }

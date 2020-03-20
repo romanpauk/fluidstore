@@ -4,14 +4,13 @@
 
 namespace crdt
 {
-    class allocator
+    template < typename T > class allocator
+        : public std::allocator< T >
     {
     public:
-        template < typename Container > Container create_container(const std::string&)
-        {
-            return Container();
-        }
+        typedef T value_type;
 
-        static allocator& static_allocator() { static allocator al; return al; }
+        allocator() {}
+        template < typename Allocator > allocator(Allocator&&, const std::string&) {}
     };
 }

@@ -8,9 +8,9 @@ namespace crdt
     template < typename T, typename Node, typename Traits > class counter_pn
     {
     public:
-        counter_pn(typename Traits::Allocator& allocator = allocator::static_allocator(), const std::string& name = "")
-            : inc_(allocator, name + ".inc")
-            , dec_(allocator, name + ".dec")
+        template < typename Allocator > counter_pn(Allocator&& allocator)
+            : inc_(Allocator(allocator, "inc"))
+            , dec_(Allocator(allocator, "dec"))
         {}
 
         void add(const Node& node, T value)

@@ -7,8 +7,8 @@ namespace crdt
     template < typename T, typename Traits > class value_mv
     {
     public:
-        value_mv(typename Traits::Allocator& allocator = allocator::static_allocator(), const std::string& name = "")
-            : values_(allocator, name)
+        template < typename Allocator > value_mv(Allocator&& allocator)
+            : values_(allocator)
         {}
 
         operator T()

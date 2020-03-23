@@ -35,8 +35,8 @@ namespace crdt
         typedef iterator_base< typename container_type::iterator > iterator;
         typedef iterator_base< typename container_type::const_iterator > const_iterator;
 
-        template < typename Alloc > set_g(Alloc&& allocator)
-            : values_(allocator_type(typename Traits::template Allocator<void>(allocator, "values")))
+        template < typename Allocator > set_g(Allocator&& allocator)
+            : values_(allocator_type(std::forward< Allocator >(allocator), "values"))
         {}
 
         set_g(set_g&& other)

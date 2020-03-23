@@ -33,7 +33,6 @@
   <ItemGroup>
     <ClInclude Include="..\include\crdt\counter_g.h" />
     <ClInclude Include="..\include\crdt\counter_pn.h" />
-    <ClInclude Include="..\include\crdt\allocator.h" />
     <ClInclude Include="..\include\crdt\map_g.h" />
     <ClInclude Include="..\include\crdt\set_g.h" />
     <ClInclude Include="..\include\crdt\set_or.h" />

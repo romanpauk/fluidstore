@@ -89,9 +89,6 @@
     <ClInclude Include="..\include\sqlstl\allocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\crdt\allocator.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\sqlstl\tuple.h">
       <Filter>Header Files</Filter>
     </ClInclude>

@@ -60,7 +60,7 @@ namespace crdt
         
         template < typename Allocator > map_g_base(Allocator&& allocator)
             : allocator_(std::forward< Allocator >(allocator))
-            , values_(allocator_)
+            , values_(allocator_type(allocator_))
         {}
 
         iterator begin() { return iterator(*this, values_.begin()); }

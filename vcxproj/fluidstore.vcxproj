@@ -23,6 +23,7 @@
     <ClCompile Include="..\src\counter_pn.cpp" />
     <ClCompile Include="..\src\fluidstore.cpp" />
     <ClCompile Include="..\src\map.cpp" />
+    <ClCompile Include="..\src\map_g.cpp" />
     <ClCompile Include="..\src\set.cpp" />
     <ClCompile Include="..\src\set_g.cpp" />
     <ClCompile Include="..\src\set_or.cpp" />

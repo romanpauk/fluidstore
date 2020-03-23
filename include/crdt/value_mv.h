@@ -7,8 +7,10 @@ namespace crdt
     template < typename T, typename Traits > class value_mv
     {
     public:
+        typedef typename Traits::template Allocator< void > allocator_type;
+
         template < typename Allocator > value_mv(Allocator&& allocator)
-            : values_(allocator)
+            : values_(std::forward< Allocator >(allocator))
         {}
 
         operator T()

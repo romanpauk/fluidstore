@@ -8,8 +8,8 @@ namespace sqlstl
     {
     public:
         template < typename Allocator > tuple(Allocator&& allocator)
-            : storage_(allocator.template create_storage< tuple_storage< Args... > >())
-            , allocator_(allocator)
+            : allocator_(std::forward< Allocator >(allocator))
+            , storage_(allocator_.template create_storage< tuple_storage< Args... > >())
         {}
 
         template < typename... V > tuple< Args... >& operator = (std::tuple< V... >&& v)
@@ -24,8 +24,8 @@ namespace sqlstl
         }
 
     private:
-        tuple_storage< Args... >& storage_;
         allocator< void > allocator_;
+        tuple_storage< Args... >& storage_;
     };
 }
 

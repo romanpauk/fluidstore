@@ -35,6 +35,7 @@ void set_or_test();
 void value_mv_test();
 void counter_g_test();
 void counter_pn_test();
+void map_g_test();
 
 int main()
 {
@@ -49,6 +50,7 @@ int main()
     set_g_test();
     set_or_test();
     value_mv_test();
+    map_g_test();
 
     // Sql-based map of delta-counters that themselves are sql-based.
     sqlstl::map< 
@@ -82,10 +84,10 @@ int main()
     crdt::map_g< int, crdt::set_g< int, crdt::traits< crdt::sqlite > >, crdt::traits< crdt::sqlite > > mapg2(
         sqlstl::allocator<void>(factory, "CrdtMapG2"));
 
-    mapg1[1].insert(1);
-    mapg1[1].insert(2);
-    mapg2[1].insert(3);
-    mapg2[2].insert(1);
-    mapg1.merge(mapg2);
-    assert(mapg1[1].size() == 3);
+    //mapg1[1].insert(1);
+    //mapg1[1].insert(2);
+    //mapg2[1].insert(3);
+    //mapg2[2].insert(1);
+    //mapg1.merge(mapg2);
+    //assert(mapg1[1].size() == 3);
 } 

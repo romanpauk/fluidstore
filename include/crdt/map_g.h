@@ -1,13 +1,19 @@
 #pragma once
 
+#include <crdt/set_g.h>
+
+#include <type_traits>
+#include <optional>
+
 namespace crdt
 {
     template < typename Key, typename Value, typename Traits, bool IsStandardLayout = std::is_standard_layout_v< Value > > class map_g_base;
 
     template < typename Key, typename Value, typename Traits > class map_g_base< Key, Value, Traits, false >
     {
-        typedef typename Traits::template Allocator<void> allocator_type;
-
+        typedef typename Traits::template Map< Key, Value > container_type;
+        typedef typename container_type::allocator_type allocator_type;
+        
         template < typename It > struct iterator_base
         {
             iterator_base(const iterator_base< It >&) = delete;
@@ -28,16 +34,14 @@ namespace crdt
             )
                 : map_(map)
                 , it_(std::move(it))
-                , pair_(std::pair< const Key, Value >(*it_, std::move(value)))
             {}
 
             iterator_base(iterator_base< It >&& other)
                 : map_(other.map_)
                 , it_(std::move(other.it_))
-                , pair_(std::move(other.pair_))
             {}
 
-            auto& operator*() { if (!pair_) pair_.emplace(*it_, map_.get_value(*it_)); return *pair_; }
+            auto& operator*() { return *it_; }
             auto operator->() { return &this->operator*(); }
 
             bool operator == (const iterator_base< It >& other) const { return it_ == other.it_; }
@@ -48,70 +52,37 @@ namespace crdt
         private:
             map_g_base< Key, Value, Traits >& map_;
             typename It it_;
-            std::optional< std::pair< const Key, Value > > pair_;
         };
 
     public:
-        typedef iterator_base< typename set_g< Key, Traits >::iterator > iterator;
-        typedef iterator_base< typename set_g< Key, Traits >::const_iterator > const_iterator;
-
-        struct value_proxy
-            : public Value
-        {
-            value_proxy(Value&& value)
-                : Value(std::move(value))
-            {}
-
-            template < typename V > value_proxy& operator = (V&& value)
-            {
-                Value::operator = (std::move(value));
-                // TODO: Assignment means V is part of this map now, all its fields need to be renamed.
-                // std::abort();
-                return *this;
-            }
-        };
-
+        typedef iterator_base< typename container_type::iterator > iterator;
+        typedef iterator_base< typename container_type::const_iterator > const_iterator;
+        
         template < typename Allocator > map_g_base(Allocator&& allocator)
-            : allocator_(allocator)
-            , set_(allocator)
+            : allocator_(std::forward< Allocator >(allocator))
+            , values_(allocator_)
         {}
 
-        iterator begin() { return iterator(*this, set_.begin()); }
-        const_iterator begin() const { return const_iterator(const_cast< map_g_base< Key, Value, Traits >& >(*this), set_.begin()); }
+        iterator begin() { return iterator(*this, values_.begin()); }
+        const_iterator begin() const { return const_iterator(const_cast< map_g_base< Key, Value, Traits >& >(*this), values_.begin()); }
 
-        iterator end() { return iterator(*this, set_.end()); }
-        const_iterator end() const { return const_iterator(const_cast< map_g_base< Key, Value, Traits >& >(*this), set_.end()); }
+        iterator end() { return iterator(*this, values_.end()); }
+        const_iterator end() const { return const_iterator(const_cast< map_g_base< Key, Value, Traits >& >(*this), values_.end()); }
 
-        size_t size() const { return set_.size(); }
+        size_t size() const { return values_.size(); }
 
-        template < typename K > value_proxy operator[](K&& key)
+        template < typename K > auto operator[](K&& key) -> decltype(this->values_.operator[](std::forward< K >(key)))
         {
-            auto value = get_value(key);
-            set_.insert(std::forward< K >(key));
-            return value_proxy(std::move(value));
+            return values_.operator[](std::forward< K >(key));
         }
 
         template < typename K, typename V > std::pair< iterator, bool > emplace(K&& key, V&& value)
         {
-            auto pairb = insert(std::forward< K >(key));
-
-            if (pairb.second)
-            {
-                // TODO: copy values
-                // v = std::move(value);                
-            }
-
+            auto pairb = values_.emplace(std::forward< K >(key), std::forward< V >(value));
             return pairb;
         }
 
-        template < typename K > std::pair< iterator, bool > insert(K&& key)
-        {
-            auto value = get_value(key);
-            auto pairb = set_.insert(std::forward< K >(key));
-            return std::make_pair(iterator(*this, std::move(pairb.first), std::move(value)), pairb.second);
-        }
-
-        template < typename K > iterator find(K&& key) { return iterator(*this, set_.find(std::forward< K >(key))); }
+        template < typename K > iterator find(K&& key) { return iterator(*this, values_.find(std::forward< K >(key))); }
 
         template < typename Map > void merge(const Map& other)
         {
@@ -121,10 +92,10 @@ namespace crdt
             }
         }
 
-        template < typename K, typename V > void merge(K&& k, V&& v)
+        template < typename K, typename V > void merge(K&& key, V&& value)
         {
-            auto pairb = insert(std::forward< K >(k));
-            pairb.first->second.merge(std::forward< V >(v));
+            auto pairb = values_.emplace(std::forward< K >(key), value);
+            pairb.first->second.merge(std::forward< V >(value));
         }
 
         template < typename K > Value get_value(K&& key) const
@@ -132,8 +103,8 @@ namespace crdt
             return Value(allocator_type(allocator_, std::to_string(key)));
         }
 
-        typename Traits::template Allocator<void>& allocator_;
-        set_g< Key, Traits > set_;
+        allocator_type allocator_;
+        container_type values_;
     };
 
     template < typename Key, typename Value, typename Traits > class map_g
@@ -141,7 +112,7 @@ namespace crdt
     {
     public:
         template < typename Allocator > map_g(Allocator&& allocator)
-            : map_g_base< Key, Value, Traits >(allocator)
+            : map_g_base< Key, Value, Traits >(std::forward< Allocator >(allocator))
         {}
     };
 }

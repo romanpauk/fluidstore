@@ -67,17 +67,18 @@ namespace crdt
             typename It it_;
         };
 
-        typedef typename Traits::template Map< T, set_or_tags >::allocator_type allocator_type;
+        typedef typename Traits::template Map< T, set_or_tags > container_type;
+        typedef typename container_type::allocator_type allocator_type;
 
     public:
         template < typename Allocator > set_or(Allocator&& allocator)
-            : values_(allocator_type(allocator, "values"))
-            , allocator_(allocator)
+            : allocator_(std::forward< Allocator >(allocator))
+            , values_(allocator_type(typename Traits::template Allocator< void >(allocator_, "values")))
         {}
 
         set_or(set_or&& other)
-            : values_(std::move(other.values_))
-            , allocator_(allocator_)
+            : allocator_(std::move(other.allocator_))
+            , values_(std::move(other.values_))
         {}
 
         typedef iterator_base< typename Traits::template Map< T, set_or_tags >::iterator > iterator;
@@ -194,7 +195,7 @@ namespace crdt
         }
 
     public:
-        typename Traits::template Allocator< void >& allocator_;
-        typename Traits::template Map< T, set_or_tags > values_;
+        typename Traits::template Allocator< void > allocator_;
+        container_type values_;
     };
 }

@@ -111,8 +111,7 @@ namespace sqlstl
 
             template < typename V > value_proxy& operator = (V&& value)
             {
-                // TODO: Assignment means V is part of this map now, all its fields need to be renamed.
-                std::abort();
+                Value::operator = (std::forward< V >(value));
                 return *this;
             }
         };

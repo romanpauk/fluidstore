@@ -8,6 +8,9 @@ template < typename Traits, typename Allocator > void value_mv_test_impl(typenam
     assert(value == 1);
     value = 2;
     assert(value == 2);
+
+    static_assert(std::uses_allocator_v< crdt::value_mv< int, Traits >, Allocator >);
+    static_assert(std::uses_allocator_v< crdt::value_mv< int, Traits >, std::allocator< void > >);
 }
 
 void value_mv_test()

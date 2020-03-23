@@ -42,6 +42,9 @@
     <ClCompile Include="..\src\counter_pn.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\map_g.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\sqlstl\algorithm.h">

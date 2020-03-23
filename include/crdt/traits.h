@@ -8,6 +8,7 @@
 #include <set>
 #include <map>
 #include <tuple>
+#include <scoped_allocator>
 
 namespace crdt
 {
@@ -18,8 +19,9 @@ namespace crdt
     template <> struct traits< memory >
     {
         template < typename T > using Allocator = allocator< T >;
-        template < typename T > using Set = std::set< T, std::less< T >, Allocator< T > >;
-        template < typename K, typename V > using Map = std::map< K, V, std::less< K >, Allocator< std::pair< const K, V > > >;
+        template < typename T > using ScopedAllocator = std::scoped_allocator_adaptor< std::allocator< T > >;
+        template < typename T > using Set = std::set< T, std::less< T >, ScopedAllocator< T > >;
+        template < typename K, typename V > using Map = std::map< K, V, std::less< K >, ScopedAllocator< std::pair< const K, V > > >;
         template < typename Allocator, typename... Args > using Tuple = std::tuple< Args... >;
     };
 

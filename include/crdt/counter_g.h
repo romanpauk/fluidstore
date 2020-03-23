@@ -12,7 +12,7 @@ namespace crdt
         typedef typename container_type::allocator_type allocator_type;
     public:
         template < typename Allocator > counter_g(Allocator&& allocator)
-            : values_(allocator_type(allocator, "values"))
+            : values_(allocator_type(typename Traits::template Allocator< void >(allocator, "values")))
         {}
 
         void add(const Node& node, T value)
@@ -52,6 +52,6 @@ namespace crdt
         }
 
         // private:
-        typename Traits::template Map< Node, T > values_;
+        container_type values_;
     };
 }

@@ -15,7 +15,7 @@ namespace sqlstl
         typedef Allocator allocator_type;
 
         set(Allocator&& allocator)
-            : allocator_(allocator)
+            : allocator_(std::forward< Allocator >(allocator))
             , storage_(allocator_.template create_storage< set_storage< Key > >())
         {}
 

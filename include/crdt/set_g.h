@@ -28,14 +28,15 @@ namespace crdt
             typename It it_;
         };
 
-        typedef typename Traits::template Set< T >::allocator_type allocator_type;
+        typedef typename Traits::template Set< T > container_type;
+        typedef typename container_type::allocator_type allocator_type;
 
     public:
-        typedef iterator_base< typename Traits::template Set< T >::iterator > iterator;
-        typedef iterator_base< typename Traits::template Set< T >::const_iterator > const_iterator;
+        typedef iterator_base< typename container_type::iterator > iterator;
+        typedef iterator_base< typename container_type::const_iterator > const_iterator;
 
         template < typename Alloc > set_g(Alloc&& allocator)
-            : values_(allocator_type(allocator, "values"))
+            : values_(allocator_type(typename Traits::template Allocator<void>(allocator, "values")))
         {}
 
         set_g(set_g&& other)
@@ -81,6 +82,6 @@ namespace crdt
         }
 
     private:
-        typename Traits::template Set< T > values_;
+        container_type values_;
     };
 }

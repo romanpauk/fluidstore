@@ -18,15 +18,16 @@ namespace crdt
 
     template <> struct traits< memory >
     {
-        template < typename T > struct Allocator : std::scoped_allocator_adaptor< std::allocator< T > >
+        template < typename T > struct Allocator : std::allocator< T > 
         {
-            template < typename Alloc > Allocator(Alloc&& alloc): std::scoped_allocator_adaptor< std::allocator< T > >(std::forward< Alloc >(alloc)) {}
-            template < typename Alloc, typename Value > Allocator(Alloc&& alloc, const Value&): std::scoped_allocator_adaptor< std::allocator< T > >(std::forward< Alloc >(alloc)) {}
+            template < typename Alloc > Allocator(Alloc&& alloc) {}
+            template < typename Alloc, typename Value > Allocator(Alloc&& alloc, const Value&, bool replace = false) {}
+
             std::string get_name() { return ""; }
         };
-
-        template < typename T > using Set = std::set< T, std::less< T >, Allocator< T > >;
-        template < typename K, typename V > using Map = std::map< K, V, std::less< K >, Allocator< std::pair< const K, V > > >;
+        
+        template < typename T > using Set = std::set< T, std::less< T >, std::scoped_allocator_adaptor< Allocator< T > > >;
+        template < typename K, typename V > using Map = std::map< K, V, std::less< K >, std::scoped_allocator_adaptor< Allocator< std::pair< const K, V > > > >;
         template < typename Allocator, typename... Args > using Tuple = std::tuple< Args... >;
 
         template < typename T > struct type_traits

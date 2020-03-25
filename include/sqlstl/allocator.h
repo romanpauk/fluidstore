@@ -6,6 +6,7 @@
 #include <map>
 #include <typeindex>
 #include <memory>
+#include <sstream>
 
 namespace sqlstl
 {
@@ -56,13 +57,22 @@ namespace sqlstl
             , name_(allocator.name_ + "." + name)
         {}
 
-        template < typename Allocator, typename Value > allocator(Allocator&& allocator, const Value& value)
+        template < typename Allocator, typename Value > allocator(Allocator&& allocator, const Value& value, bool replace = false)
             : factory_(allocator.factory_)
             , name_(allocator.name_ + ".")
         {
             if constexpr (type_traits< Value >::embeddable)
             {
-                name_ += std::to_string(value);
+                std::stringstream stream;
+                stream << value;
+                if (!replace)
+                {
+                    name_ += stream.str();
+                }
+                else
+                {
+                    name_ = stream.str();
+                }
             }
             else
             {

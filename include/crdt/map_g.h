@@ -12,7 +12,6 @@ namespace crdt
     template < typename Key, typename Value, typename Traits > class map_g_base< Key, Value, Traits, false >
     {
         typedef typename Traits::template Map< Key, Value > container_type;
-        typedef typename container_type::allocator_type allocator_type;
         
         template < typename It > struct iterator_base
         {
@@ -55,11 +54,13 @@ namespace crdt
         };
 
     public:
+        typedef typename Traits::template Allocator< void > allocator_type;
+
         typedef iterator_base< typename container_type::iterator > iterator;
         typedef iterator_base< typename container_type::const_iterator > const_iterator;
         
-        template < typename Allocator > map_g_base(Allocator&& allocator)
-            : allocator_(std::forward< Allocator >(allocator))
+        map_g_base(allocator_type allocator)
+            : allocator_(allocator)
             , values_(allocator_type(allocator_))
         {}
 
@@ -109,9 +110,6 @@ namespace crdt
 
     template < typename Key, typename Value, typename Traits > class map_g_base< Key, Value, Traits, true >
     {
-        typedef typename Traits::template Map< Key, Value > container_type;
-        typedef typename container_type::allocator_type allocator_type;
-
         template < typename It > struct iterator_base
         {
             iterator_base(const iterator_base< It >&) = delete;
@@ -153,12 +151,14 @@ namespace crdt
         };
 
     public:
+        typedef typename Traits::template Map< Key, Value > container_type;
+        typedef typename Traits::template Allocator< void > allocator_type;
         typedef iterator_base< typename container_type::iterator > iterator;
         typedef iterator_base< typename container_type::const_iterator > const_iterator;
 
-        template < typename Allocator > map_g_base(Allocator&& allocator)
-            : allocator_(std::forward< Allocator >(allocator))
-            , values_(allocator_type(allocator_))
+        map_g_base(allocator_type allocator)
+            : allocator_(allocator)
+            , values_(allocator_type(allocator, "values"))
         {}
 
         iterator begin() { return iterator(*this, values_.begin()); }

@@ -14,9 +14,9 @@ namespace sqlstl
         typedef Key value_type;
         typedef Allocator allocator_type;
 
-        set(Allocator&& allocator)
-            : allocator_(std::forward< Allocator >(allocator))
-            , storage_(allocator_.template create_storage< set_storage< Key > >())
+        set(Allocator allocator)
+            : allocator_(allocator)
+            , storage_(allocator.template create_storage< set_storage< Key > >())
         {}
 
         template < typename K > iterator find(K&& key) const
@@ -51,6 +51,8 @@ namespace sqlstl
 
         template < typename K > auto get_storage_iterator(K&& key) const { return storage_.find(allocator_.get_name(), std::forward< K >(key)); }
         auto get_value_type(typename set_storage< Key >::iterator& it) const { return *it; }
+
+        auto get_allocator() const { return allocator_; }
 
     private:
         Allocator allocator_;

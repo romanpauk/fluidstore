@@ -29,18 +29,21 @@ namespace crdt
         };
 
         typedef typename Traits::template Set< T > container_type;
-        typedef typename container_type::allocator_type allocator_type;
+        
 
     public:
+        typedef typename Traits::template Allocator< T > allocator_type;
         typedef iterator_base< typename container_type::iterator > iterator;
         typedef iterator_base< typename container_type::const_iterator > const_iterator;
 
-        template < typename Allocator > set_g(Allocator&& allocator)
-            : values_(allocator_type(std::forward< Allocator >(allocator), "values"))
+        set_g(allocator_type allocator)
+            : values_(allocator_type(allocator, "values"))
+            , allocator_(allocator)
         {}
 
         set_g(set_g&& other)
             : values_(std::move(other.values_))
+            , allocator_(std::move(other.allocator_))
         {}
 
         iterator begin() { return values_.begin(); }
@@ -81,7 +84,10 @@ namespace crdt
             return values_ == other.values_;
         }
 
+        auto get_allocator() const { return allocator_; }
+
     private:
         container_type values_;
+        allocator_type allocator_;
     };
 }

@@ -56,29 +56,65 @@ namespace sqlstl
         }
     };
 
-    template < typename Key, typename Value, typename Allocator, bool IsEmbeddable = type_traits< Value >::embeddable > class map_base;
-
-    template < typename Key, typename Value, typename Allocator > class map_base< Key, Value, Allocator, true > 
+    template < typename Key, typename Value, typename Allocator > class map
     {
     public:
-        typedef ::sqlstl::iterator< map_base< Key, Value, Allocator >, typename map_storage< Key, Value >::iterator > iterator;
+        typedef map_storage< Key, typename type_traits< Value >::dbtype > map_storage_type;
+        typedef ::sqlstl::iterator< map< Key, Value, Allocator >, typename map_storage_type::iterator > iterator;
         typedef iterator const_iterator;
-        typedef std::pair< const Key, const Value > value_type;
+        typedef std::pair< const Key, Value > value_type;
         typedef Allocator allocator_type;
+
+        map(Allocator allocator)
+            : allocator_(allocator)
+            , storage_(allocator.template create_storage< map_storage_type >())
+        {}
 
         template < typename K > auto operator[](K&& key)
         {
-            storage_.insert(allocator_.get_name(), key, make_sql_value(Value()));
-            return map_value_proxy< map_base< Key, Value, Allocator >, true >(*this, std::forward< K >(key));
+            if constexpr (type_traits< Value >::embeddable)
+            {
+                storage_.insert(allocator_.get_name(), key, make_sql_value(Value()));
+                return map_value_proxy< map< Key, Value, Allocator >, type_traits< Value >::embeddable >(*this, std::forward< K >(key));
+            }
+            else
+            {
+                auto value = Value(Allocator(allocator_, key));
+                storage_.insert(allocator_.get_name(), key, make_sql_value(value));
+                return map_value_proxy< map< Key, Value, Allocator >, type_traits< Value >::embeddable >(std::move(value));
+            }            
+        }
+        
+        template < typename K > iterator find(K&& key) 
+        {
+            if constexpr (type_traits< Value >::embeddable)
+            {
+                return { this, storage_.find(allocator_.get_name(), std::forward< K >(key)) };
+            }
+            else
+            {
+                auto it = storage_.find(allocator_.get_name(), key);
+                return iterator(this,
+                    std::make_pair(std::forward< K >(key), Value(Allocator(allocator_, key))),
+                    std::move(it));
+            }          
         }
 
-        template < typename Alloc > map_base(Alloc&& allocator)
-            : allocator_(std::forward< Alloc >(allocator))
-            , storage_(allocator_.template create_storage< map_storage< Key, Value > >())
-        {}
+        // template < typename K > const_iterator find(K&& key) const { return { this, storage_.find(allocator_.get_name(), std::forward< K >(key)) }; }
 
-        template < typename K > iterator find(K&& key) { return { this, storage_.find(allocator_.get_name(), std::forward< K >(key)) }; }
-        template < typename K > const_iterator find(K&& key) const { return { this, storage_.find(allocator_.get_name(), std::forward< K >(key)) }; }
+        template < typename K, typename V > std::pair< iterator, bool > emplace(K&& key, V&& value)
+        {
+            auto inserted = storage_.insert(allocator_.get_name(), key, make_sql_value(value));
+
+            if constexpr (type_traits< Value >::embeddable)
+            {
+                return std::make_pair(iterator(this, { std::forward< K >(key), std::forward< V >(value) }), inserted);
+            } 
+            else
+            {
+                return std::make_pair(iterator(this, std::make_pair(std::forward< K >(key), Value(Allocator(allocator_, key)))), inserted);
+            }
+        }
 
         iterator begin() { return { this, storage_.begin(allocator_.get_name()) }; }
         const_iterator begin() const { return { this, storage_.begin(allocator_.get_name()) }; }
@@ -86,16 +122,10 @@ namespace sqlstl
         iterator end() { return { this, storage_.end(allocator_.get_name()) }; }
         const_iterator end() const { return { this, storage_.end(allocator_.get_name()) }; }
 
-        template < typename K, typename V > std::pair< iterator, bool > emplace(K&& key, V&& value)
-        {
-            auto inserted = storage_.insert(allocator_.get_name(), key, value);
-            return std::make_pair(iterator(this, { std::forward< K >(key), std::forward< V >(value) }), inserted);
-        }
-
         // private:
         template < typename K, typename V > void update(K&& key, V&& value)
         {
-            storage_.update(allocator_.get_name(), std::forward< K >(key), std::forward< V >(value));
+            storage_.update(allocator_.get_name(), std::forward< K >(key), make_sql_value(std::forward< V >(value)));
         }
 
         template < typename K > Value value(K&& key)
@@ -106,88 +136,23 @@ namespace sqlstl
         size_t size() const { return storage_.size(allocator_.get_name()); }
         
         auto get_storage_iterator(const value_type& value) const { return storage_.find(allocator_.get_name(), value.first); }
-        auto get_value_type(typename map_storage< Key, Value >::iterator& it) const { return *it; }
 
-        Allocator allocator_;
-        map_storage< Key, Value >& storage_;
-    };
-
-    template < typename Key, typename Value, typename Allocator > class map_base< Key, Value, Allocator, false > 
-    {
-    public:
-        typedef ::sqlstl::iterator< map_base< Key, Value, Allocator >, typename set_storage< Key >::iterator > iterator;
-        typedef iterator const_iterator;
-        typedef std::pair< const Key, Value > value_type;
-        typedef Allocator allocator_type;
-
-        template < typename Alloc > map_base(Alloc&& allocator)
-            : allocator_(std::forward< Alloc >(allocator))
-            , storage_(allocator.create_storage< set_storage< Key > >())
-        {}
-
-        template < typename K > auto operator[](K&& key)
+        auto get_value_type(typename map_storage_type::iterator& it) const 
         {
-            auto value = get_value(key);
-            storage_.insert(allocator_.get_name(), make_sql_value(key));
-            return map_value_proxy< map_base< Key, Value, Allocator >, false >(std::move(value));
-        }
-
-        template < typename K > iterator find(K&& key) 
-        {
-            auto value = get_value(key);
-            auto it = storage_.find(allocator_.get_name(), key);
-            return iterator(this, 
-                std::make_pair(std::forward< K >(key), std::move(value)), 
-                std::move(it));
-        }
-
-        iterator begin() { return { this, storage_.begin(allocator_.get_name()) }; }
-        iterator begin() const { return { this, storage_.begin(allocator_.get_name()) }; }
-
-        iterator end() { return { this, storage_.end(allocator_.get_name()) }; }
-        iterator end() const { return { this, storage_.end(allocator_.get_name()) }; }
-
-        size_t size() const { return storage_.size(allocator_.get_name()); }
-
-        template < typename K, typename V > std::pair< iterator, bool > emplace(K&& key, V&& value)
-        {
-            auto pairb = insert(std::forward< K >(key));
-
-            if (pairb.second)
+            if constexpr (type_traits< Value >::embeddable)
             {
-                // TODO: copy values
-                // v = std::move(value);
+                return *it;
             }
-
-            return pairb;
+            else
+            {
+                auto row = *it;
+                return std::make_pair(row.first, Value(Allocator(allocator_, row.second, true)));
+            }
         }
 
-        template < typename K > std::pair< iterator, bool > insert(K&& key)
-        {
-            auto inserted = storage_.insert(allocator_.get_name(), key);
-            auto value = get_value(key);
-            
-            return std::make_pair(iterator(this, std::make_pair(std::forward< K >(key), std::move(value))), inserted);
-        }
-
-        template < typename K > Value get_value(K&& key) const
-        {
-            return Value(Allocator(allocator_, key));
-        }
-
-        auto get_storage_iterator(const value_type& value) const { return storage_.find(allocator_.get_name(), value.first); }
-        auto get_value_type(typename set_storage< Key >::iterator& it) const { return std::make_pair(*it, get_value(*it)); }
+        auto get_allocator() const { return allocator_; }
 
         Allocator allocator_;
-        set_storage< Key >& storage_;
-    };
-
-    template < typename Key, typename Value, typename Allocator > class map
-        : public map_base< Key, Value, Allocator >
-    {
-    public:
-        template < typename Alloc > map(Alloc&& allocator)
-            : map_base< Key, Value, Allocator >(std::forward< Alloc >(allocator))
-        {}
+        map_storage_type& storage_;
     };
 }

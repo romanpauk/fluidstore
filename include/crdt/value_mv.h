@@ -9,8 +9,9 @@ namespace crdt
     public:
         typedef typename Traits::template Allocator< void > allocator_type;
 
-        template < typename Allocator > value_mv(Allocator&& allocator)
-            : values_(std::forward< Allocator >(allocator))
+        value_mv(allocator_type allocator)
+            : allocator_(allocator)
+            , values_(allocator_type(allocator, "values"))
         {}
 
         operator T()
@@ -38,7 +39,10 @@ namespace crdt
             values_.merge(other);
         }
 
+        auto get_allocator() const { return allocator_; }
+
     private:
+        allocator_type allocator_;
         set_or< T, Traits > values_;
     };
 }

@@ -16,17 +16,20 @@ namespace crdt
             template < typename Allocator > set_or_tags(Allocator&& allocator)
                 : added(Allocator(allocator, "added"))
                 , removed(Allocator(allocator, "removed"))
+                , allocator_(allocator)
             {}
 
             set_or_tags(set_or_tags&& other)
                 : added(std::move(other.added))
                 , removed(std::move(other.removed))
+                , allocator_(std::move(other.allocator_))
             {}
 
             set_or_tags& operator = (set_or_tags&& other)
             {
                 std::swap(added, other.added);
                 std::swap(removed, other.removed);
+                std::swap(allocator_, other.allocator_);
             }
 
             set_g< Tag, Traits > added;
@@ -37,6 +40,11 @@ namespace crdt
                 added.merge(other.added);
                 removed.merge(other.removed);
             }
+
+            auto get_allocator() const { return allocator_; }
+
+        private:
+            typename Traits::template Allocator< void > allocator_;
         };
 
         template < typename It > class iterator_base
@@ -67,13 +75,13 @@ namespace crdt
             typename It it_;
         };
 
-        typedef typename Traits::template Map< T, set_or_tags > container_type;
-        typedef typename container_type::allocator_type allocator_type;
-
     public:
-        template < typename Allocator > set_or(Allocator&& allocator)
-            : allocator_(std::forward< Allocator >(allocator))
-            , values_(allocator_type(allocator_, "values"))
+        typedef typename Traits::template Map< T, set_or_tags > container_type;
+        typedef typename Traits::template Allocator< void > allocator_type;
+
+        set_or(allocator_type allocator)
+            : allocator_(allocator)
+            , values_(allocator_type(allocator, "values"))
         {}
 
         set_or(set_or&& other)
@@ -102,7 +110,7 @@ namespace crdt
         {
             auto pairb = values_.emplace(
                 std::forward< K >(value),
-                set_or_tags(allocator_type(allocator_, value)));
+                set_or_tags(typename Traits::template Allocator<void>(allocator_, value)));
 
             pairb.first->second.added.insert(get_tag());
             return { iterator(*this, std::move(pairb.first)), pairb.second };
@@ -158,6 +166,8 @@ namespace crdt
         {
             return values_ == other.values_;
         }
+
+        auto get_allocator() const { return allocator_; }
 
     private:
         template < typename It > void insert_erase_node(It& it)

@@ -179,6 +179,7 @@ namespace sqlstl
         inline static const std::string cpptype = typeid(T).name();
         inline static const std::string sqltype = "REFERENCE";
         inline static const bool embeddable = false;
+        typedef std::string dbtype;
     };
 
     template <> struct type_traits< int >
@@ -186,6 +187,7 @@ namespace sqlstl
         inline static const std::string cpptype = "int";
         inline static const std::string sqltype = "INTEGER";
         inline static const bool embeddable = true;
+        typedef int dbtype;
     };
 
     template <> struct type_traits< uint64_t >
@@ -193,6 +195,7 @@ namespace sqlstl
         inline static const std::string cpptype = "uint64_t";
         inline static const std::string sqltype = "INTEGER";
         inline static const bool embeddable = true;
+        typedef uint64_t dbtype;
     };
 
     template <> struct type_traits< std::string >
@@ -200,6 +203,7 @@ namespace sqlstl
         inline static const std::string cpptype = "string";
         inline static const std::string sqltype = "TEXT";
         inline static const bool embeddable = true;
+        typedef std::string dbtype;
     };
 
     template < /*size_t N*/ > struct type_traits< const char* /*(&)[N]*/ >

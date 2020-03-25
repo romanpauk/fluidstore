@@ -15,6 +15,11 @@ namespace sqlstl
             iterator(const iterator&) = delete;
             iterator& operator = (const iterator&) = delete;
 
+            iterator()
+                : result_(SQLITE_OK)
+                , rowid_(0)
+            {}
+
             iterator(iterator&& other)
                 : statement_(std::move(other.statement_))
                 , result_(other.result_)

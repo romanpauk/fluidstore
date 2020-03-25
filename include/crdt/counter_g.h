@@ -11,10 +11,11 @@ namespace crdt
         typedef typename Traits::template Map< Node, T > container_type;
 
     public:
-        typedef typename container_type::allocator_type allocator_type;
+        typedef typename Traits::template Allocator<void> allocator_type;
     
-        template < typename Allocator > counter_g(Allocator&& allocator)
-            : values_(allocator_type(std::forward< Allocator >(allocator), "values"))
+        counter_g(allocator_type allocator)
+            : values_(allocator_type(allocator, "values"))
+            , allocator_(allocator)
         {}
 
         void add(const Node& node, T value)
@@ -53,7 +54,10 @@ namespace crdt
             return values_ == other.values_;
         }
 
+        auto get_allocator() const { return allocator_; }
+
         // private:
+        allocator_type allocator_;
         container_type values_;
     };
 }

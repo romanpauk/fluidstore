@@ -8,11 +8,12 @@ namespace crdt
     template < typename T, typename Node, typename Traits > class counter_pn
     {
     public:
-        typedef typename counter_g< T, Node, Traits >::allocator_type allocator_type;
+        typedef typename Traits::template Allocator<void> allocator_type;
 
-        template < typename Allocator > counter_pn(Allocator&& allocator)
-            : inc_(Allocator(allocator, "inc"))
-            , dec_(Allocator(allocator, "dec"))
+        counter_pn(allocator_type allocator)
+            : allocator_(allocator)
+            , inc_(allocator_type(allocator, "inc"))
+            , dec_(allocator_type(allocator, "dec"))
         {}
 
         void add(const Node& node, T value)
@@ -41,7 +42,10 @@ namespace crdt
             return std::tie(inc_, dec_) == std::tie(other.inc_, other.dec_);
         }
 
+        auto get_allocator() const { return allocator_; }
+
         // private:
+        allocator_type allocator_;
         counter_g< T, Node, Traits > inc_, dec_;
     };
 }

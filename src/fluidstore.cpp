@@ -5,16 +5,6 @@
 #include <algorithm>
 #include <numeric>
 
-namespace std
-{
-    std::string to_string(const char* s) { return s; }
-    std::string to_string(const std::string& s) { return s; }
-    std::string to_string(std::string&& s) { return std::move(s); }
-    std::string to_string(const std::string s) { return s; }
-    // template< size_t N > std::string to_string(const char (&s)[N]) { return ""; }
-
-}
-
 #include <sqlstl/allocator.h>
 #include <sqlstl/map.h>
 #include <sqlstl/set.h>

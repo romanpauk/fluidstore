@@ -1,6 +1,6 @@
 #pragma once
 
-#include <sqlstl/Allocator.h>
+#include <sqlstl/allocator.h>
 #include <sqlstl/storage/map.h>
 #include <sqlstl/set.h>
 #include <sqlstl/iterator.h>
@@ -9,7 +9,54 @@
 
 namespace sqlstl
 {
-    template < typename Key, typename Value, typename Allocator, bool IsStandardLayout = std::is_standard_layout_v< Value > > class map_base;
+    template < typename Container, bool embeddable = type_traits< typename Container::value_type::second_type >::embeddable > struct map_value_proxy;
+
+    template < typename Container > struct map_value_proxy< Container, true >
+    {
+        template < typename K > map_value_proxy(Container& container, K&& key)
+            : container_(container)
+            , key_(std::forward< K >(key))
+        {}
+
+        template < typename V > auto& operator = (V&& value)
+        {
+            container_.update(key_, std::forward< V >(value));
+            return *this;
+        }
+
+        operator typename Container::value_type::second_type()
+        {
+            return container_.value(key_);
+        }
+
+        template < typename V > auto& operator += (V&& value)
+        {
+            this->operator = (container_.value(key_) + value);
+            return *this;
+        }
+
+    private:
+        Container& container_;
+        typename Container::value_type::first_type key_;
+    };
+
+    template < typename Container > struct map_value_proxy< Container, false >
+        : public Container::value_type::second_type
+    {
+        typedef typename Container::value_type::second_type Value;
+
+        map_value_proxy(Value&& value)
+            : Value(std::move(value))
+        {}
+
+        template < typename V > auto& operator = (V&& value)
+        {
+            Value::operator = (std::forward< V >(value));
+            return *this;
+        }
+    };
+
+    template < typename Key, typename Value, typename Allocator, bool IsEmbeddable = type_traits< Value >::embeddable > class map_base;
 
     template < typename Key, typename Value, typename Allocator > class map_base< Key, Value, Allocator, true > 
     {
@@ -19,39 +66,10 @@ namespace sqlstl
         typedef std::pair< const Key, const Value > value_type;
         typedef Allocator allocator_type;
 
-        struct value_proxy
-        {
-            template < typename K > value_proxy(map_base< Key, Value, Allocator >& map, K&& key)
-                : map_(map)
-                , key_(std::forward< K >(key))
-            {}
-
-            template < typename V > value_proxy& operator = (V&& value)
-            {
-                map_.update(key_, std::forward< V >(value));
-                return *this;
-            }
-
-            operator Value()
-            {
-                return map_.value(key_);
-            }
-
-            template < typename V > value_proxy& operator += (V&& value)
-            {
-                this->operator = (map_.value(key_) + value);
-                return *this;
-            }
-
-        private:
-            map_base< Key, Value, Allocator, true >& map_;
-            Key key_;
-        };
-
         template < typename K > auto operator[](K&& key)
         {
-            storage_.insert(allocator_.get_name(), key, Value());
-            return value_proxy(*this, std::forward< K >(key));
+            storage_.insert(allocator_.get_name(), key, make_sql_value(Value()));
+            return map_value_proxy< map_base< Key, Value, Allocator >, true >(*this, std::forward< K >(key));
         }
 
         template < typename Alloc > map_base(Alloc&& allocator)
@@ -102,30 +120,16 @@ namespace sqlstl
         typedef std::pair< const Key, Value > value_type;
         typedef Allocator allocator_type;
 
-        struct value_proxy
-            : public Value
-        {
-            value_proxy(Value&& value)
-                : Value(std::move(value))
-            {}
-
-            template < typename V > value_proxy& operator = (V&& value)
-            {
-                Value::operator = (std::forward< V >(value));
-                return *this;
-            }
-        };
-
         template < typename Alloc > map_base(Alloc&& allocator)
             : allocator_(std::forward< Alloc >(allocator))
             , storage_(allocator.create_storage< set_storage< Key > >())
         {}
 
-        template < typename K > value_proxy operator[](K&& key)
+        template < typename K > auto operator[](K&& key)
         {
             auto value = get_value(key);
-            storage_.insert(allocator_.get_name(), std::forward< K >(key));
-            return value_proxy(std::move(value));
+            storage_.insert(allocator_.get_name(), make_sql_value(key));
+            return map_value_proxy< map_base< Key, Value, Allocator >, false >(std::move(value));
         }
 
         template < typename K > iterator find(K&& key) 
@@ -168,7 +172,7 @@ namespace sqlstl
 
         template < typename K > Value get_value(K&& key) const
         {
-            return Value(Allocator(allocator_, std::to_string(std::forward< K >(key))));
+            return Value(Allocator(allocator_, key));
         }
 
         auto get_storage_iterator(const value_type& value) const { return storage_.find(allocator_.get_name(), value.first); }

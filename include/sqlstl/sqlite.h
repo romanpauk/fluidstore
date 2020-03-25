@@ -174,24 +174,39 @@ namespace sqlstl
         sqlite3* db_;
     };
 
-    template < typename T > class type_traits;
+    template < typename T > struct type_traits
+    {
+        inline static const std::string cpptype = typeid(T).name();
+        inline static const std::string sqltype = "REFERENCE";
+        inline static const bool embeddable = false;
+    };
 
-    template <> struct type_traits< int > 
+    template <> struct type_traits< int >
     {
         inline static const std::string cpptype = "int";
         inline static const std::string sqltype = "INTEGER";
+        inline static const bool embeddable = true;
     };
 
     template <> struct type_traits< uint64_t >
     {
         inline static const std::string cpptype = "uint64_t";
         inline static const std::string sqltype = "INTEGER";
+        inline static const bool embeddable = true;
     };
 
     template <> struct type_traits< std::string >
     {
         inline static const std::string cpptype = "string";
         inline static const std::string sqltype = "TEXT";
+        inline static const bool embeddable = true;
+    };
+
+    template < /*size_t N*/ > struct type_traits< const char* /*(&)[N]*/ >
+    {
+        inline static const std::string cpptype = "string";
+        inline static const std::string sqltype = "TEXT";
+        inline static const bool embeddable = true;
     };
 
     class statement_cache
@@ -268,5 +283,16 @@ namespace sqlstl
         std::stack< sqlstl::statement > statements_;
     };
 
-    
+    template < typename Value > auto make_sql_value(Value&& value)
+    {
+        if constexpr (type_traits< std::decay_t< Value > >::embeddable)
+        {
+            return value;
+        }
+        else
+        {
+            return value.get_allocator().get_name();
+        }
+    }
+
 }

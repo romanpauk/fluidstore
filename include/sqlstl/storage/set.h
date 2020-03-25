@@ -1,6 +1,7 @@
 #pragma once
 
 #include <sqlstl/storage/storage.h>
+#include <sqlstl/sqlite.h>
 
 #include <optional>
 
@@ -91,7 +92,7 @@ namespace sqlstl
 
         static std::string get_table_type()
         {
-            return "SET_" + type_traits< Key >::cpptype;
+            return "\"SET_" + type_traits< Key >::cpptype + "\"";
         }
 
         iterator begin(const std::string& name)

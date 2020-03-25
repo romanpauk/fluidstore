@@ -10,6 +10,9 @@ namespace std
     std::string to_string(const char* s) { return s; }
     std::string to_string(const std::string& s) { return s; }
     std::string to_string(std::string&& s) { return std::move(s); }
+    std::string to_string(const std::string s) { return s; }
+    // template< size_t N > std::string to_string(const char (&s)[N]) { return ""; }
+
 }
 
 #include <sqlstl/allocator.h>
@@ -37,6 +40,8 @@ void counter_g_test();
 void counter_pn_test();
 void map_g_test();
 
+// void schema_test();
+
 int main()
 {
     sqlstl::db db(":memory:");
@@ -51,6 +56,7 @@ int main()
     set_or_test();
     value_mv_test();
     map_g_test();
+    // schema_test();
 
     // Sql-based map of delta-counters that themselves are sql-based.
     sqlstl::map< 

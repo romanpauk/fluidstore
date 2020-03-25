@@ -9,8 +9,10 @@ namespace crdt
     template < typename T, typename Node, typename Traits > class counter_g
     {
         typedef typename Traits::template Map< Node, T > container_type;
-        typedef typename container_type::allocator_type allocator_type;
+
     public:
+        typedef typename container_type::allocator_type allocator_type;
+    
         template < typename Allocator > counter_g(Allocator&& allocator)
             : values_(allocator_type(std::forward< Allocator >(allocator), "values"))
         {}

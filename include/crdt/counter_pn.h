@@ -8,6 +8,8 @@ namespace crdt
     template < typename T, typename Node, typename Traits > class counter_pn
     {
     public:
+        typedef typename counter_g< T, Node, Traits >::allocator_type allocator_type;
+
         template < typename Allocator > counter_pn(Allocator&& allocator)
             : inc_(Allocator(allocator, "inc"))
             , dec_(Allocator(allocator, "dec"))

@@ -41,7 +41,7 @@ namespace sqlstl
             : factory_(factory)
         {}
 
-        allocator(factory& factory, const std::string& name)
+        template < size_t N > allocator(factory& factory, const char(&name)[N])
             : factory_(factory)
             , name_(name)
         {}
@@ -51,10 +51,24 @@ namespace sqlstl
             , name_(allocator.name_)
         {}
 
-        template < typename Allocator > allocator(Allocator&& allocator, const std::string& name)
+        template < typename Allocator, size_t N > allocator(Allocator&& allocator, const char (&name)[N])
             : factory_(allocator.factory_)
             , name_(allocator.name_ + "." + name)
         {}
+
+        template < typename Allocator, typename Value > allocator(Allocator&& allocator, const Value& value)
+            : factory_(allocator.factory_)
+            , name_(allocator.name_ + ".")
+        {
+            if constexpr (type_traits< Value >::embeddable)
+            {
+                name_ += std::to_string(value);
+            }
+            else
+            {
+                name_ += value.get_allocator().get_name();
+            }
+        }
         
         template < typename Storage > Storage& create_storage() { return factory_.create_storage< Storage >(); }
 

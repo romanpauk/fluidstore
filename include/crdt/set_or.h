@@ -101,8 +101,8 @@ namespace crdt
         template < typename K > std::pair< iterator, bool > insert(K&& value)
         {
             auto pairb = values_.emplace(
-                std::forward< K >(value), 
-                set_or_tags(allocator_type(allocator_, std::to_string(value))));
+                std::forward< K >(value),
+                set_or_tags(allocator_type(allocator_, value)));
 
             pairb.first->second.added.insert(get_tag());
             return { iterator(*this, std::move(pairb.first)), pairb.second };

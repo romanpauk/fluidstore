@@ -95,35 +95,35 @@ namespace sqlstl
             return "\"SET_" + type_traits< Key >::cpptype + "\"";
         }
 
-        iterator begin(const std::string& name)
+        iterator begin(const named_context& context)
         {
             auto stmt = begin_.acquire();
-            auto result = stmt(name);
+            auto result = stmt(context.get_name());
             return iterator(std::move(stmt), result);
         }
 
-        iterator begin(const std::string& name) const { return const_cast< iterator& >(*this).begin(name); }
+        iterator begin(const named_context& context) const { return const_cast< iterator& >(*this).begin(context); }
         
-        iterator end(const std::string& name) const { return iterator(statement_cache::null_statement(), SQLITE_DONE); }
+        iterator end(const named_context&) const { return iterator(statement_cache::null_statement(), SQLITE_DONE); }
 
-        template < typename K > iterator find(const std::string& name, K&& key) const
+        template < typename K > iterator find(const named_context& context, K&& key) const
         {
             auto stmt = find_.acquire();
-            auto result = stmt(name, std::forward< K >(key));
+            auto result = stmt(context.get_name(), std::forward< K >(key));
             return iterator(std::move(stmt), result);
         }
 
-        template < typename K > bool insert(const std::string& name, K&& key)
+        template < typename K > bool insert(const named_context& context, K&& key)
         {
             auto stmt = insert_.acquire();
-            auto result = stmt(name, key);
+            auto result = stmt(context.get_name(), key);
             return result == SQLITE_DONE;
         }
 
-        size_t size(const std::string& name) const
+        size_t size(const named_context& context) const
         {
             auto stmt = size_.acquire();
-            stmt(name);
+            stmt(context.get_name());
             return stmt.extract< size_t >(0);
         }
 

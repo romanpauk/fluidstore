@@ -14,13 +14,13 @@ namespace sqlstl
 
         template < typename... V > tuple< Args... >& operator = (std::tuple< V... >&& v)
         {
-            storage_.replace(allocator_.get_name(), std::forward< std::tuple< V... > >(v));
+            storage_.replace(allocator_, std::forward< std::tuple< V... > >(v));
             return *this;
         }
 
         std::tuple< Args... > value()
         {
-            return storage_.value(allocator_.get_name());
+            return storage_.value(allocator_);
         }
 
     private:

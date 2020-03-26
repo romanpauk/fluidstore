@@ -79,14 +79,13 @@ namespace sqlstl
         {
             if constexpr (type_traits< Value >::embeddable)
             {
-                storage_.insert(allocator_.get_name(), key, make_sql_value(Value()));
+                storage_.insert(allocator_, key, make_sql_value(Value()));
                 return map_value_proxy< map< Key, Value, Allocator >, type_traits< Value >::embeddable >(*this, std::forward< K >(key));
             }
             else
             {
-                auto value = allocator_.template create< Value >();
-                storage_.insert(allocator_.get_name(), key, make_sql_value(value));
-                return map_value_proxy< map< Key, Value, Allocator >, type_traits< Value >::embeddable >(std::move(value));
+                auto pairb = emplace(std::forward< Key >(key), allocator_.template create< Value >());
+                return map_value_proxy< map< Key, Value, Allocator >, type_traits< Value >::embeddable >(std::move(pairb.first->second));
             }            
         }
         
@@ -94,11 +93,11 @@ namespace sqlstl
         {
             if constexpr (type_traits< Value >::embeddable)
             {
-                return { this, storage_.find(allocator_.get_name(), std::forward< K >(key)) };
+                return { this, storage_.find(allocator_, std::forward< K >(key)) };
             }
             else
             {
-                auto it = storage_.find(allocator_.get_name(), key);
+                auto it = storage_.find(allocator_, key);
                 auto value = allocator_.template create< Value >((*it).second);
                 return iterator(this, std::make_pair(std::forward< K >(key), std::move(value)), std::move(it));
             }          
@@ -108,7 +107,7 @@ namespace sqlstl
 
         template < typename K, typename V > std::pair< iterator, bool > emplace(K&& key, V&& value)
         {
-            auto inserted = storage_.insert(allocator_.get_name(), key, make_sql_value(value));
+            auto inserted = storage_.insert(allocator_, key, make_sql_value(value));
 
             if constexpr (type_traits< Value >::embeddable)
             {
@@ -122,35 +121,34 @@ namespace sqlstl
                 }
                 else
                 {
-                    // insert should return what is there
                     auto value = allocator_.create< Value >(find_value(key));
                     return std::make_pair(iterator(this, std::make_pair(std::forward< K >(key), std::move(value))), inserted);
                 }                
             }
         }
 
-        iterator begin() { return { this, storage_.begin(allocator_.get_name()) }; }
-        const_iterator begin() const { return { this, storage_.begin(allocator_.get_name()) }; }
+        iterator begin() { return { this, storage_.begin(allocator_) }; }
+        const_iterator begin() const { return { this, storage_.begin(allocator_) }; }
 
-        iterator end() { return { this, storage_.end(allocator_.get_name()) }; }
-        const_iterator end() const { return { this, storage_.end(allocator_.get_name()) }; }
+        iterator end() { return { this, storage_.end(allocator_) }; }
+        const_iterator end() const { return { this, storage_.end(allocator_) }; }
 
-        size_t size() const { return storage_.size(allocator_.get_name()); }
+        size_t size() const { return storage_.size(allocator_); }
 
         auto get_allocator() const { return allocator_; }
 
     private:
         template < typename K, typename V > void update(K&& key, V&& value)
         {
-            storage_.update(allocator_.get_name(), std::forward< K >(key), make_sql_value(std::forward< V >(value)));
+            storage_.update(allocator_, std::forward< K >(key), make_sql_value(std::forward< V >(value)));
         }
 
         template < typename K > auto find_value(K&& key)
         {
-            return storage_.value(allocator_.get_name(), std::forward< K >(key));
+            return storage_.value(allocator_, std::forward< K >(key));
         }
         
-        auto get_storage_iterator(const value_type& value) const { return storage_.find(allocator_.get_name(), value.first); }
+        auto get_storage_iterator(const value_type& value) const { return storage_.find(allocator_, value.first); }
 
         auto get_value_type(typename map_storage_type::iterator& it) const 
         {

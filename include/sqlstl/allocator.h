@@ -33,7 +33,25 @@ namespace sqlstl
         std::map< std::type_index, std::unique_ptr< storage > > storages_;
     };
 
+    class named_context
+    {
+    public:
+        named_context() {}
+
+        named_context(const std::string& name)
+            : name_(name)
+        {}
+
+        const std::string& get_name() const { return name_; }
+
+        static std::string create_name() { return std::to_string(rand()); }
+
+    private:
+        std::string name_;
+    };
+
     template < typename T > class allocator
+        : public named_context
     {
         template < typename T > friend class allocator;
 
@@ -45,13 +63,13 @@ namespace sqlstl
         {}
 
         template < typename Allocator > allocator(Allocator&& allocator)
-            : factory_(allocator.factory_)
-            , name_(allocator.name_)
+            : named_context(allocator.get_name())
+            , factory_(allocator.factory_)
         {}
 
         template < typename Allocator > allocator(Allocator&& allocator, const std::string& name)
-            : factory_(allocator.factory_)
-            , name_(allocator.name_ + "." + name)
+            : named_context(allocator.get_name() + "." + name)
+            , factory_(allocator.factory_)
         {}
 
         template < typename Type > Type create(const std::string& name)
@@ -61,20 +79,17 @@ namespace sqlstl
 
         template < typename Type > Type create()
         {
-            return Type(allocator(factory_, std::to_string(rand())));
+            return Type(allocator(factory_, create_name()));
         }
         
         template < typename Storage > Storage& create_storage() { return factory_.create_storage< Storage >(); }
 
-        const std::string& get_name() const { return name_; }
-
     private:
         allocator(factory& factory, const std::string& name)
-            : factory_(factory)
-            , name_(name)
+            : named_context(name)
+            , factory_(factory)
         {}
 
         factory& factory_;
-        std::string name_;
     };
 }

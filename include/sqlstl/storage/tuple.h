@@ -63,17 +63,17 @@ namespace sqlstl
             create_table_();
         }
 
-        template < typename... V > void replace(const std::string& name, std::tuple< V... >&& v)
+        template < typename... V > void replace(const named_context& context, std::tuple< V... >&& v)
         {
             auto stmt = replace_.acquire();
-            auto result = std::apply([&](auto&&... args) { return stmt(name, args...); }, std::move(v));
+            auto result = std::apply([&](auto&&... args) { return stmt(context.get_name(), args...); }, std::move(v));
             assert(result == SQLITE_DONE);
         }
 
-        std::tuple< Args... > value(const std::string& name)
+        std::tuple< Args... > value(const named_context& context)
         {
             auto stmt = select_.acquire();
-            auto result = stmt(name);
+            auto result = stmt(context.get_name());
             assert(result == SQLITE_ROW);
 
             int index = 0;

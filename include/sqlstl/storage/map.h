@@ -92,42 +92,39 @@ namespace sqlstl
             return "MAP_" + type_traits< Key >::sqltype + "_" + type_traits< Value >::sqltype;
         }
 
-        iterator begin(const std::string& name)
+        iterator begin(const named_context& context)
         {
             auto stmt = begin_.acquire();
-            auto result = stmt(name);
+            auto result = stmt(context.get_name());
             return iterator(std::move(stmt), result);
         }
 
-        iterator end(const std::string& name)
-        {
-            return iterator(statement_cache::null_statement(), SQLITE_DONE);
-        }
+        iterator end(const named_context&) { return iterator(statement_cache::null_statement(), SQLITE_DONE); }
 
-        template < typename K > iterator find(const std::string& name, K&& key)
+        template < typename K > iterator find(const named_context& context, K&& key)
         {
             auto stmt = find_.acquire();
-            auto result = stmt(name, std::forward< K >(key));
+            auto result = stmt(context.get_name(), std::forward< K >(key));
             return iterator(std::move(stmt), result);
         }
 
-        template < typename K, typename V > void update(const std::string& name, K&& key, V&& value)
+        template < typename K, typename V > void update(const named_context& context, K&& key, V&& value)
         {
             auto stmt = update_.acquire();
-            assert(stmt(std::forward< V >(value), name, std::forward< K >(key)) == SQLITE_DONE);
+            assert(stmt(std::forward< V >(value), context.get_name(), std::forward< K >(key)) == SQLITE_DONE);
         }
 
-        template < typename K, typename V > bool insert(const std::string& name, K&& key, V&& value)
+        template < typename K, typename V > bool insert(const named_context& context, K&& key, V&& value)
         {
             auto stmt = insert_.acquire();
-            auto result = stmt(name, std::forward< K >(key), std::forward< V >(value));
+            auto result = stmt(context.get_name(), std::forward< K >(key), std::forward< V >(value));
             return result == SQLITE_DONE;
         }
 
-        template < typename K > Value value(const std::string& name, K&& key)
+        template < typename K > Value value(const named_context& context, K&& key)
         {
             auto stmt = value_.acquire();
-            if (stmt(name, std::forward< K >(key)) == SQLITE_ROW)
+            if (stmt(context.get_name(), std::forward< K >(key)) == SQLITE_ROW)
             {
                 return stmt.extract< Value >(0);
             }
@@ -135,10 +132,10 @@ namespace sqlstl
             std::abort();
         }
 
-        size_t size(const std::string& name)
+        size_t size(const named_context& context)
         {
             auto stmt = size_.acquire();
-            stmt(name);
+            stmt(context.get_name());
             return stmt.extract< size_t >(0);
         }
 

@@ -143,10 +143,7 @@ namespace sqlstl
             storage_.update(allocator_, std::forward< K >(key), make_sql_value(std::forward< V >(value)));
         }
 
-        template < typename K > auto find_value(K&& key)
-        {
-            return storage_.value(allocator_, std::forward< K >(key));
-        }
+        template < typename K > auto find_value(K&& key) { return storage_.value(allocator_, std::forward< K >(key)); }
         
         auto get_storage_iterator(const value_type& value) const { return storage_.find(allocator_, value.first); }
 

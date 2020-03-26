@@ -95,7 +95,7 @@ namespace sqlstl
         iterator begin(const named_context& context)
         {
             auto stmt = begin_.acquire();
-            auto result = stmt(context.get_name());
+            auto result = stmt(context);
             return iterator(std::move(stmt), result);
         }
 
@@ -104,27 +104,27 @@ namespace sqlstl
         template < typename K > iterator find(const named_context& context, K&& key)
         {
             auto stmt = find_.acquire();
-            auto result = stmt(context.get_name(), std::forward< K >(key));
+            auto result = stmt(context, std::forward< K >(key));
             return iterator(std::move(stmt), result);
         }
 
         template < typename K, typename V > void update(const named_context& context, K&& key, V&& value)
         {
             auto stmt = update_.acquire();
-            assert(stmt(std::forward< V >(value), context.get_name(), std::forward< K >(key)) == SQLITE_DONE);
+            assert(stmt(std::forward< V >(value), context, std::forward< K >(key)) == SQLITE_DONE);
         }
 
         template < typename K, typename V > bool insert(const named_context& context, K&& key, V&& value)
         {
             auto stmt = insert_.acquire();
-            auto result = stmt(context.get_name(), std::forward< K >(key), std::forward< V >(value));
+            auto result = stmt(context, std::forward< K >(key), std::forward< V >(value));
             return result == SQLITE_DONE;
         }
 
         template < typename K > Value value(const named_context& context, K&& key)
         {
             auto stmt = value_.acquire();
-            if (stmt(context.get_name(), std::forward< K >(key)) == SQLITE_ROW)
+            if (stmt(context, std::forward< K >(key)) == SQLITE_ROW)
             {
                 return stmt.extract< Value >(0);
             }
@@ -135,7 +135,7 @@ namespace sqlstl
         size_t size(const named_context& context)
         {
             auto stmt = size_.acquire();
-            stmt(context.get_name());
+            stmt(context);
             return stmt.extract< size_t >(0);
         }
 

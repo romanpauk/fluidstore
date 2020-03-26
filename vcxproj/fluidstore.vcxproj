@@ -43,6 +43,7 @@
     <ClInclude Include="..\include\sqlstl\allocator.h" />
     <ClInclude Include="..\include\sqlstl\iterator.h" />
     <ClInclude Include="..\include\sqlstl\map.h" />
+    <ClInclude Include="..\include\sqlstl\named_context.h" />
     <ClInclude Include="..\include\sqlstl\set.h" />
     <ClInclude Include="..\include\sqlstl\sqlite.h" />
     <ClInclude Include="..\include\sqlstl\storage\map.h" />

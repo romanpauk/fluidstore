@@ -104,5 +104,8 @@
     <ClInclude Include="..\include\sqlstl\iterator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\include\sqlstl\named_context.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

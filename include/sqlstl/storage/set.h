@@ -98,7 +98,7 @@ namespace sqlstl
         iterator begin(const named_context& context)
         {
             auto stmt = begin_.acquire();
-            auto result = stmt(context.get_name());
+            auto result = stmt(context);
             return iterator(std::move(stmt), result);
         }
 
@@ -109,21 +109,21 @@ namespace sqlstl
         template < typename K > iterator find(const named_context& context, K&& key) const
         {
             auto stmt = find_.acquire();
-            auto result = stmt(context.get_name(), std::forward< K >(key));
+            auto result = stmt(context, std::forward< K >(key));
             return iterator(std::move(stmt), result);
         }
 
         template < typename K > bool insert(const named_context& context, K&& key)
         {
             auto stmt = insert_.acquire();
-            auto result = stmt(context.get_name(), key);
+            auto result = stmt(context, key);
             return result == SQLITE_DONE;
         }
 
         size_t size(const named_context& context) const
         {
             auto stmt = size_.acquire();
-            stmt(context.get_name());
+            stmt(context);
             return stmt.extract< size_t >(0);
         }
 

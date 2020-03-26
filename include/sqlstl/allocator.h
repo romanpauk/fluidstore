@@ -2,6 +2,7 @@
 
 #include <sqlstl/sqlite.h>
 #include <sqlstl/storage/storage.h>
+#include <sqlstl/named_context.h>
 
 #include <map>
 #include <typeindex>
@@ -31,23 +32,6 @@ namespace sqlstl
     private:
         sqlstl::db& db_;
         std::map< std::type_index, std::unique_ptr< storage > > storages_;
-    };
-
-    class named_context
-    {
-    public:
-        named_context() {}
-
-        named_context(const std::string& name)
-            : name_(name)
-        {}
-
-        const std::string& get_name() const { return name_; }
-
-        static std::string create_name() { return std::to_string(rand()); }
-
-    private:
-        std::string name_;
     };
 
     template < typename T > class allocator

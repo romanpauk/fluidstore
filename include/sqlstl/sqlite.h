@@ -2,6 +2,8 @@
 
 #include "sqlite3.h"
 
+#include <sqlstl/named_context.h>
+
 #include <string>
 #include <cassert>
 #include <stdexcept>
@@ -103,6 +105,11 @@ namespace sqlstl
         void bind_parameter(int index, const char* value)
         {
             sqlite3_check(sqlite3_bind_text(stmt_, index, value, strlen(value), 0));
+        }
+
+        void bind_parameter(int index, const named_context& context)
+        {
+            bind_parameter(index, context.get_name());
         }
 
         template < typename T > void bind_parameter(int index, const std::optional< T >& value)

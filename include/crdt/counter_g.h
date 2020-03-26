@@ -1,7 +1,7 @@
 #pragma once
 
 #include <sqlstl/algorithm.h>
-#include <crdt/Allocator.h>
+#include <crdt/allocator.h>
 #include <algorithm>
 
 namespace crdt
@@ -9,6 +9,7 @@ namespace crdt
     template < typename T, typename Node, typename Traits > class counter_g
     {
         typedef typename Traits::template Map< Node, T > container_type;
+        template < typename T, typename Node, typename Traits > friend class counter_g;
 
     public:
         typedef typename Traits::template Allocator<void> allocator_type;
@@ -56,7 +57,7 @@ namespace crdt
 
         auto get_allocator() const { return allocator_; }
 
-        // private:
+    private:
         allocator_type allocator_;
         container_type values_;
     };

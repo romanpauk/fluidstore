@@ -7,6 +7,8 @@ namespace crdt
 {
     template < typename T, typename Node, typename Traits > class counter_pn
     {
+        template < typename T, typename Node, typename Traits > friend class counter_pn;
+
     public:
         typedef typename Traits::template Allocator<void> allocator_type;
 
@@ -44,7 +46,7 @@ namespace crdt
 
         auto get_allocator() const { return allocator_; }
 
-        // private:
+    private:
         allocator_type allocator_;
         counter_g< T, Node, Traits > inc_, dec_;
     };

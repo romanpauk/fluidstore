@@ -10,12 +10,13 @@ namespace crdt
     {
     public:
         typedef uint64_t Tag;
+        typedef typename Traits::template Allocator< void > allocator_type;
 
         struct set_or_tags
         {
-            template < typename Allocator > set_or_tags(Allocator&& allocator)
-                : added(Allocator(allocator, "added"))
-                , removed(Allocator(allocator, "removed"))
+            set_or_tags(allocator_type allocator)
+                : added(allocator_type(allocator, "added"))
+                , removed(allocator_type(allocator, "removed"))
                 , allocator_(allocator)
             {}
 
@@ -44,7 +45,7 @@ namespace crdt
             auto get_allocator() const { return allocator_; }
 
         private:
-            typename Traits::template Allocator< void > allocator_;
+            allocator_type allocator_;
         };
 
         template < typename It > class iterator_base
@@ -77,7 +78,6 @@ namespace crdt
 
     public:
         typedef typename Traits::template Map< T, set_or_tags > container_type;
-        typedef typename Traits::template Allocator< void > allocator_type;
 
         set_or(allocator_type allocator)
             : allocator_(allocator)
@@ -109,8 +109,9 @@ namespace crdt
         template < typename K > std::pair< iterator, bool > insert(K&& value)
         {
             auto pairb = values_.emplace(
-                std::forward< K >(value),
-                set_or_tags(typename Traits::template Allocator<void>(allocator_, value)));
+                std::forward< K >(value), 
+                allocator_.template create< set_or_tags >()
+            );
 
             pairb.first->second.added.insert(get_tag());
             return { iterator(*this, std::move(pairb.first)), pairb.second };
@@ -170,23 +171,11 @@ namespace crdt
         auto get_allocator() const { return allocator_; }
 
     private:
-        template < typename It > void insert_erase_node(It& it)
-        {
-            const auto& data = (*it);
-            values_[data.first].merge(data.second);
-            erase(data.first);
-        }
-
         template < typename K > auto find_node(K&& key)
         {
             return { *this, values_.find(std::forward< K >(key)) };
         }
-
-        auto end_node()
-        {
-            return { *this, values_.end() };
-        }
-
+        
         template < typename It > It advance(It&& it)
         {
             while (it != values_.end() && !is_added(it->second))
@@ -204,7 +193,6 @@ namespace crdt
             return tags.added.size() > tags.removed.size();
         }
 
-    public:
         allocator_type allocator_;
         container_type values_;
     };

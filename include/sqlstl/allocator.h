@@ -35,6 +35,8 @@ namespace sqlstl
 
     template < typename T > class allocator
     {
+        template < typename T > friend class allocator;
+
     public:
         typedef T value_type;
 
@@ -42,49 +44,36 @@ namespace sqlstl
             : factory_(factory)
         {}
 
-        template < size_t N > allocator(factory& factory, const char(&name)[N])
-            : factory_(factory)
-            , name_(name)
-        {}
-
         template < typename Allocator > allocator(Allocator&& allocator)
             : factory_(allocator.factory_)
             , name_(allocator.name_)
         {}
 
-        template < typename Allocator, size_t N > allocator(Allocator&& allocator, const char (&name)[N])
+        template < typename Allocator > allocator(Allocator&& allocator, const std::string& name)
             : factory_(allocator.factory_)
             , name_(allocator.name_ + "." + name)
         {}
 
-        template < typename Allocator, typename Value > allocator(Allocator&& allocator, const Value& value, bool replace = false)
-            : factory_(allocator.factory_)
-            , name_(allocator.name_ + ".")
+        template < typename Type > Type create(const std::string& name)
         {
-            if constexpr (type_traits< Value >::embeddable)
-            {
-                std::stringstream stream;
-                stream << value;
-                if (!replace)
-                {
-                    name_ += stream.str();
-                }
-                else
-                {
-                    name_ = stream.str();
-                }
-            }
-            else
-            {
-                name_ += value.get_allocator().get_name();
-            }
+            return Type(allocator(factory_, name));
+        }
+
+        template < typename Type > Type create()
+        {
+            return Type(allocator(factory_, std::to_string(rand())));
         }
         
         template < typename Storage > Storage& create_storage() { return factory_.create_storage< Storage >(); }
 
         const std::string& get_name() const { return name_; }
 
-    // private:
+    private:
+        allocator(factory& factory, const std::string& name)
+            : factory_(factory)
+            , name_(name)
+        {}
+
         factory& factory_;
         std::string name_;
     };

@@ -6,6 +6,8 @@ namespace crdt
 {
     template < typename T, typename Traits > class set_g
     {
+        template < typename T, typename Traits > friend class set_g;
+
         template < typename It > class iterator_base
         {
         public:
@@ -28,8 +30,7 @@ namespace crdt
             typename It it_;
         };
 
-        typedef typename Traits::template Set< T > container_type;
-        
+        typedef typename Traits::template Set< T > container_type;        
 
     public:
         typedef typename Traits::template Allocator< T > allocator_type;

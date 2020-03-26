@@ -48,6 +48,8 @@ int main()
     map_g_test();
     // schema_test();
 
+    sqlstl::allocator<void> allocator(factory);
+
     // Sql-based map of delta-counters that themselves are sql-based.
     sqlstl::map< 
         int, 
@@ -55,7 +57,7 @@ int main()
             crdt::traits< crdt::sqlite >
         >,
         sqlstl::allocator<void>
-    > mapcounterg(sqlstl::allocator<void>(factory, "MapCounterG"));
+    > mapcounterg(allocator);
 
     mapcounterg[1].add(1, 4);
     mapcounterg[1].add(2, 4);
@@ -68,17 +70,15 @@ int main()
             crdt::traits< crdt::sqlite >
         >,
         sqlstl::allocator<void>
-    > mapsetg(sqlstl::allocator<void>(factory, "MapSetG"));
+    > mapsetg(allocator);
 
     mapsetg[1].insert(1);
     mapsetg[1].insert(2);
     assert(mapsetg[0].size() == 0);
     assert(mapsetg[1].size() == 2);
 
-    crdt::map_g< int, crdt::set_g< int, crdt::traits< crdt::sqlite > >, crdt::traits< crdt::sqlite > > mapg1(
-        sqlstl::allocator<void>(factory, "CrdtMapG1"));
-    crdt::map_g< int, crdt::set_g< int, crdt::traits< crdt::sqlite > >, crdt::traits< crdt::sqlite > > mapg2(
-        sqlstl::allocator<void>(factory, "CrdtMapG2"));
+    crdt::map_g< int, crdt::set_g< int, crdt::traits< crdt::sqlite > >, crdt::traits< crdt::sqlite > > mapg1(allocator);
+    crdt::map_g< int, crdt::set_g< int, crdt::traits< crdt::sqlite > >, crdt::traits< crdt::sqlite > > mapg2(allocator);
 
     //mapg1[1].insert(1);
     //mapg1[1].insert(2);

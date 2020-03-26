@@ -21,9 +21,9 @@ namespace crdt
         template < typename T > struct Allocator : std::allocator< T > 
         {
             template < typename Alloc > Allocator(Alloc&& alloc) {}
-            template < typename Alloc, typename Value > Allocator(Alloc&& alloc, const Value&, bool replace = false) {}
-
-            std::string get_name() { return ""; }
+            template < typename Alloc > Allocator(Alloc&& alloc, const std::string&) {}
+            template < typename Type > Type create() { return Type(*this); }
+            template < typename Type > Type create(const std::string&) { return Type(*this); }
         };
         
         template < typename T > using Set = std::set< T, std::less< T >, std::scoped_allocator_adaptor< Allocator< T > > >;

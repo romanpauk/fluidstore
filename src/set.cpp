@@ -4,7 +4,9 @@ void set_test()
 {
     sqlstl::db db(":memory:");
     sqlstl::factory factory(db);
-    sqlstl::set< int, sqlstl::allocator< int > > set(sqlstl::allocator<void>(factory, "Set"));
+    sqlstl::allocator<void> allocator(factory);
+
+    sqlstl::set< int, sqlstl::allocator< int > > set(allocator);
 
     assert(set.size() == 0);
 

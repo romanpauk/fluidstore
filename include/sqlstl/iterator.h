@@ -4,8 +4,9 @@
 
 namespace sqlstl
 {
-    template < typename Container, typename StorageIterator > struct iterator
+    template < typename Container, typename StorageIterator > class iterator
     {
+    public:
         iterator(const iterator&) = delete;
         iterator& operator = (const iterator&) = delete;
 

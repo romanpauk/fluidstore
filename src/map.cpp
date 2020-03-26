@@ -6,7 +6,9 @@ void map_test()
 {
     sqlstl::db db(":memory:");
     sqlstl::factory factory(db);
-    sqlstl::map< int, int, sqlstl::allocator< std::pair< const int, int > > > map(sqlstl::allocator<void>(factory, "Map"));
+    sqlstl::allocator<void> allocator(factory);
+
+    sqlstl::map< int, int, sqlstl::allocator< std::pair< const int, int > > > map(allocator);
 
     assert(map.size() == 0);
 

@@ -1,3 +1,5 @@
+#include <boost/test/unit_test.hpp>
+
 #include <crdt/map_g.h>
 #include <crdt/value_mv.h>
 #include <crdt/counter_g.h>
@@ -8,11 +10,11 @@ template < typename Traits, typename Allocator > void map_g_test_impl(typename A
 {
     crdt::map_g< int, crdt::value_mv< int, Traits >, Traits > map(allocator);
     map[1] = 1;
-    assert(map.find(1) != map.end());
-    assert(map[1] == 1);
+    BOOST_ASSERT(map.find(1) != map.end());
+    BOOST_ASSERT(map[1] == 1);
 }
 
-void map_g_test()
+BOOST_AUTO_TEST_CASE(map_g_test)
 {
     {
         sqlstl::db db(":memory:");

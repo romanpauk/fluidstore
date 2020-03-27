@@ -1,6 +1,8 @@
+#include <boost/test/unit_test.hpp>
+
 #include <sqlstl/set.h>
 
-void set_test()
+BOOST_AUTO_TEST_CASE(set)
 {
     sqlstl::db db(":memory:");
     sqlstl::factory factory(db);
@@ -8,38 +10,38 @@ void set_test()
 
     sqlstl::set< int, sqlstl::allocator< int > > set(allocator);
 
-    assert(set.size() == 0);
+    BOOST_ASSERT(set.size() == 0);
 
     {
         auto it = set.insert(1);
-        assert(it.first == set.find(1));
-        assert(*it.first == 1);
-        assert(it.first != set.find(2));
-        assert(it.second == true);
+        BOOST_ASSERT(it.first == set.find(1));
+        BOOST_ASSERT(*it.first == 1);
+        BOOST_ASSERT(it.first != set.find(2));
+        BOOST_ASSERT(it.second == true);
     }
 
     {
         auto it = set.insert(1);
-        assert(it.second == false);
-        assert(*it.first == 1);
+        BOOST_ASSERT(it.second == false);
+        BOOST_ASSERT(*it.first == 1);
     }
 
-    assert(set.size() == 1);
+    BOOST_ASSERT(set.size() == 1);
     
     {
         auto it = set.insert(2);
-        assert(set.find(2) == it.first);
+        BOOST_ASSERT(set.find(2) == it.first);
     }
 
-    assert(set.size() == 2);
+    BOOST_ASSERT(set.size() == 2);
 
     {
         int count = 0;
         for (auto&& value : set)
         {
-            assert(value == ++count);
+            BOOST_ASSERT(value == ++count);
         }
-        assert(count == 2);
+        BOOST_ASSERT(count == 2);
     }
 }
 

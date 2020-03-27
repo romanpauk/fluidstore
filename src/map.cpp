@@ -1,8 +1,10 @@
+#include <boost/test/unit_test.hpp>
+
 #include <sqlstl/sqlite.h>
 #include <sqlstl/map.h>
 #include <sqlstl/allocator.h>
 
-void map_test()
+BOOST_AUTO_TEST_CASE(map)
 {
     sqlstl::db db(":memory:");
     sqlstl::factory factory(db);
@@ -10,34 +12,34 @@ void map_test()
 
     sqlstl::map< int, int, sqlstl::allocator< std::pair< const int, int > > > map(allocator);
 
-    assert(map.size() == 0);
+    BOOST_ASSERT(map.size() == 0);
 
     map[1] = 10;
     {
         auto it = map.find(1);
-        assert((*it).first == 1);
-        assert((*it).second == 10);
-        assert(++it == map.end());
-        assert(map.size() == 1);
+        BOOST_ASSERT((*it).first == 1);
+        BOOST_ASSERT((*it).second == 10);
+        BOOST_ASSERT(++it == map.end());
+        BOOST_ASSERT(map.size() == 1);
     }
 
     map[2] = 20;
     {
         auto it = map.find(2);
-        assert((*it).first == 2);
-        assert((*it).second == 20);
-        assert(++it == map.end());
-        assert(map.size() == 2);
+        BOOST_ASSERT((*it).first == 2);
+        BOOST_ASSERT((*it).second == 20);
+        BOOST_ASSERT(++it == map.end());
+        BOOST_ASSERT(map.size() == 2);
     }
 
     {
         int count = 0;
         for (auto&& value : map)
         {
-            assert(value.first == ++count);
-            assert(value.second == count * 10);
+            BOOST_ASSERT(value.first == ++count);
+            BOOST_ASSERT(value.second == count * 10);
         }
-        assert(count == 2);
+        BOOST_ASSERT(count == 2);
     }
 
 /*
@@ -49,10 +51,10 @@ void map_test()
         int count = 0;
         for (auto&& value : nested)
         {
-            assert(value.first == ++count);
-            assert((*value.second.find(count * 10)).second == count * 100);
+            BOOST_ASSERT(value.first == ++count);
+            BOOST_ASSERT((*value.second.find(count * 10)).second == count * 100);
         }
-        assert(count == 2);
+        BOOST_ASSERT(count == 2);
     }
 */
 }

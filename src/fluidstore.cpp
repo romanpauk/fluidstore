@@ -1,9 +1,14 @@
+#define NOMINMAX
+
 #include <iostream>
 #include <map>
 #include <set>
 #include <functional>
 #include <algorithm>
 #include <numeric>
+
+#define BOOST_TEST_MODULE fluidstore
+#include <boost/test/unit_test.hpp>
 
 #include <sqlstl/allocator.h>
 #include <sqlstl/map.h>
@@ -21,31 +26,14 @@
 
 // #include <schema/schema.h>
 
-void set_test();
-void map_test();
-void set_g_test();
-void set_or_test();
-void value_mv_test();
-void counter_g_test();
-void counter_pn_test();
-void map_g_test();
-
 // void schema_test();
 
-int main()
+BOOST_AUTO_TEST_CASE(test_case_name)
+//int main()
 {
     sqlstl::db db(":memory:");
     sqlstl::factory factory(db);
 
-    set_test();
-    map_test();
-
-    counter_g_test();
-    counter_pn_test();
-    set_g_test();
-    set_or_test();
-    value_mv_test();
-    map_g_test();
     // schema_test();
 
     sqlstl::allocator<void> allocator(factory);
@@ -61,8 +49,8 @@ int main()
 
     mapcounterg[1].add(1, 4);
     mapcounterg[1].add(2, 4);
-    assert(mapcounterg[0].value() == 0);
-    assert(mapcounterg[1].value() == 8);
+    BOOST_ASSERT(mapcounterg[0].value() == 0);
+    BOOST_ASSERT(mapcounterg[1].value() == 8);
 
     sqlstl::map<
         int,
@@ -74,8 +62,8 @@ int main()
 
     mapsetg[1].insert(1);
     mapsetg[1].insert(2);
-    assert(mapsetg[0].size() == 0);
-    assert(mapsetg[1].size() == 2);
+    BOOST_ASSERT(mapsetg[0].size() == 0);
+    BOOST_ASSERT(mapsetg[1].size() == 2);
 
     crdt::map_g< int, crdt::set_g< int, crdt::traits< crdt::sqlite > >, crdt::traits< crdt::sqlite > > mapg1(allocator);
     crdt::map_g< int, crdt::set_g< int, crdt::traits< crdt::sqlite > >, crdt::traits< crdt::sqlite > > mapg2(allocator);
@@ -85,5 +73,5 @@ int main()
     //mapg2[1].insert(3);
     //mapg2[2].insert(1);
     //mapg1.merge(mapg2);
-    //assert(mapg1[1].size() == 3);
+    //BOOST_ASSERT(mapg1[1].size() == 3);
 } 

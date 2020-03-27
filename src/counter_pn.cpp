@@ -1,22 +1,24 @@
+#include <boost/test/unit_test.hpp>
+
 #include <crdt/counter_pn.h>
 #include <crdt/traits.h>
 
 template < typename Traits, typename Allocator > void counter_pn_test_impl(typename Allocator allocator)
 {
     crdt::counter_pn< int, int, Traits > counter(Allocator(allocator, "counter_pn"));
-    assert(counter.value() == 0);
+    BOOST_ASSERT(counter.value() == 0);
     counter.add(1, 1);
     counter.add(2, 3);
 
-    assert(counter.value() == 4);
+    BOOST_ASSERT(counter.value() == 4);
 
     counter.sub(1, 2);
     counter.sub(3, 3);
 
-    assert(counter.value() == -1);
+    BOOST_ASSERT(counter.value() == -1);
 }
 
-void counter_pn_test()
+BOOST_AUTO_TEST_CASE(counter_pn_test)
 {
     {
         sqlstl::db db(":memory:");

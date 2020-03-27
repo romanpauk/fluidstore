@@ -1,3 +1,5 @@
+#include <boost/test/unit_test.hpp>
+
 #include <crdt/value_mv.h>
 #include <crdt/traits.h>
 
@@ -5,15 +7,15 @@ template < typename Traits, typename Allocator > void value_mv_test_impl(typenam
 {
     crdt::value_mv< int, Traits > value(Allocator(allocator, "value_mv"));
     value = 1;
-    assert(value == 1);
+    BOOST_ASSERT(value == 1);
     value = 2;
-    assert(value == 2);
+    BOOST_ASSERT(value == 2);
 
-    static_assert(std::uses_allocator_v< crdt::value_mv< int, Traits >, Allocator >);
-    static_assert(std::uses_allocator_v< crdt::value_mv< int, Traits >, std::allocator< void > >);
+    BOOST_ASSERT((std::uses_allocator_v< crdt::value_mv< int, Traits >, Allocator >));
+    BOOST_ASSERT((std::uses_allocator_v< crdt::value_mv< int, Traits >, std::allocator< void > >));
 }
 
-void value_mv_test()
+BOOST_AUTO_TEST_CASE(value_mv_test)
 {
     {
         sqlstl::db db(":memory:");

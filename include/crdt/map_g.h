@@ -59,7 +59,7 @@ namespace crdt
         
         map_g(allocator_type allocator)
             : allocator_(allocator)
-            , values_(allocator_type(allocator_))
+            , values_(allocator_type(allocator_, "values"))
         {}
 
         iterator begin() { return iterator(*this, values_.begin()); }

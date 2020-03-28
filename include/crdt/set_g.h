@@ -42,11 +42,6 @@ namespace crdt
             , allocator_(allocator)
         {}
 
-        set_g(set_g&& other)
-            : values_(std::move(other.values_))
-            , allocator_(std::move(other.allocator_))
-        {}
-
         iterator begin() { return values_.begin(); }
         const_iterator begin() const { return values_.begin(); }
 

@@ -24,17 +24,12 @@
 #include <crdt/value_mv.h>
 #include <crdt/traits.h>
 
-// #include <schema/schema.h>
-
-// void schema_test();
 
 BOOST_AUTO_TEST_CASE(test_case_name)
 //int main()
 {
     sqlstl::db db(":memory:");
     sqlstl::factory factory(db);
-
-    // schema_test();
 
     sqlstl::allocator<void> allocator(factory);
 

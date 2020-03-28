@@ -9,23 +9,23 @@ namespace sqlstl
     public:
         template < typename Allocator > tuple(Allocator&& allocator)
             : allocator_(std::forward< Allocator >(allocator))
-            , storage_(allocator_.template create_storage< tuple_storage< Args... > >())
+            , storage_(&allocator_.template create_storage< tuple_storage< Args... > >())
         {}
 
         template < typename... V > tuple< Args... >& operator = (std::tuple< V... >&& v)
         {
-            storage_.replace(allocator_, std::forward< std::tuple< V... > >(v));
+            storage_->replace(allocator_, std::forward< std::tuple< V... > >(v));
             return *this;
         }
 
         std::tuple< Args... > value()
         {
-            return storage_.value(allocator_);
+            return storage_->value(allocator_);
         }
 
     private:
         allocator< void > allocator_;
-        tuple_storage< Args... >& storage_;
+        tuple_storage< Args... >* storage_;
     };
 }
 

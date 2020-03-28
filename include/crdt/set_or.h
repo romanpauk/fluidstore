@@ -20,19 +20,6 @@ namespace crdt
                 , allocator_(allocator)
             {}
 
-            set_or_tags(set_or_tags&& other)
-                : added(std::move(other.added))
-                , removed(std::move(other.removed))
-                , allocator_(std::move(other.allocator_))
-            {}
-
-            set_or_tags& operator = (set_or_tags&& other)
-            {
-                std::swap(added, other.added);
-                std::swap(removed, other.removed);
-                std::swap(allocator_, other.allocator_);
-            }
-
             set_g< Tag, Traits > added;
             set_g< Tag, Traits > removed;
 
@@ -82,11 +69,6 @@ namespace crdt
         set_or(allocator_type allocator)
             : allocator_(allocator)
             , values_(allocator_type(allocator, "values"))
-        {}
-
-        set_or(set_or&& other)
-            : allocator_(std::move(other.allocator_))
-            , values_(std::move(other.values_))
         {}
 
         typedef iterator_base< typename container_type::iterator > iterator;

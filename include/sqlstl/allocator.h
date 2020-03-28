@@ -43,7 +43,7 @@ namespace sqlstl
         typedef T value_type;
 
         allocator(factory& factory)
-            : factory_(factory)
+            : factory_(&factory)
         {}
 
         template < typename Allocator > allocator(Allocator&& allocator)
@@ -56,9 +56,16 @@ namespace sqlstl
             , factory_(allocator.factory_)
         {}
 
-        template < typename Type > Type create(const std::string& name)
+        template < typename Type, typename Value > Type create(Value&& value)
         {
-            return Type(allocator(factory_, name));
+            if constexpr (type_traits< Type >::embeddable)
+            {
+                return std::forward< Value >(value);
+            }
+            else
+            {
+                return Type(allocator(factory_, value));
+            }
         }
 
         template < typename Type > Type create()
@@ -66,14 +73,14 @@ namespace sqlstl
             return Type(allocator(factory_, create_name()));
         }
         
-        template < typename Storage > Storage& create_storage() { return factory_.create_storage< Storage >(); }
+        template < typename Storage > Storage& create_storage() { return factory_->create_storage< Storage >(); }
 
     private:
-        allocator(factory& factory, const std::string& name)
+        allocator(factory* factory, const std::string& name)
             : named_context(name)
             , factory_(factory)
         {}
 
-        factory& factory_;
+        factory* factory_;
     };
 }

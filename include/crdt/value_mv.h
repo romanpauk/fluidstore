@@ -14,7 +14,7 @@ namespace crdt
             , values_(allocator_type(allocator, "values"))
         {}
 
-        operator T()
+        T get()
         {
             if (values_.size() == 1)
             {
@@ -26,6 +26,8 @@ namespace crdt
                 std::abort();
             }
         }
+
+        operator T() { return get(); }
 
         template < typename V > value_mv< T, Traits >& operator = (V&& v)
         {

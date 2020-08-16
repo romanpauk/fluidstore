@@ -86,4 +86,30 @@ namespace crdt
         container_type values_;
         allocator_type allocator_;
     };
+
+    template < typename T, typename Node, typename StateTraits, typename DeltaTraits > class set_g_delta
+        : public delta_crdt_base
+    {
+        typedef set_g< T, StateTraits > state_container_type;
+        typedef set_g< T, DeltaTraits > delta_container_type;
+
+    public:
+        set_g_delta(state_container_type& state_container)
+            : state_container_(state_container)
+        {}
+
+        template < typename K > void insert(K&& value)
+        {
+            delta_container_.insert(std::forward< K >(value));
+        }
+
+        void commit() override
+        {
+            state_container_.merge(delta_container_);
+        }
+
+    private:
+        state_container_type& state_container_;
+        delta_container_type delta_container_;
+    };
 }

@@ -24,6 +24,7 @@
     <ClCompile Include="..\src\fluidstore.cpp" />
     <ClCompile Include="..\src\map.cpp" />
     <ClCompile Include="..\src\map_g.cpp" />
+    <ClCompile Include="..\src\map_or.cpp" />
     <ClCompile Include="..\src\set.cpp" />
     <ClCompile Include="..\src\set_g.cpp" />
     <ClCompile Include="..\src\set_or.cpp" />
@@ -34,11 +35,13 @@
     <ClInclude Include="..\include\crdt\counter_g.h" />
     <ClInclude Include="..\include\crdt\counter_pn.h" />
     <ClInclude Include="..\include\crdt\map_g.h" />
+    <ClInclude Include="..\include\crdt\map_or.h" />
     <ClInclude Include="..\include\crdt\set_g.h" />
     <ClInclude Include="..\include\crdt\set_or.h" />
     <ClInclude Include="..\include\crdt\traits.h" />
     <ClInclude Include="..\include\crdt\value_lww.h" />
     <ClInclude Include="..\include\crdt\value_mv.h" />
+    <ClInclude Include="..\include\schema\schema.h" />
     <ClInclude Include="..\include\sqlstl\algorithm.h" />
     <ClInclude Include="..\include\sqlstl\allocator.h" />
     <ClInclude Include="..\include\sqlstl\iterator.h" />

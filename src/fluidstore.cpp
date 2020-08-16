@@ -42,8 +42,8 @@ BOOST_AUTO_TEST_CASE(test_case_name)
         sqlstl::allocator<void>
     > mapcounterg(allocator);
 
-    mapcounterg[1].add(1, 4);
-    mapcounterg[1].add(2, 4);
+    mapcounterg[1].increment(1, 4);
+    mapcounterg[1].increment(2, 4);
     BOOST_ASSERT(mapcounterg[0].value() == 0);
     BOOST_ASSERT(mapcounterg[1].value() == 8);
 
@@ -60,8 +60,8 @@ BOOST_AUTO_TEST_CASE(test_case_name)
     BOOST_ASSERT(mapsetg[0].size() == 0);
     BOOST_ASSERT(mapsetg[1].size() == 2);
 
-    crdt::map_g< int, crdt::set_g< int, crdt::traits< crdt::sqlite > >, crdt::traits< crdt::sqlite > > mapg1(allocator);
-    crdt::map_g< int, crdt::set_g< int, crdt::traits< crdt::sqlite > >, crdt::traits< crdt::sqlite > > mapg2(allocator);
+    //crdt::map_g< int, crdt::set_g< int, crdt::traits< crdt::sqlite > >, crdt::traits< crdt::sqlite > > mapg1(allocator);
+    //crdt::map_g< int, crdt::set_g< int, crdt::traits< crdt::sqlite > >, crdt::traits< crdt::sqlite > > mapg2(allocator);
 
     //mapg1[1].insert(1);
     //mapg1[1].insert(2);

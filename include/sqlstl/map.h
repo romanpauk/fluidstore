@@ -95,13 +95,14 @@ namespace sqlstl
         
         template < typename K > iterator find(K&& key) 
         {
+            auto it = storage_->find(allocator_, key);
+
             if constexpr (type_traits< Value >::embeddable)
             {
-                return { this, storage_->find(allocator_, make_sql_value(key)) };
+                return { this, std::move(it) };
             }
             else
             {
-                auto it = storage_->find(allocator_, key);
                 auto value = allocator_.template create< Value >((*it).second);
                 return iterator(this, std::make_pair(std::forward< K >(key), std::move(value)), std::move(it));
             }          

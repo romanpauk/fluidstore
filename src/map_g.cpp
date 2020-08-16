@@ -1,10 +1,10 @@
 #include <boost/test/unit_test.hpp>
 
-#include <crdt/map_g.h>
-#include <crdt/value_mv.h>
-#include <crdt/counter_g.h>
-
 #include <crdt/traits.h>
+#include <crdt/value_mv.h>
+#include <crdt/map_g.h>
+
+#include <crdt/counter_g.h>
 
 template < typename Traits, typename Allocator > void map_g_test_impl(typename Allocator allocator)
 {

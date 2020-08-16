@@ -8,6 +8,8 @@ namespace crdt
 {
     template < typename T, typename Traits > class set_or
     {
+        template < typename T, typename Traits > friend class set_or;
+
     public:
         typedef uint64_t Tag;
         typedef typename Traits::template Allocator< void > allocator_type;
@@ -177,5 +179,46 @@ namespace crdt
 
         allocator_type allocator_;
         container_type values_;
+    };
+
+    template < typename T, typename Node, typename StateTraits, typename DeltaTraits > class set_or_delta
+        : public delta_crdt_base
+    {
+        typedef set_or< T, StateTraits > state_container_type;
+        typedef set_or< T, DeltaTraits > delta_container_type;
+
+    public:
+        set_or_delta(state_container_type& state_container)
+            : state_container_(state_container)
+        {}
+
+        template < typename K > void insert(K&& value)
+        {
+            delta_container_.insert(std::forward< K >(value));
+        }
+
+        template < typename K > void erase(K&& value)
+        {
+            if(state_container_.find(value) != state_container_.end())
+            {
+                delta_container_.insert(value);
+                delta_container_.erase(value);
+            }
+        }
+
+        void clear()
+        {
+            delta_container_.merge(state_container_);
+            delta_container_.clear();
+        }
+
+        void commit() override
+        {
+            state_container_.merge(delta_container_);
+        }
+
+    private:
+        state_container_type& state_container_;
+        delta_container_type delta_container_;
     };
 }

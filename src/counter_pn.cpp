@@ -7,13 +7,13 @@ template < typename Traits, typename Allocator > void counter_pn_test_impl(typen
 {
     crdt::counter_pn< int, int, Traits > counter(Allocator(allocator, "counter_pn"));
     BOOST_ASSERT(counter.value() == 0);
-    counter.add(1, 1);
-    counter.add(2, 3);
+    counter.increment(1, 1);
+    counter.increment(2, 3);
 
     BOOST_ASSERT(counter.value() == 4);
 
-    counter.sub(1, 2);
-    counter.sub(3, 3);
+    counter.decrement(1, 2);
+    counter.decrement(3, 3);
 
     BOOST_ASSERT(counter.value() == -1);
 }

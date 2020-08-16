@@ -9,6 +9,10 @@ namespace crdt
 {
     template < typename Key, typename Value, typename Traits > class map_g
     {
+    public:
+        typedef typename Traits::template Allocator< void > allocator_type;
+
+    private:
         typedef typename Traits::template Map< Key, Value > container_type;
         
         template < typename It > struct iterator_base
@@ -51,9 +55,11 @@ namespace crdt
             typename It it_;
         };
 
-    public:
-        typedef typename Traits::template Allocator< void > allocator_type;
+        // Moved here so operator[] compiles
+        allocator_type allocator_;
+        container_type values_;
 
+    public:
         typedef iterator_base< typename container_type::iterator > iterator;
         typedef iterator_base< typename container_type::const_iterator > const_iterator;
         
@@ -91,13 +97,40 @@ namespace crdt
             }
         }
 
+    private:
         template < typename K, typename V > void merge(K&& key, V&& value)
         {
-            auto pairb = values_.emplace(std::forward< K >(key), value);
-            pairb.first->second.merge(std::forward< V >(value));
+            values_[key].merge(value);
+            //auto pairb = values_.emplace(std::forward< K >(key), value);
+            //pairb.first->second.merge(std::forward< V >(value));
+        }       
+    };
+
+    template < typename T, typename Node, typename StateTraits, typename DeltaTraits > class delta_map_g
+        : public delta_crdt_base
+    {
+        typedef map_g< T, Node, StateTraits > state_container_type;
+        typedef map_g< T, Node, DeltaTraits > delta_container_type;
+
+    public:
+
+        delta_map_g(state_container_type& state_container)
+            : state_container_(state_container)
+        {}
+
+        void apply() override
+        {
+
         }
 
-        allocator_type allocator_;
-        container_type values_;
+        void commit() override
+        {
+            state_container_.merge(delta_container_);
+        }
+
+    private:
+        state_container_type& state_container_;
+        delta_container_type delta_container_;
     };
 }
+

@@ -19,7 +19,7 @@ namespace crdt
             , allocator_(allocator)
         {}
 
-        void add(const Node& node, T value)
+        void increment(const Node& node, T value)
         {
             values_[node] += value;
         }
@@ -60,5 +60,34 @@ namespace crdt
     private:
         allocator_type allocator_;
         container_type values_;
+    };
+
+    template < typename T, typename Node, typename StateTraits, typename DeltaTraits > class counter_g_delta
+        : public delta_crdt_base
+    {
+        typedef counter_g< T, Node, StateTraits > state_container_type;
+        typedef counter_g< T, Node, DeltaTraits > delta_container_type;
+
+    public:
+        counter_g_delta(state_container_type& state_container)
+            : state_container_(state_container)
+        {}
+
+        void increment(const Node& node, T value)
+        {
+            // TODO: counter_g itself needs to be thread-safe
+            // And operations from the same node needs to be synchronized.
+            
+            delta_container_.increment(node, state_container_.value(node) + value);
+        }
+
+        void commit() override
+        {
+            state_container_.merge(delta_container_);
+        }
+
+    private:
+        state_container_type& state_container_;
+        delta_container_type delta_container_;
     };
 }

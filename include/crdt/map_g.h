@@ -84,7 +84,8 @@ namespace crdt
         template < typename K, typename V > std::pair< iterator, bool > emplace(K&& key, V&& value)
         {
             auto pairb = values_.emplace(std::forward< K >(key), std::forward< V >(value));
-            return pairb;
+            
+            return { iterator(*this, std::move(pairb.first)), pairb.second };
         }
 
         template < typename K > iterator find(K&& key) { return iterator(*this, values_.find(std::forward< K >(key))); }

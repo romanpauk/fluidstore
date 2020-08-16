@@ -116,18 +116,29 @@ namespace sqlstl
 
             if constexpr (type_traits< Value >::embeddable)
             {
-                return std::make_pair(iterator(this, { std::forward< K >(key), std::forward< V >(value) }), inserted);
-            } 
+                if(inserted)
+                {
+                    return std::make_pair(iterator(this, std::make_pair(
+                        std::forward< K >(key), std::forward< V >(value))), inserted);
+                }
+                else
+                {
+                    return std::make_pair(iterator(this, std::make_pair(
+                        std::forward< K >(key), storage_->value(allocator_, make_sql_value(key)))), inserted);
+                }
+            }
             else
             {
                 if (inserted)
                 {
-                    return std::make_pair(iterator(this, std::make_pair(std::forward< K >(key), std::forward< V >(value))), inserted);
+                    return std::make_pair(iterator(this, std::make_pair(
+                        std::forward< K >(key), std::forward< V >(value))), inserted);
                 }
                 else
                 {
                     auto value = allocator_.create< Value >(find_value(key));
-                    return std::make_pair(iterator(this, std::make_pair(std::forward< K >(key), std::move(value))), inserted);
+                    return std::make_pair(iterator(this, std::make_pair(
+                        std::forward< K >(key), std::move(value))), inserted);
                 }                
             }
         }

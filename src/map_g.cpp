@@ -8,10 +8,33 @@
 
 template < typename Traits, typename Allocator > void map_g_test_impl(typename Allocator allocator)
 {
-    crdt::map_g< int, crdt::value_mv< int, Traits >, Traits > map(allocator);
-    map[1] = 1;
+    crdt::map_g< int, int, Traits > map(allocator);
+    BOOST_ASSERT(map.size() == 0);
+    {
+        auto it = map.emplace(1, 10);
+
+        BOOST_ASSERT((*it.first == std::pair< const int, int >(1, 10)));
+        BOOST_ASSERT(it.second == true);
+    }
+    {
+        auto it = map.emplace(1, 20);
+        BOOST_ASSERT((*it.first == std::pair< const int, int >(1, 10)));
+        BOOST_ASSERT(it.second == false);
+    }
+    BOOST_ASSERT(map.size() == 1);
     BOOST_ASSERT(map.find(1) != map.end());
-    BOOST_ASSERT(map[1] == 1);
+    map.emplace(2, 20);
+    BOOST_ASSERT(map.size() == 2);
+    BOOST_ASSERT(map.find(2) != map.end());
+
+    int count = 0;
+    for (auto&& value : map)
+    {
+        ++count;
+        BOOST_ASSERT(value.first == count);
+    }
+
+    BOOST_ASSERT(count == 2);
 }
 
 BOOST_AUTO_TEST_CASE(map_g_test)

@@ -112,7 +112,7 @@ namespace crdt
             }
         }
 
-        template < typename K, typename V > std::pair< iterator, bool > insert(K&& key, V&& value)
+        template < typename K, typename V > std::pair< iterator, bool > emplace(K&& key, V&& value)
         {
             auto pairb = values_.emplace(
                 std::forward< K >(key),

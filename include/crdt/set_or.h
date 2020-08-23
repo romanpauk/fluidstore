@@ -97,7 +97,11 @@ namespace crdt
                 allocator_.template create< set_or_tags >()
             );
 
-            pairb.first->second.added.insert(get_tag());
+            if (pairb.second)
+            {
+                pairb.first->second.added.insert(get_tag());
+            }
+
             return { iterator(*this, std::move(pairb.first)), pairb.second };
         }
 
@@ -145,11 +149,6 @@ namespace crdt
             {
                 values_[element.first].merge(element.second);
             }
-        }
-
-        template < typename Set > bool operator == (const Set& other) const
-        {
-            return values_ == other.values_;
         }
 
         auto get_allocator() const { return allocator_; }

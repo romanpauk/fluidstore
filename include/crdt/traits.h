@@ -28,7 +28,7 @@ namespace crdt
         
         template < typename T > using Set = std::set< T, std::less< T >, std::scoped_allocator_adaptor< Allocator< T > > >;
         template < typename K, typename V > using Map = std::map< K, V, std::less< K >, std::scoped_allocator_adaptor< Allocator< std::pair< const K, V > > > >;
-        template < typename Allocator, typename... Args > using Tuple = std::tuple< Args... >;
+        template < typename... Args > using Tuple = std::tuple< Args... >;
 
         template < typename T > struct type_traits
         {

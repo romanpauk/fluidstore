@@ -7,8 +7,8 @@ template < typename Traits, typename Allocator > void counter_g_test_impl(typena
 {
     crdt::counter_g< int, int, Traits > counter(Allocator(allocator, "counter"));
     BOOST_ASSERT(counter.value() == 0);
-    counter.increment(1, 1);
-    counter.increment(2, 3);
+    counter.update(1, 1);
+    counter.update(2, 3);
     BOOST_ASSERT(counter.value() == 4);
 }
 

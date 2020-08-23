@@ -1,5 +1,6 @@
 #include <boost/test/unit_test.hpp>
 
+#include <sqlstl/tuple.h>
 #include <crdt/counter_pn.h>
 #include <crdt/traits.h>
 
@@ -7,13 +8,13 @@ template < typename Traits, typename Allocator > void counter_pn_test_impl(typen
 {
     crdt::counter_pn< int, int, Traits > counter(Allocator(allocator, "counter_pn"));
     BOOST_ASSERT(counter.value() == 0);
-    counter.increment(1, 1);
-    counter.increment(2, 3);
+    counter.update(1, 1);
+    counter.update(2, 3);
 
     BOOST_ASSERT(counter.value() == 4);
 
-    counter.decrement(1, 2);
-    counter.decrement(3, 3);
+    counter.update(1, -2);
+    counter.update(3, -3);
 
     BOOST_ASSERT(counter.value() == -1);
 }

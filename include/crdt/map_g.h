@@ -107,31 +107,6 @@ namespace crdt
         }       
     };
 
-    template < typename T, typename Node, typename StateTraits, typename DeltaTraits > class delta_map_g
-        : public delta_crdt_base
-    {
-        typedef map_g< T, Node, StateTraits > state_container_type;
-        typedef map_g< T, Node, DeltaTraits > delta_container_type;
-
-    public:
-
-        delta_map_g(state_container_type& state_container)
-            : state_container_(state_container)
-        {}
-
-        void apply() override
-        {
-
-        }
-
-        void commit() override
-        {
-            state_container_.merge(delta_container_);
-        }
-
-    private:
-        state_container_type& state_container_;
-        delta_container_type delta_container_;
-    };
+    
 }
 

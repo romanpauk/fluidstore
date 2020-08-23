@@ -32,8 +32,8 @@ namespace sqlstl
         template < typename T, typename Fn, std::size_t I > 
         constexpr void for_each_impl(T& tuple, Fn&& fn, std::integral_constant< std::size_t, I >)
         {
-            fn(std::get< I >(tuple));
             for_each_impl(tuple, std::forward< Fn >(fn), std::integral_constant< std::size_t, I - 1>{});
+            fn(std::get< I >(tuple));
         }
 
         template < typename Fn, typename... Args >
@@ -72,17 +72,26 @@ namespace sqlstl
 
         std::tuple< Args... > value(const named_context& context)
         {
+            std::tuple< Args... > values;
+
             auto stmt = select_.acquire();
             auto result = stmt(context);
-            assert(result == SQLITE_ROW);
-
-            int index = 0;
-            std::tuple< Args... > values;
-            detail::for_each(values, [&](auto& p)
+            if (result == SQLITE_DONE)
             {
-                ++index;
-                p = stmt.extract< std::remove_reference_t< decltype(p) > >(index);
-            });
+
+            }
+            else
+            {
+                assert(result == SQLITE_ROW);
+
+                int index = 0;
+                detail::for_each(values, [&](auto& p)
+                {
+                    ++index;
+                    p = stmt.extract< std::remove_reference_t< decltype(p) > >(index);
+                });
+            }
+            
             return values;
         }
 

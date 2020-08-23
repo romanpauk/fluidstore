@@ -5,9 +5,10 @@
 
 namespace crdt
 {
-    template < typename T, typename Node, typename Traits > class counter_pn
+/*
+    template < typename Node, typename T, typename Traits > class counter_pn
     {
-        template < typename T, typename Node, typename Traits > friend class counter_pn;
+        template < typename Node, typename T, typename Traits > friend class counter_pn;
 
     public:
         typedef typename Traits::template Allocator<void> allocator_type;
@@ -44,46 +45,126 @@ namespace crdt
             dec_.merge(other.dec_);
         }
 
-        template < typename Counter > bool operator == (const Counter& other) const
+        auto get_allocator() const { return allocator_; }
+
+    private:
+        allocator_type allocator_;
+        counter_g< Node, T, Traits > inc_, dec_;
+    };
+*/
+
+    template < typename Node, typename T, typename Traits > class counter_pn
+    {
+        template < typename Node, typename T, typename Traits > friend class counter_pn;
+
+    public:
+        typedef map_g< Node, typename Traits::template Tuple< T, T >, Traits > container_type;
+        typedef typename Traits::template Allocator<void> allocator_type;
+
+        counter_pn(allocator_type allocator)
+            : allocator_(allocator)
+            , container_(allocator_type(allocator, "values"))
+        {}
+
+        void update(const Node& node, T value)
         {
-            return std::tie(inc_, dec_) == std::tie(other.inc_, other.dec_);
+            // auto initial = std::make_tuple(value > 0 ? value : 0, value > 0 ? 0 : value);
+            // auto pairb = container_.emplace(node, initial);
+
+            auto&& result = container_[node];
+            auto tv = static_cast<std::tuple< T, T >>(result);
+
+            if (value > 0)
+            {
+                result = std::make_tuple(std::get< 0 >(tv) + value, std::get< 1 >(tv));
+            }
+            else
+            {
+                result = std::make_tuple(std::get< 0 >(tv), std::get< 1 >(tv) - value);
+            }
+        }
+
+        void update(typename container_type::iterator& it, T value)
+        {
+            auto tv = static_cast<std::tuple< T, T >>(it->second);
+
+            if (value > 0)
+            {
+                it->second = std::make_tuple(std::get< 0 >(tv) + value, std::get< 1 >(tv));
+            }
+            else
+            {
+                it->second = std::make_tuple(std::get< 0 >(tv), std::get< 1 >(tv) - value);
+            }
+        }
+
+        T value() const
+        {
+            T result = 0;
+            return sqlstl::accumulate(container_.begin(), container_.end(), result, [](T init, auto&& p) 
+            {
+                auto tv = static_cast<std::tuple< T, T >>(p.second);
+                return init + std::get< 0 >(tv) - std::get< 1 >(tv);
+            });
+        }
+
+        typename container_type::iterator find(const Node& node)
+        {
+            return container_.find(node);
+        }
+
+        typename container_type::iterator end()
+        {
+            return container_.end();
+        }
+
+        template < typename Counter > void merge(const Counter& other)
+        {
+            for (auto&& otherValue : other.container_)
+            {
+                auto&& localValue = container_[otherValue.first];
+                //std::get< 0 >(localValue) = std::max((T)std::get< 0 >(localValue), std::get< 0 >(otherValue.second));
+                //std::get< 1 >(localValue) = std::max((T)std::get< 1 >(localValue), std::get< 1 >(otherValue.second));
+            }
         }
 
         auto get_allocator() const { return allocator_; }
 
     private:
         allocator_type allocator_;
-        counter_g< T, Node, Traits > inc_, dec_;
+        container_type container_;
     };
 
-    template < typename T, typename Node, typename StateTraits, typename DeltaTraits > class counter_pn_delta
-        : public delta_crdt_base
+    template < typename Node, typename T, typename Traits > class counter_pn_delta
     {
-        typedef counter_pn< T, Node, StateTraits > state_container_type;
-        typedef counter_pn< T, Node, DeltaTraits > delta_container_type;
-
     public:
-        counter_pn_delta(state_container_type& state_container)
-            : state_container_(state_container)
+        typedef typename Traits::template Allocator<void> allocator_type;
+
+        counter_pn_delta(allocator_type allocator)
+            : delta_container_(allocator_type(allocator, "delta"))
         {}
 
-        void increment(const Node& node, T value)
+        template < typename StateContainer > void update(StateContainer& state_container, const Node& node, T value)
         {
-            delta_container_.increment(node, state_container_.value(node) + value);
+            auto delta_it = delta_container_.find(node);
+            if (delta_it != delta_container_.end())
+            {
+                delta_container_.update(delta_it, value);
+            }
+            else
+            {
+                auto state_it = state_container.find(node);
+                if (state_it != state_container.end())
+                {
+                    // delta_container_.update(node, state_it->second + value);
+                }
+                else
+                {
+                    delta_container_.update(node, value);
+                }
+            }
         }
 
-        void decrement(const Node& node, T value)
-        {
-            delta_container_.decrement(node, state_container_.value(node) + value);
-        }
-
-        void commit() override
-        {
-            state_container_.merge(delta_container_);
-        }
-
-    private:
-        state_container_type& state_container_;
-        delta_container_type delta_container_;
+        counter_pn< Node, T, Traits > delta_container_;
     };
 }

@@ -27,7 +27,7 @@ namespace sqlstl
 
         operator typename Container::value_type::second_type()
         {
-            return container_.value(key_);
+            return container_.find_value(key_);
         }
 
         template < typename V > auto& operator += (V&& value)

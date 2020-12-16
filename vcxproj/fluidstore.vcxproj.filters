@@ -62,9 +62,6 @@
     <ClInclude Include="..\include\sqlstl\sqlite.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\sqlstl\storage\map.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\sqlstl\storage\set.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -114,6 +111,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\include\crdt\map_or.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\sqlstl\storage\map.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

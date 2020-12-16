@@ -58,3 +58,14 @@ BOOST_AUTO_TEST_CASE(map)
     }
 */
 }
+
+BOOST_AUTO_TEST_CASE(map_tuple)
+{
+    sqlstl::db db(":memory:");
+    sqlstl::factory factory(db);
+    sqlstl::allocator<void> allocator(factory);
+
+    sqlstl::map< int, std::tuple< int >, sqlstl::allocator< std::pair< const int, std::tuple< int > > > > map(allocator);
+
+    // map[1] = std::make_tuple(10);
+}

@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClCompile Include="..\src\counter_g.cpp" />
     <ClCompile Include="..\src\counter_pn.cpp" />
+    <ClCompile Include="..\src\dot.cpp" />
     <ClCompile Include="..\src\fluidstore.cpp" />
     <ClCompile Include="..\src\map.cpp" />
     <ClCompile Include="..\src\map_g.cpp" />
@@ -34,6 +35,7 @@
   <ItemGroup>
     <ClInclude Include="..\include\crdt\counter_g.h" />
     <ClInclude Include="..\include\crdt\counter_pn.h" />
+    <ClInclude Include="..\include\crdt\dot.h" />
     <ClInclude Include="..\include\crdt\map_g.h" />
     <ClInclude Include="..\include\crdt\map_or.h" />
     <ClInclude Include="..\include\crdt\set_g.h" />

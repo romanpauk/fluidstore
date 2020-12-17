@@ -48,6 +48,9 @@
     <ClCompile Include="..\src\map_or.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\dot.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\sqlstl\algorithm.h">
@@ -114,6 +117,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\include\sqlstl\storage\map.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\crdt\dot.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

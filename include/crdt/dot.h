@@ -314,26 +314,41 @@ namespace crdt
 		std::map< Node, counters< Counter > > counters_;
 	};	
 
-	template < typename Node, typename Counter, typename Value > struct dot_kernel
+	template < typename Node, typename Counter, typename Value > struct dot_kernel_value
 	{
-		void add(const Node& node, Value& value)
+		void merge(const dot_kernel_value< Node, Counter, Value >& other)
 		{
-			dot_kernel delta;
-			auto counter = counters_.get(node) + 1;
-			delta.counters_.add(node, counter);
-			delta.values_[value].insert({ node, counter });
-			
-			merge(delta);
+			dots.insert(other.dots.begin(), other.dots.end());
+			value.merge(other.value);
 		}
 
-		void remove(const Node& node, const Value& value)
-		{
-			dot_kernel delta;
+		std::set< dot< Node, Counter > > dots;
+		Value value;
+	};
 
-			auto values_it = values_.find(value);
+	template < typename Node, typename Counter > struct dot_kernel_value< Node, Counter, void >
+	{
+		void merge(const dot_kernel_value< Node, Counter, void >& other)
+		{
+			dots.insert(other.dots.begin(), other.dots.end());
+		}
+
+		std::set< dot< Node, Counter > > dots;
+	};
+
+	template < typename Node, typename Counter, typename Key, typename Value > class dot_kernel_base
+	{
+		typedef dot_kernel_base< Node, Counter, Key, Value > dot_kernel_type;
+
+	protected:
+		void remove(const Node& node, const Key& key)
+		{
+			dot_kernel_type delta;
+
+			auto values_it = values_.find(key);
 			if (values_it != values_.end())
 			{
-				for(auto& dot: values_it->second)
+				for(auto& dot: values_it->second.dots)
 				{
 					delta.counters_.add(dot.node, dot.counter);
 				}
@@ -342,23 +357,21 @@ namespace crdt
 			}
 		}
 
-		void merge(const dot_kernel< Node, Counter, Value >& other)
+		void merge(const dot_kernel_base< Node, Counter, Key, Value >& other)
 		{
 			std::set< dot< Node, Counter > > rdotsvisited;
 
 			// Merge values
-			for (const auto& [rvalue, rdots] : other.values_)
+			for (const auto& [rkey, rdata] : other.values_)
 			{
-				// Merge dots for each value
-				auto& ldots = values_[rvalue];
-				
-				// Track visited dots
-				for (const auto& rdot : rdots)
-				{
-					ldots.insert(rdot);
-					rdotsvisited.insert(rdot);
+				auto& ldata = values_[rkey];
+				ldata.merge(rdata);
 
-					dots_[rdot] = rvalue;
+				// Track visited dots
+				for (const auto& rdot : rdata.dots)
+				{
+					rdotsvisited.insert(rdot);
+					dots_[rdot] = rkey;
 				}
 			}
 
@@ -383,9 +396,9 @@ namespace crdt
 					assert(values_it != values_.end());
 					if (values_it != values_.end())
 					{
-						values_it->second.erase(rdot);
+						values_it->second.dots.erase(rdot);
 
-						if (values_it->second.empty())
+						if (values_it->second.dots.empty())
 						{
 							values_.erase(values_it);
 						}
@@ -399,71 +412,183 @@ namespace crdt
 			counters_.merge(other.counters_);
 		}
 
-		bool find(Value value) const
+	public:
+		bool find(const Key& key) const
 		{
-			return values_.find(value) != values_.end();
+			return values_.find(key) != values_.end();
 		}
 
-	private:
-		node_counters< Node, Counter > counters_;
-		std::map< Value, std::set< dot< Node, Counter > > > values_;
+		void clear()
+		{
+			dot_kernel_type delta;
 
-		std::map< dot< Node, Counter >, Value > dots_;
+			for(auto& [value, data]: values_)
+			{
+				for (auto& dot : data.dots)
+				{
+					delta.counters_.add(dot.node, dot.counter);
+				}
+
+				merge(delta);
+			}
+		}
+
+		bool empty() const
+		{
+			return values_.empty();
+		}
+
+		size_t size() const
+		{
+			return values_.size();
+		}
+
+	protected:
+		node_counters< Node, Counter > counters_;
+		std::map< Key, Value > values_;
+
+		std::map< dot< Node, Counter >, Key > dots_;
+	};
+
+	template < typename Node, typename Counter, typename Key > class dot_kernel_set
+		: public dot_kernel_base< Node, Counter, Key, dot_kernel_value< Node, Counter, void > >
+	{
+		typedef dot_kernel_set< Node, Counter, Key > dot_kernel_type;
+
+	public:
+		void add(const Node& node, const Key& key)
+		{
+			dot_kernel_type delta;
+
+			auto counter = this->counters_.get(node) + 1;
+			delta.counters_.add(node, counter);
+			delta.values_[key].dots.insert({ node, counter });
+
+			this->merge(delta);
+		}
+	};
+
+	template < typename Node, typename Counter, typename Key, typename Value > struct dot_kernel_map
+		: public dot_kernel_base< Node, Counter, Key, dot_kernel_value< Node, Counter, Value > >
+	{
+		typedef dot_kernel_map< Node, Counter, Key, Value > dot_kernel_type;
+
+	public:
+		void add(const Node& node, const Key& key, const Value& value)
+		{
+			dot_kernel_type delta;
+
+			auto counter = this->counters_.get(node) + 1;
+			delta.counters_.add(node, counter);
+
+			auto& data = delta.values_[key];
+			data.dots.insert({ node, counter });
+			data.value = value;
+
+			this->merge(delta);
+		}
 	};
 
 	template< typename Node, typename Counter, typename Key > class set
+		: public dot_kernel_set< Node, Counter, Key >
 	{
 	public:
 		void insert(Key k)
 		{
-			kernel_.add(Node(), k);
+			this->add(Node(), k);
 		}
 
-		void remove(Key k)
+		void erase(Key k)
 		{
-			kernel_.remove(Node(), k);
+			this->remove(Node(), k);
 		}
 
 		void merge(const set< Node, Counter, Key >& other)
 		{
-			kernel_.merge(other.kernel_);
+			dot_kernel_set< Node, Counter, Key >::merge(other);
 		}
-
-		bool find(Key key)
-		{
-			return kernel_.find(key);
-		}
-
-	private:
-		dot_kernel< Node, Counter, Key > kernel_;
 	};
 
-	/*
 	template< typename Node, typename Counter, typename Key, typename Value > class map
+		: public dot_kernel_map< Node, Counter, Key, Value >
+	{
+		typedef dot_kernel_map< Node, Counter, Key, Value > dot_kernel_type;
+
+	public:
+		void insert(Key k, Value v)
+		{
+			this->add(Node(), k, v);
+		}
+
+		void erase(Key k)
+		{
+			this->remove(Node(), k);
+		}
+
+		void merge(const set< Node, Counter, Key >& other)
+		{
+			dot_kernel_map< Node, Counter, Key >::merge(other);
+		}
+	};
+
+	template < typename Value > class value
 	{
 	public:
-		void insert(Key k, Value& v)
-		{
-			kernel_.add(Node(), k, v);
-		}
+		value()
+			: value_()
+		{}
 
-		void remove(Key k)
-		{
-			kernel_.remove(Node(), k);
-		}
+		value(const Value& value)
+			: value_(value)
+		{}
 
-		void merge(const map< Node, Counter, Key >& other)
+		void merge(const value& other)
 		{
-			// kernel_.merge(other.kernel_);
-		}
-
-		bool has(Key key)
-		{
-			return kernel_.has(key);
+			value_ = other.value_;
 		}
 
 	private:
-		dot_map_kernel< Node, Counter, Key, Value > kernel_;
+		Value value_;
 	};
-	*/
+
+	template < typename Node, typename Counter, typename Value > class value_mv
+	{
+	public:
+		value_mv()
+		{}
+
+		value_mv(const Value& value)
+		{
+			set(value);
+		}
+
+		Value get()
+		{
+			switch (values_.size())
+			{
+			case 0:
+				return Value();
+			case 1:
+				return *values_.begin();
+			default:
+				// TODO: this needs some better interface
+				std::abort();
+			}
+		}
+
+		void set(Value value)
+		{
+			values_.clear();
+			values_.insert(value);
+		}
+
+		void merge(const value_mv& other)
+		{
+			values_.merge(other.values_);
+		}
+
+	private:
+		crdt::set< Node, Counter, Value > values_;
+	};
+
 }

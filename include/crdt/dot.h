@@ -19,7 +19,8 @@
 namespace crdt
 {
 	// Allocator is used to pass node inside containers
-	template < typename Node, typename T, typename Allocator > class allocator 
+	template < typename Node, typename T = void, typename Allocator = std::allocator< T > > class allocator 
+		//: public Allocator //
 		: public std::allocator_traits< Allocator >::template rebind_alloc< T >
 	{
 	public:
@@ -50,7 +51,7 @@ namespace crdt
 		typedef Allocator allocator_type;
 	};
 
-	struct traits : traits_base< uint64_t, uint64_t, allocator< uint64_t, uintptr_t, std::allocator< void > > > {};
+	struct traits : traits_base< uint64_t, uint64_t, allocator< uint64_t, unsigned char > > {};
 
 	template < typename Node, typename Counter > class dot
 	{
@@ -536,11 +537,11 @@ namespace crdt {
 			//
 			// Counters
 
-			typedef std::set < dot< Node, Counter >, std::less< dot< Node, Counter > >, arena_allocator< void > > dot_set_type;
+			typedef std::set < dot< Node, Counter >, std::less< dot< Node, Counter > >, arena_allocator<> > dot_set_type;
 			
 			// TODO: size based on input
 			arena< 1024 > buffer;
-			arena_allocator< void > arena(buffer);
+			arena_allocator<> arena(buffer);
 
 			dot_set_type rdotsvisited(arena);
 

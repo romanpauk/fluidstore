@@ -118,28 +118,30 @@ BOOST_AUTO_TEST_CASE(dot_allocator_test)
 {
 	struct X
 	{
-		typedef crdt::allocator< uint64_t, char, std::allocator< void > > allocator_type;
+		typedef crdt::allocator< uint64_t, char > allocator_type;
 
 		X(allocator_type)
 		{}
 	};
 
-	crdt::allocator< uint64_t, void, std::allocator< void > > alloc(1);
+	crdt::allocator< uint64_t, char > alloc(1);
 
 	std::map< int, X, std::less< int >,
-		std::scoped_allocator_adaptor< crdt::allocator< uint64_t, char, std::allocator< void > > >
+		std::scoped_allocator_adaptor< crdt::allocator< uint64_t, char > >
 	> v(alloc);
 
-	X& x = v[1];
+	// X& x = v[1];
 }
 
-BOOST_AUTO_TEST_CASE(arena_allocator)
+BOOST_AUTO_TEST_CASE(allocator)
 {
 	crdt::arena< 1024 > buffer;
 	crdt::arena_allocator< int > allocator(buffer);
 
 	auto *p = allocator.allocate(64);
 	allocator.deallocate(p, 0);
+
+	crdt::arena_allocator< int, crdt::allocator< int > > allocator2(buffer, 1);
 }
 
 #if !defined(_DEBUG)
@@ -176,7 +178,7 @@ BOOST_AUTO_TEST_CASE(dot_test_set_insert_performance)
 		}
 	});
 
-	std::cerr << "std::set " << t1 << ", crdt::set " << t2 << std::endl;
+	std::cerr << "std::set " << t1 << ", crdt::set " << t2 << ", slowdown " << t2/t1 << std::endl;
 }
 
 #endif

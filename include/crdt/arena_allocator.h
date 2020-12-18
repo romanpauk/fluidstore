@@ -35,21 +35,25 @@ namespace crdt
         std::array< unsigned char, N > buffer_;
     };
 
-    template < typename T, typename Allocator = std::allocator< void > > class arena_allocator
+    template < typename T = void, typename Allocator = std::allocator< T > > class arena_allocator
+        //: public Allocator
     {
     public:
         using value_type = T;
 
-        arena_allocator(arena_base& arena) noexcept
+        //arena_allocator(arena_base& arena) noexcept
+        //    : arena_(arena)
+        //{}
+
+        template < typename... Args > arena_allocator(arena_base& arena, Args&&... args) noexcept
             : arena_(arena)
-            // , allocator_(allocator)
+            //, Allocator(std::forward< Args >(args)...)
         {}
 
         template < typename T, typename Allocator > friend class arena_allocator;
 
         template < typename U > arena_allocator(arena_allocator<U, Allocator > const& alloc) noexcept
             : arena_(alloc.arena_)
-            // , allocator_(alloc.allocator_)
         {}
 
         value_type* allocate(std::size_t n)
@@ -88,7 +92,6 @@ namespace crdt
         }
 
     private:
-        // Allocator allocator_;
         arena_base& arena_;
 
     };

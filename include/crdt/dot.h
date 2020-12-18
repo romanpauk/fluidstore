@@ -19,44 +19,22 @@
 namespace crdt
 {
 	// Allocator is used to pass node inside containers
-	template < typename Node, typename T, template < typename > typename Allocator > class allocator : public Allocator< T >
+	template < typename Node, typename T, typename Allocator > class allocator 
+		: public std::allocator_traits< Allocator >::template rebind_alloc< T >
 	{
 	public:
+		typedef typename std::allocator_traits< Allocator >::template rebind_alloc< T > base_allocator_type;
+		
 		template< typename U > struct rebind { typedef allocator< Node, U, Allocator > other; };
-
-		//allocator(Node node)
-		//	: node_(node)
-		//{}
 
 		template < typename... Args > allocator(Node node, Args&&... args)
 			: node_(node)
-			, Allocator< T >(std::forward< Args >(args)...)
+			, base_allocator_type(std::forward< Args >(args)...)
 		{}
 
 		template < typename U > allocator(const allocator< Node, U, Allocator >& other)
 			: node_(other.get_node())
-			//, Allocator< T >(other)
-		{}
-
-		const Node& get_node() const { return node_; }
-
-	private:
-		Node node_;
-	};
-
-	template < typename Node, typename T > class allocator2 : public arena_allocator< T, std::allocator< void > >
-	{
-	public:
-		template< typename U > struct rebind { typedef allocator2< Node, U> other; };
-
-		template < typename... Args > allocator2(Node node, Args&&... args)
-			: node_(node)
-			, arena_allocator< T, std::allocator< void > >(std::forward< Args >(args)...)
-		{}
-
-		template < typename U > allocator2(const allocator2< Node, U >& other)
-			: node_(other.get_node())
-			, arena_allocator< T, std::allocator< void > >(other)
+			, base_allocator_type(other)
 		{}
 
 		const Node& get_node() const { return node_; }
@@ -72,7 +50,7 @@ namespace crdt
 		typedef Allocator allocator_type;
 	};
 
-	struct traits : traits_base< uint64_t, uint64_t, allocator< uint64_t, void, std::allocator > > {};
+	struct traits : traits_base< uint64_t, uint64_t, allocator< uint64_t, uintptr_t, std::allocator< void > > > {};
 
 	template < typename Node, typename Counter > class dot
 	{
@@ -220,7 +198,7 @@ namespace crdt {
 		// boost::container::flat_set< Counter, std::less< Counter >, allocator_type > counters_;
 	};
 
-
+	/*
 	template < typename Counter, typename Allocator > struct counters2
 	{
 		typedef Allocator allocator_type;
@@ -388,6 +366,7 @@ namespace crdt {
 
 		std::vector< Counter, allocator_type > counters_;
 	};
+	*/
 
 	template < typename Node, typename Counter, typename Allocator > class dot_context
 	{
@@ -680,9 +659,7 @@ namespace crdt {
 			auto node = this->allocator_.get_node();
 
 			arena< 1024 > buffer;
-			arena_allocator< void > arena(buffer);
-			crdt::allocator2< Node, void > allocator(node, arena);
-
+			allocator< Node, void, arena_allocator< void > > allocator(node, buffer);
 			dot_kernel_set< Key, decltype(allocator), Node, Counter > delta(allocator);
 
 			// dot_kernel_type delta(this->allocator_);

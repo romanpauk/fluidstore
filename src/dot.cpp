@@ -118,16 +118,16 @@ BOOST_AUTO_TEST_CASE(dot_allocator_test)
 {
 	struct X
 	{
-		typedef crdt::allocator< uint64_t, void, std::allocator > allocator_type;
+		typedef crdt::allocator< uint64_t, char, std::allocator< void > > allocator_type;
 
 		X(allocator_type)
 		{}
 	};
 
-	crdt::allocator< uint64_t, void, std::allocator > alloc(1);
+	crdt::allocator< uint64_t, void, std::allocator< void > > alloc(1);
 
 	std::map< int, X, std::less< int >,
-		std::scoped_allocator_adaptor< crdt::allocator< uint64_t, void, std::allocator > >
+		std::scoped_allocator_adaptor< crdt::allocator< uint64_t, char, std::allocator< void > > >
 	> v(alloc);
 
 	X& x = v[1];
@@ -136,7 +136,7 @@ BOOST_AUTO_TEST_CASE(dot_allocator_test)
 BOOST_AUTO_TEST_CASE(arena_allocator)
 {
 	crdt::arena< 1024 > buffer;
-	crdt::arena_allocator< int, std::allocator< void > > allocator(buffer);
+	crdt::arena_allocator< int > allocator(buffer);
 
 	auto *p = allocator.allocate(64);
 	allocator.deallocate(p, 0);

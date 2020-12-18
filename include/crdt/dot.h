@@ -34,6 +34,14 @@ namespace crdt
 		Node node_;
 	};
 
+	struct traits
+	{
+		typedef uint64_t node_type;
+		typedef uint64_t counter_type;
+
+		template < typename T > using allocator = allocator< node_type, T >;
+	};
+
 	template < typename Node, typename Counter > struct dot
 	{
 		Node node;
@@ -51,8 +59,8 @@ namespace crdt
 		{
 			if (counters_.empty())
 			{
-				counters_.insert(0);
-				return 0;
+				counters_.insert(1);
+				return 1;
 			}
 			else
 			{
@@ -65,7 +73,7 @@ namespace crdt
 			}
 		}
 
-		Counter get()
+		Counter get() const
 		{
 			if (counters_.empty())
 			{
@@ -309,9 +317,15 @@ namespace crdt
 			return counters_[node].next();
 		}
 
-		Counter get(const Node& node)
+		Counter get(const Node& node) const
 		{
-			return counters_[node].get();
+			auto it = counters_.find(node);
+			if (it != counters_.end())
+			{
+				return it->second.get();
+			}
+
+			return Counter();
 		}
 
 		void merge(const node_counters< Node, Counter >& other)
@@ -373,9 +387,30 @@ namespace crdt
 		std::set< dot< Node, Counter > > dots;
 	};
 
+	template < typename Iterator, typename Adaptor > class dot_kernel_iterator
+	{
+	public:
+		dot_kernel_iterator(Iterator it)
+			: it_(it)
+		{}
+
+		bool operator == (const dot_kernel_iterator< Iterator, Adaptor >& other) const { return it_ == other.it_; }
+		bool operator != (const dot_kernel_iterator< Iterator, Adaptor >& other) const { return it_ != other.it_; }
+
+	private:
+		Iterator it_;
+	};
+
 	template < typename Allocator, typename Node, typename Counter, typename Key, typename Value > class dot_kernel_base
 	{
+	protected:
+		Allocator allocator_;
+		node_counters< Node, Counter > counters_;
+		std::map< Key, Value, std::less< Key >, std::scoped_allocator_adaptor< Allocator > > values_;
+		std::map< dot< Node, Counter >, Key, std::less< dot< Node, Counter > > > dots_;
+
 		typedef dot_kernel_base< Allocator, Node, Counter, Key, Value > dot_kernel_type;
+		typedef dot_kernel_iterator< typename decltype(values_)::const_iterator, void > const_iterator;
 
 	protected:
 		dot_kernel_base(Allocator allocator)
@@ -455,10 +490,9 @@ namespace crdt
 		}
 
 	public:
-		bool find(const Key& key) const
-		{
-			return values_.find(key) != values_.end();
-		}
+		const_iterator begin() const { return values_.begin(); }
+		const_iterator end() const { return values_.end(); }
+		const_iterator find(const Key& key) const { return values_.find(key); }
 
 		void clear()
 		{
@@ -484,16 +518,11 @@ namespace crdt
 		{
 			return values_.size();
 		}
-
-	protected:
-		Allocator allocator_;
-		node_counters< Node, Counter > counters_;
-		std::map< Key, Value, std::less< Key >, std::scoped_allocator_adaptor< Allocator > > values_;
-		std::map< dot< Node, Counter >, Key, std::less< dot< Node, Counter > > > dots_;
 	};
 
 	template < typename Allocator, typename Node, typename Counter, typename Key > class dot_kernel_set
-		: public dot_kernel_base< Allocator, Node, Counter, Key, dot_kernel_value< Allocator, Node, Counter, void > >
+		: public dot_kernel_base< Allocator, Node, Counter, Key, dot_kernel_value< Allocator, Node, Counter, void >
+		>
 	{
 		typedef dot_kernel_set< Allocator, Node, Counter, Key > dot_kernel_type;
 
@@ -502,7 +531,7 @@ namespace crdt
 			: dot_kernel_base< Allocator, Node, Counter, Key, dot_kernel_value< Allocator, Node, Counter, void > >(allocator)
 		{}
 
-		void add(const Key& key)
+		/*std::pair< const_iterator, bool >*/ add(const Key& key)
 		{
 			dot_kernel_type delta(this->allocator_);
 
@@ -630,7 +659,7 @@ namespace crdt
 			set(value);
 		}
 
-		Value get()
+		Value get() const
 		{
 			switch (values_.size())
 			{

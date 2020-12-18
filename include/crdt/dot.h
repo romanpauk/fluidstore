@@ -20,22 +20,23 @@ namespace crdt
 {
 	// Allocator is used to pass node inside containers
 	template < typename Node, typename T = void, typename Allocator = std::allocator< T > > class allocator 
-		//: public Allocator //
-		: public std::allocator_traits< Allocator >::template rebind_alloc< T >
+		: public Allocator
 	{
 	public:
-		typedef typename std::allocator_traits< Allocator >::template rebind_alloc< T > base_allocator_type;
-		
-		template< typename U > struct rebind { typedef allocator< Node, U, Allocator > other; };
+		template< typename U > struct rebind { 
+			typedef allocator< Node, U, 
+				typename std::allocator_traits< Allocator >::template rebind_alloc< U > 
+			> other;
+		};
 
 		template < typename... Args > allocator(Node node, Args&&... args)
 			: node_(node)
-			, base_allocator_type(std::forward< Args >(args)...)
+			, Allocator(std::forward< Args >(args)...)
 		{}
 
-		template < typename U > allocator(const allocator< Node, U, Allocator >& other)
+		template < typename U, typename AllocatorU > allocator(const allocator< Node, U, AllocatorU >& other)
 			: node_(other.get_node())
-			, base_allocator_type(other)
+			//, Allocator(other)
 		{}
 
 		const Node& get_node() const { return node_; }
@@ -539,10 +540,9 @@ namespace crdt {
 
 			typedef std::set < dot< Node, Counter >, std::less< dot< Node, Counter > >, arena_allocator<> > dot_set_type;
 			
-			// TODO: size based on input
-			arena< 1024 > buffer;
-			arena_allocator<> arena(buffer);
-
+			// TODO: size based on input?
+			arena< 1024 > arena;
+			
 			dot_set_type rdotsvisited(arena);
 
 			// Merge values
@@ -660,10 +660,10 @@ namespace crdt {
 			auto node = this->allocator_.get_node();
 
 			arena< 1024 > buffer;
-			allocator< Node, void, arena_allocator< void > > allocator(node, buffer);
+			arena_allocator< void, Allocator > allocator(buffer, node);
 			dot_kernel_set< Key, decltype(allocator), Node, Counter > delta(allocator);
 
-			// dot_kernel_type delta(this->allocator_);
+			//dot_kernel_type delta(this->allocator_);
 
 			auto counter = this->counters_.get(node) + 1;
 			delta.counters_.add(node, counter);

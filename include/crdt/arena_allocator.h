@@ -36,24 +36,28 @@ namespace crdt
     };
 
     template < typename T = void, typename Allocator = std::allocator< T > > class arena_allocator
-        //: public Allocator
+        : public Allocator
     {
     public:
         using value_type = T;
 
-        //arena_allocator(arena_base& arena) noexcept
-        //    : arena_(arena)
-        //{}
+        template< typename U > struct rebind
+        {
+            typedef arena_allocator< U,
+                typename std::allocator_traits< Allocator >::template rebind_alloc< U >
+            > other;
+        };
 
         template < typename... Args > arena_allocator(arena_base& arena, Args&&... args) noexcept
             : arena_(arena)
-            //, Allocator(std::forward< Args >(args)...)
+            , Allocator(std::forward< Args >(args)...)
         {}
 
         template < typename T, typename Allocator > friend class arena_allocator;
 
-        template < typename U > arena_allocator(arena_allocator<U, Allocator > const& alloc) noexcept
+        template < typename U, typename AllocatorU > arena_allocator(const arena_allocator< U, AllocatorU >& alloc) noexcept
             : arena_(alloc.arena_)
+            , Allocator(alloc)
         {}
 
         value_type* allocate(std::size_t n)
@@ -72,8 +76,7 @@ namespace crdt
             #ifdef _DEBUG
                 assert(false);
             #endif
-                return static_cast<value_type*>(::operator new (n * sizeof(value_type)));
-                // return std::allocator_traits< Allocator >::template rebind_alloc< value_type >(allocator_).allocate(n);
+               return Allocator::allocate(n);
             }
         }
 
@@ -86,8 +89,7 @@ namespace crdt
             }
             else
             {
-                ::operator delete(p);
-                // std::allocator_traits< Allocator >::template rebind_alloc< value_type >(allocator_).deallocate(p, size);
+                Allocator::deallocate(p, size);
             }
         }
 

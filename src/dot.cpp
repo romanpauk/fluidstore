@@ -142,6 +142,7 @@ BOOST_AUTO_TEST_CASE(allocator)
 	allocator.deallocate(p, 0);
 
 	crdt::arena_allocator< int, crdt::allocator< int > > allocator2(buffer, 1);
+	crdt::allocator< int, void, crdt::arena_allocator< int > > allocator3(1, buffer);
 }
 
 #if !defined(_DEBUG)
@@ -161,20 +162,26 @@ BOOST_AUTO_TEST_CASE(dot_test_set_insert_performance)
 
 	auto t1 = measure([]
 	{
-		std::set< size_t > stdset;
-		for (size_t i = 0; i < 1000000; ++i)
+		for (size_t x = 0; x < 20; ++x)
 		{
-			stdset.insert(i);
+			std::set< size_t > stdset;
+			for (size_t i = 0; i < 100000; ++i)
+			{
+				stdset.insert(i);
+			}
 		}
 	});
 
 	auto t2 = measure([]
 	{
-		crdt::traits::allocator_type alloc(0);
-		crdt::set< size_t, crdt::traits > stdset(alloc);
-		for (size_t i = 0; i < 1000000; ++i)
+		for (size_t x = 0; x < 20; ++x)
 		{
-			stdset.insert(i);
+			crdt::traits::allocator_type alloc(0);
+			crdt::set< size_t, crdt::traits > stdset(alloc);
+			for (size_t i = 0; i < 100000; ++i)
+			{
+				stdset.insert(i);
+			}
 		}
 	});
 

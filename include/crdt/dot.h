@@ -34,12 +34,14 @@ namespace crdt
 		Node node_;
 	};
 
-	struct traits
+	template < typename Node, typename Counter, typename Allocator > struct traits_base
 	{
-		typedef uint64_t node_type;
-		typedef uint64_t counter_type;
-		typedef allocator< node_type, void > allocator_type;
+		typedef Node node_type;
+		typedef Counter counter_type;
+		typedef Allocator allocator_type;
 	};
+
+	struct traits : traits_base< uint64_t, uint64_t, allocator< uint64_t, void > > {};
 
 	template < typename Node, typename Counter > struct dot
 	{
@@ -279,7 +281,7 @@ namespace crdt
 	};
 	*/
 
-	template < typename Node, typename Counter > class node_counters
+	template < typename Node, typename Counter > class dot_context
 	{
 	public:
 		void add(const Node& node, const Counter& counter)
@@ -327,7 +329,7 @@ namespace crdt
 			return Counter();
 		}
 
-		void merge(const node_counters< Node, Counter >& other)
+		void merge(const dot_context< Node, Counter >& other)
 		{
 			for (auto& p : other.counters_)
 			{
@@ -404,7 +406,7 @@ namespace crdt
 	{
 	protected:
 		Allocator allocator_;
-		node_counters< Node, Counter > counters_;
+		dot_context< Node, Counter > counters_;
 		std::map< Key, Value, std::less< Key >, std::scoped_allocator_adaptor< Allocator > > values_;
 		std::map< dot< Node, Counter >, Key, std::less< dot< Node, Counter > > > dots_;
 
@@ -416,22 +418,6 @@ namespace crdt
 			: allocator_(allocator)
 			, values_(allocator)
 		{}
-
-		void remove(const Key& key)
-		{
-			dot_kernel_type delta(allocator_);
-
-			auto values_it = values_.find(key);
-			if (values_it != values_.end())
-			{
-				for(auto& dot: values_it->second.dots)
-				{
-					delta.counters_.add(dot.node, dot.counter);
-				}
-				
-				merge(delta);
-			}
-		}
 
 		void merge(const dot_kernel_base< Key, Value, Allocator, Node, Counter >& other)
 		{
@@ -463,7 +449,6 @@ namespace crdt
 			for (auto& rdot : rdotsvalueless)
 			{
 				auto dots_it = dots_.find(rdot);
-				assert(dots_it != dots_.end());
 				if (dots_it != dots_.end())
 				{
 					auto& value = dots_it->second;
@@ -495,11 +480,27 @@ namespace crdt
 
 		void clear()
 		{
-			dot_kernel_type delta;
+			dot_kernel_type delta(allocator_);
 
 			for(auto& [value, data]: values_)
 			{
 				for (auto& dot : data.dots)
+				{
+					delta.counters_.add(dot.node, dot.counter);
+				}
+			}
+
+			merge(delta);
+		}
+
+		void erase(const Key& key)
+		{
+			dot_kernel_type delta(allocator_);
+
+			auto values_it = values_.find(key);
+			if (values_it != values_.end())
+			{
+				for (auto& dot : values_it->second.dots)
 				{
 					delta.counters_.add(dot.node, dot.counter);
 				}
@@ -530,7 +531,7 @@ namespace crdt
 			: dot_kernel_base< Key, dot_kernel_value< void, Allocator, Node, Counter >, Allocator, Node, Counter >(allocator)
 		{}
 
-		/*std::pair< const_iterator, bool >*/ void add(const Key& key)
+		/*std::pair< const_iterator, bool >*/ void insert(const Key& key)
 		{
 			dot_kernel_type delta(this->allocator_);
 
@@ -553,7 +554,7 @@ namespace crdt
 			: dot_kernel_base< Key, dot_kernel_value< Value, Allocator, Node, Counter >, Allocator, Node, Counter >(allocator)
 		{}
 
-		void add(const Key& key, const Value& value)
+		void insert(const Key& key, const Value& value)
 		{
 			dot_kernel_type delta(this->allocator_);
 
@@ -581,16 +582,6 @@ namespace crdt
 			: dot_kernel_type(allocator)
 		{}
 
-		void insert(Key k)
-		{
-			this->add(k);
-		}
-
-		void erase(Key k)
-		{
-			this->remove(k);
-		}
-
 		void merge(const set< Key, Traits >& other)
 		{
 			dot_kernel_type::merge(other);
@@ -608,16 +599,6 @@ namespace crdt
 		map(allocator_type allocator)
 			: dot_kernel_type(allocator)
 		{}
-
-		void insert(Key k, Value v)
-		{
-			this->add(k, v);
-		}
-
-		void erase(Key k)
-		{
-			this->remove(k);
-		}
 
 		void merge(const map< Key, Value, Traits >& other)
 		{

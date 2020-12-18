@@ -354,7 +354,7 @@ namespace crdt
 		std::map< Node, counters< Counter > > counters_;
 	};	
 
-	template < typename Allocator, typename Node, typename Counter, typename Value > class dot_kernel_value
+	template < typename Value, typename Allocator, typename Node, typename Counter > class dot_kernel_value
 	{
 	public:
 		typedef Allocator allocator_type;
@@ -363,7 +363,7 @@ namespace crdt
 			: value(allocator)
 		{}
 
-		void merge(const dot_kernel_value< Allocator, Node, Counter, Value >& other)
+		void merge(const dot_kernel_value< Value, Allocator, Node, Counter >& other)
 		{
 			dots.insert(other.dots.begin(), other.dots.end());
 			value.merge(other.value);
@@ -373,13 +373,13 @@ namespace crdt
 		Value value;
 	};
 
-	template < typename Allocator, typename Node, typename Counter > class dot_kernel_value< Allocator, Node, Counter, void >
+	template < typename Allocator, typename Node, typename Counter > class dot_kernel_value< void, Allocator, Node, Counter >
 	{
 	public:
 		dot_kernel_value()
 		{}
 
-		void merge(const dot_kernel_value< Allocator, Node, Counter, void >& other)
+		void merge(const dot_kernel_value< void, Allocator, Node, Counter >& other)
 		{
 			dots.insert(other.dots.begin(), other.dots.end());
 		}
@@ -401,7 +401,7 @@ namespace crdt
 		Iterator it_;
 	};
 
-	template < typename Allocator, typename Node, typename Counter, typename Key, typename Value > class dot_kernel_base
+	template < typename Key, typename Value, typename Allocator, typename Node, typename Counter > class dot_kernel_base
 	{
 	protected:
 		Allocator allocator_;
@@ -409,7 +409,7 @@ namespace crdt
 		std::map< Key, Value, std::less< Key >, std::scoped_allocator_adaptor< Allocator > > values_;
 		std::map< dot< Node, Counter >, Key, std::less< dot< Node, Counter > > > dots_;
 
-		typedef dot_kernel_base< Allocator, Node, Counter, Key, Value > dot_kernel_type;
+		typedef dot_kernel_base< Key, Value, Allocator, Node, Counter > dot_kernel_type;
 		typedef dot_kernel_iterator< typename decltype(values_)::const_iterator, void > const_iterator;
 
 	protected:
@@ -434,7 +434,7 @@ namespace crdt
 			}
 		}
 
-		void merge(const dot_kernel_base< Allocator, Node, Counter, Key, Value >& other)
+		void merge(const dot_kernel_base< Key, Value, Allocator, Node, Counter >& other)
 		{
 			std::set< dot< Node, Counter > > rdotsvisited;
 
@@ -520,18 +520,18 @@ namespace crdt
 		}
 	};
 
-	template < typename Allocator, typename Node, typename Counter, typename Key > class dot_kernel_set
-		: public dot_kernel_base< Allocator, Node, Counter, Key, dot_kernel_value< Allocator, Node, Counter, void >
+	template < typename Key, typename Allocator, typename Node, typename Counter > class dot_kernel_set
+		: public dot_kernel_base< Key, dot_kernel_value< void, Allocator, Node, Counter >, Allocator, Node, Counter
 		>
 	{
-		typedef dot_kernel_set< Allocator, Node, Counter, Key > dot_kernel_type;
+		typedef dot_kernel_set< Key, Allocator, Node, Counter > dot_kernel_type;
 
 	public:
 		dot_kernel_set(Allocator allocator)
-			: dot_kernel_base< Allocator, Node, Counter, Key, dot_kernel_value< Allocator, Node, Counter, void > >(allocator)
+			: dot_kernel_base< Key, dot_kernel_value< void, Allocator, Node, Counter >, Allocator, Node, Counter >(allocator)
 		{}
 
-		/*std::pair< const_iterator, bool >*/ add(const Key& key)
+		/*std::pair< const_iterator, bool >*/ void add(const Key& key)
 		{
 			dot_kernel_type delta(this->allocator_);
 
@@ -544,14 +544,14 @@ namespace crdt
 		}
 	};
 
-	template < typename Allocator, typename Node, typename Counter, typename Key, typename Value > struct dot_kernel_map
-		: public dot_kernel_base< Allocator, Node, Counter, Key, dot_kernel_value< Allocator, Node, Counter, Value > >
+	template < typename Key, typename Value, typename Allocator, typename Node, typename Counter > struct dot_kernel_map
+		: public dot_kernel_base< Key, dot_kernel_value<  Value, Allocator, Node, Counter >, Allocator, Node, Counter >
 	{
-		typedef dot_kernel_map< Allocator, Node, Counter, Key, Value > dot_kernel_type;
+		typedef dot_kernel_map< Key, Value, Allocator, Node, Counter > dot_kernel_type;
 
 	public:
 		dot_kernel_map(Allocator allocator)
-			: dot_kernel_base< Allocator, Node, Counter, Key, dot_kernel_value< Allocator, Node, Counter, Value > >(allocator)
+			: dot_kernel_base< Key, dot_kernel_value< Value, Allocator, Node, Counter >, Allocator, Node, Counter >(allocator)
 		{}
 
 		void add(const Key& key, const Value& value)
@@ -570,10 +570,10 @@ namespace crdt
 		}
 	};
 
-	template< typename Allocator, typename Node, typename Counter, typename Key > class set
-		: public dot_kernel_set< Allocator, Node, Counter, Key >
+	template< typename Key, typename Allocator, typename Node, typename Counter > class set
+		: public dot_kernel_set< Key, Allocator, Node, Counter >
 	{
-		typedef dot_kernel_set< Allocator, Node, Counter, Key > dot_kernel_type;
+		typedef dot_kernel_set< Key, Allocator, Node, Counter > dot_kernel_type;
 
 	public:
 		set(Allocator allocator)
@@ -590,16 +590,16 @@ namespace crdt
 			this->remove(k);
 		}
 
-		void merge(const set< Allocator, Node, Counter, Key >& other)
+		void merge(const set< Key, Allocator, Node, Counter >& other)
 		{
 			dot_kernel_type::merge(other);
 		}
 	};
 
-	template< typename Allocator, typename Node, typename Counter, typename Key, typename Value > class map
-		: public dot_kernel_map< Allocator, Node, Counter, Key, Value >
+	template< typename Key, typename Value, typename Allocator, typename Node, typename Counter > class map
+		: public dot_kernel_map< Key, Value, Allocator, Node, Counter >
 	{
-		typedef dot_kernel_map< Allocator, Node, Counter, Key, Value > dot_kernel_type;
+		typedef dot_kernel_map< Key, Value, Allocator, Node, Counter > dot_kernel_type;
 
 	public:
 		map(Allocator allocator)
@@ -616,13 +616,13 @@ namespace crdt
 			this->remove(k);
 		}
 
-		void merge(const map< Allocator, Node, Counter, Key, Value >& other)
+		void merge(const map< Key, Value, Allocator, Node, Counter >& other)
 		{
 			dot_kernel_type::merge(other);
 		}
 	};
 
-	template < typename Allocator, typename Value > class value
+	template < typename Value, typename Allocator > class value
 	{
 	public:
 		typedef Allocator allocator_type;
@@ -631,11 +631,11 @@ namespace crdt
 			: value_()
 		{}
 
-		value(const Value& value)
+		value(Allocator, const Value& value)
 			: value_(value)
 		{}
 
-		void merge(const value& other)
+		void merge(const value< Value, Allocator >& other)
 		{
 			value_ = other.value_;
 		}
@@ -644,7 +644,7 @@ namespace crdt
 		Value value_;
 	};
 
-	template < typename Allocator, typename Node, typename Counter, typename Value > class value_mv
+	template < typename Value, typename Allocator, typename Node, typename Counter > class value_mv
 	{
 	public:
 		typedef Allocator allocator_type;
@@ -679,13 +679,13 @@ namespace crdt
 			values_.insert(value);
 		}
 
-		void merge(const value_mv< Allocator, Node, Counter, Value >& other)
+		void merge(const value_mv< Value, Allocator, Node, Counter >& other)
 		{
 			values_.merge(other.values_);
 		}
 
 	private:
-		crdt::set< Allocator, Node, Counter, Value > values_;
+		crdt::set< Value, Allocator, Node, Counter > values_;
 	};
 
 }

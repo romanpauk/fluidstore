@@ -33,6 +33,7 @@
     <ClCompile Include="..\src\value_mv.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\include\crdt\arena_allocator.h" />
     <ClInclude Include="..\include\crdt\counter_g.h" />
     <ClInclude Include="..\include\crdt\counter_pn.h" />
     <ClInclude Include="..\include\crdt\dot.h" />
@@ -177,6 +178,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>C:\Data\Development\boost\stage\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <Profile>true</Profile>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -199,6 +201,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>C:\Data\Development\boost\stage\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <Profile>true</Profile>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

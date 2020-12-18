@@ -1,0 +1,105 @@
+#pragma once
+
+#include <array>
+
+namespace crdt
+{
+    template < typename T, typename Allocator > class arena_allocator;
+
+    class arena_base
+    {
+        template < typename T, typename Allocator > friend class arena_allocator;
+
+    public:
+        template < size_t Size > arena_base(std::array< unsigned char, Size >& arena)
+            : base_(arena.data())
+            , current_(arena.data())
+            , end_(arena.data() + arena.size())
+        {}
+
+        bool operator == (const arena_base& arena) { return base_ == arena.base_; }
+
+    private:
+        unsigned char* base_;
+        unsigned char* current_;
+        unsigned char* end_;
+    };
+
+    template< size_t N > class arena : public arena_base
+    {
+    public:
+        arena()
+            : arena_base(buffer_)
+        {}
+
+        std::array< unsigned char, N > buffer_;
+    };
+
+    template < typename T, typename Allocator = std::allocator< void > > class arena_allocator
+    {
+    public:
+        using value_type = T;
+
+        arena_allocator(arena_base& arena) noexcept
+            : arena_(arena)
+            // , allocator_(allocator)
+        {}
+
+        template < typename T, typename Allocator > friend class arena_allocator;
+
+        template < typename U > arena_allocator(arena_allocator<U, Allocator > const& alloc) noexcept
+            : arena_(alloc.arena_)
+            // , allocator_(alloc.allocator_)
+        {}
+
+        value_type* allocate(std::size_t n)
+        {
+            unsigned char* ptr = (unsigned char*)(uintptr_t(arena_.current_ + alignof(value_type) - 1) & ~(alignof(value_type) - 1));
+
+            if (ptr + n * sizeof(value_type) < arena_.end_)
+            {
+                value_type* p = reinterpret_cast<value_type*>(ptr);
+                ptr += n * sizeof(value_type);
+                arena_.current_ = ptr;
+                return p;
+            }
+            else
+            {
+            #ifdef _DEBUG
+                assert(false);
+            #endif
+                return static_cast<value_type*>(::operator new (n * sizeof(value_type)));
+                // return std::allocator_traits< Allocator >::template rebind_alloc< value_type >(allocator_).allocate(n);
+            }
+        }
+
+        void deallocate(value_type* p, std::size_t size) noexcept
+        {
+            auto ptr = reinterpret_cast<unsigned char*>(p);
+            if (ptr >= arena_.base_ && ptr < arena_.end_)
+            {
+                // This is from arena
+            }
+            else
+            {
+                ::operator delete(p);
+                // std::allocator_traits< Allocator >::template rebind_alloc< value_type >(allocator_).deallocate(p, size);
+            }
+        }
+
+    private:
+        // Allocator allocator_;
+        arena_base& arena_;
+
+    };
+
+    template < typename T, typename U, typename Allocator > bool operator == (arena_allocator< T, Allocator > const& lhs, arena_allocator< U, Allocator > const& rhs) noexcept
+    {
+        return lhs.arena_ == rhs.arena_;
+    }
+
+    template < typename T, typename U, typename Allocator > bool operator != (arena_allocator< T, Allocator > const& x, arena_allocator< U, Allocator > const& y) noexcept
+    {
+        return !(x == y);
+    }
+}

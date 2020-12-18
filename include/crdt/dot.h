@@ -6,26 +6,57 @@
 
 #include <set>
 #include <map>
+#include <unordered_map>
 #include <algorithm>
 #include <iterator>
 #include <cassert>
 #include <vector>
 #include <scoped_allocator>
 
+#include <crdt/arena_allocator.h>
+#include <boost/container/flat_set.hpp>
+
 namespace crdt
 {
 	// Allocator is used to pass node inside containers
-	template < typename Node, typename T > class allocator : public std::allocator< T >
+	template < typename Node, typename T, template < typename > typename Allocator > class allocator : public Allocator< T >
 	{
 	public:
-		template< typename U > struct rebind { typedef allocator< Node, U > other; };
+		template< typename U > struct rebind { typedef allocator< Node, U, Allocator > other; };
 
-		allocator(Node node)
+		//allocator(Node node)
+		//	: node_(node)
+		//{}
+
+		template < typename... Args > allocator(Node node, Args&&... args)
 			: node_(node)
+			, Allocator< T >(std::forward< Args >(args)...)
 		{}
 
-		template < typename U > allocator(const allocator< Node, U >& other)
+		template < typename U > allocator(const allocator< Node, U, Allocator >& other)
 			: node_(other.get_node())
+			//, Allocator< T >(other)
+		{}
+
+		const Node& get_node() const { return node_; }
+
+	private:
+		Node node_;
+	};
+
+	template < typename Node, typename T > class allocator2 : public arena_allocator< T, std::allocator< void > >
+	{
+	public:
+		template< typename U > struct rebind { typedef allocator2< Node, U> other; };
+
+		template < typename... Args > allocator2(Node node, Args&&... args)
+			: node_(node)
+			, arena_allocator< T, std::allocator< void > >(std::forward< Args >(args)...)
+		{}
+
+		template < typename U > allocator2(const allocator2< Node, U >& other)
+			: node_(other.get_node())
+			, arena_allocator< T, std::allocator< void > >(other)
 		{}
 
 		const Node& get_node() const { return node_; }
@@ -41,19 +72,45 @@ namespace crdt
 		typedef Allocator allocator_type;
 	};
 
-	struct traits : traits_base< uint64_t, uint64_t, allocator< uint64_t, void > > {};
+	struct traits : traits_base< uint64_t, uint64_t, allocator< uint64_t, void, std::allocator > > {};
 
-	template < typename Node, typename Counter > struct dot
+	template < typename Node, typename Counter > class dot
 	{
+	public:
 		Node node;
 		Counter counter;
 
 		bool operator < (const dot< Node, Counter >& other) const { return std::make_tuple(node, counter) < std::make_tuple(other.node, other.counter); }
+		bool operator == (const dot< Node, Counter >& other) const { return std::make_tuple(node, counter) == std::make_tuple(other.node, other.counter); }
+	
+		size_t hash() const
+		{
+			std::size_t h1 = std::hash< Node >{}(node);
+			std::size_t h2 = std::hash< Counter >{}(counter);
+			return h1 ^ (h2 << 1);
+		}
 	};
+}
 
-	template < typename Counter > struct counters
+namespace std
+{
+	template< typename Node, typename Counter > struct hash< crdt::dot< Node, Counter > >
 	{
-		counters()
+		std::size_t operator()(const crdt::dot< Node, Counter >& dot) const noexcept
+		{
+			return dot.hash();
+		}
+	};
+}
+
+namespace crdt {
+	template < typename Counter, typename Allocator > class counters
+	{
+	public:
+		typedef Allocator allocator_type;
+
+		counters(allocator_type allocator)
+			: counters_(allocator)
 		{}
 
 		Counter next()
@@ -92,7 +149,7 @@ namespace crdt
 		{
 			if (!counters_.empty())
 			{
-				auto first = *counters_.begin();
+				auto& first = *counters_.begin();
 				if (first >= counter)
 				{
 					// Already there.
@@ -127,7 +184,7 @@ namespace crdt
 			return false;
 		}
 
-		void merge(const counters< Counter >& other)
+		template < typename AllocatorT > void merge(const counters< Counter, AllocatorT >& other)
 		{
 			counters_.insert(other.counters_.begin(), other.counters_.end());
 			collapse();
@@ -158,15 +215,33 @@ namespace crdt
 		auto begin() const { return counters_.begin(); }
 		auto end() const { return counters_.end(); }
 
-	private:
-		std::set< Counter > counters_;
+	// private:
+		std::set< Counter, std::less< Counter >, allocator_type > counters_;
+		// boost::container::flat_set< Counter, std::less< Counter >, allocator_type > counters_;
 	};
 
-	/*
-	template < typename Counter > struct dot_node2
+
+	template < typename Counter, typename Allocator > struct counters2
 	{
-		dot_node2()
+		typedef Allocator allocator_type;
+
+		counters2(allocator_type allocator)
+			: counters_(allocator)
 		{}
+
+		Counter get() const
+		{
+			if (counters_.empty())
+			{
+				return Counter();
+			}
+			else
+			{
+				// This is local replica that is always in sync, always collapsed.
+				assert(counters_.size() == 1);
+				return *counters_.begin();
+			}
+		}
 
 		Counter next()
 		{
@@ -176,7 +251,7 @@ namespace crdt
 				counters_.push_back(0);
 			}
 
-			assert(counters_.size() == 1)
+			assert(counters_.size() == 1);
 			return ++counters_[0];
 		}
 
@@ -219,7 +294,7 @@ namespace crdt
 		{
 			for (size_t i = index; i > 1; --i)
 			{
-				if (counters_[i] != counters_[i - 1])
+				if (counters_[i] - 1 != counters_[i - 1])
 				{
 					return;
 				}
@@ -228,7 +303,7 @@ namespace crdt
 			counters_.erase(counters_.begin(), counters_.begin() + index);
 		}
 
-		bool has(const Counter& counter) const
+		bool find(const Counter& counter) const
 		{
 			if (!counters_.empty())
 			{
@@ -237,8 +312,7 @@ namespace crdt
 					return true;
 				}
 
-				// Could use binary search
-				for (size_t i = 1; i < counters_.size())
+				for (size_t i = 1; i < counters_.size(); ++i)
 				{
 					if (counters_[i] == counter)
 					{
@@ -254,36 +328,76 @@ namespace crdt
 			return false;
 		}
 
-		void merge(const dot_node< Counter >& other)
+		template< typename AllocatorT > void merge(const counters2< Counter, AllocatorT >& other)
 		{
-			counter_ = std::max(counter_, other.counter_);
-			cloud_.insert(other.cloud_.begin(), other.cloud_.end());
+			size_t l_index = 0;
+			size_t r_index = 0;
+
+			while (l_index < counters_.size() && r_index < other.counters_.size())
+			{
+				auto l_e = counters_[l_index];
+				auto r_e = other.counters_[r_index];
+				if (l_e > r_e)
+				{
+					counters_.insert(counters_.begin() + l_index, r_e);
+					++l_index;
+					++r_index;					
+				}
+				else if (l_e == r_e)
+				{
+					++l_index;
+					++r_index;
+				}
+				else
+				{
+					++l_index;
+				}
+			}
+
+			if (r_index < other.counters_.size())
+			{
+				counters_.insert(counters_.end(), other.counters_.begin(), other.counters_.end());
+			}
+
+			collapse();
 		}
 
-		void compact()
+		void collapse()
 		{
-			for (auto it = cloud_.begin(); it != cloud_.end();)
+			int same = 0;
+			for (size_t i = 1; i < counters_.size(); ++i)
 			{
-				if (counter_ + 1 == *it)
+				if (counters_[i - 1] + 1 == counters_[i])
 				{
-					it = cloud_.erase(it);
-					++counter_;
-					continue;
+					++same;
 				}
 				else
 				{
 					break;
 				}
 			}
+
+			if (same)
+			{
+				counters_.erase(counters_.begin(), counters_.begin() + same);
+			}
 		}
 
-		std::vector< Counter > counters_;
-	};
-	*/
+		auto begin() const { return counters_.begin(); }
+		auto end() const { return counters_.end(); }
 
-	template < typename Node, typename Counter > class dot_context
+		std::vector< Counter, allocator_type > counters_;
+	};
+
+	template < typename Node, typename Counter, typename Allocator > class dot_context
 	{
 	public:
+		typedef Allocator allocator_type;
+
+		dot_context(allocator_type allocator)
+			: counters_(allocator)
+		{}
+
 		void add(const Node& node, const Counter& counter)
 		{
 			counters_[node].add(counter);	
@@ -329,7 +443,7 @@ namespace crdt
 			return Counter();
 		}
 
-		void merge(const dot_context< Node, Counter >& other)
+		template < typename AllocatorT > void merge(const dot_context< Node, Counter, AllocatorT >& other)
 		{
 			for (auto& p : other.counters_)
 			{
@@ -337,9 +451,8 @@ namespace crdt
 			}
 		}
 
-		std::set< dot< Node, Counter > > dots() const
+		template < typename DotSet > void get_dots(DotSet& dots) const
 		{
-			std::set< dot< Node, Counter > > dots;
 			for (auto& [node, counters] : counters_)
 			{
 				for (auto& counter : counters)
@@ -347,12 +460,11 @@ namespace crdt
 					dots.insert({ node, counter });
 				}
 			}
-
-			return dots;
 		}
 
-	private:
-		std::map< Node, counters< Counter > > counters_;
+	// private:
+		std::map< Node, counters< Counter, allocator_type >, std::less< Node >, std::scoped_allocator_adaptor< allocator_type > > counters_;
+		// std::unordered_map< Node, counters< Counter, allocator_type >, std::hash< Node >, std::equal_to< Node >, std::scoped_allocator_adaptor< allocator_type > > counters_;
 	};	
 
 	template < typename Value, typename Allocator, typename Node, typename Counter > class dot_kernel_value
@@ -362,30 +474,40 @@ namespace crdt
 
 		dot_kernel_value(allocator_type allocator)
 			: value(allocator)
+			, dots(allocator)
 		{}
 
-		void merge(const dot_kernel_value< Value, Allocator, Node, Counter >& other)
+		template < typename ValueT, typename AllocatorT, typename NodeT, typename CounterT > 
+		void merge(
+			const dot_kernel_value< ValueT, AllocatorT, NodeT, CounterT >& other)
 		{
 			dots.insert(other.dots.begin(), other.dots.end());
 			value.merge(other.value);
 		}
 
-		std::set< dot< Node, Counter > > dots;
+		std::set< dot< Node, Counter >, std::less< dot< Node, Counter > >, allocator_type > dots;
+		// boost::container::flat_set< dot< Node, Counter >, std::less< dot< Node, Counter > >, allocator_type > dots;
 		Value value;
 	};
 
 	template < typename Allocator, typename Node, typename Counter > class dot_kernel_value< void, Allocator, Node, Counter >
 	{
 	public:
-		dot_kernel_value()
+		typedef Allocator allocator_type;
+
+		dot_kernel_value(allocator_type allocator)
+			: dots(allocator)
 		{}
 
-		void merge(const dot_kernel_value< void, Allocator, Node, Counter >& other)
+		template < typename AllocatorT, typename NodeT, typename CounterT >
+		void merge(
+			const dot_kernel_value< void, AllocatorT, NodeT, CounterT >& other)
 		{
 			dots.insert(other.dots.begin(), other.dots.end());
 		}
 
-		std::set< dot< Node, Counter > > dots;
+		std::set< dot< Node, Counter >, std::less< dot< Node, Counter > >, allocator_type > dots;
+		// boost::container::flat_set< dot< Node, Counter >, std::less< dot< Node, Counter > >, allocator_type > dots;
 	};
 
 	template < typename Iterator, typename Adaptor > class dot_kernel_iterator
@@ -405,10 +527,12 @@ namespace crdt
 	template < typename Key, typename Value, typename Allocator, typename Node, typename Counter > class dot_kernel_base
 	{
 	protected:
+	public: // TODO
 		Allocator allocator_;
-		dot_context< Node, Counter > counters_;
+		dot_context< Node, Counter, Allocator > counters_;
 		std::map< Key, Value, std::less< Key >, std::scoped_allocator_adaptor< Allocator > > values_;
-		std::map< dot< Node, Counter >, Key, std::less< dot< Node, Counter > > > dots_;
+		std::map< dot< Node, Counter >, Key, std::less< dot< Node, Counter > >, Allocator > dots_;
+		// std::unordered_map< dot< Node, Counter >, Key, std::hash< dot< Node, Counter > >, std::equal_to< dot< Node, Counter > >, Allocator > dots_;
 
 		typedef dot_kernel_base< Key, Value, Allocator, Node, Counter > dot_kernel_type;
 		typedef dot_kernel_iterator< typename decltype(values_)::const_iterator, void > const_iterator;
@@ -417,11 +541,29 @@ namespace crdt
 		dot_kernel_base(Allocator allocator)
 			: allocator_(allocator)
 			, values_(allocator)
+			, counters_(allocator)
+			, dots_(allocator)
 		{}
 
-		void merge(const dot_kernel_base< Key, Value, Allocator, Node, Counter >& other)
+		template < typename DotKernelBase > 
+		void merge(const DotKernelBase& other)
 		{
-			std::set< dot< Node, Counter > > rdotsvisited;
+			// For each value
+			//    We allocate value - 1
+			//	  And we allocate all its dots - 2
+			//		Solution: when allocating value, allocate a block for a few dots too
+			//         Allocator that starts from the buffer (later changed to pool allocator so it can be reused).
+			//    And we allocate dot -> value link - 3
+			//
+			// Counters
+
+			typedef std::set < dot< Node, Counter >, std::less< dot< Node, Counter > >, arena_allocator< void > > dot_set_type;
+			
+			// TODO: size based on input
+			arena< 1024 > buffer;
+			arena_allocator< void > arena(buffer);
+
+			dot_set_type rdotsvisited(arena);
 
 			// Merge values
 			for (const auto& [rkey, rdata] : other.values_)
@@ -437,8 +579,10 @@ namespace crdt
 				}
 			}
 
-			auto rdots = other.counters_.dots();
-			std::set< dot< Node, Counter > > rdotsvalueless;
+			dot_set_type rdots(arena);
+			other.counters_.get_dots(rdots);
+
+			dot_set_type rdotsvalueless(arena);
 
 			std::set_difference(
 				rdots.begin(), rdots.end(), 
@@ -533,9 +677,16 @@ namespace crdt
 
 		/*std::pair< const_iterator, bool >*/ void insert(const Key& key)
 		{
-			dot_kernel_type delta(this->allocator_);
-
 			auto node = this->allocator_.get_node();
+
+			arena< 1024 > buffer;
+			arena_allocator< void > arena(buffer);
+			crdt::allocator2< Node, void > allocator(node, arena);
+
+			dot_kernel_set< Key, decltype(allocator), Node, Counter > delta(allocator);
+
+			// dot_kernel_type delta(this->allocator_);
+
 			auto counter = this->counters_.get(node) + 1;
 			delta.counters_.add(node, counter);
 			delta.values_[key].dots.insert({ node, counter });

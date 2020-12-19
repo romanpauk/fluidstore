@@ -160,12 +160,15 @@ BOOST_AUTO_TEST_CASE(dot_test_set_insert_performance)
 	});
 	*/
 
+	#define Outer 10000
+	#define Inner 100
+
 	auto t1 = measure([]
 	{
-		for (size_t x = 0; x < 20; ++x)
+		for (size_t x = 0; x < Outer; ++x)
 		{
 			std::set< size_t > stdset;
-			for (size_t i = 0; i < 100000; ++i)
+			for (size_t i = 0; i < Inner; ++i)
 			{
 				stdset.insert(i);
 			}
@@ -174,11 +177,11 @@ BOOST_AUTO_TEST_CASE(dot_test_set_insert_performance)
 
 	auto t2 = measure([]
 	{
-		for (size_t x = 0; x < 20; ++x)
+		for (size_t x = 0; x < Outer; ++x)
 		{
 			crdt::traits::allocator_type alloc(0);
 			crdt::set< size_t, crdt::traits > stdset(alloc);
-			for (size_t i = 0; i < 100000; ++i)
+			for (size_t i = 0; i < Inner; ++i)
 			{
 				stdset.insert(i);
 			}

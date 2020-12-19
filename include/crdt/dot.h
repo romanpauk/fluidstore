@@ -87,6 +87,8 @@ namespace crdt {
 
 	template < typename Node, typename Counter, typename Allocator > class dot_context
 	{
+		template < typename Node, typename Counter, typename Allocator > friend class dot_context;
+
 	public:
 		typedef Allocator allocator_type;
 
@@ -128,7 +130,7 @@ namespace crdt {
 
 		template < typename AllocatorT > void merge(const dot_context< Node, Counter, AllocatorT >& other)
 		{
-			counters_.insert(other.counters_.begin(), other.counters_.end());
+			insert(other.counters_.begin(), other.counters_.end());
 			collapse();
 		}
 
@@ -167,7 +169,7 @@ namespace crdt {
 			}
 		}
 
-		// private:
+	private:
 		std::set< dot< Node, Counter >, std::less< dot< Node, Counter > >, allocator_type > counters_;
 	};
 
@@ -228,8 +230,11 @@ namespace crdt {
 
 	template < typename Key, typename Value, typename Allocator, typename Node, typename Counter > class dot_kernel_base
 	{
+		template < typename Key, typename Value, typename Allocator, typename Node, typename Counter > friend class dot_kernel_base;
+		template < typename Key, typename Allocator, typename Node, typename Counter > friend class dot_kernel_set;
+		template < typename Key, typename Value, typename Allocator, typename Node, typename Counter > friend class dot_kernel_map;
+
 	protected:
-	public: // TODO
 		Allocator allocator_;
 		dot_context< Node, Counter, Allocator > counters_;
 		std::map< Key, Value, std::less< Key >, std::scoped_allocator_adaptor< Allocator > > values_;
@@ -250,10 +255,10 @@ namespace crdt {
 		void merge(const DotKernelBase& other)
 		{
 			// TODO: size based on input?
-			arena< 1024 > arena;
+			arena< 1024 > buffer;
 			typedef std::set < dot< Node, Counter >, std::less< dot< Node, Counter > >, arena_allocator<> > dot_set_type;		
-			dot_set_type rdotsvisited(arena);
-			dot_set_type rdotsvalueless(arena);
+			dot_set_type rdotsvisited(buffer);
+			dot_set_type rdotsvalueless(buffer);
 
 			const auto& rdots = other.counters_.get();
 			
@@ -271,8 +276,6 @@ namespace crdt {
 				{
 					dots_[rdot] = rkey;
 				}
-
-				// TODO: build an array of (rdot, key) pairs and insert it as a range
 			}
 
 			// Find dots that do not have values - those are removed
@@ -379,7 +382,7 @@ namespace crdt {
 		}
 	};
 
-	template < typename Key, typename Value, typename Allocator, typename Node, typename Counter > struct dot_kernel_map
+	template < typename Key, typename Value, typename Allocator, typename Node, typename Counter > class dot_kernel_map
 		: public dot_kernel_base< Key, dot_kernel_value<  Value, Allocator, Node, Counter >, Allocator, Node, Counter >
 	{
 		typedef dot_kernel_map< Key, Value, Allocator, Node, Counter > dot_kernel_type;

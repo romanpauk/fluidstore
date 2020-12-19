@@ -36,7 +36,7 @@ namespace crdt
 
 		template < typename U, typename AllocatorU > allocator(const allocator< Node, U, AllocatorU >& other)
 			: node_(other.get_node())
-			//, Allocator(other)
+			, Allocator(other)
 		{}
 
 		const Node& get_node() const { return node_; }
@@ -61,6 +61,7 @@ namespace crdt
 		Counter counter;
 
 		bool operator < (const dot< Node, Counter >& other) const { return std::make_tuple(node, counter) < std::make_tuple(other.node, other.counter); }
+		bool operator > (const dot< Node, Counter >& other) const { return std::make_tuple(node, counter) > std::make_tuple(other.node, other.counter); }
 		bool operator == (const dot< Node, Counter >& other) const { return std::make_tuple(node, counter) == std::make_tuple(other.node, other.counter); }
 	
 		size_t hash() const
@@ -141,28 +142,28 @@ namespace crdt {
 			if (counters_.size() > 1)
 			{
 				auto it = counters_.begin();
-				auto dot = *it++;
+				auto d = *it++;
 				for (; it != counters_.end();)
 				{
-					if (it->node == dot.node)
+					if (it->node == d.node)
 					{
-						if (it->counter == dot.counter + 1)
+						if (it->counter == d.counter + 1)
 						{
 							it = counters_.erase(it);
 						}
 						else
 						{
-							it = counters_.upper_bound({ dot.node, std::numeric_limits< Counter >::max() });
+							it = counters_.upper_bound({ d.node, std::numeric_limits< Counter >::max() });
 							if (it != counters_.end())
 							{
-								dot = *it;
+						    	d = *it;
 								++it;
 							}
 						}
 					}
 					else
 					{
-						dot = *it;
+						d = *it;
 						++it;
 					}
 				}
@@ -254,7 +255,6 @@ namespace crdt {
 		template < typename DotKernelBase > 
 		void merge(const DotKernelBase& other)
 		{
-			// TODO: size based on input?
 			arena< 1024 > buffer;
 			typedef std::set < dot< Node, Counter >, std::less< dot< Node, Counter > >, arena_allocator<> > dot_set_type;		
 			dot_set_type rdotsvisited(buffer);

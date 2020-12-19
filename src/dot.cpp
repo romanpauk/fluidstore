@@ -14,6 +14,8 @@ BOOST_AUTO_TEST_CASE(dot_set_test)
 
 	set.insert(1);
 	BOOST_ASSERT(set.find(1) != set.end());
+	BOOST_ASSERT(*set.find(1) == 1);
+
 	BOOST_ASSERT(set.size() == 1);
 	BOOST_ASSERT(!set.empty());
 
@@ -57,8 +59,10 @@ BOOST_AUTO_TEST_CASE(dot_map_test)
 	crdt::traits::allocator_type alloc(0);
 	crdt::map< int, crdt::value< int, crdt::traits >, crdt::traits > map(alloc);
 	BOOST_ASSERT(map.find(0) == map.end());
-	map.insert(1, crdt::value< int, crdt::traits >(alloc, 1));
+	map.insert(1, crdt::value< int, crdt::traits >(alloc, 11));
 	BOOST_ASSERT(map.find(1) != map.end());
+	BOOST_ASSERT((*map.find(1)).first == 1);
+	BOOST_ASSERT((*map.find(1)).second == 11);
 	map.erase(1);
 	BOOST_ASSERT(map.find(1) == map.end());
 }

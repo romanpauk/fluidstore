@@ -121,7 +121,7 @@ namespace crdt {
 		{
 			auto counter = Counter();
 			auto it = counters_.upper_bound(dot< Node, Counter >{node, 0});
-			while (it->node == node && it != counters_.end())
+			while (it != counters_.end() && it->node == node)
 			{
 				counter = it++->counter;
 			}
@@ -178,6 +178,7 @@ namespace crdt {
 	{
 	public:
 		typedef Allocator allocator_type;
+		typedef Value value_type;
 
 		dot_kernel_value(allocator_type allocator)
 			: value(allocator)
@@ -200,6 +201,7 @@ namespace crdt {
 	{
 	public:
 		typedef Allocator allocator_type;
+		typedef void value_type;
 
 		dot_kernel_value(allocator_type allocator)
 			: dots(allocator)
@@ -215,18 +217,40 @@ namespace crdt {
 		std::set< dot< Node, Counter >, std::less< dot< Node, Counter > >, allocator_type > dots;
 	};
 
-	template < typename Iterator, typename Adaptor > class dot_kernel_iterator
+	template < typename Iterator > class dot_kernel_iterator_base
 	{
 	public:
-		dot_kernel_iterator(Iterator it)
+		dot_kernel_iterator_base(Iterator it)
 			: it_(it)
 		{}
 
-		bool operator == (const dot_kernel_iterator< Iterator, Adaptor >& other) const { return it_ == other.it_; }
-		bool operator != (const dot_kernel_iterator< Iterator, Adaptor >& other) const { return it_ != other.it_; }
+		bool operator == (const dot_kernel_iterator_base< Iterator >& other) const { return it_ == other.it_; }
+		bool operator != (const dot_kernel_iterator_base< Iterator >& other) const { return it_ != other.it_; }
 
-	private:
+	protected:
 		Iterator it_;
+	};
+
+	template < typename Iterator, typename Key, typename Value > class dot_kernel_iterator
+		: public dot_kernel_iterator_base< Iterator >
+	{
+	public:
+		dot_kernel_iterator(Iterator it)
+			: dot_kernel_iterator_base< Iterator >(it)
+		{}
+
+		std::pair< const Key&, const Value& > operator *() { return { this->it_->first, this->it_->second.value }; }
+	};
+
+	template < typename Iterator, typename Key > class dot_kernel_iterator< Iterator, Key, void >
+		: public dot_kernel_iterator_base< Iterator >
+	{
+	public:
+		dot_kernel_iterator(Iterator it)
+			: dot_kernel_iterator_base< Iterator >(it)
+		{}
+
+		const Key& operator *() { return this->it_->first; }
 	};
 
 	template < typename Key, typename Value, typename Allocator, typename Node, typename Counter > class dot_kernel_base
@@ -238,11 +262,13 @@ namespace crdt {
 	protected:
 		Allocator allocator_;
 		dot_context< Node, Counter, Allocator > counters_;
-		std::map< Key, Value, std::less< Key >, std::scoped_allocator_adaptor< Allocator > > values_;
+		std::map< Key, dot_kernel_value< Value, Allocator, Node, Counter >, std::less< Key >, std::scoped_allocator_adaptor< Allocator > > values_;
 		std::map< dot< Node, Counter >, Key, std::less< dot< Node, Counter > >, Allocator > dots_;
 		
 		typedef dot_kernel_base< Key, Value, Allocator, Node, Counter > dot_kernel_type;
-		typedef dot_kernel_iterator< typename decltype(values_)::const_iterator, void > const_iterator;
+
+		typedef dot_kernel_iterator< typename decltype(values_)::iterator, Key, Value > iterator;
+		typedef dot_kernel_iterator< typename decltype(values_)::const_iterator, Key, Value > const_iterator;
 
 	protected:
 		dot_kernel_base(Allocator allocator)
@@ -355,14 +381,14 @@ namespace crdt {
 	};
 
 	template < typename Key, typename Allocator, typename Node, typename Counter > class dot_kernel_set
-		: public dot_kernel_base< Key, dot_kernel_value< void, Allocator, Node, Counter >, Allocator, Node, Counter
+		: public dot_kernel_base< Key, void, Allocator, Node, Counter
 		>
 	{
 		typedef dot_kernel_set< Key, Allocator, Node, Counter > dot_kernel_type;
 
 	public:
 		dot_kernel_set(Allocator allocator)
-			: dot_kernel_base< Key, dot_kernel_value< void, Allocator, Node, Counter >, Allocator, Node, Counter >(allocator)
+			: dot_kernel_base< Key, void, Allocator, Node, Counter >(allocator)
 		{}
 
 		/*std::pair< const_iterator, bool >*/ void insert(const Key& key)
@@ -383,13 +409,13 @@ namespace crdt {
 	};
 
 	template < typename Key, typename Value, typename Allocator, typename Node, typename Counter > class dot_kernel_map
-		: public dot_kernel_base< Key, dot_kernel_value<  Value, Allocator, Node, Counter >, Allocator, Node, Counter >
+		: public dot_kernel_base< Key, Value, Allocator, Node, Counter >
 	{
 		typedef dot_kernel_map< Key, Value, Allocator, Node, Counter > dot_kernel_type;
 
 	public:
 		dot_kernel_map(Allocator allocator)
-			: dot_kernel_base< Key, dot_kernel_value< Value, Allocator, Node, Counter >, Allocator, Node, Counter >(allocator)
+			: dot_kernel_base< Key, Value, Allocator, Node, Counter >(allocator)
 		{}
 
 		void insert(const Key& key, const Value& value)
@@ -462,6 +488,8 @@ namespace crdt {
 			value_ = other.value_;
 		}
 
+		bool operator == (const Value& value) const { return value_ == value; }
+
 	private:
 		Value value_;
 	};
@@ -505,6 +533,8 @@ namespace crdt {
 		{
 			values_.merge(other.values_);
 		}
+
+		bool operator == (const Value& value) const { return get() == value; }
 
 	private:
 		crdt::set< Value, Traits > values_;

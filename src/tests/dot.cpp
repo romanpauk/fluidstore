@@ -4,9 +4,7 @@
 #undef _ENFORCE_MATCHING_ALLOCATORS
 #define _ENFORCE_MATCHING_ALLOCATORS 0
 
-#define BOOST_TEST_MODULE header-only multiunit test
-#include <boost/test/included/unit_test.hpp>
-// #include <boost/test/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <fluidstore/crdts/dot.h>
 
@@ -14,7 +12,8 @@
 
 BOOST_AUTO_TEST_CASE(dot_set_test)
 {
-	crdt::traits::allocator_type alloc(0);
+	crdt::traits::replica_type replica(0);
+	crdt::traits::allocator_type alloc(replica);
 	crdt::set< int, crdt::traits > set(alloc);
 	BOOST_TEST((set.find(0) == set.end()));
 	BOOST_TEST(set.size() == 0);
@@ -41,10 +40,12 @@ BOOST_AUTO_TEST_CASE(dot_set_test)
 
 BOOST_AUTO_TEST_CASE(dot_set_replica_test)
 {
-	crdt::traits::allocator_type alloc1(1);
+	crdt::traits::replica_type replica1(1);
+	crdt::traits::allocator_type alloc1(replica1);
 	crdt::set< int, crdt::traits > set1(alloc1);
 
-	crdt::traits::allocator_type alloc2(2);
+	crdt::traits::replica_type replica2(2);
+	crdt::traits::allocator_type alloc2(replica2);
 	crdt::set< int, crdt::traits > set2(alloc2);
 
 	set1.insert(1);
@@ -64,7 +65,8 @@ BOOST_AUTO_TEST_CASE(dot_set_replica_test)
 
 BOOST_AUTO_TEST_CASE(dot_map_test)
 {
-	crdt::traits::allocator_type alloc(0);
+	crdt::traits::replica_type replica(0);
+	crdt::traits::allocator_type alloc(replica);
 	crdt::map< int, crdt::value< int, crdt::traits >, crdt::traits > map(alloc);
 	BOOST_TEST((map.find(0) == map.end()));
 	map.insert(1, crdt::value< int, crdt::traits >(alloc, 11));
@@ -77,7 +79,8 @@ BOOST_AUTO_TEST_CASE(dot_map_test)
 
 BOOST_AUTO_TEST_CASE(dot_map_set_test)
 {
-	crdt::traits::allocator_type alloc(0);
+	crdt::traits::replica_type replica(0);
+	crdt::traits::allocator_type alloc(replica);
 	crdt::map< int, crdt::set< int, crdt::traits >, crdt::traits > map(alloc);
 	BOOST_TEST((map.find(0) == map.end()));
 	//map.insert(1, );
@@ -88,7 +91,8 @@ BOOST_AUTO_TEST_CASE(dot_map_set_test)
 
 BOOST_AUTO_TEST_CASE(dot_map_value_mv_test)
 {
-	crdt::traits::allocator_type alloc(0);
+	crdt::traits::replica_type replica(0);
+	crdt::traits::allocator_type alloc(replica);
 	crdt::map< int, crdt::value_mv< int, crdt::traits >, crdt::traits > map(alloc);
 	BOOST_TEST((map.find(0) == map.end()));
 	// map.insert(1, 1);
@@ -99,7 +103,8 @@ BOOST_AUTO_TEST_CASE(dot_map_value_mv_test)
 
 BOOST_AUTO_TEST_CASE(dot_map_map_value_mv_test)
 {
-	crdt::traits::allocator_type alloc(0);
+	crdt::traits::replica_type replica(0);
+	crdt::traits::allocator_type alloc(replica);
 	crdt::map< 
 		int, 
 		crdt::map< 
@@ -114,6 +119,20 @@ BOOST_AUTO_TEST_CASE(dot_map_map_value_mv_test)
 	//BOOST_TEST(map.find(1) == true);
 	//map.erase(1);
 	//BOOST_TEST(map.find(1) == false);
+}
+
+
+BOOST_AUTO_TEST_CASE(aggregating_replica)
+{
+	typedef crdt::aggregating_replica< uint64_t, uint64_t > replica_type;
+	typedef crdt::traits_base< replica_type, uint64_t, crdt::allocator< replica_type > > traits;
+
+	traits::replica_type replica(0);
+	traits::allocator_type allocator(replica);
+
+	crdt::set< int, traits > set(allocator);
+	set.insert(1);
+	set.insert(2);
 }
 
 template < typename Fn > double measure(Fn fn)
@@ -148,10 +167,10 @@ BOOST_AUTO_TEST_CASE(dot_test_set_insert_performance)
 	{
 		for (size_t x = 0; x < Outer; ++x)
 		{
-			std::set< size_t > stdset;
+			std::set< size_t > set;
 			for (size_t i = 0; i < Inner; ++i)
 			{
-				stdset.insert(i);
+				set.insert(i);
 			}
 		}
 	});
@@ -160,11 +179,12 @@ BOOST_AUTO_TEST_CASE(dot_test_set_insert_performance)
 	{
 		for (size_t x = 0; x < Outer; ++x)
 		{
-			crdt::traits::allocator_type alloc(0);
-			crdt::set< size_t, crdt::traits > stdset(alloc);
+			crdt::traits::replica_type replica(0);
+			crdt::traits::allocator_type alloc(replica);
+			crdt::set< size_t, crdt::traits > set(alloc);
 			for (size_t i = 0; i < Inner; ++i)
 			{
-				stdset.insert(i);
+				set.insert(i);
 			}
 		}
 	});

@@ -11,55 +11,161 @@
 
 namespace crdt
 {
+	//
+	// Delta operation:
+	// Each allocator will point to crdt::aggregate, this way each crdt instance will be able to access the aggregate.
+	// Each operation will merge delta with delta instance in the aggregate.
+	// Each instance will have replica-unique id so it can be found in the aggregate.
+	// In the end, the aggregate will have merged deltas for all operations done so far, in form of crdt instances.
+	// 
+
+	template < typename ReplicaId, typename InstanceId > class replica
+	{
+	public:
+		typedef ReplicaId replica_id_type;
+		typedef InstanceId instance_id_type;
+
+		replica(ReplicaId replica_id)
+			: replica_id_(replica_id)
+		{}
+
+		const ReplicaId& get_replica_id() const { return replica_id_; }
+		InstanceId generate_instance_id() { return 0; }
+
+		// Nothing to do
+		template < typename Instance, typename DeltaInstance > void merge(const Instance& instance, const DeltaInstance& delta) {}
+
+	private:
+		ReplicaId replica_id_;
+	};
+
+	// TODO: naming of instances need to be better enforced.
+	// All instances explicitly created will need user-provided name, all automatically created can use generated name.
+	template < typename ReplicaId, typename InstanceId > class aggregating_replica: public replica< ReplicaId, InstanceId >
+	{
+		struct aggregate_instance_base
+		{
+			virtual ~aggregate_instance_base() {}
+		};
+
+		template < typename Instance > struct aggregate_instance : aggregate_instance_base
+		{
+			template< typename Allocator > aggregate_instance(Allocator allocator)
+				: instance_(allocator)
+			{}
+
+			template < typename DeltaInstance > void merge(const DeltaInstance& delta_instance)
+			{
+				instance_.merge(delta_instance);
+			}
+
+		private:
+			Instance instance_;
+		};
+
+	public:
+		aggregating_replica(ReplicaId replica_id)
+			: replica< ReplicaId, InstanceId >(replica_id)
+		{}
+
+		InstanceId generate_instance_id()
+		{
+			return ++instance_id_counter_;
+		}
+
+		// This is called from local instances when they merge
+		template < typename Instance, typename DeltaInstance > void merge(const Instance& instance, const DeltaInstance& delta)
+		{			
+			get_aggregate_instance(instance).merge(delta);
+			// TODO: We will have to track removals so we can remove removed instances from instances_.
+		}
+
+	private:
+		template < typename Instance > auto& get_aggregate_instance(const Instance& instance)
+		{
+			// So this gives us instance usable in aggregating_replica, but what about it's ids?
+			// We need to take ids from what we are merging
+
+			crdt::allocator < replica< ReplicaId, InstanceId > > allocator(*this);
+			typedef typename Instance::rebind_allocator< decltype(allocator) >::type aggregated_type;
+
+			auto& context = instances_[instance.get_instance_id()];
+			if (!context)
+			{
+				// We will have to use separate different allocator for aggregated instances as the allocator they have got us here
+				// while merging. That also means we will have to rebind instance type to different allocator.
+
+				auto ptr = new aggregate_instance< aggregated_type >(allocator);
+				context.reset(ptr);
+				return *ptr;
+			}
+			else
+			{
+				return dynamic_cast< aggregate_instance< aggregated_type >& >(*context);
+			}
+		}
+
+		InstanceId instance_id_counter_;
+		std::map< InstanceId, std::unique_ptr< aggregate_instance_base > > instances_;
+	};
+
 	// Allocator is used to pass node inside containers
-	template < typename Node, typename T = void, typename Allocator = std::allocator< T > > class allocator 
+	template < typename Replica, typename T = unsigned char, typename Allocator = std::allocator< T > > class allocator 
 		: public Allocator
 	{
 	public:
+		template < typename Replica, typename U, typename AllocatorU > friend class allocator;
+
 		template< typename U > struct rebind { 
-			typedef allocator< Node, U, 
+			typedef allocator< Replica, U, 
 				typename std::allocator_traits< Allocator >::template rebind_alloc< U > 
 			> other;
 		};
 
-		template < typename... Args > allocator(Node node, Args&&... args)
-			: node_(node)
-			, Allocator(std::forward< Args >(args)...)
+		template < typename... Args > allocator(Replica& replica, Args&&... args)
+			: Allocator(std::forward< Args >(args)...)
+			, replica_(replica)
 		{}
 
-		template < typename U, typename AllocatorU > allocator(const allocator< Node, U, AllocatorU >& other)
-			: node_(other.get_node())
-			, Allocator(other)
+		template < typename U, typename AllocatorU > allocator(const allocator< Replica, U, AllocatorU >& other)
+			: Allocator(other)
+			, replica_(other.replica_)
 		{}
 
-		const Node& get_node() const { return node_; }
+		const auto& get_replica_id() const { return replica_.get_replica_id(); }
+
+		template < typename Instance, typename DeltaInstance > void merge(const Instance& instance, const DeltaInstance& delta_instance)
+		{
+			replica_.merge(instance, delta_instance);
+		}
 
 	private:
-		Node node_;
+		Replica& replica_;
 	};
 
-	template < typename Node, typename Counter, typename Allocator > struct traits_base
+	template < typename Replica, typename Counter, typename Allocator > struct traits_base
 	{
-		typedef Node node_type;
+		typedef Replica replica_type;
+		typedef typename Replica::replica_id_type replica_id_type;
 		typedef Counter counter_type;
 		typedef Allocator allocator_type;
 	};
 
-	struct traits : traits_base< uint64_t, uint64_t, allocator< uint64_t, unsigned char > > {};
+	struct traits : traits_base< replica< uint64_t, uint64_t >, uint64_t, allocator< replica< uint64_t, uint64_t >, unsigned char > > {};
 
-	template < typename Node, typename Counter > class dot
+	template < typename ReplicaId, typename Counter > class dot
 	{
 	public:
-		Node node;
+		ReplicaId replica_id;
 		Counter counter;
 
-		bool operator < (const dot< Node, Counter >& other) const { return std::make_tuple(node, counter) < std::make_tuple(other.node, other.counter); }
-		bool operator > (const dot< Node, Counter >& other) const { return std::make_tuple(node, counter) > std::make_tuple(other.node, other.counter); }
-		bool operator == (const dot< Node, Counter >& other) const { return std::make_tuple(node, counter) == std::make_tuple(other.node, other.counter); }
+		bool operator < (const dot< ReplicaId, Counter >& other) const { return std::make_tuple(replica_id, counter) < std::make_tuple(other.replica_id, other.counter); }
+		bool operator > (const dot< ReplicaId, Counter >& other) const { return std::make_tuple(replica_id, counter) > std::make_tuple(other.replica_id, other.counter); }
+		bool operator == (const dot< ReplicaId, Counter >& other) const { return std::make_tuple(replica_id, counter) == std::make_tuple(other.replica_id, other.counter); }
 	
 		size_t hash() const
 		{
-			std::size_t h1 = std::hash< Node >{}(node);
+			std::size_t h1 = std::hash< replica_id_ >{}(replica_id);
 			std::size_t h2 = std::hash< Counter >{}(counter);
 			return h1 ^ (h2 << 1);
 		}
@@ -68,9 +174,9 @@ namespace crdt
 
 namespace std
 {
-	template< typename Node, typename Counter > struct hash< crdt::dot< Node, Counter > >
+	template< typename ReplicaId, typename Counter > struct hash< crdt::dot< ReplicaId, Counter > >
 	{
-		std::size_t operator()(const crdt::dot< Node, Counter >& dot) const noexcept
+		std::size_t operator()(const crdt::dot< ReplicaId, Counter >& dot) const noexcept
 		{
 			return dot.hash();
 		}
@@ -79,9 +185,9 @@ namespace std
 
 namespace crdt {
 
-	template < typename Node, typename Counter, typename Allocator > class dot_context
+	template < typename ReplicaId, typename Counter, typename Allocator > class dot_context
 	{
-		template < typename Node, typename Counter, typename Allocator > friend class dot_context;
+		template < typename ReplicaId, typename Counter, typename Allocator > friend class dot_context;
 
 	public:
 		typedef Allocator allocator_type;
@@ -100,21 +206,21 @@ namespace crdt {
 			counters_.insert(begin, end);
 		}
 
-		bool find(const dot< Node, Counter >& dot) const
+		bool find(const dot< ReplicaId, Counter >& dot) const
 		{
 			return counters_.find(dot) != counters_.end();
 		}
 
-		void remove(const dot< Node, Counter >& dot)
+		void remove(const dot< ReplicaId, Counter >& dot)
 		{
 			counters_.erase(dot);
 		}
 
-		Counter get(const Node& node) const
+		Counter get(const ReplicaId& replica_id) const
 		{
 			auto counter = Counter();
-			auto it = counters_.upper_bound(dot< Node, Counter >{node, 0});
-			while (it != counters_.end() && it->node == node)
+			auto it = counters_.upper_bound(dot< ReplicaId, Counter >{ replica_id, 0 });
+			while (it != counters_.end() && it->replica_id == replica_id)
 			{
 				counter = it++->counter;
 			}
@@ -122,7 +228,7 @@ namespace crdt {
 			return counter;
 		}
 
-		template < typename AllocatorT > void merge(const dot_context< Node, Counter, AllocatorT >& other)
+		template < typename AllocatorT > void merge(const dot_context< ReplicaId, Counter, AllocatorT >& other)
 		{
 			insert(other.counters_.begin(), other.counters_.end());
 			collapse();
@@ -138,7 +244,7 @@ namespace crdt {
 				auto d = *it++;
 				for (; it != counters_.end();)
 				{
-					if (it->node == d.node)
+					if (it->replica_id == d.replica_id)
 					{
 						if (it->counter == d.counter + 1)
 						{
@@ -146,7 +252,7 @@ namespace crdt {
 						}
 						else
 						{
-							it = counters_.upper_bound({ d.node, std::numeric_limits< Counter >::max() });
+							it = counters_.upper_bound({ d.replica_id, std::numeric_limits< Counter >::max() });
 							if (it != counters_.end())
 							{
 						    	d = *it;
@@ -164,10 +270,10 @@ namespace crdt {
 		}
 
 	private:
-		std::set< dot< Node, Counter >, std::less< dot< Node, Counter > >, allocator_type > counters_;
+		std::set< dot< ReplicaId, Counter >, std::less< dot< ReplicaId, Counter > >, allocator_type > counters_;
 	};
 
-	template < typename Value, typename Allocator, typename Node, typename Counter > class dot_kernel_value
+	template < typename Value, typename Allocator, typename ReplicaId, typename Counter > class dot_kernel_value
 	{
 	public:
 		typedef Allocator allocator_type;
@@ -178,19 +284,19 @@ namespace crdt {
 			, dots(allocator)
 		{}
 
-		template < typename ValueT, typename AllocatorT, typename NodeT, typename CounterT > 
+		template < typename ValueT, typename AllocatorT, typename ReplicaIdT, typename CounterT > 
 		void merge(
-			const dot_kernel_value< ValueT, AllocatorT, NodeT, CounterT >& other)
+			const dot_kernel_value< ValueT, AllocatorT, ReplicaIdT, CounterT >& other)
 		{
 			dots.insert(other.dots.begin(), other.dots.end());
 			value.merge(other.value);
 		}
 
-		std::set< dot< Node, Counter >, std::less< dot< Node, Counter > >, allocator_type > dots;
+		std::set< dot< ReplicaId, Counter >, std::less< dot< ReplicaId, Counter > >, allocator_type > dots;
 		Value value;
 	};
 
-	template < typename Allocator, typename Node, typename Counter > class dot_kernel_value< void, Allocator, Node, Counter >
+	template < typename Allocator, typename ReplicaId, typename Counter > class dot_kernel_value< void, Allocator, ReplicaId, Counter >
 	{
 	public:
 		typedef Allocator allocator_type;
@@ -200,14 +306,14 @@ namespace crdt {
 			: dots(allocator)
 		{}
 
-		template < typename AllocatorT, typename NodeT, typename CounterT >
+		template < typename AllocatorT, typename ReplicaIdT, typename CounterT >
 		void merge(
-			const dot_kernel_value< void, AllocatorT, NodeT, CounterT >& other)
+			const dot_kernel_value< void, AllocatorT, ReplicaIdT, CounterT >& other)
 		{
 			dots.insert(other.dots.begin(), other.dots.end());
 		}
 		
-		std::set< dot< Node, Counter >, std::less< dot< Node, Counter > >, allocator_type > dots;
+		std::set< dot< ReplicaId, Counter >, std::less< dot< ReplicaId, Counter > >, allocator_type > dots;
 	};
 
 	template < typename Iterator > class dot_kernel_iterator_base
@@ -246,19 +352,21 @@ namespace crdt {
 		const Key& operator *() { return this->it_->first; }
 	};
 
-	template < typename Key, typename Value, typename Allocator, typename Node, typename Counter > class dot_kernel_base
+	template < typename Key, typename Value, typename Allocator, typename ReplicaId, typename Counter, typename Container > class dot_kernel_base
 	{
-		template < typename Key, typename Value, typename Allocator, typename Node, typename Counter > friend class dot_kernel_base;
-		template < typename Key, typename Allocator, typename Node, typename Counter > friend class dot_kernel_set;
-		template < typename Key, typename Value, typename Allocator, typename Node, typename Counter > friend class dot_kernel_map;
+		template < typename Key, typename Value, typename Allocator, typename ReplicaId, typename Counter, typename Container > friend class dot_kernel_base;
+		template < typename Key, typename Allocator, typename ReplicaId, typename Counter > friend class dot_kernel_set;
+		template < typename Key, typename Value, typename Allocator, typename ReplicaId, typename Counter > friend class dot_kernel_map;
 
 	protected:
-		Allocator allocator_;
-		dot_context< Node, Counter, Allocator > counters_;
-		std::map< Key, dot_kernel_value< Value, Allocator, Node, Counter >, std::less< Key >, std::scoped_allocator_adaptor< Allocator > > values_;
-		std::map< dot< Node, Counter >, Key, std::less< dot< Node, Counter > >, Allocator > dots_;
+		typedef dot< ReplicaId, Counter > dot_type;
+		typedef dot_kernel_base< Key, Value, Allocator, ReplicaId, Counter, Container > dot_kernel_type;
 		
-		typedef dot_kernel_base< Key, Value, Allocator, Node, Counter > dot_kernel_type;
+		Allocator allocator_;
+		dot_context< ReplicaId, Counter, Allocator > counters_;
+			
+		std::map< Key, dot_kernel_value< Value, Allocator, ReplicaId, Counter >, std::less< Key >, std::scoped_allocator_adaptor< Allocator > > values_;
+		std::map< dot_type, Key, std::less< dot_type >, Allocator > dots_;
 
 		typedef dot_kernel_iterator< typename decltype(values_)::iterator, Key, Value > iterator;
 		typedef dot_kernel_iterator< typename decltype(values_)::const_iterator, Key, Value > const_iterator;
@@ -271,11 +379,15 @@ namespace crdt {
 			, dots_(allocator)
 		{}
 
+		// TODO:
+	public:
+		uint64_t get_instance_id() const { return 0; }
+	
 		template < typename DotKernelBase > 
 		void merge(const DotKernelBase& other)
 		{
 			arena< 1024 > buffer;
-			typedef std::set < dot< Node, Counter >, std::less< dot< Node, Counter > >, arena_allocator<> > dot_set_type;		
+			typedef std::set < dot_type, std::less< dot_type >, arena_allocator<> > dot_set_type;
 			dot_set_type rdotsvisited(buffer);
 			dot_set_type rdotsvalueless(buffer);
 
@@ -329,6 +441,9 @@ namespace crdt {
 
 			// Merge counters
 			counters_.merge(other.counters_);
+
+			// Merge into global context using outermost type.
+			this->allocator_.merge(*static_cast< Container* >(this), other);
 		}
 
 	public:
@@ -373,94 +488,100 @@ namespace crdt {
 		}
 	};
 
-	template < typename Key, typename Allocator, typename Node, typename Counter > class dot_kernel_set
-		: public dot_kernel_base< Key, void, Allocator, Node, Counter
+	template < typename Key, typename Allocator, typename ReplicaId, typename Counter > class dot_kernel_set
+		: public dot_kernel_base< 
+		    Key, void, Allocator, ReplicaId, Counter, 
+		    dot_kernel_set< Key, Allocator, ReplicaId, Counter >
 		>
 	{
-		typedef dot_kernel_set< Key, Allocator, Node, Counter > dot_kernel_type;
+		typedef dot_kernel_set< 
+			Key, Allocator, ReplicaId, Counter
+		> dot_kernel_type;
 
 	public:
+		template < typename AllocatorT > struct rebind_allocator
+		{
+			typedef dot_kernel_set< Key, AllocatorT, ReplicaId, Counter > type;
+		};
+
 		dot_kernel_set(Allocator allocator)
-			: dot_kernel_base< Key, void, Allocator, Node, Counter >(allocator)
+			: dot_kernel_base<
+			    Key, void, Allocator, ReplicaId, Counter,
+			    dot_kernel_set< Key, Allocator, ReplicaId, Counter >
+			>(allocator)
 		{}
 
 		/*std::pair< const_iterator, bool >*/ void insert(const Key& key)
 		{
 			arena< 1024 > buffer;
 			arena_allocator< void, Allocator > allocator(buffer, this->allocator_);
-			dot_kernel_set< Key, decltype(allocator), Node, Counter > delta(allocator);
+			dot_kernel_set< Key, decltype(allocator), ReplicaId, Counter > delta(allocator);
 
-			//dot_kernel_type delta(this->allocator_);
+			//dot_kernel_set_type delta(this->allocator_);
 
-			auto node = this->allocator_.get_node();
-			auto counter = this->counters_.get(node) + 1;
-			delta.counters_.emplace(dot< Node, Counter >{ node, counter });
-			delta.values_[key].dots.emplace(dot< Node, Counter >{ node, counter });
-
-			this->merge(delta);
-		}
-	};
-
-	template < typename Key, typename Value, typename Allocator, typename Node, typename Counter > class dot_kernel_map
-		: public dot_kernel_base< Key, Value, Allocator, Node, Counter >
-	{
-		typedef dot_kernel_map< Key, Value, Allocator, Node, Counter > dot_kernel_type;
-
-	public:
-		dot_kernel_map(Allocator allocator)
-			: dot_kernel_base< Key, Value, Allocator, Node, Counter >(allocator)
-		{}
-
-		void insert(const Key& key, const Value& value)
-		{
-			dot_kernel_type delta(this->allocator_);
-
-			auto node = this->allocator_.get_node();
-			auto counter = this->counters_.get(node) + 1;
-			delta.counters_.emplace(dot< Node, Counter >{node, counter});
-
-			auto& data = delta.values_[key];
-			data.dots.emplace(dot< Node, Counter >{ node, counter });
-			data.value = value;
+			auto replica_id = this->allocator_.get_replica_id();
+			auto counter = this->counters_.get(replica_id) + 1;
+			delta.counters_.emplace(dot_type{ replica_id, counter });
+			delta.values_[key].dots.emplace(dot_type{ replica_id, counter });
 
 			this->merge(delta);
 		}
 	};
 
 	template< typename Key, typename Traits > class set
-		: public dot_kernel_set< Key, typename Traits::allocator_type, typename Traits::node_type, typename Traits::counter_type >
+		: public dot_kernel_set< Key, typename Traits::allocator_type, typename Traits::replica_id_type, typename Traits::counter_type >
 	{
-		typedef dot_kernel_set< Key, typename Traits::allocator_type, typename Traits::node_type, typename Traits::counter_type > dot_kernel_type;
-
 	public:
 		typedef typename Traits::allocator_type allocator_type;
 
 		set(allocator_type allocator)
-			: dot_kernel_type(allocator)
+			: dot_kernel_set< Key, typename Traits::allocator_type, typename Traits::replica_id_type, typename Traits::counter_type >(allocator)
+		{}
+	};
+
+	template < typename Key, typename Value, typename Allocator, typename ReplicaId, typename Counter > class dot_kernel_map
+		: public dot_kernel_base< 
+		    Key, Value, Allocator, ReplicaId, Counter, 
+		    dot_kernel_map< Key, Value, Allocator, ReplicaId, Counter >
+		>
+	{
+		typedef dot_kernel_map< Key, Value, Allocator, ReplicaId, Counter > dot_kernel_map_type;
+
+		template < typename AllocatorT > struct rebind_allocator
+		{
+			typedef dot_kernel_map< Key, Value, AllocatorT, ReplicaId, Counter > type;
+		};
+
+	public:
+		dot_kernel_map(Allocator allocator)
+			: dot_kernel_base< Key, Value, Allocator, ReplicaId, Counter, dot_kernel_map< Key, Value, Allocator, ReplicaId, Counter > >(allocator)
 		{}
 
-		void merge(const set< Key, Traits >& other)
+		void insert(const Key& key, const Value& value)
 		{
-			dot_kernel_type::merge(other);
+			dot_kernel_map_type delta(this->allocator_);
+
+			auto replica_id = this->allocator_.get_replica_id();
+			auto counter = this->counters_.get(replica_id) + 1;
+			delta.counters_.emplace(dot_type{replica_id, counter});
+
+			auto& data = delta.values_[key];
+			data.dots.emplace(dot_type{ replica_id, counter });
+			data.value = value;
+
+			this->merge(delta);
 		}
 	};
 
 	template< typename Key, typename Value, typename Traits > class map
-		: public dot_kernel_map< Key, Value, typename Traits::allocator_type, typename Traits::node_type, typename Traits::counter_type >
+		: public dot_kernel_map< Key, Value, typename Traits::allocator_type, typename Traits::replica_id_type, typename Traits::counter_type >
 	{
-		typedef dot_kernel_map< Key, Value, typename Traits::allocator_type, typename Traits::node_type, typename Traits::counter_type > dot_kernel_type;
-
 	public:
 		typedef typename Traits::allocator_type allocator_type;
 
 		map(allocator_type allocator)
-			: dot_kernel_type(allocator)
+			: dot_kernel_map< Key, Value, typename Traits::allocator_type, typename Traits::replica_id_type, typename Traits::counter_type >(allocator)
 		{}
-
-		void merge(const map< Key, Value, Traits >& other)
-		{
-			dot_kernel_type::merge(other);
-		}
 	};
 
 	template < typename Value, typename Traits > class value

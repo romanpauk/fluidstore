@@ -1,6 +1,6 @@
 project(fluidstore)
 
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.19)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 enable_testing()
@@ -17,7 +17,10 @@ find_package(Boost)
 if(Boost_FOUND)
     add_executable(fluidstoretest 
         src/tests/dot.cpp
+        src/tests/testmodule.cpp
+        src/tests/pch.h
     )
     add_test(fluidstoretest COMMAND fluidstoretest)
     target_link_libraries(fluidstoretest fluidstore Boost::boost)
+    target_precompile_headers(fluidstoretest PRIVATE src/tests/pch.h)
 endif()

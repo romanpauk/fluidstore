@@ -13,4 +13,5 @@
 #include <iterator>
 #include <cassert>
 #include <scoped_allocator>
+#include <memory>
 #include <chrono>

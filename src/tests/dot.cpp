@@ -14,7 +14,7 @@ BOOST_AUTO_TEST_CASE(dot_set_test)
 {
     crdt::traits::replica_type replica(0);
     crdt::traits::allocator_type alloc(replica);
-    crdt::set< int, crdt::traits > set(alloc);
+    crdt::set< int, crdt::traits > set(alloc, replica.generate_instance_id());
     BOOST_TEST((set.find(0) == set.end()));
     BOOST_TEST(set.size() == 0);
     BOOST_TEST(set.empty());
@@ -42,11 +42,11 @@ BOOST_AUTO_TEST_CASE(dot_set_replica_test)
 {
     crdt::traits::replica_type replica1(1);
     crdt::traits::allocator_type alloc1(replica1);
-    crdt::set< int, crdt::traits > set1(alloc1);
+    crdt::set< int, crdt::traits > set1(alloc1, replica1.generate_instance_id());
 
     crdt::traits::replica_type replica2(2);
     crdt::traits::allocator_type alloc2(replica2);
-    crdt::set< int, crdt::traits > set2(alloc2);
+    crdt::set< int, crdt::traits > set2(alloc2, replica2.generate_instance_id());
 
     set1.insert(1);
     set2.insert(2);
@@ -121,18 +121,34 @@ BOOST_AUTO_TEST_CASE(dot_map_map_value_mv_test)
     //BOOST_TEST(map.find(1) == false);
 }
 
+struct visitor
+{
+    template < typename T > void visit(const T& instance) {}
+};
 
 BOOST_AUTO_TEST_CASE(aggregating_replica)
 {
-    typedef crdt::aggregating_replica< uint64_t, uint64_t > replica_type;
+    typedef crdt::aggregating_replica< uint64_t, uint64_t, visitor > replica_type;
     typedef crdt::traits_base< replica_type, uint64_t, crdt::allocator< replica_type > > traits;
 
-    traits::replica_type replica(0);
-    traits::allocator_type allocator(replica);
+    traits::replica_type replica1(1);
+    traits::allocator_type allocator1(replica1);
 
-    crdt::set< int, traits > set(allocator);
-    set.insert(1);
-    set.insert(2);
+    crdt::set< int, traits > set1(allocator1, { 0, 1 });
+    set1.insert(1);
+    set1.insert(2);
+    
+    visitor v;
+    replica1.visit(v);
+    replica1.clear();
+
+    traits::replica_type replica2(2);
+    traits::allocator_type allocator2(replica2);
+
+    crdt::set< int, traits > set2(allocator2, { 0, 1 });
+    set2.insert(1);
+    set2.insert(2);
+
 }
 
 template < typename Fn > double measure(Fn fn)

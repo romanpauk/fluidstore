@@ -67,7 +67,7 @@ namespace crdt
             : dot_kernel_iterator_base< Iterator >(it)
         {}
 
-        std::pair< const Key&, const Value& > operator *() { return { this->it_->first, this->it_->second.value }; }
+        std::pair< const Key&, Value& > operator *() { return { this->it_->first, this->it_->second.value }; } 
     };
 
     template < typename Iterator, typename Key > class dot_kernel_iterator< Iterator, Key, void >
@@ -168,15 +168,15 @@ namespace crdt
 
             // Merge counters
             counters_.merge(other.counters_);
-
-            // Merge into global context using outermost type.
-            this->allocator_.merge(*static_cast<Container*>(this), other);
         }
 
     public:
         const_iterator begin() const { return values_.begin(); }
+        iterator begin() { return values_.begin(); }
         const_iterator end() const { return values_.end(); }
+        iterator end() { return values_.end(); }
         const_iterator find(const Key& key) const { return values_.find(key); }
+        iterator find(const Key& key) { return values_.find(key); }
 
         void clear()
         {
@@ -188,6 +188,7 @@ namespace crdt
             }
 
             merge(delta);
+            this->allocator_.merge(*static_cast< Container* >(this), delta);
         }
 
         void erase(const Key& key)
@@ -201,6 +202,7 @@ namespace crdt
                 delta.counters_.insert(dots.begin(), dots.end());
 
                 merge(delta);
+                this->allocator_.merge(*static_cast< Container* >(this), delta);
             }
         }
 

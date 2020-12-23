@@ -298,11 +298,17 @@ namespace std
 
 namespace crdt {
 
-    template < typename Value, typename Traits > class value
+    template < typename Value, typename Allocator > class value
     {
     public:
-        typedef typename Traits::allocator_type allocator_type;
-
+        typedef Allocator allocator_type;
+        
+        template < typename AllocatorT > struct rebind
+        {
+            // TODO: this can also be recursive in Value... sometimes.
+            typedef value< Value, AllocatorT > type;
+        };
+        
         value(allocator_type)
             : value_()
         {}
@@ -311,7 +317,7 @@ namespace crdt {
             : value_(value)
         {}
 
-        void merge(const value< Value, Traits >& other)
+        template < typename ValueT > void merge(const ValueT& other)
         {
             value_ = other.value_;
         }

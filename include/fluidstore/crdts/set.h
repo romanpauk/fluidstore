@@ -45,6 +45,7 @@ namespace crdt
             delta.values_[key].dots.emplace(dot_type{ replica_id, counter });
 
             this->merge(delta);
+            this->allocator_.merge(*this, delta);
         }
     };
 }

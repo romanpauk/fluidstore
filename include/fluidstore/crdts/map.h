@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include <fluidstore/crdts/dot_kernel.h>
 
 namespace crdt
@@ -29,16 +31,16 @@ namespace crdt
 
         void insert(const Key& key, const Value& value)
         {
-            arena< 1024 > buffer;
+            arena< 1024 * 2 > buffer;
 
             auto replica_id = this->allocator_.get_replica().get_id();
 
             replica< typename Allocator::replica_type::replica_id_type, typename Allocator::replica_type::instance_id_type, typename Allocator::replica_type::counter_type > rep(replica_id);
             allocator< decltype(rep) > allocator2(rep);
             arena_allocator< void, decltype(allocator2) > allocator3(buffer, allocator2);
-            map< Key, Value, decltype(allocator3) > delta(allocator3, this->get_id());
+            map< Key, typename Value::template rebind< decltype(allocator3) >::type, decltype(allocator3) > delta(allocator3, this->get_id());
 
-            // dot_kernel_type delta(this->allocator_, this->get_id());
+            //map_type delta(this->allocator_, this->get_id());
 
             // dot_kernel_map< Key, Value, AllocatorT, ReplicaT, Counter >
 
@@ -46,12 +48,30 @@ namespace crdt
 
             auto counter = this->counters_.get(replica_id) + 1;
             delta.counters_.emplace(dot_type{ replica_id, counter });
-
             auto& data = delta.values_[key];
             data.dots.emplace(dot_type{ replica_id, counter });
-            data.value = value;
+            data.value.merge(value);
 
             this->merge(delta);
+            this->allocator_.merge(*this, delta);
+        }
+
+        Value& operator[](const Key& key)
+        {
+            // Very bad implementation to try the merge.
+            if (find(key) == end())
+            {
+                if constexpr (std::uses_allocator_v< Value, Allocator >)
+                { 
+                    insert(key, Value(allocator_));
+                }
+                else
+                {
+                    insert(key, Value());
+                }
+            }
+
+            return (*find(key)).second;
         }
     };
 }

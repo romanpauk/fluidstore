@@ -22,7 +22,6 @@ namespace crdt
         value_mv(allocator_type allocator)
             : Allocator::replica_type::template hook< value_mv_type >(allocator.get_replica())
             , values_(allocator)
-
         {}
 
         value_mv(allocator_type allocator, typename Allocator::replica_type::id_type id)
@@ -53,6 +52,7 @@ namespace crdt
 
         void set(Value value)
         {
+            // TODO: those are two merges, should be one.
             values_.clear();
             values_.insert(value);
         }
@@ -65,6 +65,12 @@ namespace crdt
         value_mv_type& operator = (const Value& value)
         {
             set(value);
+            return *this;
+        }
+
+        template < typename ValueMv > value_mv< Value, Allocator >& operator = (const ValueMv& value)
+        {
+            merge(value);
             return *this;
         }
 

@@ -89,6 +89,17 @@ BOOST_AUTO_TEST_CASE(dot_map_set_test)
     //BOOST_TEST(map.find(1) == false);
 }
 
+BOOST_AUTO_TEST_CASE(value_mv_test)
+{
+    crdt::traits::replica_type replica(0);
+    crdt::traits::allocator_type alloc(replica);
+    crdt::value_mv< int, crdt::traits > value(alloc);
+    BOOST_TEST(value.get() == int());
+    // value = 1;
+    value.set(1);
+    BOOST_TEST(value.get() == 1);
+}
+
 BOOST_AUTO_TEST_CASE(dot_map_value_mv_test)
 {
     crdt::traits::replica_type replica(0);
@@ -164,8 +175,8 @@ BOOST_AUTO_TEST_CASE(aggregating_replica)
     set11.insert(1.1);
     set11.insert(2.2);
 
-    // crdt::map< int, crdt::value< int, traits >, traits > map1(allocator1, { 0,3 });
-    // crdt::map< int, crdt::map< int, crdt::value< int, traits >, traits > , traits > map1(allocator1, { 0, 3 });
+    crdt::map< int, crdt::value_mv< int, traits >, traits > map1(allocator1, { 0,3 });
+    // crdt::map< int, crdt::map< int, crdt::value_mv< int, traits >, traits > , traits > map2(allocator1, { 0, 4 });
 
     crdt::set< int, traits > set2(allocator2, { 0, 1 });
     crdt::set< int, traits > set22(allocator2, { 0, 2 });

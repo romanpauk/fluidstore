@@ -123,9 +123,9 @@ BOOST_AUTO_TEST_CASE(dot_map_map_value_mv_test)
 
 BOOST_AUTO_TEST_CASE(empty_replica)
 {
-    crdt::empty_replica< uint64_t > replica;
-    crdt::allocator< crdt::empty_replica< uint64_t > > allocator(replica);
-    typedef crdt::traits_base< crdt::empty_replica< uint64_t >, uint64_t > traits;
+    crdt::replica< uint64_t > replica(0);
+    crdt::allocator< crdt::replica< uint64_t > > allocator(replica);
+    typedef crdt::traits_base< crdt::replica< uint64_t >, uint64_t > traits;
 
     crdt::set< int, traits > set(allocator, { 0, 0 });
 }

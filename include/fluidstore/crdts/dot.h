@@ -20,27 +20,30 @@ namespace crdt
         typedef Id id_type;
     };
 
-    template < typename ReplicaId, typename InstanceRegistry = empty_instance_registry< std::pair< ReplicaId, uint64_t > > > class replica
+    template < typename ReplicaId, typename InstanceId, typename InstanceRegistry = empty_instance_registry< std::pair< ReplicaId, InstanceId > > > class replica
         : noncopyable
         , public InstanceRegistry
     {
     public:
-        typedef replica< ReplicaId, InstanceRegistry > replica_type;
+        typedef replica< ReplicaId, InstanceId, InstanceRegistry > replica_type;
         typedef ReplicaId replica_id_type;
-        typedef typename InstanceRegistry::id_type instance_id_type;
+        typedef ReplicaId instance_id_type;
+        typedef typename InstanceRegistry::id_type id_type;
 
         template < typename Instance > struct hook 
         {
-            hook(replica_type&) {}
+            hook(replica_type&)
+                : id_()
+            {}
             
-            hook(replica_type&, const instance_id_type& id) 
+            hook(replica_type&, const id_type& id) 
                 : id_(id)
             {}
 
-            const instance_id_type& get_id() const { return id_; }
+            const id_type& get_id() const { return id_; }
 
         private:
-            instance_id_type id_;
+            id_type id_;
         };
 
         replica(const ReplicaId& id)
@@ -49,13 +52,13 @@ namespace crdt
         {}
 
         const ReplicaId& get_id() const { return id_; }
-        instance_id_type generate_instance_id() { return { id_, ++instance_id_ }; }
+        id_type generate_instance_id() { return { id_, ++instance_id_ }; }
 
         template < typename Instance, typename DeltaInstance > void merge(const Instance& instance, const DeltaInstance& delta) {}
 
     private:
         ReplicaId id_;
-        uint64_t instance_id_;
+        InstanceId instance_id_;
     };
 
     template < typename Id > class instance_registry
@@ -119,15 +122,16 @@ namespace crdt
         template < typename T > void visit(T) {}
     };
 
-    template < typename ReplicaId, typename InstanceRegistry, typename Visitor = empty_visitor > class aggregating_replica
-        : public replica< ReplicaId, InstanceRegistry > 
+    template < typename ReplicaId, typename InstanceId, typename InstanceRegistry, typename Visitor = empty_visitor > class aggregating_replica
+        : public replica< ReplicaId, InstanceId, InstanceRegistry > 
     {
     public:
-        typedef replica< ReplicaId, empty_instance_registry< typename InstanceRegistry::id_type > > delta_replica_type;
+        typedef replica< ReplicaId, InstanceId, empty_instance_registry< typename InstanceRegistry::id_type > > delta_replica_type;
         typedef crdt::allocator < delta_replica_type > delta_allocator_type;
 
-        using replica< ReplicaId, InstanceRegistry >::replica_id_type;
-        using replica< ReplicaId, InstanceRegistry >::instance_id_type;
+        using replica< ReplicaId, InstanceId, InstanceRegistry >::replica_id_type;
+        using replica< ReplicaId, InstanceId, InstanceRegistry >::instance_id_type;
+        using replica< ReplicaId, InstanceId, InstanceRegistry >::id_type;
         
     private:
         struct delta_instance_base
@@ -138,7 +142,7 @@ namespace crdt
 
         template < typename Instance > struct delta_instance : delta_instance_base
         {
-            delta_instance(delta_allocator_type allocator, typename replica_type::instance_id_type id)
+            delta_instance(delta_allocator_type allocator, typename replica_type::id_type id)
                 : instance_(allocator, id)
             {}
 
@@ -166,7 +170,7 @@ namespace crdt
                 it_ = replica_.insert< delta_allocator_type, delta_replica_type >(id_, *static_cast<Instance*>(this));
             }
 
-            hook(replica_type& replica, instance_id_type id)
+            hook(replica_type& replica, id_type id)
                 : replica_(replica)
                 , id_(id)
             {
@@ -178,12 +182,12 @@ namespace crdt
                 replica_.erase(it_);
             }
 
-            const instance_id_type& get_id() const { return id_; }
+            const id_type& get_id() const { return id_; }
 
         private:
             replica_type& replica_;
             typename replica_type::iterator it_;
-            instance_id_type id_;
+            id_type id_;
         };
 
         aggregating_replica(ReplicaId replica_id)
@@ -195,7 +199,7 @@ namespace crdt
         {			
             // TODO: we will have to maintain the order of merges so they can be reapplied on different replica without sorting there.
             get_delta_instance(target).merge(source);
-            // TODO: We will have to track removals so we can remove removed instances from instances_.
+            // TODO: We will have to track removals so we can remove removed instances from delta_instances_.
         }
                 
         template< typename Instance > void merge(const Instance& source)
@@ -237,20 +241,20 @@ namespace crdt
         }
 
         delta_replica_type delta_replica_;
-        std::map< typename replica_type::instance_id_type, std::unique_ptr< delta_instance_base > > delta_instances_;
+        std::map< typename replica_type::id_type, std::unique_ptr< delta_instance_base > > delta_instances_;
     };
 
     template < typename Replica, typename Counter = uint64_t, typename Allocator = allocator< Replica > > struct traits_base
     {
         typedef Replica replica_type;
         typedef typename Replica::replica_id_type replica_id_type;
-        typedef typename Replica::instance_id_type instance_id_type;
+        typedef typename Replica::id_type id_type;
         typedef Counter counter_type;
         typedef Allocator allocator_type;
     };
 
     struct traits : traits_base< 
-        replica< uint64_t, empty_instance_registry< std::pair< uint64_t, uint64_t > > >
+        replica< uint64_t, uint64_t, empty_instance_registry< std::pair< uint64_t, uint64_t > > >
     > {};
 
     template < typename ReplicaId, typename Counter > class dot
@@ -265,7 +269,7 @@ namespace crdt
     
         size_t hash() const
         {
-            std::size_t h1 = std::hash< replica_id_ >{}(replica_id);
+            std::size_t h1 = std::hash< ReplicaId >{}(replica_id);
             std::size_t h2 = std::hash< Counter >{}(counter);
             return h1 ^ (h2 << 1);
         }

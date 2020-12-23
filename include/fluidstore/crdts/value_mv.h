@@ -24,12 +24,12 @@ namespace crdt
 
         {}
 
-        value_mv_base(allocator_type allocator, typename Replica::instance_id_type id)
+        value_mv_base(allocator_type allocator, typename Replica::id_type id)
             : Replica::template hook< value_mv_base_type >(allocator.get_replica(), id)
             , values_(allocator)
         {}
 
-        value_mv_base(allocator_type allocator, typename Replica::instance_id_type id, const Value& value)
+        value_mv_base(allocator_type allocator, typename Replica::id_type id, const Value& value)
             : Replica::template hook< value_mv_base_type >(allocator.get_replica(), id)
             , values_(allocator)
         {
@@ -85,7 +85,7 @@ namespace crdt
             : value_mv_base_type(allocator)
         {}
 
-        value_mv(allocator_type allocator, typename Traits::replica_type::instance_id_type id)
+        value_mv(allocator_type allocator, typename Traits::id_type id)
             : value_mv_base_type(allocator, id)
         {}
     };

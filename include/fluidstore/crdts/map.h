@@ -16,7 +16,7 @@ namespace crdt
             typedef map_base< Key, typename Value::template rebind< AllocatorT, ReplicaT >::type, AllocatorT, ReplicaT, Counter > type;
         };
 
-        map_base(Allocator allocator, typename Replica::instance_id_type id)
+        map_base(Allocator allocator, typename Replica::id_type id)
             : dot_kernel< Key, Value, Allocator, typename Replica::replica_id_type, Counter, map_base_type >(allocator)
             , Replica::template hook< map_base_type >(allocator.get_replica(), id)
         {}
@@ -32,10 +32,10 @@ namespace crdt
 
             auto replica_id = this->allocator_.get_replica().get_id();
 
-            replica< typename Replica::replica_id_type > rep(replica_id);
-            allocator< replica< typename Replica::replica_id_type > > allocator2(rep);
+            replica< typename Replica::replica_id_type, typename Replica::instance_id_type > rep(replica_id);
+            allocator< decltype(rep) > allocator2(rep);
             arena_allocator< void, decltype(allocator2) > allocator3(buffer, allocator2);
-            map_base< Key, Value, decltype(allocator3), replica< typename Replica::replica_id_type >, Counter > delta(allocator3, this->get_id());
+            map_base< Key, Value, decltype(allocator3), decltype(rep), Counter > delta(allocator3, this->get_id());
 
             // dot_kernel_type delta(this->allocator_, this->get_id());
 
@@ -61,7 +61,7 @@ namespace crdt
     public:
         typedef typename Traits::allocator_type allocator_type;
 
-        map(allocator_type allocator, typename Traits::instance_id_type id)
+        map(allocator_type allocator, typename Traits::id_type id)
             : map_base< Key, Value, typename Traits::allocator_type, typename Traits::replica_type, typename Traits::counter_type >(allocator, id)
         {}
 

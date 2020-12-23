@@ -217,8 +217,8 @@ namespace crdt
 
     template < typename Key, typename Allocator, typename Replica, typename Counter > class dot_kernel_set
         : public dot_kernel_base<
-        Key, void, Allocator, typename Replica::replica_id_type, Counter,
-        dot_kernel_set< Key, Allocator, Replica, Counter >
+            Key, void, Allocator, typename Replica::replica_id_type, Counter,
+            dot_kernel_set< Key, Allocator, Replica, Counter >
         >
         , public Replica::template hook< dot_kernel_set< Key, Allocator, Replica, Counter > >
     {
@@ -232,16 +232,16 @@ namespace crdt
 
         dot_kernel_set(Allocator allocator, typename Replica::instance_id_type id)
             : dot_kernel_base<
-            Key, void, Allocator, typename Replica::replica_id_type, Counter,
-            dot_kernel_set< Key, Allocator, Replica, Counter >
+                Key, void, Allocator, typename Replica::replica_id_type, Counter,
+                dot_kernel_set< Key, Allocator, Replica, Counter >
             >(allocator)
             , Replica::template hook< dot_kernel_type >(allocator.get_replica(), id)
         {}
 
         dot_kernel_set(std::allocator_arg_t, Allocator allocator)
             : dot_kernel_base<
-            Key, void, Allocator, typename Replica::replica_id_type, Counter,
-            dot_kernel_set< Key, Allocator, Replica, Counter >
+                Key, void, Allocator, typename Replica::replica_id_type, Counter,
+                dot_kernel_set< Key, Allocator, Replica, Counter >
             >(allocator)
             , Replica::template hook< dot_kernel_type >(allocator.get_replica())
         {}
@@ -270,30 +270,10 @@ namespace crdt
         }
     };
 
-    template< typename Key, typename Traits > class set
-        : public dot_kernel_set< Key,
-        typename Traits::allocator_type,
-        typename Traits::replica_type,
-        typename Traits::counter_type
-        >
-        , noncopyable
-    {
-    public:
-        typedef typename Traits::allocator_type allocator_type;
-
-        set(allocator_type allocator, typename Traits::instance_id_type id)
-            : dot_kernel_set< Key, typename Traits::allocator_type, typename Traits::replica_type, typename Traits::counter_type >(allocator, id)
-        {}
-
-        set(std::allocator_arg_t, allocator_type allocator)
-            : dot_kernel_set< Key, typename Traits::allocator_type, typename Traits::replica_type, typename Traits::counter_type >(allocator)
-        {}
-    };
-
     template < typename Key, typename Value, typename Allocator, typename ReplicaId, typename Counter > class dot_kernel_map
         : public dot_kernel_base<
-        Key, Value, Allocator, ReplicaId, Counter,
-        dot_kernel_map< Key, Value, Allocator, ReplicaId, Counter >
+            Key, Value, Allocator, ReplicaId, Counter,
+            dot_kernel_map< Key, Value, Allocator, ReplicaId, Counter >
         >
     {
         typedef dot_kernel_map< Key, Value, Allocator, ReplicaId, Counter > dot_kernel_map_type;

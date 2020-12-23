@@ -160,8 +160,12 @@ BOOST_AUTO_TEST_CASE(aggregating_replica)
     crdt::set< int, traits > set1(allocator1, { 0, 1 });
     set1.insert(1);
     set1.insert(2);
-    
+    crdt::set< double, traits > set11(allocator1, { 0, 2 });
+    set11.insert(1.1);
+    set11.insert(2.2);
+
     crdt::set< int, traits > set2(allocator2, { 0, 1 });
+    crdt::set< int, traits > set22(allocator2, { 0, 2 });
 
     visitor v(replica2);;
     replica1.visit(v);

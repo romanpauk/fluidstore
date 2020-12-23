@@ -285,8 +285,32 @@ namespace std
 
 namespace crdt {
 
+    template< typename Key, typename Traits > class set
+        : public dot_kernel_set< Key,
+            typename Traits::allocator_type,
+            typename Traits::replica_type,
+            typename Traits::counter_type
+        >
+        , noncopyable
+    {
+    public:
+        typedef typename Traits::allocator_type allocator_type;
+
+        set(allocator_type allocator, typename Traits::instance_id_type id)
+            : dot_kernel_set< Key, typename Traits::allocator_type, typename Traits::replica_type, typename Traits::counter_type >(allocator, id)
+        {}
+
+        set(std::allocator_arg_t, allocator_type allocator)
+            : dot_kernel_set< Key, typename Traits::allocator_type, typename Traits::replica_type, typename Traits::counter_type >(allocator)
+        {}
+    };
+
     template< typename Key, typename Value, typename Traits > class map
-        : public dot_kernel_map< Key, Value, typename Traits::allocator_type, typename Traits::replica_id_type, typename Traits::counter_type >
+        : public dot_kernel_map< Key, Value, 
+            typename Traits::allocator_type, 
+            typename Traits::replica_id_type, 
+            typename Traits::counter_type
+        >
         , noncopyable
     {
     public:

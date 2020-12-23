@@ -14,7 +14,7 @@ BOOST_AUTO_TEST_CASE(dot_set_test)
 {
     crdt::traits::replica_type replica(0);
     crdt::traits::allocator_type alloc(replica);
-    crdt::set< int, crdt::traits > set(alloc, replica.generate_instance_id());
+    crdt::set< int, crdt::traits > set(alloc, { 0, 0 });
     BOOST_TEST((set.find(0) == set.end()));
     BOOST_TEST(set.size() == 0);
     BOOST_TEST(set.empty());
@@ -42,11 +42,11 @@ BOOST_AUTO_TEST_CASE(dot_set_replica_test)
 {
     crdt::traits::replica_type replica1(1);
     crdt::traits::allocator_type alloc1(replica1);
-    crdt::set< int, crdt::traits > set1(alloc1, replica1.generate_instance_id());
+    crdt::set< int, crdt::traits > set1(alloc1, { 1, 1 });
 
     crdt::traits::replica_type replica2(2);
     crdt::traits::allocator_type alloc2(replica2);
-    crdt::set< int, crdt::traits > set2(alloc2, replica2.generate_instance_id());
+    crdt::set< int, crdt::traits > set2(alloc2, { 2, 1 });
 
     set1.insert(1);
     set2.insert(2);
@@ -123,15 +123,15 @@ BOOST_AUTO_TEST_CASE(dot_map_map_value_mv_test)
 
 BOOST_AUTO_TEST_CASE(empty_replica)
 {
-    crdt::empty_replica< uint64_t, uint64_t > replica;
-    crdt::allocator< crdt::empty_replica< uint64_t, uint64_t > > allocator(replica);
-    typedef crdt::traits_base< crdt::empty_replica< uint64_t, uint64_t >, uint64_t > traits;
+    crdt::empty_replica< uint64_t > replica;
+    crdt::allocator< crdt::empty_replica< uint64_t > > allocator(replica);
+    typedef crdt::traits_base< crdt::empty_replica< uint64_t >, uint64_t > traits;
 
-    crdt::set< int, traits > set(allocator, allocator.get_replica().generate_instance_id());
+    crdt::set< int, traits > set(allocator, { 0, 0 });
 }
 
 struct visitor;
-typedef crdt::aggregating_replica< uint64_t, uint64_t, visitor > replica_type;
+typedef crdt::aggregating_replica< uint64_t, crdt::instance_registry< std::pair< uint64_t, uint64_t > >, visitor > replica_type;
 
 struct visitor
 {
@@ -149,7 +149,7 @@ struct visitor
 
 BOOST_AUTO_TEST_CASE(aggregating_replica)
 {
-    typedef crdt::traits_base< replica_type, uint64_t, crdt::allocator< replica_type > > traits;
+    typedef crdt::traits_base< replica_type, uint64_t > traits;
 
     traits::replica_type replica1(1);
     traits::allocator_type allocator1(replica1);

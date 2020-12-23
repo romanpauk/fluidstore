@@ -24,25 +24,30 @@ namespace crdt
         noncopyable& operator = (noncopyable&&) = delete;
     };
 
-    template < typename ReplicaId, typename InstanceId > class empty_replica
-        : noncopyable
+    template < typename Id > class empty_instance_registry
     {
     public:
-        typedef ReplicaId replica_id_type;
-        typedef std::pair< ReplicaId, InstanceId > instance_id_type;
-
-        const ReplicaId& get_id() const { static id id; return id; }
-        instance_id_type generate_instance_id() { return { ReplicaId(), InstanceId() }; }
-
-        template < typename Instance, typename DeltaInstance > void merge(const Instance& instance, const DeltaInstance& delta) {}
-        template < typename Instance > void register_instance(const instance_id_type&, Instance&) {}
-        void remove_instance(const instance_id_type&) {}
+        typedef Id id_type;
     };
 
-    class empty_instance_registry
+    template < typename ReplicaId, typename InstanceRegistry = empty_instance_registry< std::pair< ReplicaId, uint64_t > > > class empty_replica
+        : noncopyable
+        , public InstanceRegistry
     {
-        template < typename Instance > struct hook
-        {};
+    public:
+        typedef empty_replica< ReplicaId, InstanceRegistry > replica_type;
+        typedef ReplicaId replica_id_type;
+        typedef typename InstanceRegistry::id_type instance_id_type;
+
+        template < typename Instance > struct hook 
+        {
+            hook(replica_type&) {}
+            hook(replica_type&, instance_id_type) {}
+        };
+
+        const ReplicaId& get_id() const { static id id; return id; }
+        
+        template < typename Instance, typename DeltaInstance > void merge(const Instance& instance, const DeltaInstance& delta) {}
     };
 
     template < typename Id > class instance_registry
@@ -70,32 +75,14 @@ namespace crdt
         };
 
         typedef std::map< Id, std::unique_ptr< registered_instance_base > > instances_type;
-        typedef typename instances_type::iterator iterator;
-
+        
     public:
-        template< typename Instance > struct hook
-        {
-            hook(instance_registry< Id >& registry, Id id)
-                : registry_(registry)
-            {
-                registry_.insert(id, static_cast<Instance*>(this));
-            }
-
-            ~hook()
-            {
-                registry_.erase(id);
-            }
-
-            const Id& get_id() { return id_; }
-
-        private:
-            instance_registry< Id >& registry_;
-            Id id_;
-        };
+        typedef Id id_type;
+        typedef typename instances_type::iterator iterator;
 
         template < typename Allocator, typename Instance> iterator insert(const Id& id, Instance& instance) 
         {
-            auto [it, inserted] = instances_.emplace(id, std::make_unique(new registered_instance< Instance, Allocator >(instance)));
+            auto [it, inserted] = instances_.emplace(id, std::make_unique< registered_instance< Instance, Allocator > >(instance));
             assert(inserted);
 
             if (!inserted)
@@ -124,29 +111,31 @@ namespace crdt
         instances_type instances_;
     };
 
-    template < typename ReplicaId, typename InstanceId > class replica
+    template < typename ReplicaId, typename InstanceRegistry > class replica
         : noncopyable
+        , public InstanceRegistry
     {
     public:
+        typedef replica< ReplicaId, InstanceRegistry > replica_type;
         typedef ReplicaId replica_id_type;
-        typedef std::pair< ReplicaId, InstanceId > instance_id_type;
+        typedef typename InstanceRegistry::id_type instance_id_type;
+
+        template < typename Instance > struct hook
+        {
+            hook(replica_type&) {}
+            hook(replica_type&, instance_id_type) {}
+        };
 
         replica(ReplicaId id)
             : id_(id)
-            , instance_id_(0)
         {}
 
         const ReplicaId& get_id() const { return id_; }
-        instance_id_type generate_instance_id() { return { id_, ++instance_id_ }; }
-
+        
         // Nothing to do
         template < typename Instance, typename DeltaInstance > void merge(const Instance& instance, const DeltaInstance& delta) {}
 
-        template < typename Instance > void register_instance(const instance_id_type& id, Instance& instance) {}
-        void remove_instance(const instance_id_type& id) {}
-
     private:
-        InstanceId instance_id_;
         ReplicaId id_;
     };
 
@@ -191,12 +180,12 @@ namespace crdt
         Replica& replica_;
     };
 
-    template < typename ReplicaId, typename InstanceId, typename Visitor = empty_visitor > class aggregating_replica
-        : public replica< ReplicaId, InstanceId >
-        , public instance_registry< std::pair< ReplicaId, InstanceId > >
+    template < typename ReplicaId, typename InstanceRegistry, typename Visitor = empty_visitor > class aggregating_replica
+        : public replica< ReplicaId, InstanceRegistry >
     {
-        typedef crdt::allocator < replica< ReplicaId, InstanceId > > delta_allocator_type;
-
+        typedef replica< ReplicaId, InstanceRegistry > replica_type;
+        typedef crdt::allocator < replica_type > delta_allocator_type;
+        
         struct aggregate_instance_base
         {
             virtual ~aggregate_instance_base() {}
@@ -205,7 +194,7 @@ namespace crdt
 
         template < typename Instance > struct aggregate_instance : aggregate_instance_base
         {
-            aggregate_instance(delta_allocator_type allocator, instance_id_type id)
+            aggregate_instance(delta_allocator_type allocator, typename replica_type::instance_id_type id)
                 : instance_(allocator, id)
             {}
 
@@ -224,8 +213,37 @@ namespace crdt
         };
 
     public:
+        template< typename Instance > struct hook
+        {
+            hook(replica_type& replica)
+                : replica_(replica)
+                , id_(replica.generate_instance_id())
+            {
+                it_ = replica_.insert< delta_allocator_type >(id_, *static_cast<Instance*>(this));
+            }
+
+            hook(replica_type& replica, instance_id_type id)
+                : replica_(replica)
+                , id_(id)
+            {
+                it_ = replica_.insert< delta_allocator_type >(id_, *static_cast<Instance*>(this));
+            }
+
+            ~hook()
+            {
+                replica_.erase(it_);
+            }
+
+            const instance_id_type& get_id() { return id_; }
+
+        private:
+            replica_type& replica_;
+            typename replica_type::iterator it_;
+            instance_id_type id_;
+        };
+
         aggregating_replica(ReplicaId replica_id)
-            : replica< ReplicaId, InstanceId >(replica_id)
+            : replica_type(replica_id)
         {}
 
         template < typename Instance, typename DeltaInstance > void merge(const Instance& target, const DeltaInstance& source)
@@ -272,7 +290,7 @@ namespace crdt
             }
         }
 
-        std::map< instance_id_type, std::unique_ptr< aggregate_instance_base > > instances_;
+        std::map< typename replica_type::instance_id_type, std::unique_ptr< aggregate_instance_base > > instances_;
     };
 
     template < typename Replica, typename Counter, typename Allocator = allocator< Replica > > struct traits_base
@@ -284,7 +302,10 @@ namespace crdt
         typedef Allocator allocator_type;
     };
 
-    struct traits : traits_base< replica< uint64_t, uint64_t >, uint64_t, allocator< replica< uint64_t, uint64_t >, unsigned char > > {};
+    struct traits : traits_base< 
+        replica< uint64_t, empty_instance_registry< std::pair< uint64_t, uint64_t > > >, 
+        uint64_t 
+    > {};
 
     template < typename ReplicaId, typename Counter > class dot
     {
@@ -488,7 +509,7 @@ namespace crdt {
     template < typename Key, typename Value, typename Allocator, typename ReplicaId, typename Counter, typename Container > class dot_kernel_base
     {
         template < typename Key, typename Value, typename Allocator, typename ReplicaId, typename Counter, typename Container > friend class dot_kernel_base;
-        template < typename Key, typename Allocator, typename ReplicaId, typename Counter, typename InstanceId > friend class dot_kernel_set;
+        template < typename Key, typename Allocator, typename Replica, typename Counter > friend class dot_kernel_set;
         template < typename Key, typename Value, typename Allocator, typename ReplicaId, typename Counter > friend class dot_kernel_map;
 
     protected:
@@ -619,47 +640,36 @@ namespace crdt {
         }
     };
 
-    template < typename Key, typename Allocator, typename ReplicaId, typename Counter, typename InstanceId > class dot_kernel_set
+    template < typename Key, typename Allocator, typename Replica, typename Counter > class dot_kernel_set
         : public dot_kernel_base< 
-            Key, void, Allocator, ReplicaId, Counter, 
-            dot_kernel_set< Key, Allocator, ReplicaId, Counter, InstanceId >
+            Key, void, Allocator, typename Replica::replica_id_type, Counter, 
+            dot_kernel_set< Key, Allocator, Replica, Counter >
         >
+        , public Replica::template hook< dot_kernel_set< Key, Allocator, Replica, Counter > >
     {
-        typedef dot_kernel_set< 
-            Key, Allocator, ReplicaId, Counter, InstanceId
-        > dot_kernel_type;
+        typedef dot_kernel_set< Key, Allocator, Replica, Counter > dot_kernel_type;
 
     public:
         template < typename AllocatorT > struct rebind
         {
-            typedef dot_kernel_set< Key, AllocatorT, ReplicaId, Counter, InstanceId > type;
+            typedef dot_kernel_set< Key, AllocatorT, Replica, Counter > type;
         };
 
-        dot_kernel_set(Allocator allocator, InstanceId id)
+        dot_kernel_set(Allocator allocator, typename Replica::instance_id_type id)
             : dot_kernel_base<
-                Key, void, Allocator, ReplicaId, Counter,
-                dot_kernel_set< Key, Allocator, ReplicaId, Counter, InstanceId >
+                Key, void, Allocator, typename Replica::replica_id_type, Counter,
+                dot_kernel_set< Key, Allocator, Replica, Counter >
             >(allocator)
-            , instance_id_(id)
-        {
-            // this->allocator_.get_replica().register_instance(this->get_id(), *this);
-        }
+            , Replica::template hook< dot_kernel_type >(allocator.get_replica(), id)
+        {}
 
         dot_kernel_set(std::allocator_arg_t, Allocator allocator)
             : dot_kernel_base<
-                Key, void, Allocator, ReplicaId, Counter,
-                dot_kernel_set< Key, Allocator, ReplicaId, Counter, InstanceId >
+                Key, void, Allocator, typename Replica::replica_id_type, Counter,
+                dot_kernel_set< Key, Allocator, Replica, Counter >
             >(allocator)
-            , instance_id_(allocator.get_replica().generate_instance_id())
-        {
-            // this->allocator_.get_replica().register_instance(this->get_id(), *this);
-        }
-
-        ~dot_kernel_set()
-        {
-            // TODO: use iterator to remove
-            // this->allocator_.get_replica().remove_instance(this->get_id());
-        }
+            , typename Replica::hook< dot_kernel_type >(allocator.get_replica())
+        {}
 
         /*std::pair< const_iterator, bool >*/ void insert(const Key& key)
         {
@@ -668,11 +678,13 @@ namespace crdt {
             //arena_allocator< void, Allocator > alloc(buffer, this->allocator_);
             //dot_kernel_set< Key, decltype(alloc), ReplicaId, Counter, InstanceId > delta(alloc, this->get_id());
 
-            empty_replica< ReplicaId, typename InstanceId::second_type > replica;
-            allocator< empty_replica< ReplicaId, typename InstanceId::second_type > > allocator2(replica);
+            empty_replica< typename Replica::replica_id_type > replica;
+            allocator< empty_replica< typename Replica::replica_id_type > > allocator2(replica);
             arena_allocator< void, decltype(allocator2) > allocator3(buffer, allocator2);
-            dot_kernel_set< Key, decltype(allocator3), ReplicaId, Counter, InstanceId > delta(allocator3, this->get_id());
+            dot_kernel_set< Key, decltype(allocator3), empty_replica< typename Replica::replica_id_type >, Counter > delta(allocator3, this->get_id());
             
+            // dot_kernel_type delta(this->allocator_, this->get_id());
+
             auto replica_id = this->allocator_.get_replica().get_id();
             auto counter = this->counters_.get(replica_id) + 1;
             delta.counters_.emplace(dot_type{ replica_id, counter });
@@ -681,18 +693,17 @@ namespace crdt {
             this->merge(delta);
         }
 
-        const InstanceId& get_id() const { return instance_id_; }
+        const typename Replica::instance_id_type& get_id() const { return instance_id_; }
 
     private:
-        InstanceId instance_id_;
+        typename Replica::instance_id_type instance_id_;
     };
 
     template< typename Key, typename Traits > class set
         : public dot_kernel_set< Key, 
             typename Traits::allocator_type, 
-            typename Traits::replica_id_type, 
-            typename Traits::counter_type,
-            typename Traits::instance_id_type 
+            typename Traits::replica_type, 
+            typename Traits::counter_type 
         >
         , noncopyable
     {
@@ -700,11 +711,11 @@ namespace crdt {
         typedef typename Traits::allocator_type allocator_type;
 
         set(allocator_type allocator, typename Traits::instance_id_type id)
-            : dot_kernel_set< Key, typename Traits::allocator_type, typename Traits::replica_id_type, typename Traits::counter_type, typename Traits::instance_id_type >(allocator, id)
+            : dot_kernel_set< Key, typename Traits::allocator_type, typename Traits::replica_type, typename Traits::counter_type >(allocator, id)
         {}
 
         set(std::allocator_arg_t, allocator_type allocator)
-            : dot_kernel_set< Key, typename Traits::allocator_type, typename Traits::replica_id_type, typename Traits::counter_type, typename Traits::instance_id_type >(allocator)
+            : dot_kernel_set< Key, typename Traits::allocator_type, typename Traits::replica_type, typename Traits::counter_type >(allocator)
         {}
     };
 

@@ -6,7 +6,15 @@
 
 #include <boost/test/unit_test.hpp>
 
-#include <fluidstore/crdts/dot.h>
+#include <fluidstore/allocators/arena_allocator.h>
+#include <fluidstore/crdts/allocator.h>
+#include <fluidstore/crdts/noncopyable.h>
+#include <fluidstore/crdts/replica.h>
+#include <fluidstore/crdts/map.h>
+#include <fluidstore/crdts/set.h>
+#include <fluidstore/crdts/value.h>
+#include <fluidstore/crdts/value_mv.h>
+
 
 #include <chrono>
 

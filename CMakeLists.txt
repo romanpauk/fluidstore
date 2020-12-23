@@ -15,8 +15,10 @@ target_sources(fluidstore INTERFACE
     include/fluidstore/crdts/dot_kernel.h
     include/fluidstore/crdts/set.h
     include/fluidstore/crdts/map.h
+    include/fluidstore/crdts/value.h
     include/fluidstore/crdts/value_mv.h
     include/fluidstore/crdts/noncopyable.h
+    include/fluidstore/crdts/replica.h
     include/fluidstore/allocators/arena_allocator.h
 )
 

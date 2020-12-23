@@ -1,4 +1,5 @@
 #pragma once
+#include <fluidstore/crdts/dot.h>
 
 #include <set>
 

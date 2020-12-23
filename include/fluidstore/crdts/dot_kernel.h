@@ -1,5 +1,10 @@
 #pragma once
 
+#include <fluidstore/crdts/dot_context.h>
+
+#include <algorithm>
+#include <scoped_allocator>
+
 namespace crdt
 {
     template < typename Value, typename Allocator, typename ReplicaId, typename Counter > class dot_kernel_value

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <fluidstore/crdts/dot_kernel.h>
+
 namespace crdt
 {
     template < typename Key, typename Allocator > class set

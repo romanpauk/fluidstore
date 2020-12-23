@@ -1,8 +1,8 @@
 #pragma once
 
-#include <memory>
-
 #include <fluidstore/crdts/dot_kernel.h>
+
+#include <memory>
 
 namespace crdt
 {

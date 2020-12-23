@@ -15,3 +15,6 @@
 #include <scoped_allocator>
 #include <memory>
 #include <chrono>
+#include <tuple>
+#include <functional>
+

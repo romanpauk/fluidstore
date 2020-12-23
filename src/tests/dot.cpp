@@ -67,7 +67,7 @@ BOOST_AUTO_TEST_CASE(dot_map_test)
 {
     crdt::traits::replica_type replica(0);
     crdt::traits::allocator_type alloc(replica);
-    crdt::map< int, crdt::value< int, crdt::traits >, crdt::traits > map(alloc);
+    crdt::map< int, crdt::value< int, crdt::traits >, crdt::traits > map(alloc, { 0, 1 });
     BOOST_TEST((map.find(0) == map.end()));
     map.insert(1, crdt::value< int, crdt::traits >(alloc, 11));
     BOOST_TEST((map.find(1) != map.end()));
@@ -81,7 +81,7 @@ BOOST_AUTO_TEST_CASE(dot_map_set_test)
 {
     crdt::traits::replica_type replica(0);
     crdt::traits::allocator_type alloc(replica);
-    crdt::map< int, crdt::set< int, crdt::traits >, crdt::traits > map(alloc);
+    crdt::map< int, crdt::set< int, crdt::traits >, crdt::traits > map(alloc, { 0, 1 });
     BOOST_TEST((map.find(0) == map.end()));
     //map.insert(1, );
     //BOOST_TEST(map.find(1) == true);
@@ -93,7 +93,7 @@ BOOST_AUTO_TEST_CASE(dot_map_value_mv_test)
 {
     crdt::traits::replica_type replica(0);
     crdt::traits::allocator_type alloc(replica);
-    crdt::map< int, crdt::value_mv< int, crdt::traits >, crdt::traits > map(alloc);
+    crdt::map< int, crdt::value_mv< int, crdt::traits >, crdt::traits > map(alloc, { 0, 1 });
     BOOST_TEST((map.find(0) == map.end()));
     // map.insert(1, 1);
     // BOOST_TEST(map.find(1) != map.end());
@@ -112,7 +112,7 @@ BOOST_AUTO_TEST_CASE(dot_map_map_value_mv_test)
             crdt::value_mv< int, crdt::traits >, crdt::traits 
         >, 
         crdt::traits
-    > map(alloc);
+    > map(alloc, { 0, 1 });
 
     //BOOST_TEST(map.find(0) == false);
     //map.insert(1, 1);
@@ -163,6 +163,9 @@ BOOST_AUTO_TEST_CASE(aggregating_replica)
     crdt::set< double, traits > set11(allocator1, { 0, 2 });
     set11.insert(1.1);
     set11.insert(2.2);
+
+    // crdt::map< int, crdt::value< int, traits >, traits > map1(allocator1, { 0,3 });
+    // crdt::map< int, crdt::map< int, crdt::value< int, traits >, traits > , traits > map1(allocator1, { 0, 3 });
 
     crdt::set< int, traits > set2(allocator2, { 0, 1 });
     crdt::set< int, traits > set22(allocator2, { 0, 2 });

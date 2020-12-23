@@ -81,15 +81,15 @@ namespace crdt
         const Key& operator *() { return this->it_->first; }
     };
 
-    template < typename Key, typename Value, typename Allocator, typename ReplicaId, typename Counter, typename Container > class dot_kernel_base
+    template < typename Key, typename Value, typename Allocator, typename ReplicaId, typename Counter, typename Container > class dot_kernel
     {
-        template < typename Key, typename Value, typename Allocator, typename ReplicaId, typename Counter, typename Container > friend class dot_kernel_base;
-        template < typename Key, typename Allocator, typename Replica, typename Counter > friend class dot_kernel_set;
-        template < typename Key, typename Value, typename Allocator, typename ReplicaId, typename Counter > friend class dot_kernel_map;
+        template < typename Key, typename Value, typename Allocator, typename ReplicaId, typename Counter, typename Container > friend class dot_kernel;
+        template < typename Key, typename Allocator, typename Replica, typename Counter > friend class set_base;
+        template < typename Key, typename Value, typename Allocator, typename Replica, typename Counter > friend class map_base;
 
     protected:
         typedef dot< ReplicaId, Counter > dot_type;
-        typedef dot_kernel_base< Key, Value, Allocator, ReplicaId, Counter, Container > dot_kernel_type;
+        typedef dot_kernel< Key, Value, Allocator, ReplicaId, Counter, Container > dot_kernel_type;
 
         Allocator allocator_;
         dot_context< ReplicaId, Counter, Allocator > counters_;
@@ -101,7 +101,7 @@ namespace crdt
         typedef dot_kernel_iterator< typename decltype(values_)::const_iterator, Key, Value > const_iterator;
 
     protected:
-        dot_kernel_base(Allocator allocator)
+        dot_kernel(Allocator allocator)
             : allocator_(allocator)
             , values_(allocator)
             , counters_(allocator)
@@ -110,8 +110,8 @@ namespace crdt
 
         // TODO:
     public:
-        template < typename DotKernelBase >
-        void merge(const DotKernelBase& other)
+        template < typename DotKernel >
+        void merge(const DotKernel& other)
         {
             arena< 1024 > buffer;
             typedef std::set < dot_type, std::less< dot_type >, arena_allocator<> > dot_set_type;
@@ -212,95 +212,6 @@ namespace crdt
         size_t size() const
         {
             return values_.size();
-        }
-    };
-
-    template < typename Key, typename Allocator, typename Replica, typename Counter > class dot_kernel_set
-        : public dot_kernel_base<
-            Key, void, Allocator, typename Replica::replica_id_type, Counter,
-            dot_kernel_set< Key, Allocator, Replica, Counter >
-        >
-        , public Replica::template hook< dot_kernel_set< Key, Allocator, Replica, Counter > >
-    {
-        typedef dot_kernel_set< Key, Allocator, Replica, Counter > dot_kernel_type;
-
-    public:
-        template < typename AllocatorT, typename ReplicaT > struct rebind
-        {
-            typedef dot_kernel_set< Key, AllocatorT, ReplicaT, Counter > type;
-        };
-
-        dot_kernel_set(Allocator allocator, typename Replica::instance_id_type id)
-            : dot_kernel_base<
-                Key, void, Allocator, typename Replica::replica_id_type, Counter,
-                dot_kernel_set< Key, Allocator, Replica, Counter >
-            >(allocator)
-            , Replica::template hook< dot_kernel_type >(allocator.get_replica(), id)
-        {}
-
-        dot_kernel_set(std::allocator_arg_t, Allocator allocator)
-            : dot_kernel_base<
-                Key, void, Allocator, typename Replica::replica_id_type, Counter,
-                dot_kernel_set< Key, Allocator, Replica, Counter >
-            >(allocator)
-            , Replica::template hook< dot_kernel_type >(allocator.get_replica())
-        {}
-
-        /*std::pair< const_iterator, bool >*/ void insert(const Key& key)
-        {
-            arena< 1024 > buffer;
-
-            //arena_allocator< void, Allocator > alloc(buffer, this->allocator_);
-            //dot_kernel_set< Key, decltype(alloc), ReplicaId, Counter, InstanceId > delta(alloc, this->get_id());
-
-            auto replica_id = this->allocator_.get_replica().get_id();
-
-            replica< typename Replica::replica_id_type > rep(replica_id);
-            allocator< replica< typename Replica::replica_id_type > > allocator2(rep);
-            arena_allocator< void, decltype(allocator2) > allocator3(buffer, allocator2);
-            dot_kernel_set< Key, decltype(allocator3), replica< typename Replica::replica_id_type >, Counter > delta(allocator3, this->get_id());
-
-            // dot_kernel_type delta(this->allocator_, this->get_id());
-
-            auto counter = this->counters_.get(replica_id) + 1;
-            delta.counters_.emplace(dot_type{ replica_id, counter });
-            delta.values_[key].dots.emplace(dot_type{ replica_id, counter });
-
-            this->merge(delta);
-        }
-    };
-
-    template < typename Key, typename Value, typename Allocator, typename ReplicaId, typename Counter > class dot_kernel_map
-        : public dot_kernel_base<
-            Key, Value, Allocator, ReplicaId, Counter,
-            dot_kernel_map< Key, Value, Allocator, ReplicaId, Counter >
-        >
-    {
-        typedef dot_kernel_map< Key, Value, Allocator, ReplicaId, Counter > dot_kernel_map_type;
-
-        template < typename AllocatorT > struct rebind
-        {
-            typedef dot_kernel_map< Key, Value, AllocatorT, ReplicaId, Counter > type;
-        };
-
-    public:
-        dot_kernel_map(Allocator allocator)
-            : dot_kernel_base< Key, Value, Allocator, ReplicaId, Counter, dot_kernel_map< Key, Value, Allocator, ReplicaId, Counter > >(allocator)
-        {}
-
-        void insert(const Key& key, const Value& value)
-        {
-            dot_kernel_map_type delta(this->allocator_);
-
-            auto replica_id = this->allocator_.get_replica().get_id();
-            auto counter = this->counters_.get(replica_id) + 1;
-            delta.counters_.emplace(dot_type{ replica_id, counter });
-
-            auto& data = delta.values_[key];
-            data.dots.emplace(dot_type{ replica_id, counter });
-            data.value = value;
-
-            this->merge(delta);
         }
     };
 }

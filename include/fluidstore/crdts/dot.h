@@ -70,7 +70,7 @@ namespace crdt
             virtual void merge(const void*) = 0;
         };
 
-        template < typename Instance, typename Allocator, typename Replica > struct registered_instance : registered_instance_base
+        template < typename Instance, typename Allocator > struct registered_instance : registered_instance_base
         {
             registered_instance(Instance& instance)
                 : instance_(instance)
@@ -78,7 +78,7 @@ namespace crdt
 
             void merge(const void* instance)
             {
-                typedef typename Instance::rebind< Allocator, Replica >::type delta_type;
+                typedef typename Instance::rebind< Allocator >::type delta_type;
                 auto instance_ptr = reinterpret_cast<const delta_type*>(instance);
                 instance_.merge(*instance_ptr);
             }
@@ -92,9 +92,9 @@ namespace crdt
         typedef Id id_type;
         typedef typename instances_type::iterator iterator;
 
-        template < typename Allocator, typename Replica, typename Instance > iterator insert(const Id& id, Instance& instance) 
+        template < typename Allocator, typename Instance > iterator insert(const Id& id, Instance& instance) 
         {
-            auto [it, inserted] = instances_.emplace(id, std::make_unique< registered_instance< Instance, Allocator, Replica > >(instance));
+            auto [it, inserted] = instances_.emplace(id, std::make_unique< registered_instance< Instance, Allocator > >(instance));
             assert(inserted);
 
             if (!inserted)
@@ -170,14 +170,14 @@ namespace crdt
                 : replica_(replica)
                 , id_(replica.generate_instance_id())
             {
-                it_ = replica_.insert< delta_allocator_type, delta_replica_type >(id_, *static_cast< Instance* >(this));
+                it_ = replica_.insert< delta_allocator_type >(id_, *static_cast< Instance* >(this));
             }
 
             hook(replica_type& replica, id_type id)
                 : replica_(replica)
                 , id_(id)
             {
-                it_ = replica_.insert< delta_allocator_type, delta_replica_type >(id_, *static_cast< Instance* >(this));
+                it_ = replica_.insert< delta_allocator_type >(id_, *static_cast< Instance* >(this));
             }
 
             ~hook()
@@ -227,7 +227,7 @@ namespace crdt
     private:
         template < typename Instance > auto& get_delta_instance(const Instance& instance)
         {
-            typedef typename Instance::rebind< delta_allocator_type, delta_replica_type >::type delta_type;
+            typedef typename Instance::rebind< delta_allocator_type >::type delta_type;
 
             auto& context = delta_instances_[instance.get_id()];
             if (!context)

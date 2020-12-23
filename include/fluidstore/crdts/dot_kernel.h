@@ -84,8 +84,8 @@ namespace crdt
     template < typename Key, typename Value, typename Allocator, typename ReplicaId, typename Counter, typename Container > class dot_kernel
     {
         template < typename Key, typename Value, typename Allocator, typename ReplicaId, typename Counter, typename Container > friend class dot_kernel;
-        template < typename Key, typename Allocator, typename Replica > friend class set;
-        template < typename Key, typename Value, typename Allocator, typename Replica > friend class map;
+        template < typename Key, typename Allocator > friend class set;
+        template < typename Key, typename Value, typename Allocator > friend class map;
 
     protected:
         typedef dot< ReplicaId, Counter > dot_type;

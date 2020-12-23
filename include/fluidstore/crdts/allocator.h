@@ -9,6 +9,7 @@ namespace crdt
     {
     public:
         template < typename Replica, typename U, typename AllocatorU > friend class allocator;
+        typedef Replica replica_type;
 
         template< typename U > struct rebind
         {

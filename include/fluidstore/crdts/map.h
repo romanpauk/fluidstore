@@ -4,26 +4,26 @@
 
 namespace crdt
 {
-    template < typename Key, typename Value, typename Allocator, typename Replica > class map_base
-        : public dot_kernel< Key, Value, Allocator, typename Replica::replica_id_type, typename Replica::counter_type, map_base< Key, Value, Allocator, Replica > >
-        , public Replica::template hook< map_base< Key, Value, Allocator, Replica > >
+    template < typename Key, typename Value, typename Allocator, typename Replica > class map
+        : public dot_kernel< Key, Value, Allocator, typename Replica::replica_id_type, typename Replica::counter_type, map< Key, Value, Allocator, Replica > >
+        , public Replica::template hook< map< Key, Value, Allocator, Replica > >
     {
-        typedef map_base< Key, Value, Allocator, Replica > map_base_type;
-        typedef dot_kernel< Key, Value, Allocator, typename Replica::replica_id_type, typename Replica::counter_type, map_base_type > dot_kernel_type;
+        typedef map< Key, Value, Allocator, Replica > map_type;
+        typedef dot_kernel< Key, Value, Allocator, typename Replica::replica_id_type, typename Replica::counter_type, map_type > dot_kernel_type;
     
     public:
         template < typename AllocatorT, typename ReplicaT > struct rebind
         {
-            typedef map_base< Key, typename Value::template rebind< AllocatorT, ReplicaT >::type, AllocatorT, ReplicaT > type;
+            typedef map< Key, typename Value::template rebind< AllocatorT, ReplicaT >::type, AllocatorT, ReplicaT > type;
         };
 
-        map_base(Allocator allocator, typename Replica::id_type id)
-            : Replica::template hook< map_base_type >(allocator.get_replica(), id)
+        map(Allocator allocator)
+            : Replica::template hook< map_type >(allocator.get_replica())
             , dot_kernel_type(allocator)
         {}
 
-        map_base(Allocator allocator)
-            : Replica::template hook< map_base_type >(allocator.get_replica())
+        map(Allocator allocator, typename Replica::id_type id)
+            : Replica::template hook< map_type >(allocator.get_replica(), id)
             , dot_kernel_type(allocator)
         {}
 
@@ -36,7 +36,7 @@ namespace crdt
             replica< typename Replica::replica_id_type, typename Replica::instance_id_type, typename Replica::counter_type > rep(replica_id);
             allocator< decltype(rep) > allocator2(rep);
             arena_allocator< void, decltype(allocator2) > allocator3(buffer, allocator2);
-            map_base< Key, Value, decltype(allocator3), decltype(rep) > delta(allocator3, this->get_id());
+            map< Key, Value, decltype(allocator3), decltype(rep) > delta(allocator3, this->get_id());
 
             // dot_kernel_type delta(this->allocator_, this->get_id());
 
@@ -53,21 +53,5 @@ namespace crdt
 
             this->merge(delta);
         }
-    };
-
-    template< typename Key, typename Value, typename Traits > class map
-        : public map_base< Key, Value, typename Traits::allocator_type, typename Traits::replica_type >
-        , noncopyable
-    {
-    public:
-        typedef typename Traits::allocator_type allocator_type;
-
-        map(allocator_type allocator, typename Traits::id_type id)
-            : map_base< Key, Value, typename Traits::allocator_type, typename Traits::replica_type >(allocator, id)
-        {}
-
-        map(std::allocator_arg_t, allocator_type allocator)
-            : map_base< Key, Value, typename Traits::allocator_type, typename Traits::replica_type >(allocator)
-        {}
     };
 }

@@ -2,26 +2,25 @@
 
 namespace crdt
 {
-    template < typename Key, typename Allocator, typename Replica > class set_base
-        : public dot_kernel< Key, void, Allocator, typename Replica::replica_id_type, typename Replica::counter_type, set_base< Key, Allocator, Replica > >
-        , public Replica::template hook< set_base< Key, Allocator, Replica > >
+    template < typename Key, typename Allocator, typename Replica > class set
+        : public dot_kernel< Key, void, Allocator, typename Replica::replica_id_type, typename Replica::counter_type, set< Key, Allocator, Replica > >
+        , public Replica::template hook< set< Key, Allocator, Replica > >
     {
-        typedef set_base< Key, Allocator, Replica > set_base_type;
-        typedef dot_kernel< Key, void, Allocator, typename Replica::replica_id_type, typename Replica::counter_type, set_base_type > dot_kernel_type;
+        typedef set< Key, Allocator, Replica > set_type;
+        typedef dot_kernel< Key, void, Allocator, typename Replica::replica_id_type, typename Replica::counter_type, set_type > dot_kernel_type;
 
     public:
-        template < typename AllocatorT, typename ReplicaT > struct rebind
-        {
-            typedef set_base< Key, AllocatorT, ReplicaT > type;
-        };
+        typedef Allocator allocator_type;
 
-        set_base(Allocator allocator, typename Replica::id_type id)
-            : Replica::template hook< set_base_type >(allocator.get_replica(), id)
+        template < typename AllocatorT, typename ReplicaT > struct rebind { typedef set< Key, AllocatorT, ReplicaT > type; };
+
+        set(Allocator allocator)
+            : Replica::template hook< set_type >(allocator.get_replica())
             , dot_kernel_type(allocator)
         {}
 
-        set_base(Allocator allocator)
-            : Replica::template hook< set_base_type >(allocator.get_replica())
+        set(Allocator allocator, typename Replica::id_type id)
+            : Replica::template hook< set_type >(allocator.get_replica(), id)
             , dot_kernel_type(allocator)
         {}
 
@@ -37,7 +36,7 @@ namespace crdt
             replica< typename Replica::replica_id_type, typename Replica::instance_id_type, typename Replica::counter_type > rep(replica_id);
             allocator< decltype(rep) > allocator2(rep);
             arena_allocator< void, decltype(allocator2) > allocator3(buffer, allocator2);
-            set_base< Key, decltype(allocator3), decltype(rep) > delta(allocator3, this->get_id());
+            set< Key, decltype(allocator3), decltype(rep) > delta(allocator3, this->get_id());
 
             // set_base_type delta(this->allocator_, this->get_id());
 
@@ -47,21 +46,5 @@ namespace crdt
 
             this->merge(delta);
         }
-    };
-
-    template< typename Key, typename Traits > class set
-        : public set_base< Key, typename Traits::allocator_type, typename Traits::replica_type >
-        , noncopyable
-    {
-    public:
-        typedef typename Traits::allocator_type allocator_type;
-
-        set(allocator_type allocator, typename Traits::id_type id)
-            : set_base< Key, typename Traits::allocator_type, typename Traits::replica_type >(allocator, id)
-        {}
-
-        set(std::allocator_arg_t, allocator_type allocator)
-            : set_base< Key, typename Traits::allocator_type, typename Traits::replica_type >(allocator)
-        {}
     };
 }

@@ -20,14 +20,15 @@ namespace crdt
         typedef Id id_type;
     };
 
-    template < typename ReplicaId, typename InstanceId, typename InstanceRegistry = empty_instance_registry< std::pair< ReplicaId, InstanceId > > > class replica
+    template < typename ReplicaId, typename InstanceId, typename Counter, typename InstanceRegistry = empty_instance_registry< std::pair< ReplicaId, InstanceId > > > class replica
         : noncopyable
         , public InstanceRegistry
     {
     public:
-        typedef replica< ReplicaId, InstanceId, InstanceRegistry > replica_type;
+        typedef replica< ReplicaId, InstanceId, Counter, InstanceRegistry > replica_type;
         typedef ReplicaId replica_id_type;
         typedef ReplicaId instance_id_type;
+        typedef Counter counter_type;
         typedef typename InstanceRegistry::id_type id_type;
 
         template < typename Instance > struct hook 
@@ -122,16 +123,18 @@ namespace crdt
         template < typename T > void visit(T) {}
     };
 
-    template < typename ReplicaId, typename InstanceId, typename InstanceRegistry, typename Visitor = empty_visitor > class aggregating_replica
-        : public replica< ReplicaId, InstanceId, InstanceRegistry > 
+    template < typename ReplicaId, typename InstanceId, typename Counter, typename InstanceRegistry, typename Visitor = empty_visitor > class aggregating_replica
+        : public replica< ReplicaId, InstanceId, Counter, InstanceRegistry > 
     {
     public:
-        typedef replica< ReplicaId, InstanceId, empty_instance_registry< typename InstanceRegistry::id_type > > delta_replica_type;
+        typedef replica< ReplicaId, InstanceId, Counter, empty_instance_registry< typename InstanceRegistry::id_type > > delta_replica_type;
         typedef crdt::allocator < delta_replica_type > delta_allocator_type;
 
-        using replica< ReplicaId, InstanceId, InstanceRegistry >::replica_id_type;
-        using replica< ReplicaId, InstanceId, InstanceRegistry >::instance_id_type;
-        using replica< ReplicaId, InstanceId, InstanceRegistry >::id_type;
+        typedef replica< ReplicaId, InstanceId, Counter, InstanceRegistry > replica_type;
+        using replica_type::replica_id_type;
+        using replica_type::instance_id_type;
+        using replica_type::id_type;
+        using replica_type::counter_type;
         
     private:
         struct delta_instance_base
@@ -167,14 +170,14 @@ namespace crdt
                 : replica_(replica)
                 , id_(replica.generate_instance_id())
             {
-                it_ = replica_.insert< delta_allocator_type, delta_replica_type >(id_, *static_cast<Instance*>(this));
+                it_ = replica_.insert< delta_allocator_type, delta_replica_type >(id_, *static_cast< Instance* >(this));
             }
 
             hook(replica_type& replica, id_type id)
                 : replica_(replica)
                 , id_(id)
             {
-                it_ = replica_.insert< delta_allocator_type, delta_replica_type >(id_, *static_cast<Instance*>(this));
+                it_ = replica_.insert< delta_allocator_type, delta_replica_type >(id_, *static_cast< Instance* >(this));
             }
 
             ~hook()
@@ -244,17 +247,17 @@ namespace crdt
         std::map< typename replica_type::id_type, std::unique_ptr< delta_instance_base > > delta_instances_;
     };
 
-    template < typename Replica, typename Counter = uint64_t, typename Allocator = allocator< Replica > > struct traits_base
+    template < typename Replica, typename Allocator = allocator< Replica > > struct traits_base
     {
         typedef Replica replica_type;
         typedef typename Replica::replica_id_type replica_id_type;
         typedef typename Replica::id_type id_type;
-        typedef Counter counter_type;
+        typedef typename Replica::counter_type counter_type;
         typedef Allocator allocator_type;
     };
 
     struct traits : traits_base< 
-        replica< uint64_t, uint64_t, empty_instance_registry< std::pair< uint64_t, uint64_t > > >
+        replica< uint64_t, uint64_t, uint64_t, empty_instance_registry< std::pair< uint64_t, uint64_t > > >
     > {};
 
     template < typename ReplicaId, typename Counter > class dot

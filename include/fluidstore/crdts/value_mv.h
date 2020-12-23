@@ -70,7 +70,7 @@ namespace crdt
         bool operator == (const Value& value) const { return get() == value; }
 
     private:
-        crdt::set_base< Value, Allocator, Replica, Counter > values_;
+        crdt::set_base< Value, Allocator, Replica > values_;
     };
 
     template < typename Value, typename Traits > class value_mv

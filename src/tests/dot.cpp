@@ -134,15 +134,16 @@ BOOST_AUTO_TEST_CASE(dot_map_map_value_mv_test)
 
 BOOST_AUTO_TEST_CASE(empty_replica)
 {
-    crdt::replica< uint64_t, uint64_t > replica(0);
-    crdt::allocator< crdt::replica< uint64_t, uint64_t > > allocator(replica);
-    typedef crdt::traits_base< crdt::replica< uint64_t, uint64_t >, uint64_t > traits;
+    typedef crdt::replica< uint64_t, uint64_t, uint64_t > replica_type;
+    replica_type replica(0);
+    crdt::allocator< replica_type > allocator(replica);
+    typedef crdt::traits_base< replica_type > traits;
 
     crdt::set< int, traits > set(allocator, { 0, 0 });
 }
 
 struct visitor;
-typedef crdt::aggregating_replica< uint64_t, uint64_t, crdt::instance_registry< std::pair< uint64_t, uint64_t > >, visitor > replica_type;
+typedef crdt::aggregating_replica< uint64_t, uint64_t, uint64_t, crdt::instance_registry< std::pair< uint64_t, uint64_t > >, visitor > replica_type;
 
 struct visitor
 {
@@ -160,7 +161,7 @@ struct visitor
 
 BOOST_AUTO_TEST_CASE(aggregating_replica)
 {
-    typedef crdt::traits_base< replica_type, uint64_t > traits;
+    typedef crdt::traits_base< replica_type > traits;
 
     traits::replica_type replica1(1);
     traits::allocator_type allocator1(replica1);

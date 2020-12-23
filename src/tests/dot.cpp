@@ -121,34 +121,53 @@ BOOST_AUTO_TEST_CASE(dot_map_map_value_mv_test)
     //BOOST_TEST(map.find(1) == false);
 }
 
+BOOST_AUTO_TEST_CASE(empty_replica)
+{
+    crdt::empty_replica< uint64_t, uint64_t > replica;
+    crdt::allocator< crdt::empty_replica< uint64_t, uint64_t > > allocator(replica);
+    typedef crdt::traits_base< crdt::empty_replica< uint64_t, uint64_t >, uint64_t > traits;
+
+    crdt::set< int, traits > set(allocator, allocator.get_replica().generate_instance_id());
+}
+
+struct visitor;
+typedef crdt::aggregating_replica< uint64_t, uint64_t, visitor > replica_type;
+
 struct visitor
 {
-    template < typename T > void visit(const T& instance) {}
+    visitor(replica_type& r)
+        : replica_(r)
+    {}
+
+    template < typename T > void visit(const T& instance) 
+    {
+        replica_.merge(instance);
+    }
+
+    replica_type& replica_;
 };
 
 BOOST_AUTO_TEST_CASE(aggregating_replica)
 {
-    typedef crdt::aggregating_replica< uint64_t, uint64_t, visitor > replica_type;
     typedef crdt::traits_base< replica_type, uint64_t, crdt::allocator< replica_type > > traits;
 
     traits::replica_type replica1(1);
     traits::allocator_type allocator1(replica1);
 
+    traits::replica_type replica2(2);
+    traits::allocator_type allocator2(replica2);
+
     crdt::set< int, traits > set1(allocator1, { 0, 1 });
     set1.insert(1);
     set1.insert(2);
     
-    visitor v;
+    crdt::set< int, traits > set2(allocator2, { 0, 1 });
+
+    visitor v(replica2);;
     replica1.visit(v);
     replica1.clear();
 
-    traits::replica_type replica2(2);
-    traits::allocator_type allocator2(replica2);
-
-    crdt::set< int, traits > set2(allocator2, { 0, 1 });
-    set2.insert(1);
-    set2.insert(2);
-
+    // set2 now has the same items as set1.
 }
 
 template < typename Fn > double measure(Fn fn)

@@ -35,7 +35,7 @@ namespace crdt
 
             auto replica_id = this->allocator_.get_replica().get_id();
 
-            replica< typename Allocator::replica_type::replica_id_type, typename Allocator::replica_type::instance_id_type, typename Allocator::replica_type::counter_type > rep(replica_id);
+            replica< typename Allocator::replica_type::replica_id_type, typename Allocator::replica_type::instance_id_type, typename Allocator::replica_type::counter_type > rep(replica_id, this->allocator_.get_replica().get_sequence());
             allocator< decltype(rep) > allocator2(rep);
             arena_allocator< void, decltype(allocator2) > allocator3(buffer, allocator2);
             set< Key, decltype(allocator3) > delta(allocator3, this->get_id());

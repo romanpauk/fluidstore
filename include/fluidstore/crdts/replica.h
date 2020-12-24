@@ -1,11 +1,31 @@
 #pragma once
 
+#include <fluidstore/crdts/noncopyable.h>
+
+#include <deque>
+
 namespace crdt
 {
     template < typename Id > class empty_instance_registry
     {
     public:
         typedef Id id_type;
+    };
+
+    template < typename Id > struct id_sequence
+        : noncopyable
+    {
+        id_sequence()
+            : id_()
+        {}
+
+        Id next()
+        {
+            return ++id_;
+        }
+
+    private:
+        Id id_;
     };
 
     template < typename ReplicaId, typename InstanceId, typename Counter, typename InstanceRegistry = empty_instance_registry< std::pair< ReplicaId, InstanceId > > > class replica
@@ -18,11 +38,12 @@ namespace crdt
         typedef ReplicaId instance_id_type;
         typedef Counter counter_type;
         typedef typename InstanceRegistry::id_type id_type;
+        typedef id_sequence< InstanceId > id_sequence_type;
 
         template < typename Instance > struct hook
         {
-            hook(replica_type&)
-                : id_()
+            hook(replica_type& replica)
+                : id_(replica.generate_instance_id())
             {}
 
             hook(replica_type&, const id_type& id)
@@ -35,19 +56,20 @@ namespace crdt
             id_type id_;
         };
 
-        replica(const ReplicaId& id)
+        replica(const ReplicaId& id, id_sequence< InstanceId >& seq)
             : id_(id)
-            , instance_id_(1000)
+            , sequence_(seq)
         {}
 
         const ReplicaId& get_id() const { return id_; }
-        id_type generate_instance_id() { return { id_, ++instance_id_ }; }
+        id_type generate_instance_id() { return { id_, sequence_.next() }; }
+        id_sequence_type& get_sequence() { return sequence_; }
 
         template < typename Instance, typename DeltaInstance > void merge(const Instance& instance, const DeltaInstance& delta) {}
 
     private:
         ReplicaId id_;
-        InstanceId instance_id_;
+        id_sequence< InstanceId >& sequence_;
     };
 
     template < typename Id > class instance_registry
@@ -123,6 +145,7 @@ namespace crdt
         using replica_type::instance_id_type;
         using replica_type::id_type;
         using replica_type::counter_type;
+        typedef id_sequence< InstanceId > id_sequence_type;
 
     private:
         struct delta_instance_base
@@ -156,34 +179,29 @@ namespace crdt
         {
             hook(replica_type& replica)
                 : replica_(replica)
-                , id_(replica.generate_instance_id())
-            {
-                it_ = replica_.insert< delta_allocator_type >(id_, *static_cast<Instance*>(this));
-            }
+                , it_(replica_.insert< delta_allocator_type >(replica.generate_instance_id(), *static_cast<Instance*>(this)))
+            {}
 
             hook(replica_type& replica, id_type id)
                 : replica_(replica)
-                , id_(id)
-            {
-                it_ = replica_.insert< delta_allocator_type >(id_, *static_cast<Instance*>(this));
-            }
+                , it_(replica_.insert< delta_allocator_type >(id, *static_cast<Instance*>(this)))
+            {}
 
             ~hook()
             {
                 replica_.erase(it_);
             }
 
-            const id_type& get_id() const { return id_; }
+            const id_type& get_id() const { return it_->first; }
 
         private:
             replica_type& replica_;
             typename replica_type::iterator it_;
-            id_type id_;
         };
 
-        aggregating_replica(ReplicaId replica_id)
-            : replica_type(replica_id)
-            , delta_replica_(replica_id)
+        aggregating_replica(ReplicaId replica_id, id_sequence< InstanceId >& seq)
+            : replica_type(replica_id, seq)
+            , delta_replica_(replica_id, seq)
         {}
 
         template < typename Instance, typename DeltaInstance > void merge(const Instance& target, const DeltaInstance& source)
@@ -195,13 +213,21 @@ namespace crdt
 
         template< typename Instance > void merge(const Instance& source)
         {
-            // TODO: do something with the interface
             this->instances_.at(source.get_id())->merge(&source);
+            return;
+
+            // TODO: do something with the interface
+            auto it = this->instances_.find(source.get_id());
+            if (it != this->instances_.end())
+            {
+                // TODO: some of the instances are temporary
+                it->second->merge(&source);
+            }
         }
 
         void visit(Visitor& visitor) const
         {
-            for (const auto& [id, instance] : delta_instances_)
+            for (const auto& instance : deltas_)
             {
                 instance->visit(visitor);
             }
@@ -210,6 +236,7 @@ namespace crdt
         void clear()
         {
             delta_instances_.clear();
+            deltas_.clear();
         }
 
     private:
@@ -223,6 +250,7 @@ namespace crdt
                 delta_allocator_type delta_allocator(delta_replica_);
                 auto ptr = new delta_instance< delta_type >(delta_allocator, instance.get_id());
                 context.reset(ptr);
+                deltas_.push_back(ptr);
                 return *ptr;
             }
             else
@@ -233,6 +261,7 @@ namespace crdt
 
         delta_replica_type delta_replica_;
         std::map< typename replica_type::id_type, std::unique_ptr< delta_instance_base > > delta_instances_;
+        std::deque< delta_instance_base* > deltas_;
     };
 
     template < typename Replica, typename Allocator = allocator< Replica > > struct traits_base
@@ -241,6 +270,7 @@ namespace crdt
         typedef typename Replica::replica_id_type replica_id_type;
         typedef typename Replica::id_type id_type;
         typedef typename Replica::counter_type counter_type;
+        typedef typename Replica::id_sequence_type id_sequence_type;
         typedef Allocator allocator_type;
     };
 

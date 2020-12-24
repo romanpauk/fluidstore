@@ -9,12 +9,19 @@ namespace crdt
 {
     template < typename Value, typename Allocator, typename ReplicaId, typename Counter > class dot_kernel_value
     {
+        typedef dot_kernel_value< Value, Allocator, ReplicaId, Counter > dot_kernel_value_type;
+
     public:
         typedef Allocator allocator_type;
         typedef Value value_type;
 
         dot_kernel_value(std::allocator_arg_t, allocator_type allocator)
             : value(allocator)
+            , dots(allocator)
+        {}
+
+        dot_kernel_value(std::allocator_arg_t, allocator_type allocator, typename allocator_type::replica_type::id_type id)
+            : value(allocator, id)
             , dots(allocator)
         {}
 
@@ -25,6 +32,8 @@ namespace crdt
             dots.insert(other.dots.begin(), other.dots.end());
             value.merge(other.value);
         }
+
+        const typename allocator_type::replica_type::id_type& get_id() const { return value.get_id(); }
 
         std::set< dot< ReplicaId, Counter >, std::less< dot< ReplicaId, Counter > >, allocator_type > dots;
         Value value;
@@ -40,12 +49,18 @@ namespace crdt
             : dots(allocator)
         {}
 
+        dot_kernel_value(std::allocator_arg_t, allocator_type allocator, typename allocator_type::replica_type::id_type)
+            : dots(allocator)
+        {}
+
         template < typename AllocatorT, typename ReplicaIdT, typename CounterT >
         void merge(
             const dot_kernel_value< void, AllocatorT, ReplicaIdT, CounterT >& other)
         {
             dots.insert(other.dots.begin(), other.dots.end());
         }
+
+        typename allocator_type::replica_type::id_type get_id() const { return typename allocator_type::replica_type::id_type(); }
 
         std::set< dot< ReplicaId, Counter >, std::less< dot< ReplicaId, Counter > >, allocator_type > dots;
     };
@@ -136,7 +151,8 @@ namespace crdt
             // Merge values
             for (const auto& [rkey, rdata] : other.values_)
             {
-                auto lpb = values_.emplace(rkey, std::allocator_arg);
+                // TODO: if this is insert of one element, we should not continue if insertion was not done
+                auto lpb = values_.emplace(rkey, rdata.get_id());
                 auto& ldata = lpb.first->second;
                 ldata.merge(rdata);
 

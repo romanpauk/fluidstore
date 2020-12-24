@@ -19,7 +19,8 @@
 
 BOOST_AUTO_TEST_CASE(dot_set_test)
 {
-    crdt::traits::replica_type replica(0);
+    crdt::traits::id_sequence_type sequence;
+    crdt::traits::replica_type replica(0, sequence);
     crdt::traits::allocator_type alloc(replica);
     crdt::set< int, decltype(alloc) > set(alloc, { 0, 0 });
     BOOST_TEST((set.find(0) == set.end()));
@@ -47,11 +48,13 @@ BOOST_AUTO_TEST_CASE(dot_set_test)
 
 BOOST_AUTO_TEST_CASE(dot_set_replica_test)
 {
-    crdt::traits::replica_type replica1(1);
+    crdt::traits::id_sequence_type sequence1;
+    crdt::traits::replica_type replica1(1, sequence1);
     crdt::traits::allocator_type alloc1(replica1);
     crdt::set< int, decltype(alloc1) > set1(alloc1, { 1, 1 });
 
-    crdt::traits::replica_type replica2(2);
+    crdt::traits::id_sequence_type sequence2;
+    crdt::traits::replica_type replica2(2, sequence2);
     crdt::traits::allocator_type alloc2(replica2);
     crdt::set< int, decltype(alloc2) > set2(alloc2, { 2, 1 });
 
@@ -72,7 +75,8 @@ BOOST_AUTO_TEST_CASE(dot_set_replica_test)
 
 BOOST_AUTO_TEST_CASE(dot_map_test)
 {
-    crdt::traits::replica_type replica(0);
+    crdt::traits::id_sequence_type sequence;
+    crdt::traits::replica_type replica(0, sequence);
     crdt::traits::allocator_type alloc(replica);
     crdt::map< int, crdt::value< int, decltype(alloc) >, decltype(alloc) > map(alloc, { 0, 1 });
     BOOST_TEST((map.find(0) == map.end()));
@@ -87,7 +91,8 @@ BOOST_AUTO_TEST_CASE(dot_map_test)
 
 BOOST_AUTO_TEST_CASE(dot_map_set_test)
 {
-    crdt::traits::replica_type replica(0);
+    crdt::traits::id_sequence_type sequence;
+    crdt::traits::replica_type replica(0, sequence);
     crdt::traits::allocator_type alloc(replica);
     crdt::map< int, crdt::set< int, decltype(alloc) >, decltype(alloc) > map(alloc, { 0, 1 });
     BOOST_TEST((map.find(0) == map.end()));
@@ -99,7 +104,8 @@ BOOST_AUTO_TEST_CASE(dot_map_set_test)
 
 BOOST_AUTO_TEST_CASE(value_mv_test)
 {
-    crdt::traits::replica_type replica(0);
+    crdt::traits::id_sequence_type sequence;
+    crdt::traits::replica_type replica(0, sequence);
     crdt::traits::allocator_type alloc(replica);
     crdt::value_mv< int, decltype(alloc) > value(alloc);
     BOOST_TEST(value.get() == int());
@@ -110,7 +116,8 @@ BOOST_AUTO_TEST_CASE(value_mv_test)
 
 BOOST_AUTO_TEST_CASE(dot_map_value_mv_test)
 {
-    crdt::traits::replica_type replica(0);
+    crdt::traits::id_sequence_type sequence;
+    crdt::traits::replica_type replica(0, sequence);
     crdt::traits::allocator_type alloc(replica);
     crdt::map< int, crdt::value_mv< int, decltype(alloc) >, decltype(alloc) > map(alloc, { 0, 1 });
     BOOST_TEST((map.find(0) == map.end()));
@@ -122,7 +129,8 @@ BOOST_AUTO_TEST_CASE(dot_map_value_mv_test)
 
 BOOST_AUTO_TEST_CASE(dot_map_map_value_mv_test)
 {
-    crdt::traits::replica_type replica(0);
+    crdt::traits::id_sequence_type sequence;
+    crdt::traits::replica_type replica(0, sequence);
     crdt::traits::allocator_type alloc(replica);
     crdt::map< 
         int, 
@@ -143,7 +151,9 @@ BOOST_AUTO_TEST_CASE(dot_map_map_value_mv_test)
 BOOST_AUTO_TEST_CASE(empty_replica)
 {
     typedef crdt::replica< uint64_t, uint64_t, uint64_t > replica_type;
-    replica_type replica(0);
+
+    crdt::traits::id_sequence_type sequence;
+    replica_type replica(0, sequence);
     crdt::allocator< replica_type > allocator(replica);
     typedef crdt::traits_base< replica_type > traits;
 
@@ -171,10 +181,12 @@ BOOST_AUTO_TEST_CASE(aggregating_replica)
 {
     typedef crdt::traits_base< replica_type > traits;
 
-    traits::replica_type replica1(1);
+    crdt::traits::id_sequence_type sequence1;
+    traits::replica_type replica1(1, sequence1);
     traits::allocator_type allocator1(replica1);
 
-    traits::replica_type replica2(2);
+    crdt::traits::id_sequence_type sequence2;
+    traits::replica_type replica2(2, sequence2);
     traits::allocator_type allocator2(replica2);
 
     crdt::set< int, decltype(allocator1) > set1(allocator1, { 0, 1 });
@@ -187,25 +199,26 @@ BOOST_AUTO_TEST_CASE(aggregating_replica)
     setstr1.insert("Hello");
 
     crdt::map< int, crdt::value_mv< int, decltype(allocator1) >, decltype(allocator1) > map1(allocator1, { 0, 4 });
-    //map1[1] = 2;
-    //map1[1] = 3;
-    // TODO: for this we need the order solved ^^^
+    map1[1] = 1;
+    map1[2] = 2;
+    map1[3] = 3;
 
     crdt::map< int, crdt::map< int, crdt::value_mv< int, decltype(allocator1) >, decltype(allocator1) > , decltype(allocator1) > map11(allocator1, { 0, 5 });
-    // crdt::map< int, crdt::value_mv< crdt::set< int, decltype(allocator1) >, decltype(allocator1) >, decltype(allocator1) > map3(allocator1, { 0, 6 });
+    map11[1][10] = 100;
+    map11[2][20] = 200;
+
+    // TODO: this requires operator <.
+    //crdt::map< int, crdt::value_mv< crdt::set< int, decltype(allocator1) >, decltype(allocator1) >, decltype(allocator1) > map3(allocator1, { 0, 6 });
 
     crdt::set< int, decltype(allocator2) > set2(allocator2, { 0, 1 });
     crdt::set< int, decltype(allocator2) > set22(allocator2, { 0, 2 });
     crdt::set< std::string, decltype(allocator2) > setstr2(allocator2, { 0, 3 });
     crdt::map< int, crdt::value_mv< int, decltype(allocator2) >, decltype(allocator2) > map2(allocator2, { 0, 4 });
-    //crdt::map< int, crdt::value_mv< int, decltype(allocator2) >, decltype(allocator2) > map2(allocator2, { 0, 4 });
+    crdt::map< int, crdt::map< int, crdt::value_mv< int, decltype(allocator2) >, decltype(allocator2) >, decltype(allocator2) > map22(allocator2, { 0, 5 });
 
     visitor v(replica2);;
     replica1.visit(v);
     replica1.clear();
-
-    // BOOST_TEST(set2.find(1) )
-    // set2 now has the same items as set1.
 }
 
 template < typename Fn > double measure(Fn fn)

@@ -5,9 +5,9 @@
 
 BOOST_AUTO_TEST_CASE(value_mv_basic_operations)
 {
-    crdt::traits::id_sequence_type sequence;
-    crdt::traits::replica_type replica(0, sequence);
-    crdt::traits::allocator_type alloc(replica);
+    crdt::id_sequence<> sequence;
+    crdt::replica<> replica(0, sequence);
+    crdt::allocator<> alloc(replica);
     crdt::value_mv< int, decltype(alloc) > value(alloc);
     BOOST_TEST(value.get() == int());
     // value = 1;

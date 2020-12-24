@@ -19,9 +19,9 @@
 
 BOOST_AUTO_TEST_CASE(dot_map_value_mv_test)
 {
-    crdt::traits::id_sequence_type sequence;
-    crdt::traits::replica_type replica(0, sequence);
-    crdt::traits::allocator_type alloc(replica);
+    crdt::id_sequence<> sequence;
+    crdt::replica<> replica(0, sequence);
+    crdt::allocator<> alloc(replica);
     crdt::map< int, crdt::value_mv< int, decltype(alloc) >, decltype(alloc) > map(alloc, { 0, 1 });
     BOOST_TEST((map.find(0) == map.end()));
     // map.insert(1, 1);
@@ -32,9 +32,9 @@ BOOST_AUTO_TEST_CASE(dot_map_value_mv_test)
 
 BOOST_AUTO_TEST_CASE(dot_map_map_value_mv_test)
 {
-    crdt::traits::id_sequence_type sequence;
-    crdt::traits::replica_type replica(0, sequence);
-    crdt::traits::allocator_type alloc(replica);
+    crdt::id_sequence<> sequence;
+    crdt::replica<> replica(0, sequence);
+    crdt::allocator<> alloc(replica);
     crdt::map< 
         int, 
         crdt::map< 
@@ -82,18 +82,6 @@ struct visitor
 
 BOOST_AUTO_TEST_CASE(dot_test_set_insert_performance)
 {
-    /*
-    auto x = measure([]
-    {
-        crdt::traits::allocator_type alloc(0);
-        crdt::set< size_t, crdt::traits > stdset(alloc);
-        for (size_t i = 0; i < 1000000; ++i)
-        {
-            stdset.test(i);
-        }
-    });
-    */
-
     #define Outer 10000
     #define Inner 100
 
@@ -114,9 +102,9 @@ BOOST_AUTO_TEST_CASE(dot_test_set_insert_performance)
     {
         for (size_t x = 0; x < Outer; ++x)
         {
-            crdt::traits::id_sequence_type sequence;
-            crdt::traits::replica_type replica(0, sequence);
-            crdt::traits::allocator_type alloc(replica);
+            crdt::id_sequence<> sequence;
+            crdt::replica<> replica(0, sequence);
+            crdt::allocator<> alloc(replica);
             crdt::set< size_t, decltype(alloc) > set(alloc, { 0,1 });
             for (size_t i = 0; i < Inner; ++i)
             {

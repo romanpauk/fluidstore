@@ -13,7 +13,7 @@ namespace crdt
         typedef Id id_type;
     };
 
-    template < typename Id > struct id_sequence
+    template < typename Id = uint64_t > struct id_sequence
         : noncopyable
     {
         id_sequence()
@@ -29,7 +29,7 @@ namespace crdt
         Id id_;
     };
 
-    template < typename ReplicaId, typename InstanceId, typename Counter, 
+    template < typename ReplicaId = uint64_t, typename InstanceId = uint64_t, typename Counter = uint64_t, 
         typename InstanceRegistry = empty_instance_registry< std::pair< ReplicaId, InstanceId > > > class replica
         : noncopyable
         , public InstanceRegistry
@@ -267,21 +267,4 @@ namespace crdt
         std::map< typename replica_type::id_type, std::unique_ptr< delta_instance_base > > delta_instances_;
         std::deque< delta_instance_base* > deltas_;
     };
-
-    template < typename Replica, typename Allocator = allocator< Replica > > struct traits_base
-    {
-        typedef Replica replica_type;
-        typedef typename Replica::replica_id_type replica_id_type;
-        typedef typename Replica::id_type id_type;
-        typedef typename Replica::counter_type counter_type;
-        typedef typename Replica::id_sequence_type id_sequence_type;
-        typedef Allocator allocator_type;
-    };
-
-    struct traits : traits_base<
-        replica< uint64_t, uint64_t, uint64_t, empty_instance_registry< std::pair< uint64_t, uint64_t > > >
-    >
-    {};
-
-
 }

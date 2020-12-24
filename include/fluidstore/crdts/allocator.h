@@ -4,7 +4,7 @@
 
 namespace crdt
 {
-    template < typename Replica, typename T = unsigned char, typename Allocator = std::allocator< T > > class allocator
+    template < typename Replica = replica<>, typename T = unsigned char, typename Allocator = std::allocator< T > > class allocator
         : public Allocator
     {
     public:

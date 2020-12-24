@@ -5,18 +5,6 @@
 
 #include <boost/test/unit_test.hpp>
 
-BOOST_AUTO_TEST_CASE(empty_replica)
-{
-    typedef crdt::replica< uint64_t, uint64_t, uint64_t > replica_type;
-
-    crdt::traits::id_sequence_type sequence;
-    replica_type replica(0, sequence);
-    crdt::allocator< replica_type > allocator(replica);
-    typedef crdt::traits_base< replica_type > traits;
-
-    crdt::set< int, decltype(allocator) > set(allocator, { 0, 0 });
-}
-
 struct visitor;
 typedef crdt::aggregating_replica< uint64_t, uint64_t, uint64_t, crdt::instance_registry< std::pair< uint64_t, uint64_t > >, visitor > replica_type;
 
@@ -36,15 +24,13 @@ struct visitor
 
 BOOST_AUTO_TEST_CASE(aggregating_replica)
 {
-    typedef crdt::traits_base< replica_type > traits;
+    crdt::id_sequence<> sequence1;
+    replica_type replica1(1, sequence1);
+    crdt::allocator< replica_type> allocator1(replica1);
 
-    crdt::traits::id_sequence_type sequence1;
-    traits::replica_type replica1(1, sequence1);
-    traits::allocator_type allocator1(replica1);
-
-    crdt::traits::id_sequence_type sequence2;
-    traits::replica_type replica2(2, sequence2);
-    traits::allocator_type allocator2(replica2);
+    crdt::id_sequence<> sequence2;
+    replica_type replica2(2, sequence2);
+    crdt::allocator< replica_type > allocator2(replica2);
 
     crdt::set< int, decltype(allocator1) > set1(allocator1, { 0, 1 });
     set1.insert(1);

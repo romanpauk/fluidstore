@@ -5,9 +5,9 @@
 
 BOOST_AUTO_TEST_CASE(set_basic_operations)
 {
-    crdt::traits::id_sequence_type sequence;
-    crdt::traits::replica_type replica(0, sequence);
-    crdt::traits::allocator_type alloc(replica);
+    crdt::id_sequence<> sequence;
+    crdt::replica<> replica(0, sequence);
+    crdt::allocator<> alloc(replica);
     crdt::set< int, decltype(alloc) > set(alloc, { 0, 0 });
 
     BOOST_TEST((set.find(0) == set.end()));
@@ -52,14 +52,14 @@ BOOST_AUTO_TEST_CASE(set_basic_operations)
 
 BOOST_AUTO_TEST_CASE(set_merge)
 {
-    crdt::traits::id_sequence_type sequence1;
-    crdt::traits::replica_type replica1(1, sequence1);
-    crdt::traits::allocator_type alloc1(replica1);
+    crdt::id_sequence<> sequence1;
+    crdt::replica<> replica1(1, sequence1);
+    crdt::allocator<> alloc1(replica1);
     crdt::set< int, decltype(alloc1) > set1(alloc1, { 1, 1 });
 
-    crdt::traits::id_sequence_type sequence2;
-    crdt::traits::replica_type replica2(2, sequence2);
-    crdt::traits::allocator_type alloc2(replica2);
+    crdt::id_sequence<> sequence2;
+    crdt::replica<> replica2(2, sequence2);
+    crdt::allocator<> alloc2(replica2);
     crdt::set< int, decltype(alloc2) > set2(alloc2, { 2, 1 });
 
     set1.insert(1);

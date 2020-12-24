@@ -6,9 +6,9 @@
 
 BOOST_AUTO_TEST_CASE(map_basic_operations)
 {
-    crdt::traits::id_sequence_type sequence;
-    crdt::traits::replica_type replica(0, sequence);
-    crdt::traits::allocator_type alloc(replica);
+    crdt::id_sequence<> sequence;
+    crdt::replica<> replica(0, sequence);
+    crdt::allocator<> alloc(replica);
     crdt::map< int, crdt::value< int, decltype(alloc) >, decltype(alloc) > map(alloc, { 0, 1 });
     BOOST_TEST((map.find(0) == map.end()));
 
@@ -22,9 +22,9 @@ BOOST_AUTO_TEST_CASE(map_basic_operations)
 
 BOOST_AUTO_TEST_CASE(map_merge)
 {
-    crdt::traits::id_sequence_type sequence;
-    crdt::traits::replica_type replica(0, sequence);
-    crdt::traits::allocator_type alloc(replica);
+    crdt::id_sequence<> sequence;
+    crdt::replica<> replica(0, sequence);
+    crdt::allocator<> alloc(replica);
     //crdt::map< int, crdt::set< int, decltype(alloc) >, decltype(alloc) > map(alloc, { 0, 1 });
     //BOOST_TEST((map.find(0) == map.end()));
     //map.insert(1, );

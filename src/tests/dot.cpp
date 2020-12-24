@@ -15,7 +15,6 @@
 #include <fluidstore/crdts/value.h>
 #include <fluidstore/crdts/value_mv.h>
 
-
 #include <chrono>
 
 BOOST_AUTO_TEST_CASE(dot_set_test)
@@ -188,11 +187,12 @@ BOOST_AUTO_TEST_CASE(aggregating_replica)
     setstr1.insert("Hello");
 
     crdt::map< int, crdt::value_mv< int, decltype(allocator1) >, decltype(allocator1) > map1(allocator1, { 0, 4 });
-    map1[1] = 2;
-    map1[1] = 3;
+    //map1[1] = 2;
+    //map1[1] = 3;
+    // TODO: for this we need the order solved ^^^
 
     crdt::map< int, crdt::map< int, crdt::value_mv< int, decltype(allocator1) >, decltype(allocator1) > , decltype(allocator1) > map11(allocator1, { 0, 5 });
-    //crdt::map< int, crdt::value_mv< crdt::set< int, decltype(allocator1) >, decltype(allocator1) >, decltype(allocator1) > map3(allocator1, { 0, 6 });
+    // crdt::map< int, crdt::value_mv< crdt::set< int, decltype(allocator1) >, decltype(allocator1) >, decltype(allocator1) > map3(allocator1, { 0, 6 });
 
     crdt::set< int, decltype(allocator2) > set2(allocator2, { 0, 1 });
     crdt::set< int, decltype(allocator2) > set22(allocator2, { 0, 2 });
@@ -200,13 +200,11 @@ BOOST_AUTO_TEST_CASE(aggregating_replica)
     crdt::map< int, crdt::value_mv< int, decltype(allocator2) >, decltype(allocator2) > map2(allocator2, { 0, 4 });
     //crdt::map< int, crdt::value_mv< int, decltype(allocator2) >, decltype(allocator2) > map2(allocator2, { 0, 4 });
 
-    // The issue is that merging to aggregate is fine,
-    // but merging from aggregate causes merge to merge back to aggregate.
-
     visitor v(replica2);;
     replica1.visit(v);
     replica1.clear();
 
+    // BOOST_TEST(set2.find(1) )
     // set2 now has the same items as set1.
 }
 

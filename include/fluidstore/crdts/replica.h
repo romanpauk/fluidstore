@@ -66,7 +66,7 @@ namespace crdt
 
             void merge(const void* instance)
             {
-                typedef typename Instance::rebind< Allocator >::type delta_type;
+                typedef typename Instance::template rebind< Allocator >::type delta_type;
                 auto instance_ptr = reinterpret_cast<const delta_type*>(instance);
                 instance_.merge(*instance_ptr);
             }
@@ -196,7 +196,7 @@ namespace crdt
         template< typename Instance > void merge(const Instance& source)
         {
             // TODO: do something with the interface
-            instances_.at(source.get_id())->merge(&source);
+            this->instances_.at(source.get_id())->merge(&source);
         }
 
         void visit(Visitor& visitor) const
@@ -215,7 +215,7 @@ namespace crdt
     private:
         template < typename Instance > auto& get_delta_instance(const Instance& instance)
         {
-            typedef typename Instance::rebind< delta_allocator_type >::type delta_type;
+            typedef typename Instance::template rebind< delta_allocator_type >::type delta_type;
 
             auto& context = delta_instances_[instance.get_id()];
             if (!context)

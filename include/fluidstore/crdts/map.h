@@ -29,7 +29,7 @@ namespace crdt
             , dot_kernel_type(allocator)
         {}
 
-        void insert(const Key& key, const Value& value)
+        std::pair< typename dot_kernel_type::iterator, bool > insert(const Key& key, const Value& value)
         {
             arena< 1024 * 2 > buffer;
 
@@ -52,26 +52,25 @@ namespace crdt
             data.dots.emplace(dot_type{ replica_id, counter });
             data.value.merge(value);
 
-            this->merge(delta);
+            merge_info info;
+            this->merge(delta, &info);
             this->allocator_.merge(*this, delta);
+
+            return { info.iterator, info.inserted };
         }
 
         Value& operator[](const Key& key)
         {
-            // Very bad implementation to try the merge.
-            if (find(key) == end())
+            if constexpr (std::uses_allocator_v< Value, Allocator >)
             {
-                if constexpr (std::uses_allocator_v< Value, Allocator >)
-                { 
-                    insert(key, Value(allocator_));
-                }
-                else
-                {
-                    insert(key, Value());
-                }
+                auto pairb = insert(key, Value(allocator_));
+                return pairb.first.second;
             }
-
-            return (*find(key)).second;
+            else
+            {
+                auto pairb = insert(key, Value());
+                return pairb.first.second;
+            }
         }
     };
 }

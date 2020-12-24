@@ -2,6 +2,8 @@
 
 #include <fluidstore/crdts/set.h>
 
+#include <memory>
+
 namespace crdt
 {
     template < typename Value, typename Allocator > class value_mv
@@ -24,6 +26,11 @@ namespace crdt
             , values_(allocator)
         {}
 
+        value_mv(std::allocator_arg_t, allocator_type allocator)
+            : Allocator::replica_type::template hook< value_mv_type >(allocator.get_replica())
+            , values_(allocator)
+        {}
+
         value_mv(allocator_type allocator, typename Allocator::replica_type::id_type id)
             : Allocator::replica_type::template hook< value_mv_type >(allocator.get_replica(), id)
             , values_(allocator)
@@ -35,6 +42,11 @@ namespace crdt
         {
             set(value);
         }
+
+        //value_mv(value_mv< Value, Allocator >&& other)
+        //    : Allocator::replica_type::template hook< value_mv_type >(other)
+        //    , values_(std::move(other.values_))
+        //{}
 
         Value get() const
         {

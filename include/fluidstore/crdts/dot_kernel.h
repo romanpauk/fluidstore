@@ -13,7 +13,7 @@ namespace crdt
         typedef Allocator allocator_type;
         typedef Value value_type;
 
-        dot_kernel_value(allocator_type allocator)
+        dot_kernel_value(std::allocator_arg_t, allocator_type allocator)
             : value(allocator)
             , dots(allocator)
         {}
@@ -36,7 +36,7 @@ namespace crdt
         typedef Allocator allocator_type;
         typedef void value_type;
 
-        dot_kernel_value(allocator_type allocator)
+        dot_kernel_value(std::allocator_arg_t, allocator_type allocator)
             : dots(allocator)
         {}
 
@@ -93,17 +93,25 @@ namespace crdt
         template < typename Key, typename Value, typename Allocator > friend class map;
 
     protected:
+        typedef std::map< Key, dot_kernel_value< Value, Allocator, ReplicaId, Counter >, std::less< Key >, std::scoped_allocator_adaptor< Allocator > > values_type;
+
         typedef dot< ReplicaId, Counter > dot_type;
         typedef dot_kernel< Key, Value, Allocator, ReplicaId, Counter, Container > dot_kernel_type;
+        typedef dot_kernel_iterator< typename values_type::iterator, Key, Value > iterator;
+        typedef dot_kernel_iterator< typename values_type::const_iterator, Key, Value > const_iterator;
 
         Allocator allocator_;
         dot_context< ReplicaId, Counter, Allocator > counters_;
 
-        std::map< Key, dot_kernel_value< Value, Allocator, ReplicaId, Counter >, std::less< Key >, std::scoped_allocator_adaptor< Allocator > > values_;
-        std::map< dot_type, Key, std::less< dot_type >, Allocator > dots_;
-
-        typedef dot_kernel_iterator< typename decltype(values_)::iterator, Key, Value > iterator;
-        typedef dot_kernel_iterator< typename decltype(values_)::const_iterator, Key, Value > const_iterator;
+        values_type values_;
+        std::map< dot_type, typename values_type::iterator, std::less< dot_type >, Allocator > dots_;
+        
+        struct merge_info
+        {
+            typename values_type::iterator iterator;
+            bool inserted = false;
+            size_t count = 0;
+        };
 
     protected:
         dot_kernel(Allocator allocator)
@@ -116,7 +124,7 @@ namespace crdt
         // TODO:
     public:
         template < typename DotKernel >
-        void merge(const DotKernel& other)
+        void merge(const DotKernel& other, merge_info* info = nullptr)
         {
             arena< 1024 > buffer;
             typedef std::set < dot_type, std::less< dot_type >, arena_allocator<> > dot_set_type;
@@ -128,7 +136,8 @@ namespace crdt
             // Merge values
             for (const auto& [rkey, rdata] : other.values_)
             {
-                auto& ldata = values_[rkey];
+                auto lpb = values_.emplace(rkey, std::allocator_arg);
+                auto& ldata = lpb.first->second;
                 ldata.merge(rdata);
 
                 // Track visited dots
@@ -137,7 +146,15 @@ namespace crdt
                 // Create dot -> key link
                 for (const auto& rdot : rdata.dots)
                 {
-                    dots_[rdot] = rkey;
+                    dots_[rdot] = lpb.first;
+                }
+
+                // Support for insert / emplace pairb result
+                if (info)
+                {
+                    ++info->count;
+                    info->iterator = lpb.first;
+                    info->inserted = lpb.second;
                 }
             }
 
@@ -153,18 +170,11 @@ namespace crdt
                 auto dots_it = dots_.find(rdot);
                 if (dots_it != dots_.end())
                 {
-                    auto& value = dots_it->second;
-
-                    auto values_it = values_.find(value);
-                    assert(values_it != values_.end());
-                    if (values_it != values_.end())
+                    auto values_it = dots_it->second;
+                    values_it->second.dots.erase(rdot);
+                    if (values_it->second.dots.empty())
                     {
-                        values_it->second.dots.erase(rdot);
-
-                        if (values_it->second.dots.empty())
-                        {
-                            values_.erase(values_it);
-                        }
+                        values_.erase(values_it);
                     }
 
                     dots_.erase(dots_it);

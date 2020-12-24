@@ -26,7 +26,7 @@ namespace crdt
             , dot_kernel_type(allocator)
         {}
 
-        /*std::pair< const_iterator, bool >*/ void insert(const Key& key)
+        std::pair< typename dot_kernel_type::iterator, bool > insert(const Key& key)
         {
             arena< 1024 > buffer;
 
@@ -46,8 +46,11 @@ namespace crdt
             delta.counters_.emplace(dot_type{ replica_id, counter });
             delta.values_[key].dots.emplace(dot_type{ replica_id, counter });
 
-            this->merge(delta);
+            merge_info info;
+            this->merge(delta, &info);
             this->allocator_.merge(*this, delta);
+
+            return { info.iterator, info.inserted };
         }
     };
 }

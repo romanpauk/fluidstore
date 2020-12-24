@@ -181,14 +181,14 @@ namespace crdt
         {
             hook(replica_type& replica)
                 : replica_(replica)
-                , instance_(*static_cast< Instance* >(this))
-                , it_(replica_.insert(replica.generate_instance_id(), instance_))
+                , registry_instance_(*static_cast< Instance* >(this))
+                , it_(replica_.insert(replica.generate_instance_id(), registry_instance_))
             {}
 
             hook(replica_type& replica, id_type id)
                 : replica_(replica)
-                , instance_(*static_cast< Instance* >(this))
-                , it_(replica_.insert(id, instance_))
+                , registry_instance_(*static_cast< Instance* >(this))
+                , it_(replica_.insert(id, registry_instance_))
             {}
 
             ~hook()
@@ -200,7 +200,7 @@ namespace crdt
 
         private:
             replica_type& replica_;
-            typename InstanceRegistry::template instance< Instance, delta_allocator_type > instance_;
+            typename InstanceRegistry::template instance< Instance, delta_allocator_type > registry_instance_;
             typename InstanceRegistry::iterator it_;
         };
 
@@ -211,7 +211,6 @@ namespace crdt
 
         template < typename Instance, typename DeltaInstance > void merge(const Instance& target, const DeltaInstance& source)
         {
-            // TODO: we will have to maintain the order of merges so they can be reapplied on different replica without sorting there.
             get_delta_instance(target).merge(source);
             // TODO: We will have to track removals so we can remove removed instances from delta_instances_.
         }
@@ -219,15 +218,6 @@ namespace crdt
         template< typename Instance > void merge(const Instance& source)
         {
             this->instances_.at(source.get_id())->merge(&source);
-            return;
-
-            // TODO: do something with the interface
-            auto it = this->instances_.find(source.get_id());
-            if (it != this->instances_.end())
-            {
-                // TODO: some of the instances are temporary
-                it->second->merge(&source);
-            }
         }
 
         void visit(Visitor& visitor) const
@@ -260,7 +250,7 @@ namespace crdt
             }
             else
             {
-                return dynamic_cast<delta_instance< delta_type >&>(*context);
+                return dynamic_cast< delta_instance< delta_type >& >(*context);
             }
         }
 

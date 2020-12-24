@@ -85,6 +85,8 @@ namespace crdt
 
         Outer& operator++() { ++it_; return static_cast< Outer& >(*this); }
         Outer& operator--() { --it_; return static_cast< Outer& >(*this); }
+        Outer operator++(int) { return it_++; }
+        Outer operator--(int) { return it_--; }
 
     protected:
         Iterator it_;
@@ -207,7 +209,12 @@ namespace crdt
                     values_it->second.dots.erase(rdot);
                     if (values_it->second.dots.empty())
                     {
-                        values_.erase(values_it);
+                        auto it = values_.erase(values_it);
+                        if (context)
+                        {
+                            context->iterator = it;
+                            ++context->count;
+                        }
                     }
 
                     dots_.erase(dots_it);
@@ -228,29 +235,38 @@ namespace crdt
 
         void clear()
         {
-            dot_kernel_type delta(allocator_);
-
-            for (auto& [value, data] : values_)
+            if (!empty())
             {
-                delta.counters_.insert(data.dots.begin(), data.dots.end());
-            }
+                dot_kernel_type delta(allocator_);
 
-            merge(delta);
-            this->allocator_.merge(*static_cast< Container* >(this), delta);
+                for (auto& [value, data] : values_)
+                {
+                    delta.counters_.insert(data.dots.begin(), data.dots.end());
+                }
+
+                merge(delta);
+                this->allocator_.merge(*static_cast<Container*>(this), delta);
+            }
         }
 
-        void erase(const Key& key)
+        size_t erase(const Key& key)
         {
             auto values_it = values_.find(key);
             if (values_it != values_.end())
             {
-                erase(values_it);
+                merge_context< merge_result > context;
+                erase(values_it, &context);
+                return context.count;
             }
+
+            return 0;
         }
 
-        void erase(iterator it)
+        iterator erase(iterator it)
         {
-            erase(it.it_);
+            merge_context< merge_result > context;
+            erase(it.it_, &context);
+            return context.iterator;
         }
 
         bool empty() const
@@ -264,14 +280,14 @@ namespace crdt
         }
 
     private:
-        void erase(typename values_type::iterator it)
+        void erase(typename values_type::iterator it, merge_context< merge_result >* context = nullptr)
         {
             dot_kernel_type delta(allocator_);
 
             auto& dots = it->second.dots;
             delta.counters_.insert(dots.begin(), dots.end());
 
-            merge(delta);
+            merge(delta, context);
             this->allocator_.merge(*static_cast<Container*>(this), delta);
         }
     };

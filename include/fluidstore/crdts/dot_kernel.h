@@ -159,7 +159,7 @@ namespace crdt
         // TODO:
     public:
         template < typename DotKernel >
-        void merge(const DotKernel& other, merge_context< merge_result >* context = nullptr)
+        void merge(const DotKernel& other, merge_result* result = nullptr)
         {
             arena< 1024 > buffer;
             typedef std::set < dot_type, std::less< dot_type >, arena_allocator<> > dot_set_type;
@@ -185,11 +185,11 @@ namespace crdt
                 }
 
                 // Support for insert / emplace pairb result
-                if (context)
+                if (result)
                 {
-                    ++context->count;
-                    context->iterator = lpb.first;
-                    context->inserted = lpb.second;
+                    ++result->count;
+                    result->iterator = lpb.first;
+                    result->inserted = lpb.second;
                 }
             }
 
@@ -210,10 +210,10 @@ namespace crdt
                     if (values_it->second.dots.empty())
                     {
                         auto it = values_.erase(values_it);
-                        if (context)
+                        if (result)
                         {
-                            context->iterator = it;
-                            ++context->count;
+                            result->iterator = it;
+                            ++result->count;
                         }
                     }
 
@@ -280,14 +280,14 @@ namespace crdt
         }
 
     private:
-        void erase(typename values_type::iterator it, merge_context< merge_result >* context = nullptr)
+        void erase(typename values_type::iterator it, merge_result * result = nullptr)
         {
             dot_kernel_type delta(allocator_);
 
             auto& dots = it->second.dots;
             delta.counters_.insert(dots.begin(), dots.end());
 
-            merge(delta, context);
+            merge(delta, result);
             this->allocator_.merge(*static_cast<Container*>(this), delta);
         }
     };

@@ -9,10 +9,12 @@ BOOST_AUTO_TEST_CASE(set_basic_operations)
     crdt::traits::replica_type replica(0, sequence);
     crdt::traits::allocator_type alloc(replica);
     crdt::set< int, decltype(alloc) > set(alloc, { 0, 0 });
+
     BOOST_TEST((set.find(0) == set.end()));
     BOOST_TEST((set.begin() == set.end()));
     BOOST_TEST(set.size() == 0);
     BOOST_TEST(set.empty());
+    BOOST_TEST(set.erase(1) == 0);
 
     auto pb = set.insert(1);
     BOOST_TEST(pb.second == true);
@@ -21,18 +23,20 @@ BOOST_AUTO_TEST_CASE(set_basic_operations)
     BOOST_TEST((*set.find(1) == 1));
     BOOST_TEST((++set.begin() == set.end()));
     BOOST_TEST((set.begin() == --set.end()));
-    pb = set.insert(1);
-    BOOST_TEST(pb.second == false);
     BOOST_TEST(set.size() == 1);
     BOOST_TEST(!set.empty());
 
-    set.erase(1);
+    pb = set.insert(1);
+    BOOST_TEST(pb.second == false);
+    BOOST_TEST((set.erase(pb.first) == set.end()));
     BOOST_TEST((set.find(1) == set.end()));
-    BOOST_TEST(set.size() == 0);
+    BOOST_TEST(set.empty());
+
+    pb = set.insert(1);
+    BOOST_TEST(set.erase(1) == 1);
     BOOST_TEST(set.empty());
 
     set.insert(1);
-    BOOST_TEST(!set.empty());
     size_t iters = 0;
     for (auto& v : set)
     {
@@ -40,6 +44,7 @@ BOOST_AUTO_TEST_CASE(set_basic_operations)
         BOOST_TEST(v == 1);
     }
     BOOST_TEST(iters == 1);
+
     set.clear();
     BOOST_TEST(set.size() == 0);
     BOOST_TEST(set.empty());

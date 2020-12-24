@@ -7,62 +7,68 @@
 
 namespace crdt
 {
-    template < typename Value, typename Allocator, typename ReplicaId, typename Counter > class dot_kernel_value
+    template < typename Value, typename Allocator > class dot_kernel_value
     {
-        typedef dot_kernel_value< Value, Allocator, ReplicaId, Counter > dot_kernel_value_type;
+        typedef dot_kernel_value< Value, Allocator > dot_kernel_value_type;
 
     public:
         typedef Allocator allocator_type;
         typedef Value value_type;
+        typedef typename Allocator::replica_type replica_type;
+        typedef typename replica_type::replica_id_type replica_id_type;
+        typedef typename replica_type::counter_type counter_type;
 
         dot_kernel_value(std::allocator_arg_t, allocator_type allocator)
             : value(allocator)
             , dots(allocator)
         {}
 
-        dot_kernel_value(std::allocator_arg_t, allocator_type allocator, typename allocator_type::replica_type::id_type id)
+        dot_kernel_value(std::allocator_arg_t, allocator_type allocator, typename replica_type::id_type id)
             : value(allocator, id)
             , dots(allocator)
         {}
 
-        template < typename ValueT, typename AllocatorT, typename ReplicaIdT, typename CounterT >
+        template < typename ValueT, typename AllocatorT >
         void merge(
-            const dot_kernel_value< ValueT, AllocatorT, ReplicaIdT, CounterT >& other)
+            const dot_kernel_value< ValueT, AllocatorT >& other)
         {
             dots.insert(other.dots.begin(), other.dots.end());
             value.merge(other.value);
         }
 
-        const typename allocator_type::replica_type::id_type& get_id() const { return value.get_id(); }
+        const typename replica_type::id_type& get_id() const { return value.get_id(); }
 
-        std::set< dot< ReplicaId, Counter >, std::less< dot< ReplicaId, Counter > >, allocator_type > dots;
+        std::set< dot< replica_id_type, counter_type >, std::less< dot< replica_id_type, counter_type > >, allocator_type > dots;
         Value value;
     };
 
-    template < typename Allocator, typename ReplicaId, typename Counter > class dot_kernel_value< void, Allocator, ReplicaId, Counter >
+    template < typename Allocator > class dot_kernel_value< void, Allocator >
     {
     public:
         typedef Allocator allocator_type;
         typedef void value_type;
+        typedef typename Allocator::replica_type replica_type;
+        typedef typename replica_type::replica_id_type replica_id_type;
+        typedef typename replica_type::counter_type counter_type;
 
         dot_kernel_value(std::allocator_arg_t, allocator_type allocator)
             : dots(allocator)
         {}
 
-        dot_kernel_value(std::allocator_arg_t, allocator_type allocator, typename allocator_type::replica_type::id_type)
+        dot_kernel_value(std::allocator_arg_t, allocator_type allocator, typename replica_type::id_type)
             : dots(allocator)
         {}
 
-        template < typename AllocatorT, typename ReplicaIdT, typename CounterT >
+        template < typename AllocatorT >
         void merge(
-            const dot_kernel_value< void, AllocatorT, ReplicaIdT, CounterT >& other)
+            const dot_kernel_value< void, AllocatorT >& other)
         {
             dots.insert(other.dots.begin(), other.dots.end());
         }
 
-        typename allocator_type::replica_type::id_type get_id() const { return typename allocator_type::replica_type::id_type(); }
+        typename const replica_type::id_type& get_id() const { static typename replica_type::id_type id; return id; }
 
-        std::set< dot< ReplicaId, Counter >, std::less< dot< ReplicaId, Counter > >, allocator_type > dots;
+        std::set< dot< replica_id_type, counter_type >, std::less< dot< replica_id_type, counter_type > >, allocator_type > dots;
     };
 
     template < typename Iterator > class dot_kernel_iterator_base
@@ -101,22 +107,26 @@ namespace crdt
         const Key& operator *() { return this->it_->first; }
     };
 
-    template < typename Key, typename Value, typename Allocator, typename ReplicaId, typename Counter, typename Container > class dot_kernel
+    template < typename Key, typename Value, typename Allocator, typename Container > class dot_kernel
     {
-        template < typename Key, typename Value, typename Allocator, typename ReplicaId, typename Counter, typename Container > friend class dot_kernel;
+        template < typename Key, typename Value, typename Allocator, typename Container > friend class dot_kernel;
         template < typename Key, typename Allocator > friend class set;
         template < typename Key, typename Value, typename Allocator > friend class map;
 
     protected:
-        typedef std::map< Key, dot_kernel_value< Value, Allocator, ReplicaId, Counter >, std::less< Key >, std::scoped_allocator_adaptor< Allocator > > values_type;
+        typedef typename Allocator::replica_type replica_type;
+        typedef typename replica_type::replica_id_type replica_id_type;
+        typedef typename replica_type::counter_type counter_type;
 
-        typedef dot< ReplicaId, Counter > dot_type;
-        typedef dot_kernel< Key, Value, Allocator, ReplicaId, Counter, Container > dot_kernel_type;
+        typedef std::map< Key, dot_kernel_value< Value, Allocator >, std::less< Key >, std::scoped_allocator_adaptor< Allocator > > values_type;
+
+        typedef dot< replica_id_type, counter_type > dot_type;
+        typedef dot_kernel< Key, Value, Allocator, Container > dot_kernel_type;
         typedef dot_kernel_iterator< typename values_type::iterator, Key, Value > iterator;
         typedef dot_kernel_iterator< typename values_type::const_iterator, Key, Value > const_iterator;
 
         Allocator allocator_;
-        dot_context< ReplicaId, Counter, Allocator > counters_;
+        dot_context< replica_id_type, counter_type, Allocator > counters_;
 
         values_type values_;
         std::map< dot_type, typename values_type::iterator, std::less< dot_type >, Allocator > dots_;

@@ -7,14 +7,15 @@
 namespace crdt
 {
     template < typename Key, typename Value, typename Allocator > class map
-        : public dot_kernel< Key, Value, Allocator, typename Allocator::replica_type::replica_id_type, typename Allocator::replica_type::counter_type, map< Key, Value, Allocator > >
+        : public dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator > >
         , public Allocator::replica_type::template hook< map< Key, Value, Allocator > >
     {
         typedef map< Key, Value, Allocator > map_type;
-        typedef dot_kernel< Key, Value, Allocator, typename Allocator::replica_type::replica_id_type, typename Allocator::replica_type::counter_type, map_type > dot_kernel_type;
+        typedef dot_kernel< Key, Value, Allocator, map_type > dot_kernel_type;
     
     public:
         typedef Allocator allocator_type;
+        typedef typename Allocator::replica_type replica_type;
 
         template < typename AllocatorT > struct rebind
         {
@@ -22,12 +23,12 @@ namespace crdt
         };
 
         map(Allocator allocator)
-            : Allocator::replica_type::template hook< map_type >(allocator.get_replica())
+            : replica_type::template hook< map_type >(allocator.get_replica())
             , dot_kernel_type(allocator)
         {}
 
         map(Allocator allocator, typename Allocator::replica_type::id_type id)
-            : Allocator::replica_type::template hook< map_type >(allocator.get_replica(), id)
+            : replica_type::template hook< map_type >(allocator.get_replica(), id)
             , dot_kernel_type(allocator)
         {}
 
@@ -37,7 +38,7 @@ namespace crdt
 
             auto replica_id = this->allocator_.get_replica().get_id();
 
-            replica< typename Allocator::replica_type::replica_id_type, typename Allocator::replica_type::instance_id_type, typename Allocator::replica_type::counter_type > rep(replica_id, this->allocator_.get_replica().get_sequence());
+            replica< typename replica_type::replica_id_type, typename replica_type::instance_id_type, typename replica_type::counter_type > rep(replica_id, this->allocator_.get_replica().get_sequence());
             allocator< decltype(rep) > allocator2(rep);
             arena_allocator< void, decltype(allocator2) > allocator3(buffer, allocator2);
             map< Key, typename Value::template rebind< decltype(allocator3) >::type, decltype(allocator3) > delta(allocator3, this->get_id());

@@ -31,28 +31,25 @@ namespace crdt
         std::pair< typename dot_kernel_type::iterator, bool > insert(const Key& key)
         {
             arena< 1024 > buffer;
+            arena_allocator< void, allocator< typename replica_type::delta_replica_type > > allocator(buffer, delta_replica_);
+            typename rebind< decltype(allocator) >::type delta(allocator, this->get_id());
+            // set_type delta(this->allocator_, this->get_id());
 
-            //arena_allocator< void, Allocator > alloc(buffer, this->allocator_);
-            //dot_kernel_set< Key, decltype(alloc), ReplicaId, Counter, InstanceId > delta(alloc, this->get_id());
-
-            auto replica_id = this->allocator_.get_replica().get_id();
-
-            replica< typename replica_type::replica_id_type, typename replica_type::instance_id_type, typename replica_type::counter_type > rep(replica_id, this->allocator_.get_replica().get_sequence());
-            allocator< decltype(rep) > allocator2(rep);
-            arena_allocator< void, decltype(allocator2) > allocator3(buffer, allocator2);
-            set< Key, decltype(allocator3) > delta(allocator3, this->get_id());
-
-            // set_base_type delta(this->allocator_, this->get_id());
-
-            auto counter = this->counters_.get(replica_id) + 1;
-            delta.counters_.emplace(dot_type{ replica_id, counter });
-            delta.values_[key].dots.emplace(dot_type{ replica_id, counter });
-
+            insert(delta, key);
+         
             merge_result result;
             this->merge(delta, &result);
             this->allocator_.merge(*this, delta);
 
             return { result.iterator, result.inserted };
+        }
+
+        template < typename Delta > void insert(Delta& delta, const Key& key)
+        {
+            auto replica_id = this->allocator_.get_replica().get_id();
+            auto counter = this->counters_.get(replica_id) + 1;
+            delta.counters_.emplace(dot_type{ replica_id, counter });
+            delta.values_[key].dots.emplace(dot_type{ replica_id, counter });
         }
     };
 }

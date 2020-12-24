@@ -52,12 +52,15 @@ namespace crdt
 
         void set(Value value)
         {
-            // TODO: those are two merges, should be one. It is easy for this case when the container is the same,
-            // but in general this should be supported for different container types. And that is what replica does now, 
-            // it gathers different delta types for later processing.
-            
-            values_.clear();
-            values_.insert(value);
+            arena< 1024 > buffer;
+            arena_allocator< void, allocator< typename Allocator::replica_type::delta_replica_type > > allocator(buffer, values_.delta_replica_);
+            typename decltype(values_)::template rebind< decltype(allocator) >::type delta(allocator, this->get_id());
+
+            values_.clear(delta);
+            values_.insert(delta, value);
+
+            values_.merge(delta);
+            values_.get_allocator().merge(values_, delta);
         }
 
         template < typename ValueMv > void merge(const ValueMv& other)

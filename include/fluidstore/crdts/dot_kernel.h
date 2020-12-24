@@ -122,6 +122,7 @@ namespace crdt
         template < typename Key, typename Value, typename Allocator, typename Container > friend class dot_kernel;
         template < typename Key, typename Allocator > friend class set;
         template < typename Key, typename Value, typename Allocator > friend class map;
+        template < typename Key, typename Allocator > friend class value_mv;
 
     protected:
         typedef typename Allocator::replica_type replica_type;
@@ -141,6 +142,8 @@ namespace crdt
         values_type values_;
         std::map< dot_type, typename values_type::iterator, std::less< dot_type >, Allocator > dots_;
         
+        typename replica_type::delta_replica_type delta_replica_;
+
         struct merge_result
         {
             typename values_type::iterator iterator;
@@ -154,6 +157,7 @@ namespace crdt
             , values_(allocator)
             , counters_(allocator)
             , dots_(allocator)
+            , delta_replica_(allocator.get_replica()) 
         {}
 
         // TODO:
@@ -226,6 +230,8 @@ namespace crdt
         }
 
     public:
+        Allocator& get_allocator() { return allocator_; };
+
         const_iterator begin() const { return values_.begin(); }
         iterator begin() { return values_.begin(); }
         const_iterator end() const { return values_.end(); }
@@ -238,14 +244,17 @@ namespace crdt
             if (!empty())
             {
                 dot_kernel_type delta(allocator_);
-
-                for (auto& [value, data] : values_)
-                {
-                    delta.counters_.insert(data.dots.begin(), data.dots.end());
-                }
-
+                clear(delta);
                 merge(delta);
                 this->allocator_.merge(*static_cast<Container*>(this), delta);
+            }
+        }
+
+        template < typename Delta > void clear(Delta& delta)
+        {
+            for (auto& [value, data] : values_)
+            {
+                delta.counters_.insert(data.dots.begin(), data.dots.end());
             }
         }
 

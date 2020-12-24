@@ -29,12 +29,16 @@ namespace crdt
         Id id_;
     };
 
-    template < typename ReplicaId, typename InstanceId, typename Counter, typename InstanceRegistry = empty_instance_registry< std::pair< ReplicaId, InstanceId > > > class replica
+    template < typename ReplicaId, typename InstanceId, typename Counter, 
+        typename InstanceRegistry = empty_instance_registry< std::pair< ReplicaId, InstanceId > > > class replica
         : noncopyable
         , public InstanceRegistry
     {
+        template < typename ReplicaIdT, typename InstanceIdT, typename CounterT, typename InstanceRegistryT > friend class replica;
+
     public:
         typedef replica< ReplicaId, InstanceId, Counter, InstanceRegistry > replica_type;
+        typedef replica_type delta_replica_type;
         typedef ReplicaId replica_id_type;
         typedef ReplicaId instance_id_type;
         typedef Counter counter_type;
@@ -60,6 +64,11 @@ namespace crdt
         replica(const ReplicaId& id, id_sequence< InstanceId >& seq)
             : id_(id)
             , sequence_(seq)
+        {}
+
+        template < typename ReplicaT > replica(ReplicaT& other)
+            : id_(other.id_)
+            , sequence_(other.sequence_)
         {}
 
         const ReplicaId& get_id() const { return id_; }

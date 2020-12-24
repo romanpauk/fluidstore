@@ -75,37 +75,38 @@ namespace crdt
 
     template < typename Id > class instance_registry
     {
-        struct registered_instance_base
+    public:
+        struct instance_base
         {
-            virtual ~registered_instance_base() {}
+            virtual ~instance_base() {}
             virtual void merge(const void*) = 0;
         };
 
-        template < typename Instance, typename Allocator > struct registered_instance : registered_instance_base
+        template < typename Instance, typename Allocator > struct instance : instance_base
         {
-            registered_instance(Instance& instance)
-                : instance_(instance)
+            instance(Instance& i)
+                : instance_(i)
             {}
 
-            void merge(const void* instance)
+            void merge(const void* i)
             {
                 typedef typename Instance::template rebind< Allocator >::type delta_type;
-                auto instance_ptr = reinterpret_cast<const delta_type*>(instance);
+                auto instance_ptr = reinterpret_cast<const delta_type*>(i);
                 instance_.merge(*instance_ptr);
             }
 
             Instance& instance_;
         };
 
-        typedef std::map< Id, std::unique_ptr< registered_instance_base > > instances_type;
+        typedef std::map< Id, instance_base* > instances_type;
 
     public:
         typedef Id id_type;
         typedef typename instances_type::iterator iterator;
 
-        template < typename Allocator, typename Instance > iterator insert(const Id& id, Instance& instance)
+        iterator insert(const Id& id, instance_base& i)
         {
-            auto [it, inserted] = instances_.emplace(id, std::make_unique< registered_instance< Instance, Allocator > >(instance));
+            auto [it, inserted] = instances_.emplace(id, &i);
             assert(inserted);
 
             if (!inserted)
@@ -180,12 +181,14 @@ namespace crdt
         {
             hook(replica_type& replica)
                 : replica_(replica)
-                , it_(replica_.insert< delta_allocator_type >(replica.generate_instance_id(), *static_cast<Instance*>(this)))
+                , instance_(*static_cast< Instance* >(this))
+                , it_(replica_.insert(replica.generate_instance_id(), instance_))
             {}
 
             hook(replica_type& replica, id_type id)
                 : replica_(replica)
-                , it_(replica_.insert< delta_allocator_type >(id, *static_cast<Instance*>(this)))
+                , instance_(*static_cast< Instance* >(this))
+                , it_(replica_.insert(id, instance_))
             {}
 
             ~hook()
@@ -197,7 +200,8 @@ namespace crdt
 
         private:
             replica_type& replica_;
-            typename replica_type::iterator it_;
+            typename InstanceRegistry::template instance< Instance, delta_allocator_type > instance_;
+            typename InstanceRegistry::iterator it_;
         };
 
         aggregating_replica(ReplicaId replica_id, id_sequence< InstanceId >& seq)

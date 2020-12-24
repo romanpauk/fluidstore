@@ -52,7 +52,10 @@ namespace crdt
 
         void set(Value value)
         {
-            // TODO: those are two merges, should be one.
+            // TODO: those are two merges, should be one. It is easy for this case when the container is the same,
+            // but in general this should be supported for different container types. And that is what replica does now, 
+            // it gathers different delta types for later processing.
+            
             values_.clear();
             values_.insert(value);
         }

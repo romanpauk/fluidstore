@@ -48,11 +48,11 @@ namespace crdt
             delta.counters_.emplace(dot_type{ replica_id, counter });
             delta.values_[key].dots.emplace(dot_type{ replica_id, counter });
 
-            merge_info info;
-            this->merge(delta, &info);
+            merge_context< merge_result > context;
+            this->merge(delta, &context);
             this->allocator_.merge(*this, delta);
 
-            return { info.iterator, info.inserted };
+            return { context.iterator, context.inserted };
         }
     };
 }

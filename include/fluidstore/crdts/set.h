@@ -1,6 +1,7 @@
 #pragma once
 
 #include <fluidstore/crdts/dot_kernel.h>
+#include <fluidstore/allocators/arena_allocator.h>
 
 namespace crdt
 {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <fluidstore/crdts/noncopyable.h>
+#include <fluidstore/crdts/allocator.h>
 
 #include <deque>
 

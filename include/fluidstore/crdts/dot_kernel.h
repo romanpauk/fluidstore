@@ -71,37 +71,40 @@ namespace crdt
         std::set< dot< replica_id_type, counter_type >, std::less< dot< replica_id_type, counter_type > >, allocator_type > dots;
     };
 
-    template < typename Iterator > class dot_kernel_iterator_base
+    template < typename Iterator, typename Outer > class dot_kernel_iterator_base
     {
     public:
         dot_kernel_iterator_base(Iterator it)
             : it_(it)
         {}
 
-        bool operator == (const dot_kernel_iterator_base< Iterator >& other) const { return it_ == other.it_; }
-        bool operator != (const dot_kernel_iterator_base< Iterator >& other) const { return it_ != other.it_; }
+        bool operator == (const dot_kernel_iterator_base< Iterator, Outer >& other) const { return it_ == other.it_; }
+        bool operator != (const dot_kernel_iterator_base< Iterator, Outer >& other) const { return it_ != other.it_; }
+
+        Outer& operator++() { ++it_; return static_cast< Outer& >(*this); }
+        Outer& operator--() { --it_; return static_cast< Outer& >(*this); }
 
     protected:
         Iterator it_;
     };
 
     template < typename Iterator, typename Key, typename Value > class dot_kernel_iterator
-        : public dot_kernel_iterator_base< Iterator >
+        : public dot_kernel_iterator_base< Iterator, dot_kernel_iterator< Iterator, Key, Value > >
     {
     public:
         dot_kernel_iterator(Iterator it)
-            : dot_kernel_iterator_base< Iterator >(it)
+            : dot_kernel_iterator_base< Iterator, dot_kernel_iterator< Iterator, Key, Value > >(it)
         {}
 
         std::pair< const Key&, Value& > operator *() { return { this->it_->first, this->it_->second.value }; } 
     };
 
     template < typename Iterator, typename Key > class dot_kernel_iterator< Iterator, Key, void >
-        : public dot_kernel_iterator_base< Iterator >
+        : public dot_kernel_iterator_base< Iterator, dot_kernel_iterator< Iterator, Key, void > >
     {
     public:
         dot_kernel_iterator(Iterator it)
-            : dot_kernel_iterator_base< Iterator >(it)
+            : dot_kernel_iterator_base< Iterator, dot_kernel_iterator< Iterator, Key, void > >(it)
         {}
 
         const Key& operator *() { return this->it_->first; }
@@ -161,7 +164,6 @@ namespace crdt
             // Merge values
             for (const auto& [rkey, rdata] : other.values_)
             {
-                // TODO: if this is insert of one element, we should not continue if insertion was not done
                 auto lpb = values_.emplace(rkey, rdata.get_id());
                 auto& ldata = lpb.first->second;
                 ldata.merge(rdata);

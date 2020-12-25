@@ -16,9 +16,9 @@ namespace crdt
             : counters_(allocator)
         {}
 
-        template < typename Dot > void emplace(Dot&& dot)
+        template < typename... Args > void emplace(Args&&... args)
         {
-            counters_.emplace(std::forward< Dot >(dot));
+            counters_.emplace(std::forward< Args >(args)...);
         }
 
         template < typename It > void insert(It begin, It end)
@@ -26,14 +26,9 @@ namespace crdt
             counters_.insert(begin, end);
         }
 
-        bool find(const dot< ReplicaId, Counter >& dot) const
+        auto find(const dot< ReplicaId, Counter >& dot) const
         {
-            return counters_.find(dot) != counters_.end();
-        }
-
-        void remove(const dot< ReplicaId, Counter >& dot)
-        {
-            counters_.erase(dot);
+            return counters_.find(dot);
         }
 
         Counter get(const ReplicaId& replica_id) const
@@ -88,6 +83,10 @@ namespace crdt
                 }
             }
         }
+
+        auto begin() const { return counters_.begin(); }
+        auto end() const { return counters_.end(); }
+        auto size() const { return counters_.size(); }
 
     private:
         std::set< dot< ReplicaId, Counter >, std::less< dot< ReplicaId, Counter > >, allocator_type > counters_;

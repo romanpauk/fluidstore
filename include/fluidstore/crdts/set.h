@@ -50,8 +50,8 @@ namespace crdt
         {
             auto replica_id = this->allocator_.get_replica().get_id();
             auto counter = this->counters_.get(replica_id) + 1;
-            delta.counters_.emplace(dot_type{ replica_id, counter });
-            delta.values_[key].dots.emplace(dot_type{ replica_id, counter });
+            delta.counters_.emplace(replica_id, counter);
+            delta.values_[key].dots.emplace(replica_id, counter);
         }
     };
 }

@@ -85,7 +85,7 @@ BOOST_AUTO_TEST_CASE(set_delta)
     set1.clear();
     set2.merge(set1.extract_delta());
 
-    // When merging to delta, we can't collapse coun
+    // When merging to delta, we can't collapse counters
     BOOST_TEST(set2.size() == 1);
 }
 

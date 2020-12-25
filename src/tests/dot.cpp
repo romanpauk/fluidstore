@@ -67,7 +67,7 @@ template < typename Fn > double measure(Fn fn)
 typedef crdt::allocator < crdt::replica<> > delta_allocator_type;
 
 struct visitor;
-typedef crdt::aggregating_replica< uint64_t, uint64_t, uint64_t, delta_allocator_type, visitor > replica_type;
+typedef crdt::aggregating_replica< uint64_t, uint64_t, uint64_t, crdt::arena_allocator< void, delta_allocator_type >, visitor > replica_type;
 
 struct visitor
 {
@@ -118,13 +118,19 @@ BOOST_AUTO_TEST_CASE(dot_test_set_insert_performance)
     auto t3 = measure([]
     {
         crdt::id_sequence<> sequence;
+        
+        crdt::arena< 32768 > arena;
         crdt::replica<> delta_replica(1, sequence);
-        crdt::allocator< crdt::replica<> > delta_allocator(delta_replica);
-        replica_type replica(1, sequence, delta_allocator);
-        crdt::allocator< replica_type > allocator(replica);
+
+        replica_type replica(1, sequence, [&]
+        {
+            return crdt::arena_allocator< void, crdt::allocator< crdt::replica<> > >(arena, delta_replica);
+        });
 
         for (size_t x = 0; x < Outer; ++x)
         {            
+            crdt::allocator< replica_type > allocator(replica);
+
             crdt::set< size_t, decltype(allocator) > set(allocator, { 0, 1 });
 
             for (size_t i = 0; i < Inner; ++i)

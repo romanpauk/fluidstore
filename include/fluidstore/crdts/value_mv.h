@@ -60,7 +60,7 @@ namespace crdt
             values_.insert(delta, value);
 
             values_.merge(delta);
-            values_.get_allocator().merge(values_, delta);
+            values_.get_allocator().get_replica().merge(values_, delta);
         }
 
         template < typename ValueMv > void merge(const ValueMv& other)

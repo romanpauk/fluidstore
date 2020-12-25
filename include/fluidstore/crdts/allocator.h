@@ -24,7 +24,7 @@ namespace crdt
 
         template < typename... Args > allocator(Replica& replica, Args&&... args)
             : Allocator(std::forward< Args >(args)...)
-            , replica_(replica)
+            , replica_(&replica)
         {}
 
         template < typename U, typename AllocatorU > allocator(const allocator< Replica, U, AllocatorU >& other)
@@ -32,14 +32,15 @@ namespace crdt
             , replica_(other.replica_)
         {}
 
-        auto& get_replica() const { return replica_; }
-
-        template < typename Instance, typename DeltaInstance > void merge(const Instance& instance, const DeltaInstance& delta_instance)
+        allocator< Replica, T, Allocator >& operator = (const allocator< Replica, T, Allocator >& other)
         {
-            replica_.merge(instance, delta_instance);
+            replica_ = other.replica_;
+            return *this;
         }
 
+        auto& get_replica() const { return *replica_; }
+
     private:
-        Replica& replica_;
+        Replica* replica_;
     };
 }

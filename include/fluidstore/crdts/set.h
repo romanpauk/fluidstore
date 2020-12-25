@@ -39,7 +39,7 @@ namespace crdt
          
             merge_result result;
             this->merge(delta, &result);
-            this->allocator_.merge(*this, delta);
+            this->allocator_.get_replica().merge(*this, delta);
 
             return { result.iterator, result.inserted };
         }

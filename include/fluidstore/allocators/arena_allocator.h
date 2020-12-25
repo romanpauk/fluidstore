@@ -19,6 +19,14 @@ namespace crdt
 
         bool operator == (const arena_base& arena) { return base_ == arena.base_; }
 
+        arena_base& operator = (const arena_base& other)
+        {
+            base_ = other.base_;
+            current_ = other.current_;
+            end_ = other.end_;
+            return *this;
+        }
+
     private:
         unsigned char* base_;
         unsigned char* current_;
@@ -60,6 +68,12 @@ namespace crdt
             , Allocator(alloc)
         {}
 
+        arena_allocator< T, Allocator >& operator = (const arena_allocator< T, Allocator >& other)
+        {
+            arena_ = other.arena_;
+            return *this;
+        }
+
         value_type* allocate(std::size_t n)
         {
             unsigned char* ptr = (unsigned char*)(uintptr_t(arena_.current_ + alignof(value_type) - 1) & ~(alignof(value_type) - 1));
@@ -95,7 +109,6 @@ namespace crdt
 
     private:
         arena_base& arena_;
-
     };
 
     template < typename T, typename U, typename Allocator > bool operator == (arena_allocator< T, Allocator > const& lhs, arena_allocator< U, Allocator > const& rhs) noexcept

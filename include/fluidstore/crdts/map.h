@@ -47,7 +47,7 @@ namespace crdt
             
             merge_result result;
             this->merge(delta, &result);
-            this->allocator_.merge(*this, delta);
+            this->allocator_.get_replica().merge(*this, delta);
             return { result.iterator, result.inserted };
         }
 
@@ -71,7 +71,7 @@ namespace crdt
         }
 
     private:
-        template < typename Delta > void insert(Delta& delta, const Key& key, const Value& value)
+        template < typename Delta, typename ValueT > void insert(Delta& delta, const Key& key, const ValueT& value)
         {
             auto replica_id = this->allocator_.get_replica().get_id();
             auto counter = this->counters_.get(replica_id) + 1;

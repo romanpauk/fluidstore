@@ -13,6 +13,7 @@ namespace crdt
     public:
         typedef replica< ReplicaId, InstanceId, Counter > replica_type;
         typedef replica_type delta_replica_type;
+        
         typedef ReplicaId replica_id_type;
         typedef InstanceId instance_id_type;
         typedef Counter counter_type;
@@ -55,4 +56,29 @@ namespace crdt
         ReplicaId id_;
         id_sequence< InstanceId >& sequence_;
     };
+
+    /*
+    template < typename Instance, typename ReplicaId = uint64_t, typename InstanceId = uint64_t, typename Counter = uint64_t > class delta_replica
+        : replica< ReplicaId, InstanceId, Counter >
+    {
+        template < typename Instance, typename ReplicaIdT, typename InstanceIdT, typename CounterT > friend class delta_replica;
+
+    public:
+        delta_replica(const ReplicaId& id, id_sequence< InstanceId >& seq)
+            : replica< ReplicaId, InstanceId, Counter >(id, seq)
+        {}
+
+        template < typename ReplicaT > delta_replica(ReplicaT& other)
+            : replica< ReplicaId, InstanceId, Counter >(other)
+        {}
+
+        template < typename Instance, typename DeltaInstance > void merge(const Instance& instance, const DeltaInstance& delta) 
+        {
+            instance_.merge(delta);
+        }
+
+    private:
+        Instance& instance_;
+    };
+    */
 }

@@ -4,45 +4,56 @@
 
 #include <boost/test/unit_test.hpp>
 
-BOOST_AUTO_TEST_CASE(set_basic_operations)
+typedef boost::mpl::list<int, double, std::string > test_types;
+BOOST_AUTO_TEST_CASE_TEMPLATE(set_basic_operations, T, test_types)
 {
     crdt::id_sequence<> sequence;
     crdt::replica<> replica(0, sequence);
     crdt::allocator<> alloc(replica);
-    crdt::set< int, decltype(alloc) > set(alloc, { 0, 0 });
+    crdt::set< T, decltype(alloc) > set(alloc, { 0, 0 });
 
-    BOOST_TEST((set.find(0) == set.end()));
+    auto value0 = boost::lexical_cast<T>(0);
+    auto value1 = boost::lexical_cast<T>(1);
+
+    // Empty set
+    BOOST_TEST((set.find(value0) == set.end()));
     BOOST_TEST((set.begin() == set.end()));
     BOOST_TEST(set.size() == 0);
     BOOST_TEST(set.empty());
-    BOOST_TEST(set.erase(1) == 0);
+    BOOST_TEST(set.erase(value0) == 0);
 
-    auto pb = set.insert(1);
+    // Insert element
+    auto pb = set.insert(value1);
     BOOST_TEST(pb.second == true);
-    BOOST_TEST((pb.first == set.find(1)));
-    BOOST_TEST((set.find(1) != set.end()));
-    BOOST_TEST((*set.find(1) == 1));
+    BOOST_TEST((pb.first == set.find(value1)));
+    BOOST_TEST((set.find(value1) != set.end()));
+    BOOST_TEST((*set.find(value1) == value1));
     BOOST_TEST((++set.begin() == set.end()));
     BOOST_TEST((set.begin() == --set.end()));
     BOOST_TEST(set.size() == 1);
     BOOST_TEST(!set.empty());
 
-    pb = set.insert(1);
+    // Insert second time, erase by iterator
+    pb = set.insert(value1);
     BOOST_TEST(pb.second == false);
+    BOOST_TEST(set.size() == 1);
     BOOST_TEST((set.erase(pb.first) == set.end()));
-    BOOST_TEST((set.find(1) == set.end()));
+    BOOST_TEST((set.find(value1) == set.end()));
     BOOST_TEST(set.empty());
 
-    pb = set.insert(1);
-    BOOST_TEST(set.erase(1) == 1);
+    // Insert, erase by key
+    pb = set.insert(value1);
+    BOOST_TEST(pb.second == true);
+    BOOST_TEST(set.erase(value1) == 1);
     BOOST_TEST(set.empty());
 
-    set.insert(1);
+    // Iterate
+    set.insert(value1);
     size_t iters = 0;
     for (auto& v : set)
     {
         ++iters;
-        BOOST_TEST(v == 1);
+        BOOST_TEST(v == value1);
     }
     BOOST_TEST(iters == 1);
 
@@ -64,16 +75,24 @@ BOOST_AUTO_TEST_CASE(set_merge)
     crdt::set< int, decltype(alloc2) > set2(alloc2, { 2, 1 });
 
     set1.insert(1);
-    set2.insert(2);
+    set2.merge(set1);
+    BOOST_TEST(set2.size() == 1);
+    BOOST_TEST((set2.find(1) != set2.end()));
+    
+    set2.erase(1);    
+    set1.merge(set2);
+    BOOST_TEST(set1.empty());
+    BOOST_TEST((set1.find(1) == set1.end()));
 
+    set2.insert(22);
+    set2.insert(222);
     set1.merge(set2);
     BOOST_TEST(set1.size() == 2);
-    set2.merge(set1);
-    BOOST_TEST(set2.size() == 2);
-    set2.erase(1);
+
+    // TODO: this does not pass, as crdt counters are collapsed. The issue is that we are not merging proper delta, but collapsed one.
+    set2.clear();
+    set1.insert(11);
     set1.merge(set2);
     BOOST_TEST(set1.size() == 1);
-    set2.clear();
-    set1.merge(set2);
-    BOOST_TEST(set1.size() == 0);
+    BOOST_TEST((set1.find(11) != set1.end()));
 }

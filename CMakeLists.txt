@@ -11,8 +11,8 @@ add_library(fluidstore INTERFACE)
 target_include_directories(fluidstore INTERFACE include)
 
 target_sources(fluidstore INTERFACE
-    include/fluidstore/crdts/aggregating_replica.h  
     include/fluidstore/crdts/allocator.h
+    include/fluidstore/crdts/delta_replica.h  
     include/fluidstore/crdts/dot.h
     include/fluidstore/crdts/dot_context.h
     include/fluidstore/crdts/dot_kernel.h

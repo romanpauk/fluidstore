@@ -27,6 +27,7 @@ namespace crdt
         }
 
         bool operator == (const Value& value) const { return value_ == value; }
+        bool operator == (const value< Value, Allocator >& other) const { return value_ == other.value_; }
 
     private:
         Value value_;

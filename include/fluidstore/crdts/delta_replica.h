@@ -12,11 +12,11 @@ namespace crdt
         template < typename T > void visit(T) {}
     };
 
-    template < typename ReplicaId, typename InstanceId, typename Counter, typename DeltaAllocator, typename Visitor = empty_visitor > class aggregating_replica
+    template < typename ReplicaId, typename InstanceId, typename Counter, typename DeltaAllocator, typename Visitor = empty_visitor > class delta_replica
         : public replica< ReplicaId, InstanceId, Counter >
     {
     public:
-        typedef aggregating_replica< ReplicaId, InstanceId, Counter, DeltaAllocator, Visitor > aggregating_replica_type;
+        typedef delta_replica< ReplicaId, InstanceId, Counter, DeltaAllocator, Visitor > delta_replica_type;
         typedef replica< ReplicaId, InstanceId, Counter > replica_type;
         
         using replica_type::replica_id_type;
@@ -186,7 +186,7 @@ namespace crdt
     public:
         template< typename Instance > struct hook
         {
-            hook(aggregating_replica_type& replica, id_type id)
+            hook(delta_replica_type& replica, id_type id)
                 : replica_(replica)
                 , instance_(*static_cast<Instance*>(this))
                 , instance_it_(replica_.instance_registry_.insert(id, instance_))
@@ -205,7 +205,7 @@ namespace crdt
             const id_type& get_id() const { return instance_it_->first; }
 
         private:
-            aggregating_replica_type& replica_;
+            delta_replica_type& replica_;
 
             typename instance_registry::template instance< Instance, DeltaAllocator > instance_;
             typename instance_registry::iterator instance_it_;
@@ -214,7 +214,7 @@ namespace crdt
             mutable typename delta_registry::instance_base* delta_instance_;
         };
 
-        aggregating_replica(
+        delta_replica(
             ReplicaId replica_id, 
             id_sequence< InstanceId >& sequence, 
             std::function< DeltaAllocator() > delta_allocator_factory

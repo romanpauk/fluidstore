@@ -142,8 +142,6 @@ namespace crdt
         values_type values_;
         std::map< dot_type, typename values_type::iterator, std::less< dot_type >, Allocator > dots_;
         
-        typename replica_type::delta_replica_type delta_replica_;
-
         struct merge_result
         {
             typename values_type::iterator iterator;
@@ -156,8 +154,7 @@ namespace crdt
             : allocator_(allocator)
             , values_(allocator)
             , counters_(allocator)
-            , dots_(allocator)
-            , delta_replica_(allocator.get_replica()) 
+            , dots_(allocator) 
         {}
 
         // TODO:
@@ -204,7 +201,7 @@ namespace crdt
                 std::inserter(rdotsvalueless, rdotsvalueless.end())
             );
 
-            for (auto& rdot : rdotsvalueless)
+            for (const auto& rdot : rdotsvalueless)
             {
                 auto dots_it = dots_.find(rdot);
                 if (dots_it != dots_.end())

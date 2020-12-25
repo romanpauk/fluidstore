@@ -53,7 +53,7 @@ namespace crdt
         void set(Value value)
         {
             arena< 1024 > buffer;
-            arena_allocator< void, allocator< typename Allocator::replica_type::delta_replica_type > > allocator(buffer, values_.delta_replica_);
+            arena_allocator< void, allocator< typename Allocator::replica_type::delta_replica_type > > allocator(buffer, values_.get_allocator().get_replica());
             typename decltype(values_)::template rebind< decltype(allocator) >::type delta(allocator, this->get_id());
 
             values_.clear(delta);
@@ -81,6 +81,7 @@ namespace crdt
         }
 
         bool operator == (const Value& value) const { return get() == value; }
+        bool operator == (const value_mv< Value, Allocator >& other) const { return get() == other.get(); }
 
     private:
         crdt::set< Value, Allocator > values_;

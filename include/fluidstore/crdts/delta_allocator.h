@@ -1,0 +1,37 @@
+#pragma once
+
+namespace crdt
+{
+    template < typename T > class delta_allocator
+        : public T::allocator_type
+    {
+    public:
+        template < typename Instance > struct hook
+        {
+            // friend class T;
+
+            hook()
+                : delta_(static_cast<Instance*>(this)->get_allocator(), static_cast<Instance*>(this)->get_id())
+            {}
+
+            T extract_delta()
+            {
+                T delta(static_cast<Instance*>(this)->get_allocator(), static_cast<Instance*>(this)->get_id());
+                std::swap(delta, delta_);
+                return delta;
+            }
+
+            // private:
+            T delta_;
+        };
+
+        template < typename... Args > delta_allocator(Args&&... args)
+            : T::allocator_type(std::forward< Args >(args)...)
+        {}
+
+        template < typename Instance, typename DeltaInstance > void merge(Instance& target, const DeltaInstance& source)
+        {
+            target.delta_.merge(source);
+        }
+    };
+}

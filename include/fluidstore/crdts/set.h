@@ -8,6 +8,7 @@ namespace crdt
     template < typename Key, typename Allocator > class set
         : public dot_kernel< Key, void, Allocator, set< Key, Allocator > >
         , public Allocator::replica_type::template hook< set< Key, Allocator > >
+        , public Allocator::template hook< set< Key, Allocator > >
     {
         typedef set< Key, Allocator > set_type;
         typedef dot_kernel< Key, void, Allocator, set_type > dot_kernel_type;
@@ -20,11 +21,13 @@ namespace crdt
 
         set(Allocator allocator)
             : replica_type::template hook< set_type >(allocator.get_replica(), allocator.get_replica().generate_instance_id())
+            , allocator_type::template hook< set_type >()
             , dot_kernel_type(allocator)
         {}
 
         set(Allocator allocator, typename Allocator::replica_type::id_type id)
             : replica_type::template hook< set_type >(allocator.get_replica(), id)
+            , allocator_type::template hook< set_type >()
             , dot_kernel_type(allocator)
         {}
 
@@ -39,8 +42,7 @@ namespace crdt
          
             merge_result result;
             this->merge(delta, &result);
-            this->allocator_.get_replica().merge(*this, delta);
-
+            this->allocator_.merge(*this, delta);
             return { result.iterator, result.inserted };
         }
 

@@ -60,30 +60,30 @@ namespace crdt
         {
             if (counters_.size() > 1)
             {
-                auto it = counters_.begin();
-                auto d = *it++;
-                for (; it != counters_.end();)
+                auto next = counters_.begin();
+                auto prev = next++;
+                for (; next != counters_.end();)
                 {
-                    if (it->replica_id == d.replica_id)
+                    if (next->replica_id == prev->replica_id)
                     {
-                        if (it->counter == d.counter + 1)
+                        if (next->counter == prev->counter + 1)
                         {
-                            it = counters_.erase(it);
+                            prev = counters_.erase(prev);
+                            ++next;
                         }
                         else
                         {
-                            it = counters_.upper_bound({ d.replica_id, std::numeric_limits< Counter >::max() });
-                            if (it != counters_.end())
+                            next = counters_.upper_bound({ next->replica_id, std::numeric_limits< Counter >::max() });
+                            if (next != counters_.end())
                             {
-                                d = *it;
-                                ++it;
+                                prev = next++;
                             }
                         }
                     }
                     else
                     {
-                        d = *it;
-                        ++it;
+                        prev = next;
+                        ++next;
                     }
                 }
             }

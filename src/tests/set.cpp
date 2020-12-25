@@ -1,5 +1,5 @@
 #include <fluidstore/crdts/set.h>
-#include <fluidstore/crdts/replica.h>
+#include <fluidstore/crdts/delta_allocator.h>
 #include <fluidstore/crdts/allocator.h>
 
 #include <boost/test/unit_test.hpp>
@@ -62,37 +62,60 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_basic_operations, T, test_types)
     BOOST_TEST(set.empty());
 }
 
+BOOST_AUTO_TEST_CASE(set_delta)
+{
+    crdt::id_sequence<> sequence;
+    crdt::replica<> replica1(1, sequence);
+    crdt::delta_allocator< crdt::set< int, crdt::allocator<> > > allocator1(replica1);
+
+    crdt::replica<> replica2(2, sequence);
+    crdt::delta_allocator< crdt::set< int, crdt::allocator<> > > allocator2(replica2);
+
+    crdt::set< int, decltype(allocator1) > set1(allocator1, { 1, 1 });
+    crdt::set< int, decltype(allocator2) > set2(allocator2, { 2, 1 });
+    
+    set1.insert(1);
+    set1.insert(2);
+    set1.insert(3);
+
+    // Conflicting insert of 1, non-observed by set 1
+    set2.insert(1);
+
+    set2.merge(set1.extract_delta());
+    set1.clear();
+    set2.merge(set1.extract_delta());
+
+    // When merging to delta, we can't collapse coun
+    BOOST_TEST(set2.size() == 1);
+}
+
 BOOST_AUTO_TEST_CASE(set_merge)
 {
-    crdt::id_sequence<> sequence1;
-    crdt::replica<> replica1(1, sequence1);
-    crdt::allocator<> alloc1(replica1);
-    crdt::set< int, decltype(alloc1) > set1(alloc1, { 1, 1 });
+    crdt::id_sequence<> sequence;
+    crdt::replica<> replica(1, sequence);
+    crdt::delta_allocator< crdt::set< int, crdt::allocator<> > > allocator(replica);
 
-    crdt::id_sequence<> sequence2;
-    crdt::replica<> replica2(2, sequence2);
-    crdt::allocator<> alloc2(replica2);
-    crdt::set< int, decltype(alloc2) > set2(alloc2, { 2, 1 });
+    crdt::set< int, decltype(allocator) > set1(allocator, { 0, 1 });
+    crdt::set< int, decltype(allocator) > set2(allocator, { 0, 2 });
 
     set1.insert(1);
-    set2.merge(set1);
+    set2.merge(set1.extract_delta());
     BOOST_TEST(set2.size() == 1);
     BOOST_TEST((set2.find(1) != set2.end()));
     
     set2.erase(1);    
-    set1.merge(set2);
+    set1.merge(set2.extract_delta());
     BOOST_TEST(set1.empty());
     BOOST_TEST((set1.find(1) == set1.end()));
 
     set2.insert(22);
     set2.insert(222);
-    set1.merge(set2);
+    set1.merge(set2.extract_delta());
     BOOST_TEST(set1.size() == 2);
 
-    // TODO: this does not pass, as crdt counters are collapsed. The issue is that we are not merging proper delta, but collapsed one.
     set2.clear();
     set1.insert(11);
-    set1.merge(set2);
+    set1.merge(set2.extract_delta());
     BOOST_TEST(set1.size() == 1);
     BOOST_TEST((set1.find(11) != set1.end()));
 }

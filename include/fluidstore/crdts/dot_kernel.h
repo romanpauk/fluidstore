@@ -243,7 +243,7 @@ namespace crdt
                 dot_kernel_type delta(allocator_);
                 clear(delta);
                 merge(delta);
-                this->allocator_.get_replica().merge(*static_cast<Container*>(this), delta);
+                this->allocator_.merge(*static_cast<Container*>(this), delta);
             }
         }
 
@@ -294,7 +294,7 @@ namespace crdt
             delta.counters_.insert(dots.begin(), dots.end());
 
             merge(delta, result);
-            this->allocator_.get_replica().merge(*static_cast<Container*>(this), delta);
+            this->allocator_.merge(*static_cast<Container*>(this), delta);
         }
     };
 }

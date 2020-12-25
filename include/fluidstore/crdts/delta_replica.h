@@ -15,9 +15,10 @@ namespace crdt
     template < typename ReplicaId, typename InstanceId, typename Counter, typename DeltaAllocator, typename Visitor = empty_visitor > class delta_replica
         : public replica< ReplicaId, InstanceId, Counter >
     {
+        typedef delta_replica< ReplicaId, InstanceId, Counter, DeltaAllocator, Visitor > this_type;
+
     public:
-        typedef delta_replica< ReplicaId, InstanceId, Counter, DeltaAllocator, Visitor > delta_replica_type;
-        typedef replica< ReplicaId, InstanceId, Counter > replica_type;
+        typedef replica< ReplicaId, InstanceId, Counter > delta_replica_type;
         
         using replica_type::replica_id_type;
         using replica_type::instance_id_type;
@@ -186,7 +187,7 @@ namespace crdt
     public:
         template< typename Instance > struct hook
         {
-            hook(delta_replica_type& replica, id_type id)
+            hook(this_type& replica, id_type id)
                 : replica_(replica)
                 , instance_(*static_cast<Instance*>(this))
                 , instance_it_(replica_.instance_registry_.insert(id, instance_))
@@ -205,7 +206,7 @@ namespace crdt
             const id_type& get_id() const { return instance_it_->first; }
 
         private:
-            delta_replica_type& replica_;
+            this_type& replica_;
 
             typename instance_registry::template instance< Instance, DeltaAllocator > instance_;
             typename instance_registry::iterator instance_it_;

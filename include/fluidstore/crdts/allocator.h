@@ -22,6 +22,8 @@ namespace crdt
 
         template< typename R, typename U > struct rebind_replica { typedef allocator< R, U >::type; };
 
+        template < typename Instance > struct hook {};
+     
         template < typename... Args > allocator(Replica& replica, Args&&... args)
             : Allocator(std::forward< Args >(args)...)
             , replica_(&replica)
@@ -39,6 +41,11 @@ namespace crdt
         }
 
         auto& get_replica() const { return *replica_; }
+
+        template < typename Instance, typename DeltaInstance > void merge(const Instance& target, const DeltaInstance& source)
+        {
+            this->replica_->merge(target, source);
+        }
 
     private:
         Replica* replica_;

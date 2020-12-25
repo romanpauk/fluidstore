@@ -1,4 +1,6 @@
 #include <fluidstore/crdts/replica.h>
+#include <fluidstore/crdts/aggregating_replica.h>
+
 #include <fluidstore/crdts/set.h>
 #include <fluidstore/crdts/map.h>
 #include <fluidstore/crdts/value_mv.h>
@@ -6,7 +8,7 @@
 #include <boost/test/unit_test.hpp>
 
 struct visitor;
-typedef crdt::aggregating_replica< uint64_t, uint64_t, uint64_t, crdt::instance_registry< std::pair< uint64_t, uint64_t > >, visitor > replica_type;
+typedef crdt::aggregating_replica< uint64_t, uint64_t, uint64_t, visitor > replica_type;
 
 struct visitor
 {

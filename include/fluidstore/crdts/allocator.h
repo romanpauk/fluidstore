@@ -1,5 +1,7 @@
 #pragma once
 
+#include <fluidstore/crdts/replica.h>
+
 #include <memory>
 
 namespace crdt

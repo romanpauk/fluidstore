@@ -1,5 +1,6 @@
 #include <fluidstore/crdts/set.h>
 #include <fluidstore/crdts/replica.h>
+#include <fluidstore/crdts/allocator.h>
 
 #include <boost/test/unit_test.hpp>
 

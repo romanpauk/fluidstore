@@ -12,16 +12,13 @@ namespace crdt
         template < typename T > void visit(T) {}
     };
 
-    template < typename ReplicaId, typename InstanceId, typename Counter, typename Visitor = empty_visitor > class aggregating_replica
+    template < typename ReplicaId, typename InstanceId, typename Counter, typename DeltaAllocator, typename Visitor = empty_visitor > class aggregating_replica
         : public replica< ReplicaId, InstanceId, Counter >
     {
     public:
-        typedef aggregating_replica< ReplicaId, InstanceId, Counter, Visitor > aggregating_replica_type;
+        typedef aggregating_replica< ReplicaId, InstanceId, Counter, DeltaAllocator, Visitor > aggregating_replica_type;
         typedef replica< ReplicaId, InstanceId, Counter > replica_type;
         
-        typedef replica_type delta_replica_type;
-        typedef crdt::allocator < delta_replica_type > delta_allocator_type;
-
         using replica_type::replica_id_type;
         using replica_type::instance_id_type;
         using replica_type::id_type;
@@ -82,6 +79,17 @@ namespace crdt
             auto end() const { return instances_.end(); }
 
             instance_base& get_instance(id_type id) { return *instances_.at(id); }
+            
+            instance_base* get_instance_ptr(id_type id) 
+            {
+                auto it = instances_.find(id);
+                if (it != instances_.end())
+                {
+                    return it->second;
+                }
+
+                return nullptr;
+            }
 
             // private:
             instances_type instances_;
@@ -90,62 +98,86 @@ namespace crdt
         class delta_registry
         {
         public:
-            delta_registry(ReplicaId replica_id, id_sequence< InstanceId >& sequence)
+            delta_registry(ReplicaId replica_id, id_sequence< InstanceId >& sequence, DeltaAllocator& delta_allocator)
                 : delta_replica_(replica_id, sequence)
+                , delta_allocator_(delta_allocator)
             {}
 
             struct instance_base
             {
                 virtual ~instance_base() {}
-                virtual void visit(Visitor&) const {}
+                virtual void visit(Visitor&) const = 0;
+                virtual void clear_instance_ptr() = 0;
             };
 
-            template < typename Instance > struct instance : instance_base
+            template < typename Instance, typename DeltaInstance, typename Allocator > struct instance : instance_base
             {
-                instance(delta_allocator_type allocator, id_type id)
-                    : instance_(allocator, id)
-                {}
-
-                template < typename DeltaInstance > void merge(const DeltaInstance& delta)
+                instance(Allocator allocator, const Instance& instance)
+                    : delta_instance_(allocator, instance.get_id())
+                    , instance_(&instance)
                 {
-                    instance_.merge(delta);
+                    instance.delta_instance_ = this;
+                }
+
+                ~instance()
+                {
+                    clear_instance_ptr();
+                }
+
+                template < typename DeltaInstanceT > void merge(const DeltaInstanceT& delta)
+                {
+                    delta_instance_.merge(delta);
                 }
 
                 void visit(Visitor& visitor) const override
                 {
-                    visitor.visit(instance_);
+                    visitor.visit(delta_instance_);
+                }
+
+                void clear_instance_ptr()
+                {
+                    if (instance_)
+                    {
+                        instance_->delta_instance_ = nullptr;
+                        instance_ = nullptr;
+                    }
                 }
 
             private:
-                Instance instance_;
+                const Instance* instance_;
+                DeltaInstance delta_instance_;
             };
 
-            template < typename Instance > auto& get_instance(const id_type& id)
+            template < typename Instance > auto& get_instance(const Instance& i)
             {
-                typedef typename Instance::template rebind< delta_allocator_type >::type delta_type;
+                typedef typename Instance::template rebind< DeltaAllocator >::type delta_type;
+                typedef instance< Instance, delta_type, DeltaAllocator > delta_instance_type;
 
-                auto& context = instances_[id];
-                if (!context)
+                if (!i.delta_instance_)
                 {
-                    delta_allocator_type delta_allocator(delta_replica_);
-                    auto ptr = new instance< delta_type >(delta_allocator, id);
-                    context.reset(ptr);
-                    deltas_.push_back(ptr);
-                    return *ptr;
+                    auto& context = instances_[i.get_id()];
+                    if (!context)
+                    {
+                        context.reset(new delta_instance_type(delta_allocator_, i));
+                        deltas_.push_back(context.get());
+                    }
                 }
-                else
-                {
-                    return dynamic_cast<instance< delta_type >&>(*context);
-                }
+
+                return dynamic_cast< delta_instance_type& >(*i.delta_instance_);                
             }
 
             void clear()
             {
                 instances_.clear();
                 deltas_.clear();
+                // delta_allocator_.clear();
             }
 
+            auto begin() { return instances_.begin(); }
+            auto end() { return instances_.end(); }
+
             delta_replica_type delta_replica_;
+            DeltaAllocator delta_allocator_;
             std::map< id_type, std::unique_ptr< instance_base > > instances_;
             std::deque< instance_base* > deltas_;
         };
@@ -153,39 +185,42 @@ namespace crdt
     public:
         template< typename Instance > struct hook
         {
-            hook(aggregating_replica_type& replica)
-                : replica_(replica)
-                , registry_instance_(*static_cast<Instance*>(this))
-                , it_(replica_.instance_registry_.insert(replica.generate_instance_id(), registry_instance_))
-            {}
-
             hook(aggregating_replica_type& replica, id_type id)
                 : replica_(replica)
-                , registry_instance_(*static_cast<Instance*>(this))
-                , it_(replica_.instance_registry_.insert(id, registry_instance_))
+                , instance_(*static_cast<Instance*>(this))
+                , instance_it_(replica_.instance_registry_.insert(id, instance_))
+                , delta_instance_()
             {}
 
             ~hook()
             {
-                replica_.instance_registry_.erase(it_);
+                replica_.instance_registry_.erase(instance_it_);
+                if (delta_instance_)
+                {
+                    delta_instance_->clear_instance_ptr();
+                }
             }
 
-            const id_type& get_id() const { return it_->first; }
+            const id_type& get_id() const { return instance_it_->first; }
 
         private:
             aggregating_replica_type& replica_;
-            typename instance_registry::template instance< Instance, delta_allocator_type > registry_instance_;
-            typename instance_registry::iterator it_;
+
+            typename instance_registry::template instance< Instance, DeltaAllocator > instance_;
+            typename instance_registry::iterator instance_it_;
+
+            friend class delta_registry;
+            mutable typename delta_registry::instance_base* delta_instance_;
         };
 
-        aggregating_replica(ReplicaId replica_id, id_sequence< InstanceId >& seq)
+        aggregating_replica(ReplicaId replica_id, id_sequence< InstanceId >& seq, DeltaAllocator& delta_allocator)
             : replica_type(replica_id, seq)
-            , delta_registry_(replica_id, seq)
+            , delta_registry_(replica_id, seq, delta_allocator)
         {}
 
         template < typename Instance, typename DeltaInstance > void merge(const Instance& target, const DeltaInstance& source)
         {
-            delta_registry_.get_instance< Instance >(target.get_id()).merge(source);
+            delta_registry_.get_instance< Instance >(target).merge(source);
             // TODO: We will have to track removals so we can remove removed instances from delta_instances_.
         }
 

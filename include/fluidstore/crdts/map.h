@@ -23,7 +23,7 @@ namespace crdt
         };
 
         map(Allocator allocator)
-            : replica_type::template hook< map_type >(allocator.get_replica())
+            : replica_type::template hook< map_type >(allocator.get_replica(), allocator.get_replica().generate_instance_id())
             , dot_kernel_type(allocator)
         {}
 

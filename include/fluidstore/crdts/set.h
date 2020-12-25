@@ -19,7 +19,7 @@ namespace crdt
         template < typename AllocatorT > struct rebind { typedef set< Key, AllocatorT > type; };
 
         set(Allocator allocator)
-            : replica_type::template hook< set_type >(allocator.get_replica())
+            : replica_type::template hook< set_type >(allocator.get_replica(), allocator.get_replica().generate_instance_id())
             , dot_kernel_type(allocator)
         {}
 

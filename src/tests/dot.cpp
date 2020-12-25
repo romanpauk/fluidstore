@@ -10,6 +10,7 @@
 #include <fluidstore/crdts/allocator.h>
 #include <fluidstore/crdts/noncopyable.h>
 #include <fluidstore/crdts/replica.h>
+#include <fluidstore/crdts/aggregating_replica.h>
 #include <fluidstore/crdts/map.h>
 #include <fluidstore/crdts/set.h>
 #include <fluidstore/crdts/value.h>
@@ -63,8 +64,10 @@ template < typename Fn > double measure(Fn fn)
 
 #if !defined(_DEBUG)
 
+typedef crdt::allocator < crdt::replica<> > delta_allocator_type;
+
 struct visitor;
-typedef crdt::aggregating_replica< uint64_t, uint64_t, uint64_t, crdt::instance_registry< std::pair< uint64_t, uint64_t > >, visitor > replica_type;
+typedef crdt::aggregating_replica< uint64_t, uint64_t, uint64_t, delta_allocator_type, visitor > replica_type;
 
 struct visitor
 {
@@ -82,10 +85,9 @@ struct visitor
 
 BOOST_AUTO_TEST_CASE(dot_test_set_insert_performance)
 {
-    #define Outer 10000
-    #define Inner 100
+    #define Outer 1000
+    #define Inner 1000
 
-    /*
     auto t1 = measure([]
     {
         for (size_t x = 0; x < Outer; ++x)
@@ -112,34 +114,33 @@ BOOST_AUTO_TEST_CASE(dot_test_set_insert_performance)
             }
         }
     });
-    */
 
     auto t3 = measure([]
     {
-        typedef crdt::traits_base< replica_type > traits;
-
-        crdt::traits::id_sequence_type sequence1;
-        traits::replica_type replica1(1, sequence1);
-        traits::allocator_type allocator1(replica1);
+        crdt::id_sequence<> sequence;
+        crdt::replica<> delta_replica(1, sequence);
+        crdt::allocator< crdt::replica<> > delta_allocator(delta_replica);
+        replica_type replica(1, sequence, delta_allocator);
+        crdt::allocator< replica_type > allocator(replica);
 
         for (size_t x = 0; x < Outer; ++x)
         {            
-            crdt::set< size_t, decltype(allocator1) > set(allocator1, { 0, 1 });
+            crdt::set< size_t, decltype(allocator) > set(allocator, { 0, 1 });
 
             for (size_t i = 0; i < Inner; ++i)
             {
                 set.insert(i);
             }
 
-            visitor v(replica1);;
-            replica1.visit(v);
-            replica1.clear();
+            visitor v(replica);
+            replica.visit(v);
+            replica.clear();
         }
     });
 
-    //std::cerr << "std::set " << t1 << std::endl;
-    //std::cerr << "crdt::set " << t2 << " slowdown " << t2 / t1 << std::endl;
-    //std::cerr << "crdt::aggregating_set " << t3 << " slowdown " << t3 / t1 << std::endl;
+    std::cerr << "std::set " << t1 << std::endl;
+    std::cerr << "crdt::set " << t2 << " slowdown " << t2 / t1 << std::endl;
+    std::cerr << "crdt::aggregating_set " << t3 << " slowdown " << t3 / t1 << std::endl;
 
 }
 

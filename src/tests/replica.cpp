@@ -8,7 +8,7 @@
 #include <boost/test/unit_test.hpp>
 
 struct visitor;
-typedef crdt::aggregating_replica< uint64_t, uint64_t, uint64_t, visitor > replica_type;
+typedef crdt::aggregating_replica< uint64_t, uint64_t, uint64_t, crdt::allocator< crdt::replica<> >, visitor > replica_type;
 
 struct visitor
 {
@@ -27,11 +27,15 @@ struct visitor
 BOOST_AUTO_TEST_CASE(aggregating_replica)
 {
     crdt::id_sequence<> sequence1;
-    replica_type replica1(1, sequence1);
+    crdt::replica<> delta_replica1(1, sequence1);
+    crdt::allocator< crdt::replica<> > delta_allocator1(delta_replica1);
+    replica_type replica1(1, sequence1, delta_allocator1);
     crdt::allocator< replica_type> allocator1(replica1);
 
     crdt::id_sequence<> sequence2;
-    replica_type replica2(2, sequence2);
+    crdt::replica<> delta_replica2(1, sequence2);
+    crdt::allocator< crdt::replica<> > delta_allocator2(delta_replica2);
+    replica_type replica2(2, sequence2, delta_allocator2);
     crdt::allocator< replica_type > allocator2(replica2);
 
     crdt::set< int, decltype(allocator1) > set1(allocator1, { 0, 1 });

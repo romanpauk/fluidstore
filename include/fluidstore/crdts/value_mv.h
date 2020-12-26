@@ -6,18 +6,18 @@
 
 namespace crdt
 {
-    template < typename Value, typename Allocator > class value_mv
+    template < typename Value, typename Allocator, typename Tag = tag_state > class value_mv
     {
-        typedef value_mv< Value, Allocator > value_mv_type;
-        template < typename Value, typename Allocator > friend class value_mv;
+        typedef value_mv< Value, Allocator, Tag > value_mv_type;
+        template < typename Value, typename Allocator, typename Tag > friend class value_mv;
 
     public:
         typedef Allocator allocator_type;
 
-        template < typename AllocatorT > struct rebind
+        template < typename AllocatorT, typename TagT > struct rebind
         {
             // TODO: this can also be recursive in Value... sometimes.
-            typedef value_mv< Value, AllocatorT > type;
+            typedef value_mv< Value, AllocatorT, TagT > type;
         };
 
         value_mv(allocator_type allocator)
@@ -54,7 +54,7 @@ namespace crdt
         {
             arena< 1024 > buffer;
             arena_allocator< void, allocator< typename Allocator::replica_type::delta_replica_type > > allocator(buffer, values_.get_allocator().get_replica());
-            typename decltype(values_)::template rebind< decltype(allocator) >::type delta(allocator, this->get_id());
+            typename decltype(values_)::template rebind< decltype(allocator), tag_delta >::type delta(allocator, this->get_id());
 
             values_.clear(delta);
             values_.insert(delta, value);
@@ -74,16 +74,16 @@ namespace crdt
             return *this;
         }
 
-        template < typename ValueMv > value_mv< Value, Allocator >& operator = (const ValueMv& value)
+        template < typename ValueMv > value_mv< Value, Allocator, Tag >& operator = (const ValueMv& value)
         {
             merge(value);
             return *this;
         }
 
         bool operator == (const Value& value) const { return get() == value; }
-        bool operator == (const value_mv< Value, Allocator >& other) const { return get() == other.get(); }
+        bool operator == (const value_mv< Value, Allocator, Tag >& other) const { return get() == other.get(); }
 
     private:
-        crdt::set< Value, Allocator > values_;
+        crdt::set< Value, Allocator, Tag > values_;
     };
 }

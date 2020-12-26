@@ -73,7 +73,7 @@ namespace crdt
 
     template < typename Iterator, typename Outer > class dot_kernel_iterator_base
     {
-        template < typename Key, typename Value, typename Allocator, typename Container > friend class dot_kernel;
+        template < typename Key, typename Value, typename Allocator, typename Container, typename Tag > friend class dot_kernel;
 
     public:
         dot_kernel_iterator_base(Iterator it)
@@ -114,15 +114,17 @@ namespace crdt
         const Key& operator *() { return this->it_->first; }
     };
 
-    template < typename Result > struct merge_context: public Result
-    {};
+    struct tag_delta {};
+    struct tag_state {};
 
-    template < typename Key, typename Value, typename Allocator, typename Container > class dot_kernel
+    template < typename Key, typename Value, typename Allocator, typename Container, typename Tag > class dot_kernel
     {
-        template < typename Key, typename Value, typename Allocator, typename Container > friend class dot_kernel;
-        template < typename Key, typename Allocator > friend class set;
-        template < typename Key, typename Value, typename Allocator > friend class map;
-        template < typename Key, typename Allocator > friend class value_mv;
+        template < typename Key, typename Value, typename Allocator, typename Container, typename Tag > friend class dot_kernel;
+        
+        // TODO: this is not exactly extensible... :(
+        template < typename Key, typename Allocator, typename Tag > friend class set;
+        template < typename Key, typename Value, typename Allocator, typename Tag > friend class map;
+        template < typename Key, typename Allocator, typename Tag > friend class value_mv;
 
     protected:
         typedef typename Allocator::replica_type replica_type;
@@ -132,7 +134,7 @@ namespace crdt
         typedef std::map< Key, dot_kernel_value< Value, Allocator >, std::less< Key >, std::scoped_allocator_adaptor< Allocator > > values_type;
 
         typedef dot< replica_id_type, counter_type > dot_type;
-        typedef dot_kernel< Key, Value, Allocator, Container > dot_kernel_type;
+        typedef dot_kernel< Key, Value, Allocator, Container, Tag > dot_kernel_type;
         typedef dot_kernel_iterator< typename values_type::iterator, Key, Value > iterator;
         typedef dot_kernel_iterator< typename values_type::const_iterator, Key, Value > const_iterator;
 
@@ -233,7 +235,7 @@ namespace crdt
             }
 
             // Merge counters
-            counters_.merge(other.counters_);
+            counters_.merge(other.counters_, std::is_same_v< Tag, tag_state >);
         }
 
     public:

@@ -8,7 +8,7 @@ namespace crdt
     public:
         template < typename Instance > struct hook
         {
-            // friend class T;
+            friend class delta_allocator< T >;
 
             hook()
                 : delta_(static_cast<Instance*>(this)->get_allocator(), static_cast<Instance*>(this)->get_id())
@@ -21,7 +21,7 @@ namespace crdt
                 return delta;
             }
 
-            // private:
+        private:
             T delta_;
         };
 

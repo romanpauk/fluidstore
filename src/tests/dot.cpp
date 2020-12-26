@@ -50,7 +50,7 @@ BOOST_AUTO_TEST_CASE(dot_context)
         crdt::dot_context< uint64_t, uint64_t, std::allocator< char > > counters2(allocator);
         counters2.emplace(3, 2);
         counters2.emplace(3, 4);
-        counters.merge(counters2);
+        counters.merge(counters2, true);
     }
     BOOST_TEST(counters.size() == 3);
     BOOST_TEST((counters.find(dot(3, 4)) != counters.end()));

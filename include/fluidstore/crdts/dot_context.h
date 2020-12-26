@@ -43,10 +43,13 @@ namespace crdt
             return counter;
         }
 
-        template < typename AllocatorT > void merge(const dot_context< ReplicaId, Counter, AllocatorT >& other)
+        template < typename AllocatorT > void merge(const dot_context< ReplicaId, Counter, AllocatorT >& other, bool shrink)
         {
             insert(other.counters_.begin(), other.counters_.end());
-            collapse();
+            if (shrink)
+            {
+                collapse();
+            }
         }
 
         const auto& get() const { return counters_; }

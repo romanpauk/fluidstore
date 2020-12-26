@@ -7,20 +7,20 @@
 
 namespace crdt
 {
-    template < typename Key, typename Value, typename Allocator > class map
-        : public dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator > >
+    template < typename Key, typename Value, typename Allocator, typename Tag = tag_state > class map
+        : public dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator >, Tag >
         , public Allocator::replica_type::template hook< map< Key, Value, Allocator > >
     {
         typedef map< Key, Value, Allocator > map_type;
-        typedef dot_kernel< Key, Value, Allocator, map_type > dot_kernel_type;
+        typedef dot_kernel< Key, Value, Allocator, map_type, Tag > dot_kernel_type;
     
     public:
         typedef Allocator allocator_type;
         typedef typename Allocator::replica_type replica_type;
        
-        template < typename AllocatorT > struct rebind
+        template < typename AllocatorT, typename TagT > struct rebind
         {
-            typedef map< Key, typename Value::template rebind< AllocatorT >::type, AllocatorT > type;
+            typedef map< Key, typename Value::template rebind< AllocatorT, TagT >::type, AllocatorT, TagT > type;
         };
 
         map(Allocator allocator)
@@ -37,7 +37,7 @@ namespace crdt
         {
             arena< 1024 * 2 > buffer;
             arena_allocator< void, allocator< typename replica_type::delta_replica_type > > allocator(buffer, this->allocator_.get_replica());
-            typename rebind< decltype(allocator) >::type delta(allocator, this->get_id());
+            typename rebind< decltype(allocator), tag_delta >::type delta(allocator, this->get_id());
             //map_type delta(this->allocator_, this->get_id());
 
             insert(delta, key, value);
@@ -56,7 +56,7 @@ namespace crdt
         {
             arena< 1024 * 2 > buffer;
             arena_allocator< void, allocator< typename replica_type::delta_replica_type > > allocator(buffer, this->allocator_.get_replica());
-            typename rebind< decltype(allocator) >::type delta(allocator, this->get_id());
+            typename rebind< decltype(allocator), tag_delta >::type delta(allocator, this->get_id());
 
             if constexpr (std::uses_allocator_v< Value, Allocator >)
             {

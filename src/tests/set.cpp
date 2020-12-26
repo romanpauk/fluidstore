@@ -62,38 +62,11 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_basic_operations, T, test_types)
     BOOST_TEST(set.empty());
 }
 
-BOOST_AUTO_TEST_CASE(set_delta)
-{
-    crdt::id_sequence<> sequence;
-    crdt::replica<> replica1(1, sequence);
-    crdt::delta_allocator< crdt::set< int, crdt::allocator<> > > allocator1(replica1);
-
-    crdt::replica<> replica2(2, sequence);
-    crdt::delta_allocator< crdt::set< int, crdt::allocator<> > > allocator2(replica2);
-
-    crdt::set< int, decltype(allocator1) > set1(allocator1, { 1, 1 });
-    crdt::set< int, decltype(allocator2) > set2(allocator2, { 2, 1 });
-    
-    set1.insert(1);
-    set1.insert(2);
-    set1.insert(3);
-
-    // Conflicting insert of 1, non-observed by set 1
-    set2.insert(1);
-
-    set2.merge(set1.extract_delta());
-    set1.clear();
-    set2.merge(set1.extract_delta());
-
-    // When merging to delta, we can't collapse counters
-    BOOST_TEST(set2.size() == 1);
-}
-
 BOOST_AUTO_TEST_CASE(set_merge)
 {
     crdt::id_sequence<> sequence;
     crdt::replica<> replica(1, sequence);
-    crdt::delta_allocator< crdt::set< int, crdt::allocator<> > > allocator(replica);
+    crdt::delta_allocator< crdt::set< int, crdt::allocator<>, crdt::tag_delta > > allocator(replica);
 
     crdt::set< int, decltype(allocator) > set1(allocator, { 0, 1 });
     crdt::set< int, decltype(allocator) > set2(allocator, { 0, 2 });

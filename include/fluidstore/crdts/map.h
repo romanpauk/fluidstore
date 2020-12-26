@@ -46,10 +46,10 @@ namespace crdt
             // When this is insert of one element, merge should change internal state only when an insert operation would.
             // But we already got id. So the id would have to be returned, otherwise dot sequence will not collapse.
             
-            merge_result result;
-            this->merge(delta, &result);
-            this->allocator_.get_replica().merge(*this, delta);
-            return { result.iterator, result.inserted };
+            insert_context context;
+            this->merge(delta, context);
+            this->allocator_.merge(*this, delta);
+            return { context.result.first, context.result.second };
         }
 
         Value& operator[](const Key& key)

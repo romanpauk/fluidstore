@@ -40,10 +40,10 @@ namespace crdt
 
             insert(delta, key);
          
-            merge_result result;
-            this->merge(delta, &result);
+            insert_context context;
+            this->merge(delta, context);
             this->allocator_.merge(*this, delta);
-            return { result.iterator, result.inserted };
+            return { context.result.first, context.result.second };
         }
 
         template < typename Delta > void insert(Delta& delta, const Key& key)

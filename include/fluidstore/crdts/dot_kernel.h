@@ -141,11 +141,23 @@ namespace crdt
 
         values_type values_;
         std::map< dot_type, typename values_type::iterator, std::less< dot_type >, Allocator > dots_;
-        
-        struct merge_result
+
+        struct context
         {
+            void register_insert(std::pair< typename values_type::iterator, bool >) {}
+            void register_erase(typename values_type::iterator) {}
+        };
+
+        struct insert_context: public context
+        {
+            void register_insert(std::pair< typename values_type::iterator, bool > pb) { result = pb; }
+            std::pair< typename values_type::iterator, bool > result;
+        };
+
+        struct erase_context: public context
+        {
+            void register_erase(typename values_type::iterator it) { iterator = it; ++count; }
             typename values_type::iterator iterator;
-            bool inserted = false;
             size_t count = 0;
         };
 
@@ -160,7 +172,14 @@ namespace crdt
         // TODO:
     public:
         template < typename DotKernel >
-        void merge(const DotKernel& other, merge_result* result = nullptr)
+        void merge(const DotKernel& other)
+        {
+            context ctx;
+            merge(other, ctx);
+        }
+
+        template < typename DotKernel, typename Context >
+        void merge(const DotKernel& other, Context& ctx)
         {
             arena< 1024 > buffer;
             typedef std::set < dot_type, std::less< dot_type >, arena_allocator<> > dot_set_type;
@@ -186,12 +205,7 @@ namespace crdt
                 }
 
                 // Support for insert / emplace pairb result
-                if (result)
-                {
-                    ++result->count;
-                    result->iterator = lpb.first;
-                    result->inserted = lpb.second;
-                }
+                ctx.register_insert(lpb);
             }
 
             // Find dots that do not have values - those are removed
@@ -211,11 +225,7 @@ namespace crdt
                     if (values_it->second.dots.empty())
                     {
                         auto it = values_.erase(values_it);
-                        if (result)
-                        {
-                            result->iterator = it;
-                            ++result->count;
-                        }
+                        ctx.register_erase(it);
                     }
 
                     dots_.erase(dots_it);
@@ -260,8 +270,8 @@ namespace crdt
             auto values_it = values_.find(key);
             if (values_it != values_.end())
             {
-                merge_context< merge_result > context;
-                erase(values_it, &context);
+                erase_context context;
+                erase(values_it, context);
                 return context.count;
             }
 
@@ -270,8 +280,8 @@ namespace crdt
 
         iterator erase(iterator it)
         {
-            merge_context< merge_result > context;
-            erase(it.it_, &context);
+            erase_context context;
+            erase(it.it_, context);
             return context.iterator;
         }
 
@@ -286,14 +296,14 @@ namespace crdt
         }
 
     private:
-        void erase(typename values_type::iterator it, merge_result * result = nullptr)
+        template < typename Context > void erase(typename values_type::iterator it, Context& context)
         {
             dot_kernel_type delta(allocator_);
 
-            auto& dots = it->second.dots;
+            const auto& dots = it->second.dots;
             delta.counters_.insert(dots.begin(), dots.end());
 
-            merge(delta, result);
+            merge(delta, context);
             this->allocator_.merge(*static_cast<Container*>(this), delta);
         }
     };

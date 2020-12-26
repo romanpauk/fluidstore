@@ -22,7 +22,13 @@ namespace crdt
 
         template< typename R, typename U > struct rebind_replica { typedef allocator< R, U >::type; };
 
-        template < typename Instance > struct hook {};
+        template < typename Instance > struct hook 
+            : public replica_type::template hook< Instance >
+        {
+            template< typename T > hook(T&& args)
+                : replica_type::template hook< Instance >(args)
+            {}
+        };
      
         template < typename... Args > allocator(Replica& replica, Args&&... args)
             : Allocator(std::forward< Args >(args)...)

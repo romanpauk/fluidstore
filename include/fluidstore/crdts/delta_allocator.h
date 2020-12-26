@@ -6,12 +6,17 @@ namespace crdt
         : public T::allocator_type
     {
     public:
+        typedef typename T::allocator_type::replica_type replica_type;
+        typedef typename replica_type::id_type id_type;
+
         template < typename Instance > struct hook
+            : public replica_type::template hook< Instance >
         {
             friend class delta_allocator< T >;
 
-            hook()
-                : delta_(static_cast<Instance*>(this)->get_allocator(), static_cast<Instance*>(this)->get_id())
+            hook(const id_type& id)
+                : replica_type::hook< Instance >(id)
+                , delta_(static_cast<Instance*>(this)->get_allocator(), id)
             {}
 
             T extract_delta()

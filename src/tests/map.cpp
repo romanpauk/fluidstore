@@ -69,12 +69,10 @@ BOOST_AUTO_TEST_CASE(map_basic_operations)
 BOOST_AUTO_TEST_CASE(map_merge)
 {
     crdt::id_sequence<> sequence;
-    crdt::replica<> replica(0, sequence);
-    crdt::allocator<> alloc(replica);
-    //crdt::map< int, crdt::set< int, decltype(alloc) >, decltype(alloc) > map(alloc, { 0, 1 });
-    //BOOST_TEST((map.find(0) == map.end()));
-    //map.insert(1, );
-    //BOOST_TEST(map.find(1) == true);
-    //map.erase(1);
-    //BOOST_TEST(map.find(1) == false);
+    crdt::replica<> replica(1, sequence);
+    // crdt::delta_allocator< crdt::map< int, crdt::allocator<>, crdt::tag_delta > > allocator(replica);
+
+    // crdt::set< int, decltype(allocator) > set1(allocator, { 0, 1 });
+    // crdt::set< int, decltype(allocator) > set2(allocator, { 0, 2 });
+
 }

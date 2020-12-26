@@ -22,11 +22,7 @@ namespace crdt
 
         template < typename Instance > struct hook
         {
-            hook(replica_type& replica)
-                : id_(replica.generate_instance_id())
-            {}
-
-            hook(replica_type&, const id_type& id)
+            hook(const id_type& id)
                 : id_(id)
             {}
 

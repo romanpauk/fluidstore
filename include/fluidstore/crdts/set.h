@@ -7,7 +7,6 @@ namespace crdt
 {
     template < typename Key, typename Allocator, typename Tag = tag_state > class set
         : public dot_kernel< Key, void, Allocator, set< Key, Allocator, Tag >, Tag >
-        , public Allocator::replica_type::template hook< set< Key, Allocator, Tag > >
         , public Allocator::template hook< set< Key, Allocator, Tag > >
     {
         typedef set< Key, Allocator, Tag > set_type;
@@ -15,19 +14,18 @@ namespace crdt
 
     public:
         typedef Allocator allocator_type;
-        typedef typename Allocator::replica_type replica_type;
+        typedef typename allocator_type::template hook< set< Key, Allocator, Tag > > hook_type;
+        typedef typename allocator_type::replica_type replica_type;
 
         template < typename AllocatorT, typename TagT > struct rebind { typedef set< Key, AllocatorT, TagT > type; };
 
         set(Allocator allocator)
-            : replica_type::template hook< set_type >(allocator.get_replica(), allocator.get_replica().generate_instance_id())
-            , allocator_type::template hook< set_type >()
-            , dot_kernel_type(allocator)
+            : hook_type(allocator.get_replica().generate_instance_id())
+            , dot_kernel_type(allocator) 
         {}
 
         set(Allocator allocator, typename Allocator::replica_type::id_type id)
-            : replica_type::template hook< set_type >(allocator.get_replica(), id)
-            , allocator_type::template hook< set_type >()
+            : hook_type(id)
             , dot_kernel_type(allocator)
         {}
 

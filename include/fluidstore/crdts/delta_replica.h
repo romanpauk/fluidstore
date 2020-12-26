@@ -187,16 +187,15 @@ namespace crdt
     public:
         template< typename Instance > struct hook
         {
-            hook(this_type& replica, id_type id)
-                : replica_(replica)
-                , instance_(*static_cast<Instance*>(this))
-                , instance_it_(replica_.instance_registry_.insert(id, instance_))
+            hook(id_type id)
+                : instance_(*static_cast<Instance*>(this))
+                , instance_it_(static_cast<Instance*>(this)->get_allocator().get_replica().instance_registry_.insert(id, instance_))
                 , delta_instance_()
             {}
 
             ~hook()
             {
-                replica_.instance_registry_.erase(instance_it_);
+                static_cast<Instance*>(this)->get_allocator().get_replica().instance_registry_.erase(instance_it_);
                 if (delta_instance_)
                 {
                     delta_instance_->clear_instance_ptr();
@@ -206,8 +205,6 @@ namespace crdt
             const id_type& get_id() const { return instance_it_->first; }
 
         private:
-            this_type& replica_;
-
             typename instance_registry::template instance< Instance, DeltaAllocator > instance_;
             typename instance_registry::iterator instance_it_;
 

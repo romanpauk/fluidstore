@@ -8,15 +8,16 @@
 namespace crdt
 {
     template < typename Key, typename Value, typename Allocator, typename Tag = tag_state > class map
-        : public dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator >, Tag >
-        , public Allocator::replica_type::template hook< map< Key, Value, Allocator > >
+        : public dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, Tag >, Tag >
+        , public Allocator::template hook< map< Key, Value, Allocator, Tag > >
     {
-        typedef map< Key, Value, Allocator > map_type;
+        typedef map< Key, Value, Allocator, Tag > map_type;
         typedef dot_kernel< Key, Value, Allocator, map_type, Tag > dot_kernel_type;
     
     public:
         typedef Allocator allocator_type;
-        typedef typename Allocator::replica_type replica_type;
+        typedef typename allocator_type::template hook< map_type > hook_type;
+        typedef typename allocator_type::replica_type replica_type;
        
         template < typename AllocatorT, typename TagT > struct rebind
         {
@@ -24,12 +25,12 @@ namespace crdt
         };
 
         map(Allocator allocator)
-            : replica_type::template hook< map_type >(allocator.get_replica(), allocator.get_replica().generate_instance_id())
+            : hook_type(allocator.get_replica().generate_instance_id())
             , dot_kernel_type(allocator)
         {}
 
         map(Allocator allocator, typename Allocator::replica_type::id_type id)
-            : replica_type::template hook< map_type >(allocator.get_replica(), id)
+            : hook_type(id)
             , dot_kernel_type(allocator)
         {}
 

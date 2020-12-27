@@ -187,7 +187,7 @@ namespace crdt
     public:
         template< typename Instance > struct hook
         {
-            hook(id_type id)
+            template < typename Allocator > hook(Allocator, id_type id)
                 : instance_(*static_cast<Instance*>(this))
                 , instance_it_(static_cast<Instance*>(this)->get_allocator().get_replica().instance_registry_.insert(id, instance_))
                 , delta_instance_()
@@ -202,7 +202,11 @@ namespace crdt
                 }
             }
 
-            const id_type& get_id() const { return instance_it_->first; }
+            template < typename Instance, typename DeltaInstance > void merge_hook(const Instance& target, const DeltaInstance& source)
+            {
+                this->get_allocator().get_replica().merge(target, source);
+            }
+
 
         private:
             typename instance_registry::template instance< Instance, DeltaAllocator > instance_;

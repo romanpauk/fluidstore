@@ -1,5 +1,6 @@
 #include <fluidstore/crdts/set.h>
 #include <fluidstore/crdts/delta_allocator.h>
+#include <fluidstore/crdts/delta_replica.h>
 #include <fluidstore/crdts/allocator.h>
 
 #include <boost/test/unit_test.hpp>
@@ -66,10 +67,10 @@ BOOST_AUTO_TEST_CASE(set_merge)
 {
     crdt::id_sequence<> sequence;
     crdt::replica<> replica(1, sequence);
-    crdt::delta_allocator< crdt::set< int, crdt::allocator<>, crdt::tag_delta > > allocator(replica);
+    crdt::allocator<> allocator(replica);
 
-    crdt::set< int, decltype(allocator) > set1(allocator, { 0, 1 });
-    crdt::set< int, decltype(allocator) > set2(allocator, { 0, 2 });
+    crdt::set< int, decltype(allocator), crdt::tag_state, crdt::delta_hook< decltype(allocator), crdt::set< int, decltype(allocator), crdt::tag_delta > > > set1(allocator, { 0, 1 });
+    crdt::set< int, decltype(allocator), crdt::tag_state, crdt::delta_hook< decltype(allocator), crdt::set< int, decltype(allocator), crdt::tag_delta > > > set2(allocator, { 0, 2 });
 
     set1.insert(1);
     set2.merge(set1.extract_delta());
@@ -91,4 +92,20 @@ BOOST_AUTO_TEST_CASE(set_merge)
     set1.merge(set2.extract_delta());
     BOOST_TEST(set1.size() == 1);
     BOOST_TEST((set1.find(11) != set1.end()));
+}
+
+
+BOOST_AUTO_TEST_CASE(set_replica_merge)
+{
+    crdt::id_sequence<> sequence;
+    crdt::replica<> delta_replica(1, sequence);
+    crdt::delta_replica< crdt::system<>, crdt::allocator<> > replica(1, sequence, [&]
+    {
+        return crdt::allocator<>(delta_replica);
+    });
+
+    crdt::allocator< decltype(replica) > allocator(replica);
+
+    crdt::set< int, decltype(allocator), crdt::tag_state, crdt::delta_replica_hook< decltype(allocator) > > set1(allocator, { 0, 1 });
+
 }

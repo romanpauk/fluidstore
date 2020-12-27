@@ -122,8 +122,8 @@ namespace crdt
         template < typename Key, typename Value, typename Allocator, typename Container, typename Tag > friend class dot_kernel;
         
         // TODO: this is not exactly extensible... :(
-        template < typename Key, typename Allocator, typename Tag > friend class set;
-        template < typename Key, typename Value, typename Allocator, typename Tag > friend class map;
+        template < typename Key, typename Allocator, typename Tag, typename Hook > friend class set;
+        template < typename Key, typename Value, typename Allocator, typename Tag, typename Hook > friend class map;
         template < typename Key, typename Allocator, typename Tag > friend class value_mv;
 
     protected:
@@ -138,7 +138,6 @@ namespace crdt
         typedef dot_kernel_iterator< typename values_type::iterator, Key, Value > iterator;
         typedef dot_kernel_iterator< typename values_type::const_iterator, Key, Value > const_iterator;
 
-        Allocator allocator_;
         dot_context< replica_id_type, counter_type, Allocator > counters_;
 
         values_type values_;
@@ -165,8 +164,7 @@ namespace crdt
 
     protected:
         dot_kernel(Allocator allocator)
-            : allocator_(allocator)
-            , values_(allocator)
+            : values_(allocator)
             , counters_(allocator)
             , dots_(allocator) 
         {}
@@ -239,8 +237,6 @@ namespace crdt
         }
 
     public:
-        Allocator& get_allocator() { return allocator_; };
-
         const_iterator begin() const { return values_.begin(); }
         iterator begin() { return values_.begin(); }
         const_iterator end() const { return values_.end(); }
@@ -252,10 +248,10 @@ namespace crdt
         {
             if (!empty())
             {
-                dot_kernel_type delta(allocator_);
+                dot_kernel_type delta(static_cast< Container* >(this)->get_allocator());
                 clear(delta);
                 merge(delta);
-                this->allocator_.merge(*static_cast<Container*>(this), delta);
+                static_cast< Container* >(this)->merge_hook(*static_cast<Container*>(this), delta);
             }
         }
 
@@ -300,13 +296,13 @@ namespace crdt
     private:
         template < typename Context > void erase(typename values_type::iterator it, Context& context)
         {
-            dot_kernel_type delta(allocator_);
+            dot_kernel_type delta(static_cast<Container*>(this)->get_allocator());
 
             const auto& dots = it->second.dots;
             delta.counters_.insert(dots.begin(), dots.end());
 
             merge(delta, context);
-            this->allocator_.merge(*static_cast<Container*>(this), delta);
+            static_cast< Container* >(this)->merge_hook(*static_cast<Container*>(this), delta);
         }
     };
 }

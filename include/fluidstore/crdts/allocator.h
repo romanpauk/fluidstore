@@ -48,11 +48,6 @@ namespace crdt
 
         auto& get_replica() const { return *replica_; }
 
-        template < typename Instance, typename DeltaInstance > void merge(const Instance& target, const DeltaInstance& source)
-        {
-            this->replica_->merge(target, source);
-        }
-
     private:
         Replica* replica_;
     };

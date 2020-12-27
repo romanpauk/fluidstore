@@ -33,18 +33,6 @@ namespace crdt
         using typename system_type::counter_type;
         using typename system_type::id_type;
 
-        template < typename Instance > struct hook
-        {
-            hook(const id_type& id)
-                : id_(id)
-            {}
-
-            const id_type& get_id() const { return id_; }
-
-        private:
-            id_type id_;
-        };
-
         replica(const replica_id_type& id, instance_id_sequence_type& sequence)
             : id_(id)
             , instance_id_sequence_(sequence)

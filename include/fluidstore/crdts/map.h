@@ -1,6 +1,7 @@
 #pragma once
 
 #include <fluidstore/crdts/dot_kernel.h>
+#include <fluidstore/crdts/set.h>
 #include <fluidstore/allocators/arena_allocator.h>
 
 #include <memory>
@@ -8,37 +9,38 @@
 
 namespace crdt
 {
-    template < typename Key, typename Value, typename Allocator, typename Tag = tag_state > class map
-        : public dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, Tag >, Tag >
-        , public Allocator::template hook< map< Key, Value, Allocator, Tag > >
+    template < typename Key, typename Value, typename Allocator, typename Tag = tag_state, typename Hook = default_hook< Allocator > > class map
+        : public Hook::template hook< map< Key, Value, Allocator, Tag, Hook > >
+        , public dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, Tag, Hook >, Tag >
     {
-        typedef map< Key, Value, Allocator, Tag > map_type;
+        typedef map< Key, Value, Allocator, Tag, Hook > map_type;
         typedef dot_kernel< Key, Value, Allocator, map_type, Tag > dot_kernel_type;
     
     public:
         typedef Allocator allocator_type;
-        typedef typename allocator_type::template hook< map_type > hook_type;
         typedef typename allocator_type::replica_type replica_type;
-       
+
+        typedef typename Hook::template hook< map_type > hook_type;
+        
         template < typename AllocatorT, typename TagT > struct rebind
         {
-            typedef map< Key, typename Value::template rebind< AllocatorT, TagT >::type, AllocatorT, TagT > type;
+            typedef map< Key, typename Value::template rebind< AllocatorT, TagT >::type, AllocatorT, TagT, Hook > type;
         };
 
         map(Allocator allocator)
-            : hook_type(allocator.get_replica().generate_instance_id())
+            : hook_type(allocator, allocator.get_replica().generate_instance_id())
             , dot_kernel_type(allocator)
         {}
 
         map(Allocator allocator, typename Allocator::replica_type::id_type id)
-            : hook_type(id)
+            : hook_type(allocator, id)
             , dot_kernel_type(allocator)
         {}
 
         std::pair< typename dot_kernel_type::iterator, bool > insert(const Key& key, const Value& value)
         {
             arena< 1024 * 2 > buffer;
-            arena_allocator< void, allocator< typename replica_type::delta_replica_type > > allocator(buffer, this->allocator_.get_replica());
+            arena_allocator< void, allocator< typename replica_type::delta_replica_type > > allocator(buffer, this->get_allocator().get_replica());
             typename rebind< decltype(allocator), tag_delta >::type delta(allocator, this->get_id());
             //map_type delta(this->allocator_, this->get_id());
 
@@ -50,20 +52,20 @@ namespace crdt
             
             insert_context context;
             this->merge(delta, context);
-            this->allocator_.merge(*this, delta);
+            this->merge_hook(*this, delta);
             return { context.result.first, context.result.second };
         }
 
         Value& operator[](const Key& key)
         {
             arena< 1024 * 2 > buffer;
-            arena_allocator< void, allocator< typename replica_type::delta_replica_type > > allocator(buffer, this->allocator_.get_replica());
+            arena_allocator< void, allocator< typename replica_type::delta_replica_type > > allocator(buffer, this->get_allocator().get_replica());
             typename rebind< decltype(allocator), tag_delta >::type delta(allocator, this->get_id());
 
             if constexpr (std::uses_allocator_v< Value, Allocator >)
             {
                 // TODO: this Value should not be tracked, it is temporary.
-                auto pairb = insert(key, Value(allocator_));
+                auto pairb = insert(key, Value(this->get_allocator()));
                 return (*pairb.first).second;
             }
             else
@@ -94,7 +96,7 @@ namespace crdt
     private:
         template < typename Delta, typename ValueT > void insert(Delta& delta, const Key& key, const ValueT& value)
         {
-            auto replica_id = this->allocator_.get_replica().get_id();
+            auto replica_id = this->get_allocator().get_replica().get_id();
             auto counter = this->counters_.get(replica_id) + 1;
             delta.counters_.emplace(replica_id, counter);
             auto& data = delta.values_[key];

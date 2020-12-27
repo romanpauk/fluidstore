@@ -71,7 +71,7 @@ namespace crdt
             values_.insert(delta, value);
 
             values_.merge(delta);
-            allocator_.merge(values_, delta);
+            // allocator_.merge(values_, delta);
         }
 
         template < typename ValueMv > void merge(const ValueMv& other)

@@ -12,19 +12,19 @@ namespace crdt
         template < typename T > void visit(T) {}
     };
 
-    template < typename ReplicaId, typename InstanceId, typename Counter, typename DeltaAllocator, typename Visitor = empty_visitor > class delta_replica
-        : public replica< ReplicaId, InstanceId, Counter >
+    template < typename System, typename DeltaAllocator, typename Visitor = empty_visitor > class delta_replica
+        : public replica< System >
     {
-        typedef delta_replica< ReplicaId, InstanceId, Counter, DeltaAllocator, Visitor > this_type;
+        typedef delta_replica< System, DeltaAllocator, Visitor > this_type;
 
     public:
-        typedef replica< ReplicaId, InstanceId, Counter > delta_replica_type;
+        typedef replica< System > delta_replica_type;
         
-        using replica_type::replica_id_type;
-        using replica_type::instance_id_type;
-        using replica_type::id_type;
-        using replica_type::counter_type;
-        typedef id_sequence< InstanceId > id_sequence_type;
+        using typename System::replica_id_type;
+        using typename System::instance_id_type;
+        using typename System::id_type;
+        using typename System::counter_type;
+        using typename System::instance_id_sequence_type;
 
     private:
         class instance_registry
@@ -213,8 +213,8 @@ namespace crdt
         };
 
         delta_replica(
-            ReplicaId replica_id, 
-            id_sequence< InstanceId >& sequence, 
+            replica_id_type replica_id, 
+            instance_id_sequence_type& sequence, 
             std::function< DeltaAllocator() > delta_allocator_factory
         )
             : replica_type(replica_id, sequence)

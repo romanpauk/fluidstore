@@ -5,20 +5,33 @@
 
 namespace crdt
 {
-    template < typename ReplicaId = uint64_t, typename InstanceId = uint64_t, typename Counter = uint64_t > class replica
-        : noncopyable
+    // Shared between all replicas. Contracts for IDs.
+    template < typename ReplicaId = uint64_t, typename InstanceId = uint64_t, typename Counter = uint64_t > class system
     {
-        template < typename ReplicaIdT, typename InstanceIdT, typename CounterT > friend class replica;
-
     public:
-        typedef replica< ReplicaId, InstanceId, Counter > replica_type;
-        typedef replica_type delta_replica_type;
-        
         typedef ReplicaId replica_id_type;
         typedef InstanceId instance_id_type;
+        typedef id_sequence< InstanceId > instance_id_sequence_type;
         typedef Counter counter_type;
-        typedef std::pair< ReplicaId, InstanceId > id_type;
-        typedef id_sequence< InstanceId > id_sequence_type;
+        typedef std::pair< replica_id_type, instance_id_type > id_type;
+    };
+
+    template < typename System = crdt::system<> > class replica
+        : noncopyable
+        , public System
+    {
+        template < typename System > friend class replica;
+
+    public:
+        typedef System system_type;
+        typedef replica< System > replica_type;
+        typedef replica_type delta_replica_type;
+        
+        using typename system_type::replica_id_type;
+        using typename system_type::instance_id_type;
+        using typename system_type::instance_id_sequence_type;
+        using typename system_type::counter_type;
+        using typename system_type::id_type;
 
         template < typename Instance > struct hook
         {
@@ -32,49 +45,23 @@ namespace crdt
             id_type id_;
         };
 
-        replica(const ReplicaId& id, id_sequence< InstanceId >& seq)
+        replica(const replica_id_type& id, instance_id_sequence_type& sequence)
             : id_(id)
-            , sequence_(seq)
+            , instance_id_sequence_(sequence)
         {}
 
         template < typename ReplicaT > replica(ReplicaT& other)
             : id_(other.id_)
-            , sequence_(other.sequence_)
+            , instance_id_sequence_(other.sequence_)
         {}
 
-        const ReplicaId& get_id() const { return id_; }
-        id_type generate_instance_id() { return { id_, sequence_.next() }; }
-        id_sequence_type& get_sequence() { return sequence_; }
-
+        const replica_id_type& get_id() const { return id_; }
+        id_type generate_instance_id() { return { id_, instance_id_sequence_.next() }; }
+        
         template < typename Instance, typename DeltaInstance > void merge(const Instance& instance, const DeltaInstance& delta) {}
 
     private:
-        ReplicaId id_;
-        id_sequence< InstanceId >& sequence_;
+        replica_id_type id_;
+        instance_id_sequence_type& instance_id_sequence_;
     };
-
-    /*
-    template < typename Instance, typename ReplicaId = uint64_t, typename InstanceId = uint64_t, typename Counter = uint64_t > class delta_replica
-        : replica< ReplicaId, InstanceId, Counter >
-    {
-        template < typename Instance, typename ReplicaIdT, typename InstanceIdT, typename CounterT > friend class delta_replica;
-
-    public:
-        delta_replica(const ReplicaId& id, id_sequence< InstanceId >& seq)
-            : replica< ReplicaId, InstanceId, Counter >(id, seq)
-        {}
-
-        template < typename ReplicaT > delta_replica(ReplicaT& other)
-            : replica< ReplicaId, InstanceId, Counter >(other)
-        {}
-
-        template < typename Instance, typename DeltaInstance > void merge(const Instance& instance, const DeltaInstance& delta) 
-        {
-            instance_.merge(delta);
-        }
-
-    private:
-        Instance& instance_;
-    };
-    */
 }

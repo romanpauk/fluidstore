@@ -16,6 +16,7 @@ BOOST_AUTO_TEST_CASE(map_basic_operations)
     auto key0 = boost::lexical_cast<int>(0);
     auto key1 = boost::lexical_cast<int>(1);
     auto value1 = crdt::value_mv< int, decltype(alloc) >(alloc);
+    value1 = 1;
 
     // Empty map
     BOOST_TEST((map.find(key0) == map.end()));
@@ -29,7 +30,7 @@ BOOST_AUTO_TEST_CASE(map_basic_operations)
     BOOST_TEST(pb.second == true);
     BOOST_TEST((pb.first == map.find(key1)));
     BOOST_TEST(((*pb.first).first == key1));
-    BOOST_TEST(((*pb.first).second == value1));
+    BOOST_TEST(((*pb.first).second == value1.get_one()));
     BOOST_TEST((map.find(key1) != map.end()));
     BOOST_TEST((++map.begin() == map.end()));
     BOOST_TEST((map.begin() == --map.end()));
@@ -57,9 +58,10 @@ BOOST_AUTO_TEST_CASE(map_basic_operations)
     {
         ++iters;
         BOOST_TEST(k == key1);
-        BOOST_TEST((v == value1));
+        BOOST_TEST((v == value1.get_one()));
     }
     BOOST_TEST(iters == 1);
+    BOOST_TEST((map.at(key1) == value1.get_one()));
 
     map.clear();
     BOOST_TEST(map.size() == 0);
@@ -70,7 +72,7 @@ BOOST_AUTO_TEST_CASE(map_merge)
 {
     crdt::id_sequence<> sequence;
     crdt::replica<> replica(1, sequence);
-    // crdt::delta_allocator< crdt::map< int, crdt::allocator<>, crdt::tag_delta > > allocator(replica);
+    // crdt::delta_allocator< crdt::map< int, crdt::value< int >, crdt::allocator<>, crdt::tag_delta > > allocator(replica);
 
     // crdt::set< int, decltype(allocator) > set1(allocator, { 0, 1 });
     // crdt::set< int, decltype(allocator) > set2(allocator, { 0, 2 });

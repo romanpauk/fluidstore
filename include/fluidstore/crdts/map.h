@@ -4,6 +4,7 @@
 #include <fluidstore/allocators/arena_allocator.h>
 
 #include <memory>
+#include <stdexcept>
 
 namespace crdt
 {
@@ -70,6 +71,24 @@ namespace crdt
                 auto pairb = insert(key, Value());
                 return (*pairb.first).second;
             }
+        }
+
+        Value& at(const Key& key)
+        {
+            auto it = find(key);
+            if (it != end())
+            {
+                return (*it).second;
+            }
+            else
+            {
+                throw std::out_of_range(__FUNCTION__);
+            }
+        }
+
+        const Value& at(const Key& key) const
+        {
+            return const_cast<decltype(this)>(this)->at(key);
         }
 
     private:

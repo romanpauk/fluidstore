@@ -7,7 +7,7 @@
 #include <boost/test/unit_test.hpp>
 
 struct visitor;
-typedef crdt::delta_replica< uint64_t, uint64_t, uint64_t, crdt::allocator< crdt::replica<> >, visitor > replica_type;
+typedef crdt::delta_replica< crdt::system<>, crdt::allocator< crdt::replica<> >, visitor > replica_type;
 
 struct visitor
 {
@@ -35,7 +35,7 @@ BOOST_AUTO_TEST_CASE(aggregating_replica)
     crdt::allocator< replica_type> allocator1(replica1);
 
     crdt::id_sequence<> sequence2;
-    crdt::replica<> delta_replica2(1, sequence2);
+    crdt::replica<> delta_replica2(2, sequence2);
     crdt::allocator< crdt::replica<> > delta_allocator2(delta_replica2);
     replica_type replica2(2, sequence2, [&]
     {
@@ -73,4 +73,7 @@ BOOST_AUTO_TEST_CASE(aggregating_replica)
     visitor v(replica2);;
     replica1.visit(v);
     replica1.clear();
+
+    BOOST_TEST((map2.at(3) == 3));
+    BOOST_TEST((map22.at(2).at(20) == 200));
 }

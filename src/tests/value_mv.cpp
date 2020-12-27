@@ -9,34 +9,45 @@ BOOST_AUTO_TEST_CASE(value_mv_basic_operations)
 {
     crdt::id_sequence<> sequence;
     crdt::replica<> replica(0, sequence);
-    crdt::allocator<> alloc(replica);
+    crdt::allocator<> allocator(replica);
 
-    crdt::value_mv< int, decltype(alloc) > value(alloc);
+    crdt::value_mv< int, decltype(allocator) > value(allocator);
 
     BOOST_TEST((value == int()));
-    BOOST_TEST(value.get() == int());
+    BOOST_TEST(value.get_one() == int());
 
     value.set(1);
     BOOST_TEST((value == 1));
-    BOOST_TEST(value.get() == 1);
+    BOOST_TEST(value.get_one() == 1);
 
     value = 2;
     BOOST_TEST((value == 2));
-    BOOST_TEST(value.get() == 2);
+    BOOST_TEST(value.get_one() == 2);
 
-    crdt::value_mv< int, decltype(alloc) > value2(alloc);
-    // value2 = value;
-    // BOOST_TEST((value2 == 2));
+    BOOST_TEST(*value.get_all().begin() == 2);
 }
 
 BOOST_AUTO_TEST_CASE(value_mv_merge)
 {
     crdt::id_sequence<> sequence;
     crdt::replica<> replica(1, sequence);
-    crdt::delta_allocator< crdt::value_mv< int, crdt::allocator<>, crdt::tag_delta > > allocator(replica);
+    
+    crdt::allocator<> allocator(replica);
+    crdt::value_mv< int, decltype(allocator) > value1(allocator);
+    crdt::value_mv< int, decltype(allocator) > value2(allocator);
 
-    crdt::value_mv< int, decltype(allocator) > v1(allocator, { 0, 1 });
-    crdt::value_mv< int, decltype(allocator) > v2(allocator, { 0, 2 });
+    // A replica is needed that propagates each delta to corresponding delta instance immediatelly.
+    // Basically:
+    //   value_mv will have it's delta shadow.
+    //    all child objects will be tracked with shadow replica (problem: we need to generate replica id, it is a pair (replica, instance)).
+    //       TODO: delta allocator will have template arg Replica, with it's own per-instance replica.
+    //    after each merge, replica will propagate changes to shadow
+    //    some shadows might be deltas, some not.
+    // Current delta_replica is something like that, but not exactly and definitely cannot be easily used for simple testing
+    // (look at set.cpp).
 
+    // value1 = 1;
+    // value1.set(1);
+    //value2.merge(value1.extract_delta());
     // TODO: test
 }

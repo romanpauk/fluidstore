@@ -40,7 +40,7 @@ namespace crdt
         typedef typename Hook::template hook< set_type > hook_type;
         typedef typename allocator_type::replica_type replica_type;
 
-        template < typename AllocatorT, typename TagT > struct rebind { typedef set< Key, AllocatorT, TagT, Hook > type; };
+        template < typename AllocatorT, typename TagT, typename HookT > struct rebind { typedef set< Key, AllocatorT, TagT, HookT > type; };
 
         set(Allocator allocator)
             : hook_type(allocator, allocator.get_replica().generate_instance_id())
@@ -56,7 +56,7 @@ namespace crdt
         {
             arena< 1024 > buffer;
             arena_allocator< void, allocator< typename replica_type::delta_replica_type > > allocator(buffer, this->get_allocator().get_replica());
-            typename rebind< decltype(allocator), tag_delta >::type delta(allocator, this->get_id());
+            typename rebind< decltype(allocator), tag_delta, default_hook< decltype(allocator) > >::type delta(allocator, this->get_id());
             // set_type delta(this->allocator_, this->get_id());
 
             insert(delta, key);

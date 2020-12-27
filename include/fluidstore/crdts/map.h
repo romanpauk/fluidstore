@@ -22,9 +22,9 @@ namespace crdt
 
         typedef typename Hook::template hook< map_type > hook_type;
         
-        template < typename AllocatorT, typename TagT > struct rebind
+        template < typename AllocatorT, typename TagT, typename HookT > struct rebind
         {
-            typedef map< Key, typename Value::template rebind< AllocatorT, TagT >::type, AllocatorT, TagT, Hook > type;
+            typedef map< Key, typename Value::template rebind< AllocatorT, TagT, HookT >::type, AllocatorT, TagT, HookT > type;
         };
 
         map(Allocator allocator)
@@ -41,7 +41,7 @@ namespace crdt
         {
             arena< 1024 * 2 > buffer;
             arena_allocator< void, allocator< typename replica_type::delta_replica_type > > allocator(buffer, this->get_allocator().get_replica());
-            typename rebind< decltype(allocator), tag_delta >::type delta(allocator, this->get_id());
+            typename rebind< decltype(allocator), tag_delta, default_hook< decltype(allocator) > >::type delta(allocator, this->get_id());
             //map_type delta(this->allocator_, this->get_id());
 
             insert(delta, key, value);
@@ -60,7 +60,7 @@ namespace crdt
         {
             arena< 1024 * 2 > buffer;
             arena_allocator< void, allocator< typename replica_type::delta_replica_type > > allocator(buffer, this->get_allocator().get_replica());
-            typename rebind< decltype(allocator), tag_delta >::type delta(allocator, this->get_id());
+            typename rebind< decltype(allocator), tag_delta, default_hook< decltype(allocator) > >::type delta(allocator, this->get_id());
 
             if constexpr (std::uses_allocator_v< Value, Allocator >)
             {

@@ -124,7 +124,7 @@ namespace crdt
         // TODO: this is not exactly extensible... :(
         template < typename Key, typename Allocator, typename Tag, typename Hook > friend class set;
         template < typename Key, typename Value, typename Allocator, typename Tag, typename Hook > friend class map;
-        template < typename Key, typename Allocator, typename Tag > friend class value_mv;
+        template < typename Key, typename Allocator, typename Tag, typename Hook > friend class value_mv;
 
     protected:
         typedef typename Allocator::replica_type replica_type;

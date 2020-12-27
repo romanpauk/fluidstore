@@ -6,21 +6,21 @@
 
 namespace crdt
 {
-    template < typename Value, typename Allocator, typename Tag = tag_state > class value_mv
+    template < typename Value, typename Allocator, typename Tag = tag_state, typename Hook = default_hook< Allocator > > class value_mv
         // : public Allocator::template hook< value_mv< Value, Allocator, Tag > >
     {
-        typedef value_mv< Value, Allocator, Tag > value_mv_type;
-        template < typename Value, typename Allocator, typename Tag > friend class value_mv;
+        typedef value_mv< Value, Allocator, Tag, Hook > value_mv_type;
+        template < typename Value, typename Allocator, typename Tag, typename Hook > friend class value_mv;
         
     public:
         typedef Allocator allocator_type;
         typedef typename allocator_type::template hook< value_mv_type > hook_type;
         typedef typename allocator_type::replica_type replica_type;
 
-        template < typename AllocatorT, typename TagT > struct rebind
+        template < typename AllocatorT, typename TagT, typename HookT > struct rebind
         {
             // TODO: this can also be recursive in Value... sometimes.
-            typedef value_mv< Value, AllocatorT, TagT > type;
+            typedef value_mv< Value, AllocatorT, TagT, HookT > type;
         };
 
         value_mv(allocator_type allocator)
@@ -65,13 +65,13 @@ namespace crdt
         {
             arena< 1024 > buffer;
             arena_allocator< void, allocator< typename Allocator::replica_type::delta_replica_type > > allocator(buffer, values_.get_allocator().get_replica());
-            typename decltype(values_)::template rebind< decltype(allocator), tag_delta >::type delta(allocator, values_.get_id());
+            typename decltype(values_)::template rebind< decltype(allocator), tag_delta, default_hook< decltype(allocator) > >::type delta(allocator, values_.get_id());
 
             values_.clear(delta);
             values_.insert(delta, value);
 
             values_.merge(delta);
-            // allocator_.merge(values_, delta);
+            values_.get_allocator().get_replica().merge(values_, delta);
         }
 
         template < typename ValueMv > void merge(const ValueMv& other)
@@ -105,6 +105,6 @@ namespace crdt
 
     private:
         allocator_type allocator_;
-        crdt::set< Value, Allocator, Tag > values_;
+        crdt::set< Value, Allocator, Tag, Hook > values_;
     };
 }

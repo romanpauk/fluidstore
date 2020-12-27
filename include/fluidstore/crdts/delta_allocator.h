@@ -48,6 +48,8 @@ namespace crdt
                 : default_hook< allocator_type >::template hook< Instance >(allocator, id)
                 , allocator_type::replica_type::template hook< Instance >(allocator, id)
             {}
+
+            using allocator_type::replica_type::template hook< Instance >::merge_hook;
         };
     };
 }

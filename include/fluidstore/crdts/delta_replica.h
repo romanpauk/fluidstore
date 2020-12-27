@@ -44,7 +44,7 @@ namespace crdt
 
                 void merge(const void* i)
                 {
-                    typedef typename Instance::template rebind< Allocator, tag_delta >::type delta_type;
+                    typedef typename Instance::template rebind< Allocator, tag_delta, default_hook< Allocator > >::type delta_type;
                     auto instance_ptr = reinterpret_cast<const delta_type*>(i);
                     instance_.merge(*instance_ptr);
                 }
@@ -151,7 +151,7 @@ namespace crdt
 
             template < typename Instance > auto& get_instance(const Instance& i)
             {
-                typedef typename Instance::template rebind< DeltaAllocator, tag_delta >::type delta_type;
+                typedef typename Instance::template rebind< DeltaAllocator, tag_delta, default_hook< DeltaAllocator > >::type delta_type;
                 typedef instance< Instance, delta_type, DeltaAllocator > delta_instance_type;
 
                 if (!i.delta_instance_)
@@ -204,7 +204,7 @@ namespace crdt
 
             template < typename Instance, typename DeltaInstance > void merge_hook(const Instance& target, const DeltaInstance& source)
             {
-                this->get_allocator().get_replica().merge(target, source);
+                static_cast<Instance*>(this)->get_allocator().get_replica().merge(target, source);
             }
 
 

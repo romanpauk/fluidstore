@@ -6,7 +6,7 @@
 
 namespace crdt
 {
-    template < typename Value, typename Allocator, typename Tag = tag_state, typename Hook = default_hook< Allocator > > class value_mv
+    template < typename Value, typename Allocator, typename Tag = tag_state, typename Hook = default_hook > class value_mv
         // : public Allocator::template hook< value_mv< Value, Allocator, Tag > >
     {
         typedef value_mv< Value, Allocator, Tag, Hook > value_mv_type;
@@ -65,7 +65,7 @@ namespace crdt
         {
             arena< 1024 > buffer;
             arena_allocator< void, allocator< typename Allocator::replica_type::delta_replica_type > > allocator(buffer, values_.get_allocator().get_replica());
-            typename decltype(values_)::template rebind< decltype(allocator), tag_delta, default_hook< decltype(allocator) > >::type delta(allocator, values_.get_id());
+            typename decltype(values_)::template rebind< decltype(allocator), tag_delta, default_hook >::type delta(allocator, values_.get_id());
 
             values_.clear(delta);
             values_.insert(delta, value);

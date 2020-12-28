@@ -35,7 +35,7 @@ namespace crdt
             , replica_(&replica)
         {}
 
-        template < typename U, typename AllocatorU > allocator(const allocator< Replica, U, AllocatorU >& other)
+        template < typename ReplicaU, typename U, typename AllocatorU > allocator(const allocator< ReplicaU, U, AllocatorU >& other)
             : Allocator(other)
             , replica_(other.replica_)
         {}

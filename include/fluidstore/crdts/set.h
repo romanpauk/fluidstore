@@ -5,13 +5,13 @@
 
 namespace crdt
 {
-    template < typename Allocator > struct default_hook
+    struct default_hook
     {
-        typedef Allocator allocator_type;
-        typedef typename allocator_type::replica_type::id_type id_type;
-
-        template < typename Instance > struct hook
+        template < typename Allocator, typename Instance > struct hook
         {
+            typedef Allocator allocator_type;
+            typedef typename allocator_type::replica_type::id_type id_type;
+
             hook(Allocator alloc, const id_type& id)
                 : allocator_(alloc)
                 , id_(id)
@@ -28,8 +28,8 @@ namespace crdt
         };
     };
 
-    template < typename Key, typename Allocator, typename Tag = tag_state, typename Hook = default_hook< Allocator > > class set
-        : public Hook::template hook< set< Key, Allocator, Tag, Hook > >
+    template < typename Key, typename Allocator, typename Tag = tag_state, typename Hook = default_hook > class set
+        : public Hook::template hook< Allocator, set< Key, Allocator, Tag, Hook > >
         , public dot_kernel< Key, void, Allocator, set< Key, Allocator, Tag, Hook >, Tag >
     {
         typedef set< Key, Allocator, Tag, Hook > set_type;
@@ -37,17 +37,17 @@ namespace crdt
 
     public:
         typedef Allocator allocator_type;
-        typedef typename Hook::template hook< set_type > hook_type;
+        typedef typename Hook::template hook< allocator_type, set_type > hook_type;
         typedef typename allocator_type::replica_type replica_type;
 
         template < typename AllocatorT, typename TagT, typename HookT > struct rebind { typedef set< Key, AllocatorT, TagT, HookT > type; };
 
-        set(Allocator allocator)
+        set(allocator_type allocator)
             : hook_type(allocator, allocator.get_replica().generate_instance_id())
             , dot_kernel_type(allocator) 
         {}
 
-        set(Allocator allocator, typename Allocator::replica_type::id_type id)
+        set(allocator_type allocator, typename allocator_type::replica_type::id_type id)
             : hook_type(allocator, id)
             , dot_kernel_type(allocator)
         {}
@@ -56,7 +56,7 @@ namespace crdt
         {
             arena< 1024 > buffer;
             arena_allocator< void, allocator< typename replica_type::delta_replica_type > > allocator(buffer, this->get_allocator().get_replica());
-            typename rebind< decltype(allocator), tag_delta, default_hook< decltype(allocator) > >::type delta(allocator, this->get_id());
+            typename rebind< decltype(allocator), tag_delta, default_hook >::type delta(allocator, this->get_id());
             // set_type delta(this->allocator_, this->get_id());
 
             insert(delta, key);

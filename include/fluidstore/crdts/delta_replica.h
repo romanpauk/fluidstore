@@ -99,9 +99,8 @@ namespace crdt
         class delta_registry
         {
         public:
-            delta_registry(std::function< DeltaAllocator() > factory)
-                : delta_allocator_(factory())
-                , delta_allocator_factory_(factory)
+            delta_registry(DeltaAllocator allocator)
+                : delta_allocator_(allocator)
             {}
 
             struct instance_base
@@ -171,15 +170,13 @@ namespace crdt
             {
                 deltas_.clear();
                 instances_.clear();
-                delta_allocator_ = delta_allocator_factory_();
             }
 
             auto begin() { return instances_.begin(); }
             auto end() { return instances_.end(); }
 
             DeltaAllocator delta_allocator_;
-            std::function< DeltaAllocator() > delta_allocator_factory_;
-
+            
             std::map< id_type, std::unique_ptr< instance_base > > instances_;
             std::deque< instance_base* > deltas_;
         };
@@ -216,13 +213,9 @@ namespace crdt
             mutable typename delta_registry::instance_base* delta_instance_;
         };
 
-        delta_replica(
-            replica_id_type replica_id, 
-            instance_id_sequence_type& sequence, 
-            std::function< DeltaAllocator() > delta_allocator_factory
-        )
+        delta_replica(replica_id_type replica_id, instance_id_sequence_type& sequence, DeltaAllocator delta_allocator)
             : replica_type(replica_id, sequence)
-            , delta_registry_(delta_allocator_factory)
+            , delta_registry_(delta_allocator)
         {}
 
         template < typename Instance, typename DeltaInstance > void merge(const Instance& target, const DeltaInstance& source)

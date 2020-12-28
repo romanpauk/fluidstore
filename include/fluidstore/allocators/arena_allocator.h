@@ -15,6 +15,7 @@ namespace crdt
             : base_(arena.data())
             , current_(arena.data())
             , end_(arena.data() + arena.size())
+            , allocated_()
         {}
 
         bool operator == (const arena_base& arena) { return base_ == arena.base_; }
@@ -24,6 +25,7 @@ namespace crdt
             base_ = other.base_;
             current_ = other.current_;
             end_ = other.end_;
+            allocated_ = other.allocated_;
             return *this;
         }
 
@@ -31,6 +33,7 @@ namespace crdt
         unsigned char* base_;
         unsigned char* current_;
         unsigned char* end_;
+        size_t allocated_;
     };
 
     template< size_t N > class arena : public arena_base
@@ -78,10 +81,12 @@ namespace crdt
         {
             unsigned char* ptr = (unsigned char*)(uintptr_t(arena_.current_ + alignof(value_type) - 1) & ~(alignof(value_type) - 1));
 
-            if (ptr + n * sizeof(value_type) < arena_.end_)
+            size_t bytes = n * sizeof(value_type);
+            if (ptr + bytes < arena_.end_)
             {
                 value_type* p = reinterpret_cast<value_type*>(ptr);
-                ptr += n * sizeof(value_type);
+                ptr += bytes;
+                arena_.allocated_ += bytes;
                 arena_.current_ = ptr;
                 return p;
             }
@@ -94,16 +99,21 @@ namespace crdt
             }
         }
 
-        void deallocate(value_type* p, std::size_t size) noexcept
+        void deallocate(value_type* p, std::size_t n) noexcept
         {
             auto ptr = reinterpret_cast<unsigned char*>(p);
             if (ptr >= arena_.base_ && ptr < arena_.end_)
             {
                 // This is from arena
+                arena_.allocated_ -= n * sizeof(value_type);
+                if (arena_.allocated_ == 0)
+                {
+                    arena_.current_ = arena_.base_;
+                }
             }
             else
             {
-                Allocator::deallocate(p, size);
+                Allocator::deallocate(p, n);
             }
         }
 

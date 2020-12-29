@@ -9,13 +9,101 @@ namespace crdt
 {
     struct empty_visitor
     {
-        template < typename T > void visit(T) {}
+        template < typename T > void visit(const T&) {}
     };
 
-    template < typename System, typename DeltaAllocator, typename Visitor = empty_visitor > class delta_replica
+    template < typename Allocator, typename Visitor > class delta_registry
+    {
+    public:
+        typedef Allocator allocator_type;
+        typedef typename allocator_type::replica_type::id_type id_type;
+
+        delta_registry(allocator_type allocator)
+            : delta_allocator_(allocator)
+        {}
+
+        struct instance_base
+        {
+            virtual ~instance_base() {}
+            virtual void visit(Visitor&) const = 0;
+            virtual void clear_instance_ptr() = 0;
+        };
+
+        template < typename Instance, typename DeltaInstance > struct instance : instance_base
+        {
+            instance(allocator_type allocator, const Instance& instance)
+                : delta_instance_(allocator, instance.get_id())
+                , instance_(&instance)
+            {
+                instance.delta_instance_ = this;
+            }
+
+            ~instance()
+            {
+                clear_instance_ptr();
+            }
+
+            template < typename DeltaInstanceT > void merge(const DeltaInstanceT& delta)
+            {
+                delta_instance_.merge(delta);
+            }
+
+            void visit(Visitor& visitor) const override
+            {
+                visitor.visit(delta_instance_);
+            }
+
+            void clear_instance_ptr()
+            {
+                if (instance_)
+                {
+                    instance_->delta_instance_ = nullptr;
+                    instance_ = nullptr;
+                }
+            }
+
+        private:
+            const Instance* instance_;
+            DeltaInstance delta_instance_;
+        };
+
+        template < typename Instance > auto& get_instance(const Instance& i)
+        {
+            typedef typename Instance::template rebind< allocator_type, tag_delta, default_hook >::type delta_type;
+            typedef instance< Instance, delta_type > delta_instance_type;
+
+            if (!i.delta_instance_)
+            {
+                auto& context = instances_[i.get_id()];
+                if (!context)
+                {
+                    context.reset(new delta_instance_type(delta_allocator_, i));
+                    deltas_.push_back(context.get());
+                }
+            }
+
+            return dynamic_cast<delta_instance_type&>(*i.delta_instance_);
+        }
+
+        void clear()
+        {
+            deltas_.clear();
+            instances_.clear();
+        }
+
+        auto begin() { return instances_.begin(); }
+        auto end() { return instances_.end(); }
+
+        allocator_type delta_allocator_;
+
+        std::map< id_type, std::unique_ptr< instance_base > > instances_;
+        std::deque< instance_base* > deltas_;
+    };
+
+    template < typename System, typename Allocator, typename Visitor = empty_visitor > class delta_replica
         : public replica< System >
     {
-        typedef delta_replica< System, DeltaAllocator, Visitor > this_type;
+        typedef delta_replica< System, Allocator, Visitor > this_type;
 
     public:
         typedef replica< System > delta_replica_type;
@@ -36,7 +124,7 @@ namespace crdt
                 virtual void merge(const void*) = 0;
             };
 
-            template < typename Instance, typename Allocator > struct instance : instance_base
+            template < typename Instance, typename DeltaAllocator > struct instance : instance_base
             {
                 instance(Instance& i)
                     : instance_(i)
@@ -44,7 +132,7 @@ namespace crdt
 
                 void merge(const void* i)
                 {
-                    typedef typename Instance::template rebind< Allocator, tag_delta, default_hook >::type delta_type;
+                    typedef typename Instance::template rebind< DeltaAllocator, tag_delta, default_hook >::type delta_type;
                     auto instance_ptr = reinterpret_cast<const delta_type*>(i);
                     instance_.merge(*instance_ptr);
                 }
@@ -96,95 +184,10 @@ namespace crdt
             instances_type instances_;
         };
 
-        class delta_registry
-        {
-        public:
-            delta_registry(DeltaAllocator allocator)
-                : delta_allocator_(allocator)
-            {}
-
-            struct instance_base
-            {
-                virtual ~instance_base() {}
-                virtual void visit(Visitor&) const = 0;
-                virtual void clear_instance_ptr() = 0;
-            };
-
-            template < typename Instance, typename DeltaInstance, typename Allocator > struct instance : instance_base
-            {
-                instance(Allocator allocator, const Instance& instance)
-                    : delta_instance_(allocator, instance.get_id())
-                    , instance_(&instance)
-                {
-                    instance.delta_instance_ = this;
-                }
-
-                ~instance()
-                {
-                    clear_instance_ptr();
-                }
-
-                template < typename DeltaInstanceT > void merge(const DeltaInstanceT& delta)
-                {
-                    delta_instance_.merge(delta);
-                }
-
-                void visit(Visitor& visitor) const override
-                {
-                    visitor.visit(delta_instance_);
-                }
-
-                void clear_instance_ptr()
-                {
-                    if (instance_)
-                    {
-                        instance_->delta_instance_ = nullptr;
-                        instance_ = nullptr;
-                    }
-                }
-
-            private:
-                const Instance* instance_;
-                DeltaInstance delta_instance_;
-            };
-
-            template < typename Instance > auto& get_instance(const Instance& i)
-            {
-                typedef typename Instance::template rebind< DeltaAllocator, tag_delta, default_hook >::type delta_type;
-                typedef instance< Instance, delta_type, DeltaAllocator > delta_instance_type;
-
-                if (!i.delta_instance_)
-                {
-                    auto& context = instances_[i.get_id()];
-                    if (!context)
-                    {
-                        context.reset(new delta_instance_type(delta_allocator_, i));
-                        deltas_.push_back(context.get());
-                    }
-                }
-
-                return dynamic_cast< delta_instance_type& >(*i.delta_instance_);                
-            }
-
-            void clear()
-            {
-                deltas_.clear();
-                instances_.clear();
-            }
-
-            auto begin() { return instances_.begin(); }
-            auto end() { return instances_.end(); }
-
-            DeltaAllocator delta_allocator_;
-            
-            std::map< id_type, std::unique_ptr< instance_base > > instances_;
-            std::deque< instance_base* > deltas_;
-        };
-
     public:
         template< typename AllocatorT, typename Instance > struct hook
         {
-            template < typename Allocator > hook(Allocator, id_type id)
+            template < typename AllocatorU > hook(AllocatorU, id_type id)
                 : instance_(*static_cast<Instance*>(this))
                 , instance_it_(static_cast<Instance*>(this)->get_allocator().get_replica().instance_registry_.insert(id, instance_))
                 , delta_instance_()
@@ -204,16 +207,15 @@ namespace crdt
                 static_cast<Instance*>(this)->get_allocator().get_replica().merge(target, source);
             }
 
-
         private:
-            typename instance_registry::template instance< Instance, DeltaAllocator > instance_;
+            typename instance_registry::template instance< Instance, AllocatorT > instance_;
             typename instance_registry::iterator instance_it_;
 
-            friend class delta_registry;
-            mutable typename delta_registry::instance_base* delta_instance_;
+            template < typename Allocator, typename Visitor > friend class delta_registry;
+            mutable typename delta_registry< Allocator, Visitor >::instance_base* delta_instance_;
         };
 
-        delta_replica(replica_id_type replica_id, instance_id_sequence_type& sequence, DeltaAllocator delta_allocator)
+        delta_replica(replica_id_type replica_id, instance_id_sequence_type& sequence, Allocator delta_allocator)
             : replica_type(replica_id, sequence)
             , delta_registry_(delta_allocator)
         {}
@@ -244,6 +246,6 @@ namespace crdt
 
     private:
         instance_registry instance_registry_;
-        delta_registry delta_registry_;
+        delta_registry< Allocator, Visitor > delta_registry_;
     };
 }

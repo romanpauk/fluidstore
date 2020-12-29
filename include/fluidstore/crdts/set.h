@@ -54,10 +54,12 @@ namespace crdt
 
         std::pair< typename dot_kernel_type::iterator, bool > insert(const Key& key)
         {
-            arena< 1024 > buffer;
-            arena_allocator< void, allocator< typename replica_type::delta_replica_type > > allocator(buffer, this->get_allocator().get_replica());
-            typename rebind< decltype(allocator), tag_delta, default_hook >::type delta(allocator, this->get_id());
-            // set_type delta(this->allocator_, this->get_id());
+            //arena< 1024 > buffer;
+            //arena_allocator< void, allocator<> > allocator(buffer, this->get_allocator().get_replica());
+            //typename rebind< decltype(allocator), tag_delta, default_hook >::type delta(allocator, this->get_id());
+            //set_type delta(this->get_allocator(), this->get_id());
+            
+            typename rebind< Allocator, tag_delta, default_hook >::type delta(this->get_allocator(), this->get_id());
 
             insert(delta, key);
          

@@ -11,7 +11,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_basic_operations, T, test_types)
     crdt::id_sequence<> sequence;
     crdt::replica<> replica(0, sequence);
     crdt::allocator<> alloc(replica);
-    crdt::set< T, decltype(alloc) > set(alloc, { 0, 0 });
+    crdt::set< T, decltype(alloc) > set(alloc);
 
     auto value0 = boost::lexical_cast<T>(0);
     auto value1 = boost::lexical_cast<T>(1);
@@ -102,11 +102,12 @@ BOOST_AUTO_TEST_CASE(set_replica_merge)
     crdt::id_sequence<> sequence;
     crdt::replica<> delta_replica(1, sequence);
     crdt::allocator<> delta_allocator(delta_replica);
-    crdt::delta_replica< crdt::system<>, crdt::allocator< crdt::replica<> > > replica(1, sequence, delta_allocator);
+    crdt::delta_replica< crdt::system<>, crdt::allocator<> > replica(1, sequence, delta_allocator);
     crdt::allocator< decltype(replica) > allocator(replica);
 
     crdt::set< int, decltype(allocator), crdt::tag_state, 
-        crdt::delta_hook< crdt::set< int, decltype(delta_allocator), crdt::tag_delta > > > set1(allocator, { 0, 1 });
+        crdt::delta_hook< crdt::set< int, decltype(delta_allocator), crdt::tag_delta > > > set1(allocator);
 
-    // set1.insert(1);
+    set1.insert(1);
+    set1.extract_delta();
 }

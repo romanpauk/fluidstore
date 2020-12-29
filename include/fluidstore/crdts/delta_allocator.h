@@ -27,15 +27,16 @@ namespace crdt
 
             DeltaInstance extract_delta()
             {
-                //DeltaInstance delta(static_cast<Instance*>(this)->get_allocator(), static_cast<Instance*>(this)->get_id());
-                //std::swap(delta, delta_);
-                //return delta;
+                DeltaInstance delta(delta_.get_allocator(), delta_.get_id());
+                std::swap(delta, delta_);
+                return delta;
             }
 
-            template < typename Instance, typename DeltaInstance > void merge_hook(const Instance& target, const DeltaInstance& source)
+            template < typename InstanceT, typename DeltaInstanceT > void merge_hook(const InstanceT& target, const DeltaInstanceT& source)
             {
                 this->get_allocator().get_replica().merge(target, source);
             }
+
         private:
             DeltaInstance delta_;
         };

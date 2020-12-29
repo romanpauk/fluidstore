@@ -45,8 +45,10 @@ namespace crdt
 
         const replica_id_type& get_id() const { return id_; }
         id_type generate_instance_id() { return { id_, instance_id_sequence_.next() }; }
-        
+        instance_id_sequence_type& get_instance_id_sequence() { return instance_id_sequence_; }
+
         template < typename Instance, typename DeltaInstance > void merge(const Instance& instance, const DeltaInstance& delta) {}
+        void merge(const id_type& id, const void* source) {}
 
     private:
         replica_id_type id_;

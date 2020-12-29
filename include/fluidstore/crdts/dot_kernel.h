@@ -293,6 +293,13 @@ namespace crdt
             return values_.size();
         }
 
+        void reset()
+        {
+            values_.clear();
+            dots_.clear();
+            counters_.clear();
+        }
+
     private:
         template < typename Context > void erase(typename values_type::iterator it, Context& context)
         {

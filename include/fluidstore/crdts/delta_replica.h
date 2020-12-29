@@ -27,6 +27,8 @@ namespace crdt
             virtual ~instance_base() {}
             virtual void visit(Visitor&) const = 0;
             virtual void clear_instance_ptr() = 0;
+            virtual const void* get_delta_instance_ptr() = 0;
+            virtual const id_type& get_id() = 0;
         };
 
         template < typename Instance, typename DeltaInstance > struct instance : instance_base
@@ -60,6 +62,16 @@ namespace crdt
                     instance_->delta_instance_ = nullptr;
                     instance_ = nullptr;
                 }
+            }
+
+            const void* get_delta_instance_ptr()
+            {
+                return &delta_instance_;
+            }
+
+            const id_type& get_id()
+            {
+                return instance_->get_id();
             }
 
         private:
@@ -229,6 +241,20 @@ namespace crdt
         template< typename Instance > void merge(const Instance& source)
         {
             this->instance_registry_.get_instance(source.get_id()).merge(&source);
+        }
+
+        void merge(const id_type& id, const void* source)
+        {
+            this->instance_registry_.get_instance(id).merge(source);
+        }
+
+        // TODO: I would rather merge two objects togetger
+        template < typename Replica > void merge_with_replica(Replica& replica)
+        {
+            for (const auto& instance : delta_registry_.deltas_)
+            {
+                replica.merge(instance->get_id(), instance->get_delta_instance_ptr());
+            }
         }
 
         void visit(Visitor& visitor) const

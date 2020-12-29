@@ -17,27 +17,36 @@ namespace crdt
             hook(allocator_type allocator, const id_type& id)
                 : default_hook::template hook< allocator_type, Instance >(allocator, id)
                 , allocator_type::replica_type::template hook< allocator_type, Instance >(allocator, id)
-                , delta_(
-                    std::allocator_traits< Allocator >::rebind_alloc< typename DeltaInstance::allocator_type >(
-                        static_cast<Instance*>(this)->get_allocator()
-                    )
-                    , id
+                , delta_replica_(
+                    static_cast<Instance*>(this)->get_allocator().get_replica().get_id(),
+                    static_cast<Instance*>(this)->get_allocator().get_replica().get_instance_id_sequence(), 
+                    allocator
                 )
+                , delta_replica_allocator_(delta_replica_)
+                , delta_(delta_replica_allocator_, id)
             {}
 
-            DeltaInstance extract_delta()
+            auto extract_delta()
             {
-                DeltaInstance delta(delta_.get_allocator(), delta_.get_id());
-                std::swap(delta, delta_);
+                typedef typename DeltaInstance::template rebind< allocator_type, tag_delta, default_hook >::type delta_type;
+                
+                // TODO: support std::swap()
+                delta_type delta(static_cast<Instance*>(this)->get_allocator(), delta_.get_id());
+                delta.merge(delta_);
+                delta_.reset();
                 return delta;
             }
 
             template < typename InstanceT, typename DeltaInstanceT > void merge_hook(const InstanceT& target, const DeltaInstanceT& source)
             {
                 this->get_allocator().get_replica().merge(target, source);
+                this->get_allocator().get_replica().merge_with_replica(delta_replica_);
+                this->get_allocator().get_replica().clear();
             }
 
         private:
+            typename Allocator::replica_type delta_replica_;
+            Allocator delta_replica_allocator_;
             DeltaInstance delta_;
         };
     };

@@ -40,7 +40,7 @@ namespace crdt
             insert(delta_, key);
             insert_context context;
             this->merge(delta_, context);
-            this->merge_hook();
+            this->commit_delta();
             return { context.result.first, context.result.second };
         }
 

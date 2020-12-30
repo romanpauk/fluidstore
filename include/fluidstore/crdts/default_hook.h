@@ -9,20 +9,16 @@ namespace crdt
             typedef Allocator allocator_type;
             typedef typename allocator_type::replica_type::id_type id_type;
 
-            hook(Allocator alloc, const id_type& id)
-                : allocator_(alloc)
+            hook(Allocator allocator, const id_type& id)
+                : allocator_(allocator)
                 , id_(id)
-                , delta_(alloc)
+                , delta_(allocator)
             {}
 
             allocator_type& get_allocator() { return allocator_; }
             const id_type& get_id() const { return id_; }
-
-            void merge_hook()
-            {
-                this->delta_.reset();
-            }
-
+            void commit_delta() { this->delta_.reset(); }
+            
             // protected:
             allocator_type allocator_;
             id_type id_;

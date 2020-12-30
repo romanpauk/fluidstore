@@ -253,7 +253,7 @@ namespace crdt
                 auto& delta = static_cast<Container*>(this)->delta_;
                 clear(delta);
                 merge(delta);
-                static_cast< Container* >(this)->merge_hook();
+                static_cast< Container* >(this)->commit_delta();
             }
         }
 
@@ -309,7 +309,7 @@ namespace crdt
             const auto& dots = it->second.dots;
             delta.counters_.insert(dots.begin(), dots.end());
             merge(delta, context);
-            static_cast< Container* >(this)->merge_hook();
+            static_cast< Container* >(this)->commit_delta();
         }
     };
 }

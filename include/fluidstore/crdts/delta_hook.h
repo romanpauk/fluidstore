@@ -12,15 +12,16 @@ namespace crdt
             typedef Allocator allocator_type;
             typedef typename allocator_type::replica_type::id_type id_type;
 
-            hook(Allocator alloc, const id_type& id)
-                : default_hook::template hook< Allocator, Delta, Instance >(alloc, id)
-                , delta_persistent_(alloc)
+            hook(Allocator allocator, const id_type& id)
+                : default_hook::template hook< Allocator, Delta, Instance >(allocator, id)
+                , delta_persistent_(allocator)
             {}
 
-            void merge_hook()
+            void commit_delta()
             {
-                this->delta_persistent_.merge(static_cast<Instance*>(this)->delta_);
-                static_cast<Instance*>(this)->delta_.reset();
+                auto& delta = static_cast<Instance*>(this)->delta_;
+                this->delta_persistent_.merge(delta);
+                delta.reset();
             }
 
             Delta extract_delta()

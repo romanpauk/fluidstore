@@ -135,4 +135,10 @@ BOOST_AUTO_TEST_CASE(map_map_merge)
     BOOST_TEST(map1.at(3).size() == 3);
     map2.merge(map1.extract_delta());
     BOOST_TEST(map2.at(3).size() == 3);
+
+    map1[3].erase(10);
+    BOOST_TEST(map1.at(3).size() == 2);
+    map2[3][10].set(1000);
+    map2.merge(map1.extract_delta());
+    BOOST_TEST(map2.at(3).size() == 3);
 }

@@ -61,7 +61,7 @@ namespace crdt
             values_.clear(delta_.values_);
             values_.insert(delta_.values_, value);
             values_.merge(delta_.values_);
-            this->merge_hook();
+            this->commit_delta();
         }
 
         template < typename ValueMv > void merge(const ValueMv& other)

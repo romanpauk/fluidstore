@@ -22,11 +22,6 @@ namespace crdt
 
         typedef typename Hook::template hook< allocator_type, Delta, map_base_type > hook_type;
 
-        //template < typename AllocatorT, typename TagT, typename HookT > struct rebind
-        //{
-        //    typedef map_base< Key, typename Value::template rebind< AllocatorT, TagT, HookT >::type, AllocatorT, TagT, HookT, Delta > type;
-        //};
-
         struct delta_extractor
         {
             template < typename Delta > void apply(map_base_type& instance, Delta& delta) 
@@ -61,7 +56,7 @@ namespace crdt
             
             insert_context context;
             this->merge(delta_, context);
-            this->merge_hook();
+            this->commit_delta();
             return { context.result.first, context.result.second };
         }
 
@@ -125,7 +120,6 @@ namespace crdt
 
     template < typename Key, typename Value, typename Allocator, typename Hook = default_hook, 
         typename Delta = map_base< Key, typename Value::template rebind< Allocator, default_hook >::type, Allocator, tag_delta, default_hook, void >
-        //typename Delta = map_base< Key, Value, Allocator, tag_delta, default_hook, void >
     > class map
         : public map_base< Key, typename Value::template rebind< Allocator, Hook >::type, Allocator, tag_state, Hook, Delta >
     {

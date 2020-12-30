@@ -48,15 +48,16 @@ namespace crdt
 
         std::pair< typename dot_kernel_type::iterator, bool > insert(const Key& key, const Value& value)
         {
-            insert(delta_, key, value);
+            auto& delta = mutable_delta();
+            insert(delta, key, value);
 
             // TODO:
             // When this is insert of one element, merge should change internal state only when an insert operation would.
             // But we already got id. So the id would have to be returned, otherwise dot sequence will not collapse.
             
             insert_context context;
-            this->merge(delta_, context);
-            this->commit_delta();
+            this->merge(delta, context);
+            this->commit_delta(delta);
             return { context.result.first, context.result.second };
         }
 

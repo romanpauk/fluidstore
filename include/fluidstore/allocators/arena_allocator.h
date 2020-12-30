@@ -29,6 +29,8 @@ namespace crdt
             return *this;
         }
 
+        size_t get_allocated() const { return allocated_; }
+
     private:
         unsigned char* base_;
         unsigned char* current_;

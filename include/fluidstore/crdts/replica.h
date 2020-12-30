@@ -40,7 +40,7 @@ namespace crdt
 
         template < typename ReplicaT > replica(ReplicaT& other)
             : id_(other.id_)
-            , instance_id_sequence_(other.sequence_)
+            , instance_id_sequence_(other.instance_id_sequence_)
         {}
 
         const replica_id_type& get_id() const { return id_; }

@@ -13,7 +13,6 @@ target_include_directories(fluidstore INTERFACE include)
 target_sources(fluidstore INTERFACE
     include/fluidstore/crdts/allocator.h
     include/fluidstore/crdts/default_hook.h
-    include/fluidstore/crdts/delta_allocator.h
     include/fluidstore/crdts/delta_hook.h
     include/fluidstore/crdts/delta_replica.h  
     include/fluidstore/crdts/dot.h
@@ -26,14 +25,16 @@ target_sources(fluidstore INTERFACE
     include/fluidstore/crdts/value_mv.h
     include/fluidstore/crdts/noncopyable.h
     include/fluidstore/crdts/replica.h
+    include/fluidstore/crdts/tagged_collection.h
     include/fluidstore/allocators/arena_allocator.h
 )
 
 find_package(Boost)
 if(Boost_FOUND)
     add_executable(fluidstoretest 
-        #src/tests/dot.cpp
+        src/tests/dot.cpp
         src/tests/map.cpp
+        src/tests/performance.cpp
         #src/tests/replica.cpp
         src/tests/set.cpp
         src/tests/testmodule.cpp

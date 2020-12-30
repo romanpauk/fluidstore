@@ -58,10 +58,11 @@ namespace crdt
 
         void set(Value value)
         {
-            values_.clear(delta_.values_);
-            values_.insert(delta_.values_, value);
-            values_.merge(delta_.values_);
-            this->commit_delta();
+            auto& delta = this->mutable_delta();
+            values_.clear(delta.values_);
+            values_.insert(delta.values_, value);
+            values_.merge(delta.values_);
+            this->commit_delta(delta);
         }
 
         template < typename ValueMv > void merge(const ValueMv& other)

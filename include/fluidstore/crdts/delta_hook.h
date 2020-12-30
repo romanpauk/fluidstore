@@ -17,26 +17,31 @@ namespace crdt
                 , delta_persistent_(allocator)
             {}
 
-            void commit_delta()
+            void commit_delta(Delta& delta)
             {
-                auto& delta = static_cast<Instance*>(this)->delta_;
+                //if (!delta_persistent_)
+                //{
+                //    delta_persistent_.emplace(this->get_allocator());
+                //}
+
                 this->delta_persistent_.merge(delta);
-                delta.reset();
+                default_hook::template hook< Allocator, Delta, Instance >::commit_delta(delta);
             }
 
             Delta extract_delta()
             {
-                Delta dump(get_allocator());
-                dump.merge(delta_persistent_);
+                Delta delta(get_allocator());
+                delta.merge(delta_persistent_);
 
                 typename Instance::delta_extractor extractor;
-                extractor.apply(*static_cast<Instance*>(this), dump);
+                extractor.apply(*static_cast<Instance*>(this), delta);
 
                 delta_persistent_.reset();
-                return dump;
+                return delta;
             }
 
         protected:
+            //std::optional< Delta > delta_persistent_;
             Delta delta_persistent_;
         };
     };

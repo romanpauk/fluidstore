@@ -1,5 +1,9 @@
 #pragma once
 
+#include <fluidstore/crdts/allocator.h>
+
+#include <optional>
+
 namespace crdt
 {
     struct default_hook
@@ -17,12 +21,28 @@ namespace crdt
 
             allocator_type& get_allocator() { return allocator_; }
             const id_type& get_id() const { return id_; }
-            void commit_delta() { this->delta_.reset(); }
+            
+            auto& mutable_delta() 
+            { 
+                if (!delta_)
+                {
+                    delta_.emplace(allocator_);
+                }
+                
+                return *delta_;
+            }
+
+            void commit_delta(Delta&) 
+            { 
+                delta_.reset(); 
+            }
             
             // protected:
             allocator_type allocator_;
             id_type id_;
-            Delta delta_;
+
+        private:
+            std::optional< Delta > delta_;
         };
     };
 }

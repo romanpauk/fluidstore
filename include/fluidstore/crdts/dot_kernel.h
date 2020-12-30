@@ -1,6 +1,7 @@
 #pragma once
 
 #include <fluidstore/crdts/dot_context.h>
+#include <fluidstore/crdts/allocator.h>
 #include <fluidstore/allocators/arena_allocator.h>
 
 #include <algorithm>
@@ -121,6 +122,11 @@ namespace crdt
 
     template < typename Key, typename Value, typename Allocator, typename Container, typename Tag > class dot_kernel
     {
+    public:
+        typedef Allocator allocator_type;
+        //typedef typename allocator_traits< Allocator >::template allocator_type< Tag > allocator_type;
+
+    private:
         template < typename Key, typename Value, typename Allocator, typename Container, typename Tag > friend class dot_kernel;
         
         // TODO: this is not exactly extensible... :(
@@ -129,21 +135,21 @@ namespace crdt
         template < typename Key, typename Allocator, typename Tag, typename Hook, typename Delta > friend class value_mv_base;
 
     protected:
-        typedef typename Allocator::replica_type replica_type;
+        typedef typename allocator_type::replica_type replica_type;
         typedef typename replica_type::replica_id_type replica_id_type;
         typedef typename replica_type::counter_type counter_type;
 
-        typedef std::map< Key, dot_kernel_value< Value, Allocator >, std::less< Key >, std::scoped_allocator_adaptor< Allocator > > values_type;
+        typedef std::map< Key, dot_kernel_value< Value, allocator_type >, std::less< Key >, std::scoped_allocator_adaptor< allocator_type > > values_type;
 
         typedef dot< replica_id_type, counter_type > dot_type;
-        typedef dot_kernel< Key, Value, Allocator, Container, Tag > dot_kernel_type;
+        typedef dot_kernel< Key, Value, allocator_type, Container, Tag > dot_kernel_type;
         typedef dot_kernel_iterator< typename values_type::iterator, Key, Value > iterator;
         typedef dot_kernel_iterator< typename values_type::const_iterator, Key, Value > const_iterator;
 
-        dot_context< replica_id_type, counter_type, Allocator > counters_;
+        dot_context< replica_id_type, counter_type, allocator_type > counters_;
 
         values_type values_;
-        std::map< dot_type, typename values_type::iterator, std::less< dot_type >, Allocator > dots_;
+        std::map< dot_type, typename values_type::iterator, std::less< dot_type >, allocator_type > dots_;
 
         struct context
         {
@@ -165,7 +171,7 @@ namespace crdt
         };
 
     protected:
-        dot_kernel(Allocator allocator)
+        dot_kernel(allocator_type allocator)
             : values_(allocator)
             , counters_(allocator)
             , dots_(allocator) 
@@ -183,10 +189,15 @@ namespace crdt
         template < typename DotKernel, typename Context >
         void merge(const DotKernel& other, Context& ctx)
         {
-            arena< 1024 > buffer;
+            // TODO: this should reuse provided alloc instead of creating arena one out of the blue...
+            //auto& allocator = allocator_traits< allocator_type >::get_allocator< crdt::tag_delta >(static_cast< Container* >(this)->get_allocator());
+            //typedef std::set < dot_type, std::less< dot_type >, decltype(allocator) > dot_set_type;
+
+            arena< 1024 > allocator;
             typedef std::set < dot_type, std::less< dot_type >, arena_allocator<> > dot_set_type;
-            dot_set_type rdotsvisited(buffer);
-            dot_set_type rdotsvalueless(buffer);
+
+            dot_set_type rdotsvisited(allocator);
+            dot_set_type rdotsvalueless(allocator);
 
             const auto& rdots = other.counters_.get();
 
@@ -250,10 +261,10 @@ namespace crdt
         {
             if (!empty())
             {
-                auto& delta = static_cast<Container*>(this)->delta_;
+                auto& delta = static_cast<Container*>(this)->mutable_delta();
                 clear(delta);
                 merge(delta);
-                static_cast< Container* >(this)->commit_delta();
+                static_cast< Container* >(this)->commit_delta(delta);
             }
         }
 
@@ -305,11 +316,11 @@ namespace crdt
     private:
         template < typename Context > void erase(typename values_type::iterator it, Context& context)
         {
-            auto& delta = static_cast<Container*>(this)->delta_;
+            auto& delta = static_cast<Container*>(this)->mutable_delta();
             const auto& dots = it->second.dots;
             delta.counters_.insert(dots.begin(), dots.end());
             merge(delta, context);
-            static_cast< Container* >(this)->commit_delta();
+            static_cast< Container* >(this)->commit_delta(delta);
         }
     };
 }

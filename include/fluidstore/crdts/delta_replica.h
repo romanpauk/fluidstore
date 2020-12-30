@@ -112,6 +112,82 @@ namespace crdt
         std::deque< instance_base* > deltas_;
     };
 
+    template < typename Allocator, typename Id > class instance_registry
+    {
+        typedef Id id_type;
+
+    public:
+        struct instance_base
+        {
+            virtual ~instance_base() {}
+            virtual void merge(const void*) = 0;
+        };
+
+        template < typename Instance, typename DeltaAllocator > struct instance : instance_base
+        {
+            instance(Instance& i)
+                : instance_(i)
+            {}
+
+            void merge(const void* i)
+            {
+                typedef typename Instance::template rebind< Allocator, tag_delta, default_hook >::type delta_type;
+                auto instance_ptr = reinterpret_cast<const delta_type*>(i);
+                instance_.merge(*instance_ptr);
+            }
+
+            Instance& instance_;
+        };
+
+        typedef std::map< id_type, instance_base* > instances_type;
+
+    public:
+        typedef typename instances_type::iterator iterator;
+
+        iterator insert(const id_type& id, instance_base& i)
+        {
+            auto [it, inserted] = instances_.emplace(id, &i);
+            assert(inserted);
+
+            if (!inserted)
+            {
+                // TODO:
+                std::abort();
+            }
+
+            return it;
+        }
+
+        void erase(const iterator& it)
+        {
+            instances_.erase(it);
+        }
+
+        auto begin() const { return instances_.begin(); }
+        auto end() const { return instances_.end(); }
+
+        instance_base& get_instance(id_type id) { return *instances_.at(id); }
+
+        instance_base* get_instance_ptr(id_type id)
+        {
+            auto it = instances_.find(id);
+            if (it != instances_.end())
+            {
+                return it->second;
+            }
+
+            return nullptr;
+        }
+
+        // private:
+        instances_type instances_;
+    };
+
+    struct empty_delta_replica_callback 
+    {
+        template < typename Delta > void commit_delta(const Delta&) {}
+    };
+
     template < typename System, typename Allocator, typename Visitor = empty_visitor > class delta_replica
         : public replica< System >
     {
@@ -119,143 +195,79 @@ namespace crdt
 
     public:
         typedef replica< System > delta_replica_type;
-        
         using typename System::replica_id_type;
         using typename System::instance_id_type;
         using typename System::id_type;
         using typename System::counter_type;
         using typename System::instance_id_sequence_type;
-
-    private:
-        class instance_registry
-        {
-        public:
-            struct instance_base
-            {
-                virtual ~instance_base() {}
-                virtual void merge(const void*) = 0;
-            };
-
-            template < typename Instance, typename DeltaAllocator > struct instance : instance_base
-            {
-                instance(Instance& i)
-                    : instance_(i)
-                {}
-
-                void merge(const void* i)
-                {
-                    typedef typename Instance::template rebind< Allocator, tag_delta, default_hook >::type delta_type;
-                    auto instance_ptr = reinterpret_cast<const delta_type*>(i);
-                    instance_.merge(*instance_ptr);
-                }
-
-                Instance& instance_;
-            };
-
-            typedef std::map< id_type, instance_base* > instances_type;
-
-        public:
-            typedef typename instances_type::iterator iterator;
-
-            iterator insert(const id_type& id, instance_base& i)
-            {
-                auto [it, inserted] = instances_.emplace(id, &i);
-                assert(inserted);
-
-                if (!inserted)
-                {
-                    // TODO:
-                    std::abort();
-                }
-
-                return it;
-            }
-
-            void erase(const iterator& it)
-            {
-                instances_.erase(it);
-            }
-
-            auto begin() const { return instances_.begin(); }
-            auto end() const { return instances_.end(); }
-
-            instance_base& get_instance(id_type id) { return *instances_.at(id); }
-            
-            instance_base* get_instance_ptr(id_type id) 
-            {
-                auto it = instances_.find(id);
-                if (it != instances_.end())
-                {
-                    return it->second;
-                }
-
-                return nullptr;
-            }
-
-            // private:
-            instances_type instances_;
-        };
-
+        
     public:
         template< typename AllocatorT, typename Instance > struct hook
         {
             template < typename AllocatorU > hook(AllocatorU, id_type id)
                 : instance_(*static_cast<Instance*>(this))
                 , instance_it_(static_cast<Instance*>(this)->get_allocator().get_replica().instance_registry_.insert(id, instance_))
-                , delta_instance_()
+                //, delta_instance_()
             {}
 
             ~hook()
             {
                 static_cast<Instance*>(this)->get_allocator().get_replica().instance_registry_.erase(instance_it_);
-                if (delta_instance_)
-                {
-                    delta_instance_->clear_instance_ptr();
-                }
+                //if (delta_instance_)
+                //{
+                //    delta_instance_->clear_instance_ptr();
+                //}
             }
 
-            template < typename Instance, typename DeltaInstance > void merge_hook(const Instance& target, const DeltaInstance& source)
+            template < typename Delta > void commit_delta(Delta& delta)
             {
-                static_cast<Instance*>(this)->get_allocator().get_replica().merge(target, source);
+                auto& replica = static_cast<Instance*>(this)->get_allocator().get_replica();
+                replica.commit_delta(delta);
+                delta.reset();
             }
 
         private:
-            typename instance_registry::template instance< Instance, AllocatorT > instance_;
-            typename instance_registry::iterator instance_it_;
+            typename instance_registry< Allocator, id_type >::template instance< Instance, AllocatorT > instance_;
+            typename instance_registry< Allocator, id_type >::iterator instance_it_;
 
-            template < typename Allocator, typename Visitor > friend class delta_registry;
-            mutable typename delta_registry< Allocator, Visitor >::instance_base* delta_instance_;
+            // template < typename Allocator, typename Visitor > friend class delta_registry;
+            // mutable typename delta_registry< Allocator, Visitor >::instance_base* delta_instance_;
         };
 
-        delta_replica(replica_id_type replica_id, instance_id_sequence_type& sequence, Allocator delta_allocator)
-            : replica_type(replica_id, sequence)
-            , delta_registry_(delta_allocator)
+        delta_replica(Allocator allocator)
+            : replica_type(allocator.get_replica())
+            , delta_registry_(allocator)
         {}
 
-        template < typename Instance, typename DeltaInstance > void merge(const Instance& target, const DeltaInstance& source)
+        template < typename Delta > void commit_delta(Delta& delta) 
         {
-            delta_registry_.get_instance< Instance >(target).merge(source);
+
+        }
+
+        ///template < typename Instance, typename DeltaInstance > void merge(const Instance& target, const DeltaInstance& source)
+        //{
+        //    delta_registry_.get_instance< Instance >(target).merge(source);
             // TODO: We will have to track removals so we can remove removed instances from delta_instances_.
-        }
+        //}
 
-        template< typename Instance > void merge(const Instance& source)
-        {
-            this->instance_registry_.get_instance(source.get_id()).merge(&source);
-        }
+        //template< typename Instance > void merge(const Instance& source)
+        //{
+        //    this->instance_registry_.get_instance(source.get_id()).merge(&source);
+        //}
 
-        void merge(const id_type& id, const void* source)
-        {
-            this->instance_registry_.get_instance(id).merge(source);
-        }
+        //void merge(const id_type& id, const void* source)
+        //{
+        //    this->instance_registry_.get_instance(id).merge(source);
+        //}
 
         // TODO: I would rather merge two objects togetger
-        template < typename Replica > void merge_with_replica(Replica& replica)
-        {
-            for (const auto& instance : delta_registry_.deltas_)
-            {
-                replica.merge(instance->get_id(), instance->get_delta_instance_ptr());
-            }
-        }
+        //template < typename Replica > void merge_with_replica(Replica& replica)
+        //{
+        //    for (const auto& instance : delta_registry_.deltas_)
+        //    {
+        //        replica.merge(instance->get_id(), instance->get_delta_instance_ptr());
+        //    }
+        //}
 
         void visit(Visitor& visitor) const
         {
@@ -271,7 +283,30 @@ namespace crdt
         }
 
     private:
-        instance_registry instance_registry_;
+        instance_registry< Allocator, id_type > instance_registry_;
         delta_registry< Allocator, Visitor > delta_registry_;
+    };
+
+    class delta_replica_hook
+    {
+    public:
+        template < typename Allocator, typename Delta, typename Instance > struct hook
+            : public default_hook::template hook< Allocator, Delta, Instance >
+            , public Allocator::replica_type::template hook< Allocator, Instance >
+        {
+            typedef Allocator allocator_type;
+            typedef typename allocator_type::replica_type::id_type id_type;
+
+            hook(allocator_type allocator, const id_type& id)
+                : default_hook::template hook< Allocator, Delta, Instance >(allocator, id)
+                , allocator_type::replica_type::template hook< Allocator, Instance >(allocator, id)
+            {}
+
+            void commit_delta(Delta& delta)
+            {
+                allocator_type::replica_type::template hook< Allocator, Instance >::commit_delta(delta);
+                default_hook::template hook< Allocator, Delta, Instance >::commit_delta(delta);
+            }
+        };
     };
 }

@@ -1,6 +1,8 @@
 #include <fluidstore/crdts/set.h>
 #include <fluidstore/crdts/allocator.h>
 #include <fluidstore/crdts/delta_hook.h>
+#include <fluidstore/crdts/delta_replica.h>
+#include <fluidstore/crdts/tagged_collection.h>
 
 #include <boost/test/unit_test.hpp>
 
@@ -91,4 +93,61 @@ BOOST_AUTO_TEST_CASE(set_merge)
     set1.merge(set2.extract_delta());
     BOOST_TEST(set1.size() == 1);
     BOOST_TEST((set1.find(11) != set1.end()));
+}
+
+BOOST_AUTO_TEST_CASE(set_merge_replica)
+{
+    crdt::id_sequence<> sequence;
+    crdt::replica<> replica(1, sequence);
+    crdt::allocator<> replica_allocator(replica);    
+    crdt::delta_replica< crdt::system<>, crdt::allocator<> > delta_replica(replica_allocator);
+    crdt::allocator< decltype(delta_replica) > delta_allocator(delta_replica);
+
+    crdt::set< int, decltype(delta_allocator), crdt::delta_replica_hook > set1(delta_allocator);
+    set1.insert(1);
+}
+
+BOOST_AUTO_TEST_CASE(set_tagged_allocator)
+{
+    crdt::id_sequence<> sequence;
+    crdt::replica<> replica(0, sequence);
+
+    crdt::arena< 8192 > arena;
+    crdt::tagged_type< crdt::tag_state, crdt::allocator<> > a1(replica);
+    crdt::tagged_type< crdt::tag_delta, crdt::arena_allocator< void, crdt::allocator<> > > a2(arena, replica);
+    crdt::tagged_allocator< crdt::replica<>, decltype(a1), decltype(a2) > allocator(replica, a1, a2);
+
+    {
+        allocator.get< crdt::tag_state >();
+        allocator.get< crdt::tag_delta >();
+        decltype(allocator)::type< crdt::tag_delta > a(arena, replica);
+        crdt::allocator_traits< decltype(a1) >::get_allocator< crdt::tag_state >(a1);
+        crdt::allocator_traits< decltype(allocator) >::get_allocator< crdt::tag_delta >(allocator);
+        crdt::allocator_traits< decltype(allocator) >::allocator_type< crdt::tag_delta > d(allocator);
+    }
+
+    crdt::set< int, decltype(allocator) > set(allocator);
+    set.insert(1);
+    BOOST_TEST(arena.get_allocated() == 0);
+}
+
+BOOST_AUTO_TEST_CASE(set_tagged_allocator_delta)
+{
+    crdt::id_sequence<> sequence;
+    crdt::replica<> replica(0, sequence);
+
+    crdt::arena< 8192 > arena;
+    crdt::tagged_type< crdt::tag_state, crdt::allocator<> > a1(replica);
+    crdt::tagged_type< crdt::tag_delta, crdt::arena_allocator< void, crdt::allocator<> > > a2(arena, replica);
+    crdt::tagged_allocator< crdt::replica<>, decltype(a1), decltype(a2) > allocator(replica, a1, a2);
+
+    crdt::set< int, decltype(allocator), crdt::delta_hook > set(allocator);
+    
+    {
+        set.insert(1);
+        BOOST_TEST(arena.get_allocated() > 0);
+        set.extract_delta();
+    }
+
+    BOOST_TEST(arena.get_allocated() == 0);
 }

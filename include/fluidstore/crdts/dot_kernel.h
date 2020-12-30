@@ -122,9 +122,9 @@ namespace crdt
         template < typename Key, typename Value, typename Allocator, typename Container, typename Tag > friend class dot_kernel;
         
         // TODO: this is not exactly extensible... :(
-        template < typename Key, typename Allocator, typename Tag, typename Hook > friend class set;
+        template < typename Key, typename Allocator, typename Tag, typename Hook, typename Delta > friend class set_base;
         template < typename Key, typename Value, typename Allocator, typename Tag, typename Hook > friend class map;
-        template < typename Key, typename Allocator, typename Tag, typename Hook > friend class value_mv;
+        template < typename Key, typename Allocator, typename Tag, typename Hook, typename Delta > friend class value_mv_base;
 
     protected:
         typedef typename Allocator::replica_type replica_type;
@@ -248,7 +248,7 @@ namespace crdt
         {
             if (!empty())
             {
-                dot_kernel_type delta(static_cast< Container* >(this)->get_allocator());
+                auto& delta = static_cast<Container*>(this)->delta_;
                 clear(delta);
                 merge(delta);
                 static_cast< Container* >(this)->merge_hook(*static_cast<Container*>(this), delta);
@@ -303,11 +303,9 @@ namespace crdt
     private:
         template < typename Context > void erase(typename values_type::iterator it, Context& context)
         {
-            dot_kernel_type delta(static_cast<Container*>(this)->get_allocator());
-
+            auto& delta = static_cast<Container*>(this)->delta_;
             const auto& dots = it->second.dots;
             delta.counters_.insert(dots.begin(), dots.end());
-
             merge(delta, context);
             static_cast< Container* >(this)->merge_hook(*static_cast<Container*>(this), delta);
         }

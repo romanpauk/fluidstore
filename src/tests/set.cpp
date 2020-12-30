@@ -1,6 +1,6 @@
 #include <fluidstore/crdts/set.h>
-#include <fluidstore/crdts/delta_allocator.h>
-#include <fluidstore/crdts/delta_replica.h>
+//#include <fluidstore/crdts/delta_allocator.h>
+//#include <fluidstore/crdts/delta_replica.h>
 #include <fluidstore/crdts/allocator.h>
 
 #include <boost/test/unit_test.hpp>
@@ -10,8 +10,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_basic_operations, T, test_types)
 {
     crdt::id_sequence<> sequence;
     crdt::replica<> replica(0, sequence);
-    crdt::allocator<> alloc(replica);
-    crdt::set< T, decltype(alloc) > set(alloc);
+    crdt::allocator<> allocator(replica);
+    crdt::set< T, decltype(allocator) > set(allocator);
 
     auto value0 = boost::lexical_cast<T>(0);
     auto value1 = boost::lexical_cast<T>(1);
@@ -66,16 +66,11 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_basic_operations, T, test_types)
 BOOST_AUTO_TEST_CASE(set_merge)
 {
     crdt::id_sequence<> sequence;
-    crdt::replica<> delta_replica(1, sequence);
-    crdt::allocator<> delta_allocator(delta_replica);
-    crdt::delta_replica< crdt::system<>, crdt::allocator<> > replica(1, sequence, delta_allocator);
-    crdt::allocator< decltype(replica) > allocator(replica);
-
-    crdt::set< int, decltype(allocator), crdt::tag_state,
-        crdt::delta_hook< crdt::set< int, decltype(allocator), crdt::tag_delta, crdt::delta_replica_hook > > > set1(allocator);
-
-    crdt::set< int, decltype(allocator), crdt::tag_state,
-        crdt::delta_hook< crdt::set< int, decltype(allocator), crdt::tag_delta, crdt::delta_replica_hook > > > set2(allocator);
+    crdt::replica<> replica(1, sequence);
+    crdt::allocator<> allocator(replica);
+    
+    crdt::set< int, decltype(allocator), crdt::extract_delta_hook > set1(allocator);
+    crdt::set< int, decltype(allocator), crdt::extract_delta_hook > set2(allocator);
 
     set1.insert(1);
     set2.merge(set1.extract_delta());

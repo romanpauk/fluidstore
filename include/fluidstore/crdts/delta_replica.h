@@ -144,7 +144,7 @@ namespace crdt
 
                 void merge(const void* i)
                 {
-                    typedef typename Instance::template rebind< DeltaAllocator, tag_delta, default_hook >::type delta_type;
+                    typedef typename Instance::template rebind< Allocator, tag_delta, default_hook >::type delta_type;
                     auto instance_ptr = reinterpret_cast<const delta_type*>(i);
                     instance_.merge(*instance_ptr);
                 }

@@ -30,9 +30,9 @@ target_sources(fluidstore INTERFACE
 find_package(Boost)
 if(Boost_FOUND)
     add_executable(fluidstoretest 
-        src/tests/dot.cpp
-        src/tests/map.cpp
-        src/tests/replica.cpp
+        #src/tests/dot.cpp
+        #src/tests/map.cpp
+        #src/tests/replica.cpp
         src/tests/set.cpp
         src/tests/testmodule.cpp
         src/tests/value_mv.cpp

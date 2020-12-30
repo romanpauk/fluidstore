@@ -1,7 +1,6 @@
 #include <fluidstore/crdts/set.h>
-//#include <fluidstore/crdts/delta_allocator.h>
-//#include <fluidstore/crdts/delta_replica.h>
 #include <fluidstore/crdts/allocator.h>
+#include <fluidstore/crdts/delta_hook.h>
 
 #include <boost/test/unit_test.hpp>
 
@@ -69,8 +68,8 @@ BOOST_AUTO_TEST_CASE(set_merge)
     crdt::replica<> replica(1, sequence);
     crdt::allocator<> allocator(replica);
     
-    crdt::set< int, decltype(allocator), crdt::extract_delta_hook > set1(allocator);
-    crdt::set< int, decltype(allocator), crdt::extract_delta_hook > set2(allocator);
+    crdt::set< int, decltype(allocator), crdt::delta_hook > set1(allocator);
+    crdt::set< int, decltype(allocator), crdt::delta_hook > set2(allocator);
 
     set1.insert(1);
     set2.merge(set1.extract_delta());

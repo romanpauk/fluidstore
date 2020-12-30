@@ -1,6 +1,7 @@
 #include <fluidstore/crdts/value_mv.h>
 #include <fluidstore/crdts/replica.h>
 #include <fluidstore/crdts/allocator.h>
+#include <fluidstore/crdts/delta_hook.h>
 
 #include <boost/test/unit_test.hpp>
 
@@ -32,8 +33,8 @@ BOOST_AUTO_TEST_CASE(value_mv_merge)
     crdt::replica<> replica(1, sequence);
     crdt::allocator<> allocator(replica);
 
-    crdt::value_mv< int, decltype(allocator), crdt::extract_delta_hook > value1(allocator);
-    crdt::value_mv< int, decltype(allocator), crdt::extract_delta_hook > value2(allocator);
+    crdt::value_mv< int, decltype(allocator), crdt::delta_hook > value1(allocator);
+    crdt::value_mv< int, decltype(allocator), crdt::delta_hook > value2(allocator);
 
     value1.set(1);
     value2.merge(value1.extract_delta());

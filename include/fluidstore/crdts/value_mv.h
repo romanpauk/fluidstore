@@ -25,7 +25,8 @@ namespace crdt
         {
             template < typename Delta > void apply(value_mv_base_type& instance, Delta& delta)
             {
-                delta.merge(instance);
+                delta.values_.merge(instance.values_.extract_delta());
+                //instance.values_.reset();
             }
         };
 
@@ -92,8 +93,7 @@ namespace crdt
             return values_ == other.values_;
         }
 
-        // crdt::set_base< Value, Allocator, Tag, default_hook, void > values_;
-        crdt::set< Value, Allocator, default_hook > values_;
+        crdt::set< Value, Allocator, Hook > values_;
     };
 
     template < typename Value, typename Allocator, typename Hook > class value_mv_base< Value, Allocator, tag_delta, Hook, void >
@@ -102,14 +102,6 @@ namespace crdt
 
     public:
         typedef Allocator allocator_type;
-
-        struct delta_extractor
-        {
-            template < typename Delta > void apply(const value_mv_base_type& instance, Delta& delta)
-            {
-                delta.merge(instance);
-            }
-        };
 
         value_mv_base(allocator_type allocator)
             : values_(allocator)

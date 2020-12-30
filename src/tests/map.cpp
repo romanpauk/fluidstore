@@ -2,6 +2,7 @@
 #include <fluidstore/crdts/replica.h>
 #include <fluidstore/crdts/value_mv.h>
 #include <fluidstore/crdts/allocator.h>
+#include <fluidstore/crdts/delta_hook.h>
 
 #include <boost/test/unit_test.hpp>
 
@@ -74,8 +75,8 @@ BOOST_AUTO_TEST_CASE(map_merge)
     crdt::replica<> replica(1, sequence);
     crdt::allocator<> allocator(replica);
 
-    crdt::map< int, crdt::value_mv< int, decltype(allocator) >, decltype(allocator), crdt::extract_delta_hook > map1(allocator);
-    crdt::map< int, crdt::value_mv< int, decltype(allocator) >, decltype(allocator), crdt::extract_delta_hook > map2(allocator);
+    crdt::map< int, crdt::value_mv< int, decltype(allocator) >, decltype(allocator), crdt::delta_hook > map1(allocator);
+    crdt::map< int, crdt::value_mv< int, decltype(allocator) >, decltype(allocator), crdt::delta_hook > map2(allocator);
 
     map1[1].set(1);
     map2.merge(map1.extract_delta());
@@ -103,15 +104,14 @@ BOOST_AUTO_TEST_CASE(map_merge)
     BOOST_TEST(map2.size() == 0);
 }
 
-
 BOOST_AUTO_TEST_CASE(map_map_merge)
 {
     crdt::id_sequence<> sequence;
     crdt::replica<> replica(1, sequence);
     crdt::allocator<> allocator(replica);
 
-    crdt::map< int, crdt::map< int, crdt::value_mv< int, decltype(allocator) >, decltype(allocator) >, decltype(allocator), crdt::extract_delta_hook > map1(allocator);
-    crdt::map< int, crdt::map< int, crdt::value_mv< int, decltype(allocator) >, decltype(allocator) >, decltype(allocator), crdt::extract_delta_hook > map2(allocator);
+    crdt::map< int, crdt::map< int, crdt::value_mv< int, decltype(allocator) >, decltype(allocator) >, decltype(allocator), crdt::delta_hook > map1(allocator);
+    crdt::map< int, crdt::map< int, crdt::value_mv< int, decltype(allocator) >, decltype(allocator) >, decltype(allocator), crdt::delta_hook > map2(allocator);
 
     map1[1][10].set(1);
     map2.merge(map1.extract_delta());

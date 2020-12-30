@@ -1,6 +1,7 @@
 #pragma once
 
 #include <fluidstore/crdts/dot_context.h>
+#include <fluidstore/allocators/arena_allocator.h>
 
 #include <algorithm>
 #include <scoped_allocator>

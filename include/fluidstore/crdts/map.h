@@ -9,59 +9,50 @@
 
 namespace crdt
 {
-    template < typename Key, typename Value, typename Allocator, typename Tag = tag_state, typename Hook = default_hook > class map
-        : public Hook::template hook< Allocator, map< Key, Value, Allocator, Tag, Hook > >
-        , public dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, Tag, Hook >, Tag >
+    template < typename Key, typename Value, typename Allocator, typename Tag, typename Hook, typename Delta > class map_base
+        : public Hook::template hook< Allocator, Delta, map_base< Key, Value, Allocator, Tag, Hook, Delta > >
+        , public dot_kernel< Key, Value, Allocator, map_base< Key, Value, Allocator, Tag, Hook, Delta >, Tag >
     {
-        typedef map< Key, Value, Allocator, Tag, Hook > map_type;
-        typedef dot_kernel< Key, Value, Allocator, map_type, Tag > dot_kernel_type;
+        typedef map_base< Key, Value, Allocator, Tag, Hook, Delta > map_base_type;
+        typedef dot_kernel< Key, Value, Allocator, map_base_type, Tag > dot_kernel_type;
     
     public:
         typedef Allocator allocator_type;
         typedef typename allocator_type::replica_type replica_type;
 
-        typedef typename Hook::template hook< allocator_type, map_type > hook_type;
+        typedef typename Hook::template hook< allocator_type, Delta, map_base_type > hook_type;
         
         template < typename AllocatorT, typename TagT, typename HookT > struct rebind
         {
-            typedef map< Key, typename Value::template rebind< AllocatorT, TagT, HookT >::type, AllocatorT, TagT, HookT > type;
+            typedef map_base< Key, typename Value::template rebind< AllocatorT, TagT, HookT >::type, AllocatorT, TagT, HookT, Delta > type;
         };
 
-        map(allocator_type allocator)
+        map_base(allocator_type allocator)
             : hook_type(allocator, allocator.get_replica().generate_instance_id())
             , dot_kernel_type(allocator)
         {}
 
-        map(allocator_type allocator, typename allocator_type::replica_type::id_type id)
+        map_base(allocator_type allocator, typename allocator_type::replica_type::id_type id)
             : hook_type(allocator, id)
             , dot_kernel_type(allocator)
         {}
 
         std::pair< typename dot_kernel_type::iterator, bool > insert(const Key& key, const Value& value)
         {
-            arena< 1024 * 2 > buffer;
-            arena_allocator< void, allocator< typename replica_type::delta_replica_type > > allocator(buffer, this->get_allocator().get_replica());
-            typename rebind< decltype(allocator), tag_delta, default_hook >::type delta(allocator, this->get_id());
-            //map_type delta(this->allocator_, this->get_id());
-
-            insert(delta, key, value);
+            insert(delta_, key, value);
 
             // TODO:
             // When this is insert of one element, merge should change internal state only when an insert operation would.
             // But we already got id. So the id would have to be returned, otherwise dot sequence will not collapse.
             
             insert_context context;
-            this->merge(delta, context);
-            this->merge_hook(*this, delta);
+            this->merge(delta_, context);
+            this->merge_hook(*this, delta_);
             return { context.result.first, context.result.second };
         }
 
         Value& operator[](const Key& key)
         {
-            arena< 1024 * 2 > buffer;
-            arena_allocator< void, allocator< typename replica_type::delta_replica_type > > allocator(buffer, this->get_allocator().get_replica());
-            typename rebind< decltype(allocator), tag_delta, default_hook >::type delta(allocator, this->get_id());
-
             if constexpr (std::uses_allocator_v< Value, Allocator >)
             {
                 // TODO: this Value should not be tracked, it is temporary.
@@ -103,5 +94,36 @@ namespace crdt
             data.dots.emplace(replica_id, counter);
             data.value.merge(value);
         }
+    };
+
+    template < typename Key, typename Value, typename Allocator, typename Tag, typename Hook > class map_base< Key, Value, Allocator, Tag, Hook, void >
+        : public dot_kernel< Key, Value, Allocator, map_base< Key, Value, Allocator, Tag, Hook, void >, Tag >
+    {
+        typedef dot_kernel< Key, Value, Allocator, map_base< Key, Value, Allocator, Tag, Hook, void >, Tag > dot_kernel_type;
+
+    public:
+        typedef Allocator allocator_type;
+
+        map_base(allocator_type allocator)
+            : dot_kernel_type(allocator)
+        {}
+    };
+
+    template < typename Key, typename Value, typename Allocator, typename Hook = default_hook, typename Delta = map_base< Key, Value, Allocator, tag_delta, default_hook, void >
+    > class map
+        : public map_base< Key, Value, Allocator, tag_state, Hook, Delta >
+    {
+        typedef map_base< Key, Value, Allocator, tag_state, Hook, Delta > map_base_type;
+
+    public:
+        typedef Allocator allocator_type;
+
+        map(allocator_type allocator)
+            : map_base_type(allocator, allocator.get_replica().generate_instance_id())
+        {}
+
+        map(allocator_type allocator, typename allocator_type::replica_type::id_type id)
+            : map_base_type(allocator, id)
+        {}
     };
 }

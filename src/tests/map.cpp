@@ -10,13 +10,13 @@ BOOST_AUTO_TEST_CASE(map_basic_operations)
 {
     crdt::id_sequence<> sequence;
     crdt::replica<> replica(0, sequence);
-    crdt::allocator<> alloc(replica);
-    crdt::map< int, crdt::value_mv< int, decltype(alloc) >, decltype(alloc) > map(alloc, { 0, 1 });
+    crdt::allocator<> allocator(replica);
+    crdt::map< int, crdt::value_mv< int, decltype(allocator) >, decltype(allocator) > map(allocator);
 
     auto key0 = boost::lexical_cast<int>(0);
     auto key1 = boost::lexical_cast<int>(1);
-    auto value1 = crdt::value_mv< int, decltype(alloc) >(alloc);
-    value1 = 1;
+    auto value1 = crdt::value_mv< int, decltype(allocator) >(allocator);
+    value1.set(1);
 
     // Empty map
     BOOST_TEST((map.find(key0) == map.end()));
@@ -72,9 +72,18 @@ BOOST_AUTO_TEST_CASE(map_merge)
 {
     crdt::id_sequence<> sequence;
     crdt::replica<> replica(1, sequence);
-    // crdt::delta_allocator< crdt::map< int, crdt::value< int >, crdt::allocator<>, crdt::tag_delta > > allocator(replica);
+    crdt::allocator<> allocator(replica);
 
-    // crdt::set< int, decltype(allocator) > set1(allocator, { 0, 1 });
-    // crdt::set< int, decltype(allocator) > set2(allocator, { 0, 2 });
+    crdt::map< int, crdt::value_mv< int, decltype(allocator) >, decltype(allocator), crdt::extract_delta_hook > map1(allocator);
+    crdt::map< int, crdt::value_mv< int, decltype(allocator) >, decltype(allocator), crdt::extract_delta_hook > map2(allocator);
 
+    auto& value = map1[1];
+    value.set(1);
+    
+    // The delta does not contain change from map element.
+    // One way is to send the change to parent and let parent distribute it properly to it's delta.
+    // To send the change to parent we will need to establish parent/child relation-ship somehow, using allocators/replicas.
+    // Other may be to somehow map the delta to parent's delta.
+
+    auto delta = map1.extract_delta();
 }

@@ -26,7 +26,7 @@ namespace crdt
                 this->delta_.reset();
             }
 
-        protected:
+        // protected:
             allocator_type allocator_;
             id_type id_;
             Delta delta_;
@@ -119,16 +119,6 @@ namespace crdt
         set_base(allocator_type allocator)
             : dot_kernel_type(allocator)
         {}
-
-        /*
-        template < typename Delta > void insert(Delta& delta, const Key& key)
-        {
-            auto replica_id = this->get_allocator().get_replica().get_id();
-            auto counter = this->counters_.get(replica_id) + 1;
-            delta.counters_.emplace(replica_id, counter);
-            delta.values_[key].dots.emplace(replica_id, counter);
-        }
-        */
     };
 
     template < typename Key, typename Allocator, typename Hook = default_hook, typename Delta = set_base< Key, Allocator, tag_delta, default_hook, void > 

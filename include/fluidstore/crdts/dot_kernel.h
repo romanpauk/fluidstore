@@ -123,7 +123,7 @@ namespace crdt
         
         // TODO: this is not exactly extensible... :(
         template < typename Key, typename Allocator, typename Tag, typename Hook, typename Delta > friend class set_base;
-        template < typename Key, typename Value, typename Allocator, typename Tag, typename Hook > friend class map;
+        template < typename Key, typename Value, typename Allocator, typename Tag, typename Hook, typename Delta > friend class map_base;
         template < typename Key, typename Allocator, typename Tag, typename Hook, typename Delta > friend class value_mv_base;
 
     protected:

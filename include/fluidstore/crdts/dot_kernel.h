@@ -100,7 +100,8 @@ namespace crdt
             : dot_kernel_iterator_base< Iterator, dot_kernel_iterator< Iterator, Key, Value > >(it)
         {}
 
-        std::pair< const Key&, Value& > operator *() { return { this->it_->first, this->it_->second.value }; } 
+        std::pair< const Key&, Value& > operator *() { return { this->it_->first, this->it_->second.value }; }
+        //std::pair< const Key&, const Value& > operator *() const { return { this->it_->first, this->it_->second.value }; }
     };
 
     template < typename Iterator, typename Key > class dot_kernel_iterator< Iterator, Key, void >
@@ -111,7 +112,7 @@ namespace crdt
             : dot_kernel_iterator_base< Iterator, dot_kernel_iterator< Iterator, Key, void > >(it)
         {}
 
-        const Key& operator *() { return this->it_->first; }
+        const Key& operator *() const { return this->it_->first; }
     };
 
     struct tag_delta {};
@@ -251,7 +252,7 @@ namespace crdt
                 auto& delta = static_cast<Container*>(this)->delta_;
                 clear(delta);
                 merge(delta);
-                static_cast< Container* >(this)->merge_hook(*static_cast<Container*>(this), delta);
+                static_cast< Container* >(this)->merge_hook();
             }
         }
 
@@ -307,7 +308,7 @@ namespace crdt
             const auto& dots = it->second.dots;
             delta.counters_.insert(dots.begin(), dots.end());
             merge(delta, context);
-            static_cast< Container* >(this)->merge_hook(*static_cast<Container*>(this), delta);
+            static_cast< Container* >(this)->merge_hook();
         }
     };
 }

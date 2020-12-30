@@ -77,13 +77,62 @@ BOOST_AUTO_TEST_CASE(map_merge)
     crdt::map< int, crdt::value_mv< int, decltype(allocator) >, decltype(allocator), crdt::extract_delta_hook > map1(allocator);
     crdt::map< int, crdt::value_mv< int, decltype(allocator) >, decltype(allocator), crdt::extract_delta_hook > map2(allocator);
 
-    auto& value = map1[1];
-    value.set(1);
+    map1[1].set(1);
+    map2.merge(map1.extract_delta());
+    BOOST_TEST((map2.at(1) == 1));
     
-    // The delta does not contain change from map element.
-    // One way is to send the change to parent and let parent distribute it properly to it's delta.
-    // To send the change to parent we will need to establish parent/child relation-ship somehow, using allocators/replicas.
-    // Other may be to somehow map the delta to parent's delta.
+    map1[1].set(2);
+    map2[1].set(22);
+    map2.merge(map1.extract_delta());
+    BOOST_TEST((map2.at(1).get_all().size() == 2));
 
-    auto delta = map1.extract_delta();
+    BOOST_TEST(map1.erase(1) == 1);
+    map2.merge(map1.extract_delta());
+    BOOST_TEST(map2.size() == 0);
+    
+    map1[1].set(10);
+    map2.merge(map1.extract_delta());
+    map1.erase(1);
+    map2[1].set(11);
+    map2.merge(map1.extract_delta());
+    BOOST_TEST(map2.size() == 1);
+    map1.merge(map2.extract_delta());
+    map1.erase(1);
+    BOOST_TEST(map1.size() == 0);
+    map2.merge(map1.extract_delta());
+    BOOST_TEST(map2.size() == 0);
+}
+
+
+BOOST_AUTO_TEST_CASE(map_map_merge)
+{
+    crdt::id_sequence<> sequence;
+    crdt::replica<> replica(1, sequence);
+    crdt::allocator<> allocator(replica);
+
+    crdt::map< int, crdt::map< int, crdt::value_mv< int, decltype(allocator) >, decltype(allocator) >, decltype(allocator), crdt::extract_delta_hook > map1(allocator);
+    crdt::map< int, crdt::map< int, crdt::value_mv< int, decltype(allocator) >, decltype(allocator) >, decltype(allocator), crdt::extract_delta_hook > map2(allocator);
+
+    map1[1][10].set(1);
+    map2.merge(map1.extract_delta());
+    BOOST_TEST((map2.at(1).at(10) == 1));
+
+    map1[2][10].set(10);
+    map2[2][10].set(100);
+    map2.merge(map1.extract_delta());
+    BOOST_TEST((map2.at(2).at(10).get_all().size() == 2));
+
+    map1[3][1].set(10);
+    map1[3][10].set(100);
+    map2[3][2].set(20);
+    map2[3][20].set(200);
+    map2.merge(map1.extract_delta());
+    BOOST_TEST(map2.at(3).size() == 4);
+    map1.merge(map2.extract_delta());
+    BOOST_TEST(map1.at(3).size() == 4);
+    
+    map1[3].erase(1);
+    BOOST_TEST(map1.at(3).size() == 3);
+    map2.merge(map1.extract_delta());
+    BOOST_TEST(map2.at(3).size() == 3);
 }

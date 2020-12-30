@@ -16,6 +16,19 @@ namespace crdt
     public:
         typedef Allocator allocator_type;
 
+        template < typename AllocatorT, typename TagT, typename HookT > struct rebind
+        {
+            typedef typename value_mv_base< Value, AllocatorT, TagT, HookT, Delta > type;
+        };
+
+        struct delta_extractor
+        {
+            template < typename Delta > void apply(value_mv_base_type& instance, Delta& delta)
+            {
+                delta.merge(instance);
+            }
+        };
+
         value_mv_base(allocator_type allocator)
             : hook_type(allocator, allocator.get_replica().generate_instance_id())
             , values_(allocator)
@@ -47,7 +60,7 @@ namespace crdt
             values_.clear(delta_.values_);
             values_.insert(delta_.values_, value);
             values_.merge(delta_.values_);
-            this->merge_hook(*this, delta_);
+            this->merge_hook();
         }
 
         template < typename ValueMv > void merge(const ValueMv& other)
@@ -85,8 +98,18 @@ namespace crdt
 
     template < typename Value, typename Allocator, typename Hook > class value_mv_base< Value, Allocator, tag_delta, Hook, void >
     {
+        typedef value_mv_base< Value, Allocator, tag_delta, Hook, void > value_mv_base_type;
+
     public:
         typedef Allocator allocator_type;
+
+        struct delta_extractor
+        {
+            template < typename Delta > void apply(const value_mv_base_type& instance, Delta& delta)
+            {
+                delta.merge(instance);
+            }
+        };
 
         value_mv_base(allocator_type allocator)
             : values_(allocator)
@@ -105,7 +128,9 @@ namespace crdt
         crdt::set_base< Value, Allocator, tag_delta, default_hook, void > values_;
     };
 
-    template < typename Value, typename Allocator, typename Hook = default_hook, typename Delta = value_mv_base< Value, Allocator, tag_delta, Hook, void > > class value_mv
+    template < typename Value, typename Allocator, typename Hook = default_hook, 
+        typename Delta = value_mv_base< Value, Allocator, tag_delta, default_hook, void > 
+    > class value_mv
         : public value_mv_base< Value, Allocator, tag_state, Hook, Delta >
     {
         typedef value_mv< Value, Allocator, Hook, Delta > value_mv_type;
@@ -118,8 +143,7 @@ namespace crdt
  
         template < typename AllocatorT, typename HookT > struct rebind
         {
-            // TODO: this can also be recursive in Value... sometimes.
-            typedef value_mv< Value, AllocatorT, HookT, Delta > type;
+            typedef typename value_mv< Value, AllocatorT, HookT, Delta > type;
         };
 
         value_mv(allocator_type allocator)

@@ -21,10 +21,24 @@ namespace crdt
         typedef typename allocator_type::replica_type replica_type;
 
         typedef typename Hook::template hook< allocator_type, Delta, map_base_type > hook_type;
-        
-        template < typename AllocatorT, typename TagT, typename HookT > struct rebind
+
+        //template < typename AllocatorT, typename TagT, typename HookT > struct rebind
+        //{
+        //    typedef map_base< Key, typename Value::template rebind< AllocatorT, TagT, HookT >::type, AllocatorT, TagT, HookT, Delta > type;
+        //};
+
+        struct delta_extractor
         {
-            typedef map_base< Key, typename Value::template rebind< AllocatorT, TagT, HookT >::type, AllocatorT, TagT, HookT, Delta > type;
+            template < typename Delta > void apply(map_base_type& instance, Delta& delta) 
+            {
+                for (const auto& [rkey, rvalue] : delta)
+                {
+                    auto& lvalue = instance.at(rkey);
+                    std::remove_reference_t< decltype(lvalue) >::delta_extractor extractor;
+                    rvalue.merge(lvalue.extract_delta());
+                    extractor.apply(lvalue, rvalue);
+                }
+            }
         };
 
         map_base(allocator_type allocator)
@@ -47,7 +61,7 @@ namespace crdt
             
             insert_context context;
             this->merge(delta_, context);
-            this->merge_hook(*this, delta_);
+            this->merge_hook();
             return { context.result.first, context.result.second };
         }
 
@@ -81,7 +95,7 @@ namespace crdt
 
         const Value& at(const Key& key) const
         {
-            return const_cast<decltype(this)>(this)->at(key);
+            return const_cast< map_base_type* >(this)->at(key);
         }
 
     private:
@@ -109,14 +123,21 @@ namespace crdt
         {}
     };
 
-    template < typename Key, typename Value, typename Allocator, typename Hook = default_hook, typename Delta = map_base< Key, Value, Allocator, tag_delta, default_hook, void >
+    template < typename Key, typename Value, typename Allocator, typename Hook = default_hook, 
+        typename Delta = map_base< Key, typename Value::template rebind< Allocator, default_hook >::type, Allocator, tag_delta, default_hook, void >
+        //typename Delta = map_base< Key, Value, Allocator, tag_delta, default_hook, void >
     > class map
-        : public map_base< Key, Value, Allocator, tag_state, Hook, Delta >
+        : public map_base< Key, typename Value::template rebind< Allocator, Hook >::type, Allocator, tag_state, Hook, Delta >
     {
-        typedef map_base< Key, Value, Allocator, tag_state, Hook, Delta > map_base_type;
+        typedef map_base< Key, typename Value::template rebind< Allocator, Hook >::type, Allocator, tag_state, Hook, Delta > map_base_type;
 
     public:
         typedef Allocator allocator_type;
+
+        template < typename AllocatorT, typename HookT > struct rebind
+        {
+            typedef map< Key, typename Value::template rebind< AllocatorT, HookT >::type, AllocatorT, HookT, Delta > type;
+        };
 
         map(allocator_type allocator)
             : map_base_type(allocator, allocator.get_replica().generate_instance_id())

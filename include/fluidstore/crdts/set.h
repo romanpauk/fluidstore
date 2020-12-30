@@ -21,7 +21,7 @@ namespace crdt
             allocator_type& get_allocator() { return allocator_; }
             const id_type& get_id() const { return id_; }
 
-            template < typename Instance, typename DeltaInstance > void merge_hook(const Instance& target, const DeltaInstance& source) 
+            void merge_hook() 
             {
                 this->delta_.reset();
             }
@@ -46,7 +46,7 @@ namespace crdt
                 , delta_persistent_(alloc)
             {}
 
-            template < typename Instance, typename DeltaInstance > void merge_hook(const Instance& target, const DeltaInstance& source)
+            void merge_hook()
             {
                 this->delta_persistent_.merge(static_cast<Instance*>(this)->delta_);
                 static_cast<Instance*>(this)->delta_.reset();
@@ -56,6 +56,10 @@ namespace crdt
             {
                 Delta dump(get_allocator());
                 dump.merge(delta_persistent_);
+
+                typename Instance::delta_extractor extractor;
+                extractor.apply(*static_cast<Instance*>(this), dump);
+
                 delta_persistent_.reset();
                 return dump;
             }
@@ -79,6 +83,11 @@ namespace crdt
         typedef typename allocator_type::replica_type replica_type;
 
         template < typename AllocatorT, typename TagT, typename HookT > struct rebind { typedef set_base< Key, AllocatorT, TagT, HookT, Delta > type; };
+        
+        struct delta_extractor
+        {
+            template < typename Delta > void apply(set_base_type& instance, Delta& delta) {}
+        };
 
         set_base(allocator_type allocator)
             : hook_type(allocator, allocator.get_replica().generate_instance_id())
@@ -95,7 +104,7 @@ namespace crdt
             insert(delta_, key);
             insert_context context;
             this->merge(delta_, context);
-            this->merge_hook(*this, delta_);
+            this->merge_hook();
             return { context.result.first, context.result.second };
         }
 

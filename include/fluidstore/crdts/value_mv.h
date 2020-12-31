@@ -123,7 +123,7 @@ namespace crdt
     template < typename Value, typename Allocator, typename Hook = default_hook, 
         typename Delta = value_mv_base< 
             Value, 
-            typename allocator_traits< Allocator >::template allocator_type< tag_delta >, 
+            Allocator,
             tag_delta, default_hook, void 
         >
     > class value_mv

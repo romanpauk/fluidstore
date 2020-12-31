@@ -18,6 +18,7 @@ template < typename Fn > double measure(Fn fn)
 
 BOOST_AUTO_TEST_CASE(set_insert_performance)
 {
+    /*
 #define Outer 10000
 #define Inner 100
 
@@ -75,6 +76,7 @@ BOOST_AUTO_TEST_CASE(set_insert_performance)
     std::cerr << "std::set " << t1 << std::endl;
     std::cerr << "crdt::set " << t2 << " (normal) slowdown " << t2 / t1 << std::endl;
     std::cerr << "crdt::set " << t3 << " (optimi) slowdown " << t3 / t1 << std::endl;
+    */
 }
 
 #endif

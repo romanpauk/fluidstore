@@ -124,8 +124,7 @@ namespace crdt
     {
     public:
         typedef Allocator allocator_type;
-        //typedef typename allocator_traits< Allocator >::template allocator_type< Tag > allocator_type;
-
+        
     private:
         template < typename Key, typename Value, typename Allocator, typename Container, typename Tag > friend class dot_kernel;
         

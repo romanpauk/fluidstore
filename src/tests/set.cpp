@@ -3,8 +3,32 @@
 #include <fluidstore/crdts/delta_hook.h>
 #include <fluidstore/crdts/delta_replica.h>
 #include <fluidstore/crdts/tagged_collection.h>
+#include <fluidstore/crdts/tagged_allocator.h>
 
 #include <boost/test/unit_test.hpp>
+
+BOOST_AUTO_TEST_CASE(allocators)
+{
+    crdt::id_sequence<> sequence;
+    crdt::replica<> replica(0, sequence);
+
+    crdt::tagged_allocator < crdt::tag_delta, crdt::allocator<> > a3(replica);
+    crdt::set< int, decltype(a3) > set3(a3);
+    set3.insert(1);
+
+    crdt::tagged_allocators < crdt::replica<>, unsigned char, crdt::tag_delta,
+        crdt::tagged_allocator < crdt::tag_delta, crdt::allocator<> >,
+        crdt::tagged_allocator < crdt::tag_state, crdt::allocator<> >
+    > a4(replica, replica, replica);
+
+    static_assert(std::is_same_v<
+        typename crdt::tagged_collection< crdt::tagged_allocator< crdt::tag_delta, std::string > >::template type< crdt::tag_delta >,
+        crdt::tagged_allocator< crdt::tag_delta, std::string >
+    >);
+
+    // crdt::set< int, decltype(a4) > set4(a4);
+    // set4.insert(1);
+}
 
 typedef boost::mpl::list<int, double, std::string > test_types;
 BOOST_AUTO_TEST_CASE_TEMPLATE(set_basic_operations, T, test_types)

@@ -25,7 +25,7 @@ namespace crdt
             { 
                 if (!delta_)
                 {
-                    delta_.emplace(allocator_traits< Allocator >::get_allocator< tag_delta >(allocator_));
+                    delta_.emplace(allocator_); // allocator_traits< Allocator >::get_allocator< tag_delta >(allocator_));
                 }
                 
                 return *delta_;

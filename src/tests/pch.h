@@ -5,6 +5,7 @@
 
     // TODO: fix
     #define _ENFORCE_MATCHING_ALLOCATORS 0
+    #define _SILENCE_CXX17_OLD_ALLOCATOR_MEMBERS_DEPRECATION_WARNING 0 
 #endif
 
 #include <set>

@@ -25,6 +25,7 @@ target_sources(fluidstore INTERFACE
     include/fluidstore/crdts/value_mv.h
     include/fluidstore/crdts/noncopyable.h
     include/fluidstore/crdts/replica.h
+    include/fluidstore/crdts/tagged_allocator.h
     include/fluidstore/crdts/tagged_collection.h
     include/fluidstore/allocators/arena_allocator.h
 )

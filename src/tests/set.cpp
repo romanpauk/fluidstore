@@ -127,6 +127,7 @@ BOOST_AUTO_TEST_CASE(set_tagged_allocator)
     }
 
     crdt::set< int, decltype(allocator) > set(allocator);
+    BOOST_TEST(arena.get_allocated() == 0);
     set.insert(1);
     BOOST_TEST(arena.get_allocated() == 0);
 }
@@ -142,7 +143,8 @@ BOOST_AUTO_TEST_CASE(set_tagged_allocator_delta)
     crdt::tagged_allocator< crdt::replica<>, decltype(a1), decltype(a2) > allocator(replica, a1, a2);
 
     crdt::set< int, decltype(allocator), crdt::delta_hook > set(allocator);
-    
+    BOOST_TEST(arena.get_allocated() == 0);
+
     {
         set.insert(1);
         BOOST_TEST(arena.get_allocated() > 0);

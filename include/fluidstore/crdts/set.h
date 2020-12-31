@@ -2,6 +2,7 @@
 
 #include <fluidstore/crdts/dot_kernel.h>
 #include <fluidstore/crdts/default_hook.h>
+#include <fluidstore/crdts/allocator.h>
 
 namespace crdt
 {
@@ -25,8 +26,7 @@ namespace crdt
 
     public:
         typedef Allocator allocator_type;
-        //typedef typename allocator_traits< Allocator >::template allocator_type< Tag > allocator_type;
-
+        
         typedef typename Hook::template hook< Allocator, Delta, set_base_type > hook_type;
         typedef typename allocator_type::replica_type replica_type;
 

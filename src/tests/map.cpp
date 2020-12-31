@@ -142,3 +142,25 @@ BOOST_AUTO_TEST_CASE(map_map_merge)
     map2.merge(map1.extract_delta());
     BOOST_TEST(map2.at(3).size() == 3);
 }
+
+BOOST_AUTO_TEST_CASE(map_tagged_allocator_delta)
+{
+    /*
+    crdt::id_sequence<> sequence;
+    crdt::replica<> replica(0, sequence);
+
+    crdt::arena< 8192 > arena;
+    crdt::tagged_type< crdt::tag_state, crdt::allocator<> > a1(replica);
+    crdt::tagged_type< crdt::tag_delta, crdt::arena_allocator< void, crdt::allocator<> > > a2(arena, replica);
+    crdt::tagged_allocator< crdt::replica<>, decltype(a1), decltype(a2) > allocator(replica, a1, a2);
+
+    crdt::map< int, crdt::value_mv< int, decltype(allocator) >, decltype(allocator), crdt::delta_hook > map(allocator);
+    {
+        map[1].set(1);
+        BOOST_TEST(arena.get_allocated() > 0);
+        map.extract_delta();
+    }
+
+    BOOST_TEST(arena.get_allocated() == 0);
+    */
+}

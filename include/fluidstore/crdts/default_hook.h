@@ -16,7 +16,6 @@ namespace crdt
             hook(Allocator allocator, const id_type& id)
                 : allocator_(allocator)
                 , id_(id)
-                , delta_(allocator)
             {}
 
             allocator_type& get_allocator() { return allocator_; }
@@ -26,7 +25,7 @@ namespace crdt
             { 
                 if (!delta_)
                 {
-                    delta_.emplace(allocator_);
+                    delta_.emplace(allocator_traits< Allocator >::get_allocator< tag_delta >(allocator_));
                 }
                 
                 return *delta_;

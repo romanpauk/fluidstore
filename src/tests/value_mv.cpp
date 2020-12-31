@@ -49,3 +49,24 @@ BOOST_AUTO_TEST_CASE(value_mv_merge)
     value2.merge(value1.extract_delta());
     BOOST_TEST(value2.get_all().size() == 2);
 }
+
+BOOST_AUTO_TEST_CASE(value_mv_tagged_allocator_delta)
+{
+    crdt::id_sequence<> sequence;
+    crdt::replica<> replica(0, sequence);
+
+    crdt::arena< 8192 > arena;
+    crdt::tagged_type< crdt::tag_state, crdt::allocator<> > a1(replica);
+    crdt::tagged_type< crdt::tag_delta, crdt::arena_allocator< void, crdt::allocator<> > > a2(arena, replica);
+    crdt::tagged_allocator< crdt::replica<>, decltype(a1), decltype(a2) > allocator(replica, a1, a2);
+
+    crdt::value_mv< int, decltype(allocator), crdt::delta_hook > value(allocator);
+
+    {
+        value.set(1);
+        BOOST_TEST(arena.get_allocated() > 0);
+        value.extract_delta();
+    }
+
+    BOOST_TEST(arena.get_allocated() == 0);
+}

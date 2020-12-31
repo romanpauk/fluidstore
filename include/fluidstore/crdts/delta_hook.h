@@ -14,35 +14,41 @@ namespace crdt
 
             hook(Allocator allocator, const id_type& id)
                 : default_hook::template hook< Allocator, Delta, Instance >(allocator, id)
-                , delta_persistent_(allocator)
             {}
 
             void commit_delta(Delta& delta)
             {
-                //if (!delta_persistent_)
-                //{
-                //    delta_persistent_.emplace(this->get_allocator());
-                //}
+                if (!delta_persistent_)
+                {
+                    delta_persistent_.emplace(get_allocator());
+                }
 
-                this->delta_persistent_.merge(delta);
+                delta_persistent_->merge(delta);
                 default_hook::template hook< Allocator, Delta, Instance >::commit_delta(delta);
             }
 
             Delta extract_delta()
             {
                 Delta delta(get_allocator());
-                delta.merge(delta_persistent_);
+                if (delta_persistent_)
+                {
+                    delta.merge(*delta_persistent_);
 
-                typename Instance::delta_extractor extractor;
-                extractor.apply(*static_cast<Instance*>(this), delta);
+                    typename Instance::delta_extractor extractor;
+                    extractor.apply(*static_cast<Instance*>(this), delta);
 
-                delta_persistent_.reset();
+                    delta_persistent_.reset();
+                }
+                else
+                {
+                    // TODO: investigate how this can happen
+                }
+
                 return delta;
             }
 
-        protected:
-            //std::optional< Delta > delta_persistent_;
-            Delta delta_persistent_;
+        private:
+            std::optional< Delta > delta_persistent_;
         };
     };
 }

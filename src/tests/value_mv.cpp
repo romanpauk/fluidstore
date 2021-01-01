@@ -62,7 +62,6 @@ BOOST_AUTO_TEST_CASE(value_mv_tagged_allocator_delta)
 
     crdt::tagged_allocator< crdt::replica<>, int, decltype(stateallocator), decltype(deltaallocator) > allocator(replica, stateallocator, deltaallocator);
 
-
     crdt::value_mv< int, decltype(allocator), crdt::delta_hook > value(allocator);
 
     {

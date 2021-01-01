@@ -2,6 +2,8 @@
 
 #include <fluidstore/crdts/default_hook.h>
 
+#include <optional>
+
 namespace crdt
 {
     struct delta_hook
@@ -14,6 +16,7 @@ namespace crdt
 
             hook(Allocator allocator, const id_type& id)
                 : default_hook::template hook< Allocator, Delta, Instance >(allocator, id)
+                , delta_persistent_(get_allocator())
             {}
 
             void commit_delta(Delta& delta)
@@ -48,7 +51,8 @@ namespace crdt
             }
 
         private:
-            std::optional< Delta > delta_persistent_;
+            //std::optional< Delta > delta_persistent_;
+            allocator_ptr< Delta, Allocator > delta_persistent_;
         };
     };
 }

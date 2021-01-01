@@ -1,8 +1,9 @@
 #pragma once
 
 #include <fluidstore/crdts/allocator.h>
+#include <fluidstore/crdts/allocator_ptr.h>
 
-#include <optional>
+#include <memory>
 
 namespace crdt
 {
@@ -16,6 +17,7 @@ namespace crdt
             hook(Allocator allocator, const id_type& id)
                 : allocator_(allocator)
                 , id_(id)
+                , delta_(allocator_)
             {}
 
             allocator_type& get_allocator() { return allocator_; }
@@ -25,7 +27,7 @@ namespace crdt
             { 
                 if (!delta_)
                 {
-                    delta_.emplace(allocator_); // allocator_traits< Allocator >::get_allocator< tag_delta >(allocator_));
+                    delta_.emplace(allocator_);
                 }
                 
                 return *delta_;
@@ -36,13 +38,12 @@ namespace crdt
                 delta_.reset(); 
             }
             
-            // protected:
+        protected:
             allocator_type allocator_;
             id_type id_;
 
         private:
-            // TODO: make this pointer allocated on demand.
-            std::optional< Delta > delta_;
+            allocator_ptr< Delta, Allocator > delta_;
         };
     };
 }

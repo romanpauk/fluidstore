@@ -12,6 +12,7 @@ target_include_directories(fluidstore INTERFACE include)
 
 target_sources(fluidstore INTERFACE
     include/fluidstore/crdts/allocator.h
+    include/fluidstore/crdts/allocator_ptr.h
     include/fluidstore/crdts/allocator_traits.h
     include/fluidstore/crdts/default_hook.h
     include/fluidstore/crdts/delta_hook.h

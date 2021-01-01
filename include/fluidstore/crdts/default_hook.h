@@ -41,6 +41,7 @@ namespace crdt
             id_type id_;
 
         private:
+            // TODO: make this pointer allocated on demand.
             std::optional< Delta > delta_;
         };
     };

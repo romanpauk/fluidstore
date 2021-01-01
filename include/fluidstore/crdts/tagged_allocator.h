@@ -1,6 +1,7 @@
 #pragma once
 
 #include <fluidstore/crdts/tagged_collection.h>
+#include <fluidstore/crdts/allocator_traits.h>
 
 namespace crdt
 {

@@ -2,7 +2,7 @@
 
 #include <fluidstore/crdts/dot_kernel.h>
 #include <fluidstore/crdts/default_hook.h>
-#include <fluidstore/crdts/allocator.h>
+#include <fluidstore/crdts/allocator_traits.h>
 
 namespace crdt
 {

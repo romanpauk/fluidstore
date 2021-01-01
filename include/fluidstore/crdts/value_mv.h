@@ -1,8 +1,7 @@
 #pragma once
 
 #include <fluidstore/crdts/set.h>
-
-#include <memory>
+#include <fluidstore/crdts/allocator_traits.h>
 
 namespace crdt
 {
@@ -123,7 +122,7 @@ namespace crdt
     template < typename Value, typename Allocator, typename Hook = default_hook, 
         typename Delta = value_mv_base< 
             Value, 
-            Allocator,
+            typename allocator_traits< Allocator >::template allocator_type< tag_delta >,
             tag_delta, default_hook, void 
         >
     > class value_mv

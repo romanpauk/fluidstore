@@ -1,7 +1,6 @@
 #pragma once
 
 #include <fluidstore/crdts/replica.h>
-#include <fluidstore/crdts/tagged_collection.h>
 
 #include <memory>
 
@@ -37,12 +36,5 @@ namespace crdt
 
     private:
         Replica* replica_;
-    };
-
-    template < typename Allocator > class allocator_traits
-    {
-    public:
-        template < typename Tag > static Allocator& get_allocator(Allocator& allocator) { return allocator; }
-        template < typename Tag > using allocator_type = Allocator;
     };
 }

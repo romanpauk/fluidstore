@@ -1,6 +1,7 @@
 #include <fluidstore/crdts/value_mv.h>
 #include <fluidstore/crdts/replica.h>
 #include <fluidstore/crdts/allocator.h>
+#include <fluidstore/crdts/tagged_allocator.h>
 #include <fluidstore/crdts/delta_hook.h>
 
 #include <boost/test/unit_test.hpp>
@@ -52,14 +53,15 @@ BOOST_AUTO_TEST_CASE(value_mv_merge)
 
 BOOST_AUTO_TEST_CASE(value_mv_tagged_allocator_delta)
 {
-    /*
     crdt::id_sequence<> sequence;
     crdt::replica<> replica(0, sequence);
 
-    crdt::arena< 8192 > arena;
-    crdt::tagged_type< crdt::tag_state, crdt::allocator<> > a1(replica);
-    crdt::tagged_type< crdt::tag_delta, crdt::arena_allocator< void, crdt::allocator<> > > a2(arena, replica);
-    crdt::tagged_allocator< crdt::replica<>, decltype(a1), decltype(a2) > allocator(replica, a1, a2);
+    crdt::arena< 32768 > arena;
+    crdt::arena_allocator< void, crdt::allocator<> > deltaallocator(arena, replica);
+    crdt::allocator<> stateallocator(replica);
+
+    crdt::tagged_allocator< crdt::replica<>, int, decltype(stateallocator), decltype(deltaallocator) > allocator(replica, stateallocator, deltaallocator);
+
 
     crdt::value_mv< int, decltype(allocator), crdt::delta_hook > value(allocator);
 
@@ -70,5 +72,4 @@ BOOST_AUTO_TEST_CASE(value_mv_tagged_allocator_delta)
     }
 
     BOOST_TEST(arena.get_allocated() == 0);
-    */
 }

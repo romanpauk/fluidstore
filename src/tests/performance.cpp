@@ -1,4 +1,5 @@
 #include <fluidstore/allocators/arena_allocator.h>
+#include <fluidstore/crdts/tagged_allocator.h>
 #include <fluidstore/crdts/allocator.h>
 #include <fluidstore/crdts/set.h>
 
@@ -18,7 +19,6 @@ template < typename Fn > double measure(Fn fn)
 
 BOOST_AUTO_TEST_CASE(set_insert_performance)
 {
-    /*
 #define Outer 10000
 #define Inner 100
 
@@ -33,7 +33,7 @@ BOOST_AUTO_TEST_CASE(set_insert_performance)
             }
         }
     });
-    
+
     auto t2 = measure([]
     {
         for (size_t x = 0; x < Outer; ++x)
@@ -49,20 +49,19 @@ BOOST_AUTO_TEST_CASE(set_insert_performance)
             }
         }
     });
-    
+
     auto t3 = measure([]
     {
         crdt::arena< 32768 > arena;
-        crdt::arena< 32768 > arena2;
 
         for (size_t x = 0; x < Outer; ++x)
         {
             crdt::id_sequence<> sequence;
             crdt::replica<> replica(0, sequence);
-            crdt::tagged_type< crdt::tag_state, crdt::allocator<> > a1(replica);
-            //crdt::tagged_type< crdt::tag_state, crdt::arena_allocator< void, crdt::allocator<> > > a1(arena2, replica);
-            crdt::tagged_type< crdt::tag_delta, crdt::arena_allocator< void, crdt::allocator<> > > a2(arena, replica);
-            crdt::tagged_allocator< crdt::replica<>, decltype(a1), decltype(a2) > allocator(replica, a1, a2);
+            crdt::arena_allocator< void, crdt::allocator<> > deltaallocator(arena, replica);
+            crdt::allocator<> stateallocator(replica);
+
+            crdt::tagged_allocator< crdt::replica<>, int, decltype(stateallocator), decltype(deltaallocator) > allocator(replica, stateallocator, deltaallocator);
 
             crdt::set< size_t, decltype(allocator) > set(allocator);
 
@@ -75,8 +74,7 @@ BOOST_AUTO_TEST_CASE(set_insert_performance)
 
     std::cerr << "std::set " << t1 << std::endl;
     std::cerr << "crdt::set " << t2 << " (normal) slowdown " << t2 / t1 << std::endl;
-    std::cerr << "crdt::set " << t3 << " (optimi) slowdown " << t3 / t1 << std::endl;
-    */
+    std::cerr << "crdt::set " << t3 << " (state/delta) slowdown " << t3 / t1 << std::endl;
 }
 
 #endif

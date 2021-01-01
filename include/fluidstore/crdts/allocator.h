@@ -24,7 +24,7 @@ namespace crdt
         };
 
         allocator(Replica& replica)
-            : replica_(&replica)
+            : replica_(replica)
         {}
 
         template < typename ReplicaU, typename U, typename AllocatorU > allocator(const allocator< ReplicaU, U, AllocatorU >& other)
@@ -32,9 +32,9 @@ namespace crdt
             , replica_(other.replica_)
         {}
 
-        auto& get_replica() const { return *replica_; }
+        auto& get_replica() const { return replica_; }
 
     private:
-        Replica* replica_;
+        Replica& replica_;
     };
 }

@@ -188,11 +188,9 @@ namespace crdt
         template < typename Delta > void commit_delta(const Delta&) {}
     };
 
-    template < typename System, typename Allocator, typename Visitor = empty_visitor > class delta_replica
+    template < typename Allocator = std::allocator< unsigned >, typename System = crdt::system<>, typename Visitor = empty_visitor > class delta_replica
         : public replica< System >
     {
-        typedef delta_replica< System, Allocator, Visitor > this_type;
-
     public:
         typedef replica< System > delta_replica_type;
         using typename System::replica_id_type;
@@ -202,41 +200,9 @@ namespace crdt
         using typename System::instance_id_sequence_type;
         
     public:
-        template< typename AllocatorT, typename Instance > struct hook
-        {
-            template < typename AllocatorU > hook(AllocatorU, id_type id)
-                : instance_(*static_cast<Instance*>(this))
-                , instance_it_(static_cast<Instance*>(this)->get_allocator().get_replica().instance_registry_.insert(id, instance_))
-                //, delta_instance_()
-            {}
-
-            ~hook()
-            {
-                static_cast<Instance*>(this)->get_allocator().get_replica().instance_registry_.erase(instance_it_);
-                //if (delta_instance_)
-                //{
-                //    delta_instance_->clear_instance_ptr();
-                //}
-            }
-
-            template < typename Delta > void commit_delta(Delta& delta)
-            {
-                auto& replica = static_cast<Instance*>(this)->get_allocator().get_replica();
-                replica.commit_delta(delta);
-                delta.reset();
-            }
-
-        private:
-            typename instance_registry< Allocator, id_type >::template instance< Instance, AllocatorT > instance_;
-            typename instance_registry< Allocator, id_type >::iterator instance_it_;
-
-            // template < typename Allocator, typename Visitor > friend class delta_registry;
-            // mutable typename delta_registry< Allocator, Visitor >::instance_base* delta_instance_;
-        };
-
-        delta_replica(Allocator allocator)
-            : replica_type(allocator.get_replica())
-            , delta_registry_(allocator)
+        delta_replica(replica_id_type id, instance_id_sequence_type& sequence, Allocator allocator = Allocator())
+            : replica< System >(id, sequence)
+            //, delta_registry_(allocator)
         {}
 
         template < typename Delta > void commit_delta(Delta& delta) 
@@ -271,20 +237,20 @@ namespace crdt
 
         void visit(Visitor& visitor) const
         {
-            for (const auto& instance : delta_registry_.deltas_)
-            {
-                instance->visit(visitor);
-            }
+            //for (const auto& instance : delta_registry_.deltas_)
+            //{
+            //    instance->visit(visitor);
+            //}
         }
 
         void clear()
         {
-            delta_registry_.clear();
+            // delta_registry_.clear();
         }
 
-    private:
+    public: // TODO
         instance_registry< Allocator, id_type > instance_registry_;
-        delta_registry< Allocator, Visitor > delta_registry_;
+        //delta_registry< Allocator, Visitor > delta_registry_;
     };
 
     class delta_replica_hook
@@ -292,21 +258,40 @@ namespace crdt
     public:
         template < typename Allocator, typename Delta, typename Instance > struct hook
             : public default_hook::template hook< Allocator, Delta, Instance >
-            , public Allocator::replica_type::template hook< Allocator, Instance >
         {
             typedef Allocator allocator_type;
             typedef typename allocator_type::replica_type::id_type id_type;
 
             hook(allocator_type allocator, const id_type& id)
                 : default_hook::template hook< Allocator, Delta, Instance >(allocator, id)
-                , allocator_type::replica_type::template hook< Allocator, Instance >(allocator, id)
+                //, instance_(*static_cast<Instance*>(this))
+                //, instance_it_(allocator.get_replica().instance_registry_.insert(id, instance_))
+                //, delta_instance_()
             {}
+
+            ~hook()
+            {
+                //static_cast<Instance*>(this)->get_allocator().get_replica().instance_registry_.erase(instance_it_);
+                //if (delta_instance_)
+                //{  
+                //    delta_instance_->clear_instance_ptr();
+                //}
+            }
 
             void commit_delta(Delta& delta)
             {
-                allocator_type::replica_type::template hook< Allocator, Instance >::commit_delta(delta);
+                auto& replica = static_cast<Instance*>(this)->get_allocator().get_replica();
+                // replica.commit_delta(delta);
+ 
                 default_hook::template hook< Allocator, Delta, Instance >::commit_delta(delta);
             }
+
+        private:
+            //typename instance_registry< Allocator, id_type >::template instance< Instance, Allocator > instance_;
+            //typename instance_registry< Allocator, id_type >::iterator instance_it_;
+
+            // template < typename Allocator, typename Visitor > friend class delta_registry;
+            // mutable typename delta_registry< Allocator, Visitor >::instance_base* delta_instance_;
         };
     };
 }

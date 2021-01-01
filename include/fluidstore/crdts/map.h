@@ -121,7 +121,7 @@ namespace crdt
     template < typename Key, typename Value, typename Allocator, typename Hook = default_hook, 
         typename Delta = map_base< 
             Key, 
-            typename Value::template rebind< Allocator, default_hook >::type, 
+            typename Value::template rebind< typename allocator_traits< Allocator >::template allocator_type< tag_delta >, default_hook >::type,
             typename allocator_traits< Allocator >::template allocator_type< tag_delta >, 
             tag_delta, 
             default_hook, 

@@ -142,6 +142,16 @@ BOOST_AUTO_TEST_CASE(map_map_merge)
     map2[3][10].set(1000);
     map2.merge(map1.extract_delta());
     BOOST_TEST(map2.at(3).size() == 3);
+
+    // This is concurrent insert and erase ([3][1] actually does insert and increase sequence). Insert wins.
+    // It works by accident, eg. if [1] would be accessed by iterators, no one would increase the sequence.
+    // TODO: when modifying element in the three, increase sequence numbers of parents. This will be tricky as we do not know them.
+    map1[3][1].set(1000);
+    map2.erase(3);
+    map1.merge(map2.extract_delta());
+    BOOST_TEST((map1.at(3).at(1) == 1000));
+    map2.merge(map1.extract_delta());
+    BOOST_TEST((map2.at(3).at(1) == 1000));   
 }
 
 BOOST_AUTO_TEST_CASE(map_tagged_allocator_delta)

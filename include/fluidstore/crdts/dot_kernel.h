@@ -146,7 +146,6 @@ namespace crdt
         typedef dot_kernel_iterator< typename values_type::const_iterator, Key, Value > const_iterator;
 
         dot_context< replica_id_type, counter_type, allocator_type > counters_;
-
         values_type values_;
         std::map< dot_type, typename values_type::iterator, std::less< dot_type >, allocator_type > dots_;
 

@@ -99,12 +99,10 @@ BOOST_AUTO_TEST_CASE(set_merge)
 BOOST_AUTO_TEST_CASE(set_merge_replica)
 {
     crdt::id_sequence<> sequence;
-    crdt::replica<> replica(1, sequence);
-    crdt::allocator<> replica_allocator(replica);    
-    crdt::delta_replica< crdt::system<>, crdt::allocator<> > delta_replica(replica_allocator);
-    crdt::allocator< decltype(delta_replica) > delta_allocator(delta_replica);
+    crdt::delta_replica<> replica(1, sequence);
+    crdt::allocator< decltype(replica) > allocator(replica);
 
-    crdt::set< int, decltype(delta_allocator), crdt::delta_replica_hook > set1(delta_allocator);
+    crdt::set< int, decltype(allocator), crdt::delta_replica_hook > set1(allocator);
     set1.insert(1);
 
     // TODO: unfinished

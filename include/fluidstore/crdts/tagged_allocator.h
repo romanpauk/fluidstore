@@ -61,7 +61,7 @@ namespace crdt
         };
 
         tagged_allocator(Replica& replica)
-            : replica_(&replica)
+            : replica_(replica)
         {}
 
         /*
@@ -79,7 +79,7 @@ namespace crdt
         */
 
         tagged_allocator(Replica& replica, const StateAllocator& state, const DeltaAllocator& delta)
-            : replica_(&replica)
+            : replica_(replica)
             , tagged_allocator_base< tag_state, StateAllocator >(state)
             , tagged_allocator_base< tag_delta, DeltaAllocator >(delta)
         {}
@@ -92,10 +92,10 @@ namespace crdt
             , replica_(other.replica_)
         {}
 
-        auto& get_replica() const { return *replica_; }
+        auto& get_replica() const { return replica_; }
 
     private:
-        Replica* replica_;
+        Replica& replica_;
     };
 
     template < typename Replica, typename T, typename StateAllocator, typename DeltaAllocator, typename Tag > class allocator_traits<

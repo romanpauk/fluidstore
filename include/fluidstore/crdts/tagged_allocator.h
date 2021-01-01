@@ -1,7 +1,112 @@
 #pragma once
 
+#include <fluidstore/crdts/tagged_collection.h>
+
 namespace crdt
 {
+    template < typename Tag, typename Allocator > class tagged_allocator_base
+        : public Allocator
+        , public tagged_type< Tag, tagged_allocator_base< Tag, Allocator > >
+    {
+    public:
+        template < typename U > struct rebind
+        {
+            using other = tagged_allocator_base< Tag, typename Allocator::template rebind< U >::other >;
+        };
+
+        template < typename... Args > tagged_allocator_base(Args&&... args)
+            : Allocator(std::forward< Args >(args)...)
+        {}
+
+        tagged_allocator_base(const tagged_allocator_base< Tag, Allocator >& allocator)
+            : Allocator(allocator)
+        {}
+    };
+
+    struct tag_state;
+    struct tag_delta;
+
+    template <
+        typename Replica,
+        typename T = unsigned char,
+        typename StateAllocator = std::allocator< T >,
+        typename DeltaAllocator = StateAllocator,
+        typename Tag = tag_state
+    > class tagged_allocator
+        : public tagged_allocator_base< tag_state, StateAllocator >
+        , public tagged_allocator_base< tag_delta, DeltaAllocator >
+    {
+        template < typename Replica, typename T, typename StateAllocator, typename DeltaAllocator, typename Tag > friend class tagged_allocator;
+
+        typedef typename tagged_collection<
+            tagged_allocator_base< tag_state, StateAllocator >,
+            tagged_allocator_base< tag_delta, DeltaAllocator >
+        >::template type< Tag > allocator_type;
+
+    public:
+        using value_type = typename allocator_type::value_type;
+        using allocator_type::allocate;
+        using allocator_type::deallocate;
+
+        using replica_type = Replica;
+
+        template< typename U, typename TagT = Tag > struct rebind
+        {
+            using other = tagged_allocator< Replica, U,
+                typename StateAllocator::template rebind< U >::other,
+                typename DeltaAllocator::template rebind< U >::other,
+                Tag
+            >;
+        };
+
+        tagged_allocator(Replica& replica)
+            : replica_(&replica)
+        {}
+
+        /*
+        tagged_allocator(Replica& replica, const StateAllocator& state)
+            : replica_(&replica)
+            , tagged_allocator_base< tag_state, StateAllocator >(state)
+            , tagged_allocator_base< tag_delta, DeltaAllocator >(DeltaAllocator())
+        {}
+
+        tagged_allocator(Replica& replica, const DeltaAllocator& delta)
+            : replica_(&replica)
+            , tagged_allocator_base< tag_state, StateAllocator >(StateAllocator())
+            , tagged_allocator_base< tag_delta, DeltaAllocator >(delta)
+        {}
+        */
+
+        tagged_allocator(Replica& replica, const StateAllocator& state, const DeltaAllocator& delta)
+            : replica_(&replica)
+            , tagged_allocator_base< tag_state, StateAllocator >(state)
+            , tagged_allocator_base< tag_delta, DeltaAllocator >(delta)
+        {}
+
+        template < typename ReplicaU, typename U, typename StateAllocatorU, typename DeltaAllocatorU, typename TagU > tagged_allocator(
+            const tagged_allocator< ReplicaU, U, StateAllocatorU, DeltaAllocatorU, TagU >& other
+        )
+            : tagged_allocator_base< tag_state, StateAllocator >(static_cast<const tagged_allocator_base< tag_state, StateAllocatorU >&>(other))
+            , tagged_allocator_base< tag_delta, DeltaAllocator >(static_cast<const tagged_allocator_base< tag_delta, DeltaAllocatorU >&>(other))
+            , replica_(other.replica_)
+        {}
+
+        auto& get_replica() const { return *replica_; }
+
+    private:
+        Replica* replica_;
+    };
+
+    template < typename Replica, typename T, typename StateAllocator, typename DeltaAllocator, typename Tag > class allocator_traits<
+        tagged_allocator< Replica, T, StateAllocator, DeltaAllocator, Tag >
+    >
+    {
+    public:
+        template < typename TagT > using allocator_type = typename tagged_allocator< Replica, T, StateAllocator, DeltaAllocator, TagT >::template rebind< T, TagT >::other;
+        template < typename TagT, typename Allocator > static allocator_type< TagT > get_allocator(Allocator& allocator) { return allocator; }
+    };
+
+#if 0
     template < typename Tag, typename Allocator > class tagged_allocator
         : public Allocator
         , public tagged_type< Tag, tagged_allocator< Tag, Allocator > >
@@ -97,4 +202,5 @@ namespace crdt
         template < typename Tag > using allocator_type = typename tagged_allocator< Replica, Allocators... >::template type< Tag >;
     };
     */
+#endif
 }

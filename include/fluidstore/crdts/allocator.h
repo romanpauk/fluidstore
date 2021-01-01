@@ -18,7 +18,6 @@ namespace crdt
 
     public:
         typedef Replica replica_type;
-        using value_type = typename Allocator::value_type;
 
         template< typename U > struct rebind
         {
@@ -27,11 +26,6 @@ namespace crdt
 
         allocator(Replica& replica)
             : replica_(&replica)
-        {}
-
-        template < typename AllocatorT, typename DeltaAllocatorT > allocator(Replica& replica, AllocatorT&& allocator)
-            : Allocator(std::forward< AllocatorT >(allocator))
-            , replica_(&replica)
         {}
 
         template < typename ReplicaU, typename U, typename AllocatorU > allocator(const allocator< ReplicaU, U, AllocatorU >& other)
@@ -43,5 +37,12 @@ namespace crdt
 
     private:
         Replica* replica_;
+    };
+
+    template < typename Allocator > class allocator_traits
+    {
+    public:
+        template < typename Tag > static Allocator& get_allocator(Allocator& allocator) { return allocator; }
+        template < typename Tag > using allocator_type = Allocator;
     };
 }

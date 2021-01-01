@@ -17,8 +17,12 @@ namespace crdt
             hook(Allocator allocator, const id_type& id)
                 : allocator_(allocator)
                 , id_(id)
-                , delta_(allocator_)
             {}
+
+            ~hook()
+            {
+                delta_.reset(allocator_);
+            }
 
             allocator_type& get_allocator() { return allocator_; }
             const id_type& get_id() const { return id_; }
@@ -27,7 +31,7 @@ namespace crdt
             { 
                 if (!delta_)
                 {
-                    delta_.emplace(allocator_);
+                    delta_.emplace(allocator_, allocator_);
                 }
                 
                 return *delta_;
@@ -35,15 +39,14 @@ namespace crdt
 
             void commit_delta(Delta&) 
             { 
-                delta_.reset(); 
+                delta_.reset(allocator_); 
             }
             
-        protected:
+        private:
             allocator_type allocator_;
             id_type id_;
 
-        private:
-            allocator_ptr< Delta, Allocator > delta_;
+            allocator_ptr_base< Delta > delta_;
         };
     };
 }

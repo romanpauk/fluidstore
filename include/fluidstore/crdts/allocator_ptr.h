@@ -4,23 +4,23 @@
 
 namespace crdt
 {
-    template < typename T, typename Allocator > struct allocator_ptr
+    template < typename T > struct allocator_ptr_base
     {
-        allocator_ptr(Allocator& allocator)
-            : allocator_(allocator)
-            , ptr_()
+        allocator_ptr_base()
+            : ptr_()
         {}
 
-        ~allocator_ptr() { reset(); }
+        ~allocator_ptr_base() { assert(!ptr_); }
 
-        template < typename... Args > void emplace(Args&&... args)
+        template < typename Allocator, typename... Args > void emplace(Allocator& allocator, Args&&... args)
         {
             assert(!ptr_);
-            reset();
 
-            auto allocator = std::allocator_traits< Allocator >::template rebind_alloc< T >(allocator_);
-            ptr_ = allocator.allocate(1);
-            std::allocator_traits< decltype(allocator) >::construct(allocator, ptr_, std::forward< Args >(args)...);
+            auto alloc = std::allocator_traits< Allocator >::template rebind_alloc< T >(allocator);
+            reset(alloc);
+
+            ptr_ = alloc.allocate(1);
+            std::allocator_traits< decltype(alloc) >::construct(alloc, ptr_, std::forward< Args >(args)...);
         }
 
         T& operator*() { assert(ptr_); return *ptr_; }
@@ -31,19 +31,43 @@ namespace crdt
         bool operator !() const { return ptr_ == nullptr; }
         operator bool() const { return ptr_ != nullptr; }
 
-        void reset()
+        template < typename Allocator > void reset(Allocator& allocator)
         {
             if (ptr_)
             {
-                auto allocator = std::allocator_traits< Allocator >::template rebind_alloc< T >(allocator_);
-                std::allocator_traits< decltype(allocator) >::destroy(allocator, ptr_);
-                std::allocator_traits< decltype(allocator) >::deallocate(allocator, ptr_, 1);
+                auto alloc = std::allocator_traits< Allocator >::template rebind_alloc< T >(allocator);
+                std::allocator_traits< decltype(alloc) >::destroy(alloc, ptr_);
+                std::allocator_traits< decltype(alloc) >::deallocate(alloc, ptr_, 1);
                 ptr_ = nullptr;
             }
         }
 
     private:
-        Allocator& allocator_;
         T* ptr_;
+    };
+
+    template < typename T, typename Allocator > struct allocator_ptr
+        : public allocator_ptr_base< T >
+    {
+        allocator_ptr(Allocator& allocator)
+            : allocator_(allocator)
+        {}
+
+        ~allocator_ptr() { reset(allocator_); }
+
+        template < typename... Args > void emplace(Args&&... args)
+        {
+            assert(!ptr_);
+            reset(allocator_);
+            emplace(allocator_, std::forward< Args >(args)...);
+        }
+
+        void reset()
+        {
+            reset(allocator_);
+        }
+
+    private:
+        Allocator& allocator_;
     };
 }

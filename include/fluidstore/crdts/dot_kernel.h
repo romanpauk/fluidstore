@@ -188,8 +188,11 @@ namespace crdt
         template < typename DotKernel, typename Context >
         void merge(const DotKernel& other, Context& ctx)
         {
+            // TODO: delta objects do not have hooks, thus no allocators. I'll have to revisit this for ids anyway.
+            //static_cast<Container*>(this)->get_allocator();
+
             // TODO: this should reuse provided alloc instead of creating arena one out of the blue...
-            //auto& allocator = allocator_traits< allocator_type >::get_allocator< crdt::tag_delta >(static_cast< Container* >(this)->get_allocator());
+            //auto allocator1 = allocator_traits< allocator_type >::get_allocator< crdt::tag_delta >(static_cast< Container* >(this)->get_allocator());
             //typedef std::set < dot_type, std::less< dot_type >, decltype(allocator) > dot_set_type;
 
             arena< 1024 > allocator;

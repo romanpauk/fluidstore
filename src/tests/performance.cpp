@@ -53,14 +53,13 @@ BOOST_AUTO_TEST_CASE(set_insert_performance)
     auto t3 = measure([]
     {
         crdt::arena< 32768 > arena;
+        crdt::id_sequence<> sequence;
+        crdt::replica<> replica(0, sequence);
 
         for (size_t x = 0; x < Outer; ++x)
         {
-            crdt::id_sequence<> sequence;
-            crdt::replica<> replica(0, sequence);
-            crdt::arena_allocator< void, crdt::allocator<> > deltaallocator(arena, replica);
-            crdt::allocator<> stateallocator(replica);
-
+            crdt::arena_allocator< int > deltaallocator(arena);
+            std::allocator< int > stateallocator;
             crdt::tagged_allocator< crdt::replica<>, int, decltype(stateallocator), decltype(deltaallocator) > allocator(replica, stateallocator, deltaallocator);
 
             crdt::set< size_t, decltype(allocator) > set(allocator);

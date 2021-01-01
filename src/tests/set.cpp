@@ -116,8 +116,8 @@ BOOST_AUTO_TEST_CASE(set_tagged_allocator)
     crdt::replica<> replica(0, sequence);
 
     crdt::arena< 32768 > arena;
-    crdt::arena_allocator< void, crdt::allocator<> > deltaallocator(arena, replica);
-    crdt::allocator<> stateallocator(replica);
+    crdt::arena_allocator< int > deltaallocator(arena);
+    std::allocator< int > stateallocator;
 
     crdt::tagged_allocator< crdt::replica<>, int, decltype(stateallocator), decltype(deltaallocator) > allocator(replica, stateallocator, deltaallocator);
 
@@ -133,8 +133,8 @@ BOOST_AUTO_TEST_CASE(set_tagged_allocator_delta)
     crdt::replica<> replica(0, sequence);
 
     crdt::arena< 32768 > arena;
-    crdt::arena_allocator< void, crdt::allocator<> > deltaallocator(arena, replica);
-    crdt::allocator<> stateallocator(replica);
+    crdt::arena_allocator< int > deltaallocator(arena);
+    std::allocator< int > stateallocator;
 
     crdt::tagged_allocator< crdt::replica<>, int, decltype(stateallocator), decltype(deltaallocator) > allocator(replica, stateallocator, deltaallocator);
 

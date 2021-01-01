@@ -94,10 +94,8 @@ namespace crdt
             }
             else
             {
-            #ifdef _DEBUG
                 assert(false);
-            #endif
-               return Allocator::allocate(n);
+                return Allocator::allocate(n);
             }
         }
 

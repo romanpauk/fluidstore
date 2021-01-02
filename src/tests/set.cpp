@@ -2,7 +2,7 @@
 #include <fluidstore/crdts/allocator.h>
 #include <fluidstore/crdts/delta_hook.h>
 #include <fluidstore/crdts/delta_replica.h>
-#include <fluidstore/crdts/tagged_collection.h>
+#include <fluidstore/crdts/registry.h>
 #include <fluidstore/crdts/tagged_allocator.h>
 
 #include <boost/test/unit_test.hpp>
@@ -98,12 +98,17 @@ BOOST_AUTO_TEST_CASE(set_merge)
 
 BOOST_AUTO_TEST_CASE(set_merge_replica)
 {
+    crdt::registry<> registry;
     crdt::id_sequence<> sequence;
-    crdt::delta_replica<> replica(1, sequence);
+    crdt::delta_replica< decltype(registry) > replica(1, sequence, registry);
     crdt::allocator< decltype(replica) > allocator(replica);
 
-    crdt::set< int, decltype(allocator), crdt::delta_replica_hook > set1(allocator);
+    crdt::set< int, decltype(allocator), crdt::registry_hook< decltype(registry), crdt::allocator<> > > set1(allocator);
     set1.insert(1);
+
+    // Registered classes can be accesed through registry. Not sure about the delta accessing interface.
+    //registry.get_deltas([&](const auto& delta) {});
+    //registry.clear_deltas();
 
     // TODO: unfinished
 }

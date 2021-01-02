@@ -90,8 +90,7 @@ namespace crdt
         auto begin() const { return counters_.begin(); }
         auto end() const { return counters_.end(); }
         auto size() const { return counters_.size(); }
-        void clear() { counters_.clear(); }
-
+        
     private:
         std::set< dot< ReplicaId, Counter >, std::less< dot< ReplicaId, Counter > >, allocator_type > counters_;
     };

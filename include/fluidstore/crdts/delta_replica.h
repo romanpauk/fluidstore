@@ -2,6 +2,7 @@
 
 #include <fluidstore/crdts/replica.h>
 #include <fluidstore/crdts/allocator.h>
+#include <fluidstore/crdts/registry.h>
 
 #include <deque>
 
@@ -112,83 +113,12 @@ namespace crdt
         std::deque< instance_base* > deltas_;
     };
 
-    template < typename Allocator, typename Id > class instance_registry
-    {
-        typedef Id id_type;
-
-    public:
-        struct instance_base
-        {
-            virtual ~instance_base() {}
-            virtual void merge(const void*) = 0;
-        };
-
-        template < typename Instance, typename DeltaAllocator > struct instance : instance_base
-        {
-            instance(Instance& i)
-                : instance_(i)
-            {}
-
-            void merge(const void* i)
-            {
-                typedef typename Instance::template rebind< Allocator, tag_delta, default_hook >::type delta_type;
-                auto instance_ptr = reinterpret_cast<const delta_type*>(i);
-                instance_.merge(*instance_ptr);
-            }
-
-            Instance& instance_;
-        };
-
-        typedef std::map< id_type, instance_base* > instances_type;
-
-    public:
-        typedef typename instances_type::iterator iterator;
-
-        iterator insert(const id_type& id, instance_base& i)
-        {
-            auto [it, inserted] = instances_.emplace(id, &i);
-            assert(inserted);
-
-            if (!inserted)
-            {
-                // TODO:
-                std::abort();
-            }
-
-            return it;
-        }
-
-        void erase(const iterator& it)
-        {
-            instances_.erase(it);
-        }
-
-        auto begin() const { return instances_.begin(); }
-        auto end() const { return instances_.end(); }
-
-        instance_base& get_instance(id_type id) { return *instances_.at(id); }
-
-        instance_base* get_instance_ptr(id_type id)
-        {
-            auto it = instances_.find(id);
-            if (it != instances_.end())
-            {
-                return it->second;
-            }
-
-            return nullptr;
-        }
-
-        // private:
-        instances_type instances_;
-    };
-
     struct empty_delta_replica_callback 
     {
         template < typename Delta > void commit_delta(const Delta&) {}
     };
 
-    template < typename Allocator = std::allocator< unsigned >, typename System = crdt::system<>, typename Visitor = empty_visitor > class delta_replica
+    template < typename Registry, typename Allocator = std::allocator< unsigned >, typename System = crdt::system<>, typename Visitor = empty_visitor > class delta_replica
         : public replica< System >
     {
     public:
@@ -200,8 +130,9 @@ namespace crdt
         using typename System::instance_id_sequence_type;
         
     public:
-        delta_replica(replica_id_type id, instance_id_sequence_type& sequence, Allocator allocator = Allocator())
+        delta_replica(replica_id_type id, instance_id_sequence_type& sequence, Registry& registry, Allocator allocator = Allocator())
             : replica< System >(id, sequence)
+            , registry_(registry)
             //, delta_registry_(allocator)
         {}
 
@@ -248,8 +179,10 @@ namespace crdt
             // delta_registry_.clear();
         }
 
+        Registry& get_registry() { return registry_; }
+
     public: // TODO
-        instance_registry< Allocator, id_type > instance_registry_;
+        Registry& registry_;
         //delta_registry< Allocator, Visitor > delta_registry_;
     };
 

@@ -9,6 +9,14 @@
 
 namespace crdt
 {
+    //
+    // TODO: we need two strategies to solve conflicts:
+    // remove-wins and add-wins. Right now it is a mess, if map is accessed through operator [], it does insert in the background,
+    // but if it is accessed through iterator, it does not. So the way code is written has an impact on final merge.
+    // For remove-wins, [] should not do insert and increase sequences, for add-wins (or, update-wins), we need to increase parent
+    // sequences with each mutation operation of the value. Link to parent will have to be passed to value so parent can
+    // update dots_[newdot] and value can add newdot to dots. The same will go for it's parent...
+    // 
     template < typename Value, typename Allocator > class dot_kernel_value
     {
         typedef dot_kernel_value< Value, Allocator > dot_kernel_value_type;

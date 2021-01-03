@@ -40,6 +40,7 @@ namespace crdt
             void commit_delta(Delta&) 
             { 
                 delta_.reset(allocator_); 
+                allocator_.update();
             }
             
         private:
@@ -49,6 +50,4 @@ namespace crdt
             allocator_ptr_base< Delta > delta_;
         };
     };
-
-    struct default_parent_hook {};
 }

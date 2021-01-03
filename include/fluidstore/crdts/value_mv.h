@@ -5,11 +5,11 @@
 
 namespace crdt
 {
-    template < typename Value, typename Allocator, typename Tag, typename Hook, typename Delta, typename Parent > class value_mv_base
-        : public Hook::template hook< Allocator, Delta, value_mv_base< Value, Allocator, Tag, Hook, Delta, Parent > >
+    template < typename Value, typename Allocator, typename Tag, typename Hook, typename Delta > class value_mv_base
+        : public Hook::template hook< Allocator, Delta, value_mv_base< Value, Allocator, Tag, Hook, Delta > >
     {
-        typedef value_mv_base< Value, Allocator, Tag, Hook, Delta, Parent > value_mv_base_type;
-        template < typename Value, typename Allocator, typename Tag, typename Hook, typename Delta, typename Parent > friend class value_mv_base;
+        typedef value_mv_base< Value, Allocator, Tag, Hook, Delta > value_mv_base_type;
+        template < typename Value, typename Allocator, typename Tag, typename Hook, typename Delta > friend class value_mv_base;
         typedef typename Hook::template hook< Allocator, Delta, value_mv_base_type > hook_type;
 
     public:
@@ -17,7 +17,7 @@ namespace crdt
 
         template < typename AllocatorT, typename TagT, typename HookT > struct rebind
         {
-            typedef typename value_mv_base< Value, AllocatorT, TagT, HookT, Delta, Parent > type;
+            typedef typename value_mv_base< Value, AllocatorT, TagT, HookT, Delta > type;
         };
 
         struct delta_extractor
@@ -74,8 +74,8 @@ namespace crdt
             return *this;
         }
 
-        template < typename ValueT, typename AllocatorT, typename TagT, typename HookT, typename DeltaT, typename ParentT > 
-        value_mv_base_type& operator = (const value_mv_base< ValueT, AllocatorT, TagT, HookT, DeltaT, ParentT >& value)
+        template < typename ValueT, typename AllocatorT, typename TagT, typename HookT, typename DeltaT > 
+        value_mv_base_type& operator = (const value_mv_base< ValueT, AllocatorT, TagT, HookT, DeltaT >& value)
         {
             merge(other);
             return *this;
@@ -86,8 +86,8 @@ namespace crdt
             return values_.size() <= 1 ? get_one() == value : false;
         }
 
-        template < typename ValueT, typename AllocatorT, typename TagT, typename HookT, typename DeltaT, typename ParentT >
-        bool operator == (const value_mv_base< ValueT, AllocatorT, TagT, HookT, DeltaT, ParentT >& other) const
+        template < typename ValueT, typename AllocatorT, typename TagT, typename HookT, typename DeltaT >
+        bool operator == (const value_mv_base< ValueT, AllocatorT, TagT, HookT, DeltaT >& other) const
         {
             return values_ == other.values_;
         }
@@ -95,9 +95,9 @@ namespace crdt
         crdt::set< Value, Allocator, Hook > values_;
     };
 
-    template < typename Value, typename Allocator, typename Hook, typename Parent > class value_mv_base< Value, Allocator, tag_delta, Hook, void, Parent >
+    template < typename Value, typename Allocator, typename Hook > class value_mv_base< Value, Allocator, tag_delta, Hook, void >
     {
-        typedef value_mv_base< Value, Allocator, tag_delta, Hook, void, Parent > value_mv_base_type;
+        typedef value_mv_base< Value, Allocator, tag_delta, Hook, void > value_mv_base_type;
 
     public:
         typedef Allocator allocator_type;
@@ -123,14 +123,13 @@ namespace crdt
         typename Delta = value_mv_base< 
             Value, 
             typename allocator_traits< Allocator >::template allocator_type< tag_delta >,
-            tag_delta, default_hook, void, default_parent_hook
-        >,
-        typename Parent = default_parent_hook
+            tag_delta, default_hook, void
+        >
     > class value_mv
-        : public value_mv_base< Value, Allocator, tag_state, Hook, Delta, Parent >
+        : public value_mv_base< Value, Allocator, tag_state, Hook, Delta >
     {
-        typedef value_mv< Value, Allocator, Hook, Delta, Parent > value_mv_type;
-        typedef value_mv_base< Value, Allocator, tag_state, Hook, Delta, Parent > value_mv_base_type;
+        typedef value_mv< Value, Allocator, Hook, Delta > value_mv_type;
+        typedef value_mv_base< Value, Allocator, tag_state, Hook, Delta > value_mv_base_type;
 
     public:
         typedef Allocator allocator_type;

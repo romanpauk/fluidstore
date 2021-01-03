@@ -8,6 +8,8 @@ namespace crdt
 {
     template < typename T > struct allocator_container 
     {
+        typedef T container_type;
+
         allocator_container(T* container)
             : container_(container)
         {}
@@ -15,6 +17,11 @@ namespace crdt
         allocator_container(const allocator_container< T >& other)
             : container_(other.container_)
         {}
+
+        T& get_container() { return *container_; }
+        const T& get_container() const { return *container_; }
+
+        void update() { container_->update(); }
 
     private:
         T* container_;
@@ -24,6 +31,7 @@ namespace crdt
     {
         allocator_container(void* = 0) {}
         template< typename T > allocator_container(const allocator_container<T>&) {}
+        void update() {}
     };
 
     template <

@@ -49,4 +49,6 @@ namespace crdt
             allocator_ptr_base< Delta > delta_;
         };
     };
+
+    struct default_parent_hook {};
 }

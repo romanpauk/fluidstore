@@ -80,6 +80,7 @@ namespace crdt
 
     public:
         typedef Allocator allocator_type;
+        typedef Hook hook_type;
 
         set(allocator_type allocator)
             : set_base_type(allocator, allocator.get_replica().generate_instance_id())

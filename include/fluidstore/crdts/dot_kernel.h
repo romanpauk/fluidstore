@@ -24,23 +24,6 @@ namespace crdt
     struct tag_update_wins {};
     struct tag_remove_wins {};
 
-    template< typename Tag, typename DotKernel > struct dot_kernel_link {};
-    
-    /*
-    // TODO: if remove should win, insert if existing element should not increase dots.
-    template< typename DotKernel > struct dot_kernel_link< tag_remove_wins, DotKernel > 
-    {
-        dot_kernel_link(DotKernel*) {}
-    };
-
-    template< typename DotKernel > struct dot_kernel_link< tag_update_wins, DotKernel > 
-    {
-        dot_kernel_link(DotKernel* parent)
-            : parent_(parent)
-        {}
-    };
-    */
-
     template < typename Value, typename Allocator, typename DotKernel > class dot_kernel_value
     {
         typedef dot_kernel_value< Value, Allocator, DotKernel > dot_kernel_value_type;
@@ -52,22 +35,23 @@ namespace crdt
         typedef typename replica_type::counter_type counter_type;
 
         // BUG: this value_type typedef is causing big slowdown while compiling map_map_merge test
-        // typedef typename allocator_type::template rebind< typename allocator_type::value_type, allocator_container< dot_kernel_value_type > >::other value_allocator_type;
-        // typedef typename Value::template rebind< value_allocator_type >::other value_type;
-        typedef Value value_type;
+        typedef typename allocator_type::template rebind< typename allocator_type::value_type, allocator_container< dot_kernel_value_type > >::other value_allocator_type;
+        typedef typename Value::template rebind< value_allocator_type >::other value_type;
+        // typedef Value value_type;
+        // typedef Allocator value_allocator_type;
 
         dot_kernel_value(std::allocator_arg_t, allocator_type allocator)
-            : value(allocator)
+            : value(value_allocator_type(allocator, this))
             , dots(allocator)
         {}
 
         dot_kernel_value(std::allocator_arg_t, allocator_type allocator, typename replica_type::id_type id)
-            : value(allocator, id)
+            : value(value_allocator_type(allocator, this), id)
             , dots(allocator)
         {}
 
         dot_kernel_value(std::allocator_arg_t, allocator_type allocator, typename replica_type::id_type id, void*)
-            : value(allocator, id)
+            : value(value_allocator_type(allocator, this), id)
             , dots(allocator)
         {}
 
@@ -227,7 +211,10 @@ namespace crdt
 
     protected:
         dot_kernel(allocator_type allocator)
-            : values_(std::scoped_allocator_adaptor< allocator_type, dot_kernel_value_allocator_type >(allocator, allocator))
+            : values_(std::scoped_allocator_adaptor< allocator_type, dot_kernel_value_allocator_type >(
+                allocator, 
+                dot_kernel_value_allocator_type(allocator, this)
+            ))
             , counters_(allocator)
             , dots_(allocator) 
         {}

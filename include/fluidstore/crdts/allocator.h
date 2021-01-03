@@ -8,11 +8,23 @@ namespace crdt
 {
     template < typename T > struct allocator_container 
     {
-        allocator_container() {}
-        T* ptr_;
+        allocator_container(T* container)
+            : container_(container)
+        {}
+
+        allocator_container(const allocator_container< T >& other)
+            : container_(other.container_)
+        {}
+
+    private:
+        T* container_;
     };
 
-    template<> struct allocator_container<void> {};
+    template<> struct allocator_container<void> 
+    {
+        allocator_container(void* = 0) {}
+        template< typename T > allocator_container(const allocator_container<T>&) {}
+    };
 
     template <
         typename Replica = replica<>,
@@ -37,8 +49,25 @@ namespace crdt
             : replica_(replica)
         {}
 
-        template < typename ReplicaU, typename U, typename AllocatorU, typename ContainerU > allocator(const allocator< ReplicaU, U, AllocatorU, ContainerU >& other)
+        allocator(const allocator< Replica, T, Allocator, Container >& other)
             : Allocator(other)
+            , Container(other)
+            , replica_(other.replica_)
+        {}
+
+        template < typename ReplicaU, typename U, typename AllocatorU, typename ContainerU > allocator(
+            const allocator< ReplicaU, U, AllocatorU, ContainerU >& other
+        )
+            : Allocator(other)
+            , Container(other)
+            , replica_(other.replica_)
+        {}
+
+        template < typename ReplicaU, typename U, typename AllocatorU, typename ContainerU > allocator(
+            const allocator< ReplicaU, U, AllocatorU, ContainerU >& other, const Container& container
+        )
+            : Allocator(other)
+            , Container(container)
             , replica_(other.replica_)
         {}
 

@@ -1,7 +1,8 @@
 #pragma once
 
-#include <fluidstore/crdts/tagged_collection.h>
+#include <fluidstore/crdts/allocator.h>
 #include <fluidstore/crdts/allocator_traits.h>
+#include <fluidstore/crdts/tagged_collection.h>
 
 namespace crdt
 {
@@ -32,12 +33,14 @@ namespace crdt
         typename T = unsigned char,
         typename StateAllocator = std::allocator< T >,
         typename DeltaAllocator = StateAllocator,
-        typename Tag = tag_state
+        typename Tag = tag_state,
+        typename Container = allocator_container< void >
     > class tagged_allocator
         : public tagged_allocator_base< tag_state, StateAllocator >
         , public tagged_allocator_base< tag_delta, DeltaAllocator >
+        , public ::crdt::allocator< Replica, T, StateAllocator, Container >
     {
-        template < typename Replica, typename T, typename StateAllocator, typename DeltaAllocator, typename Tag > friend class tagged_allocator;
+        template < typename Replica, typename T, typename StateAllocator, typename DeltaAllocator, typename Tag, typename Container > friend class tagged_allocator;
 
         typedef typename tagged_collection<
             tagged_allocator_base< tag_state, StateAllocator >,
@@ -51,17 +54,18 @@ namespace crdt
 
         using replica_type = Replica;
 
-        template< typename U, typename TagT = Tag > struct rebind
+        template< typename U, typename ContainerU = Container, typename TagU = Tag > struct rebind
         {
             using other = tagged_allocator< Replica, U,
                 typename StateAllocator::template rebind< U >::other,
                 typename DeltaAllocator::template rebind< U >::other,
-                Tag
+                TagU,
+                ContainerU
             >;
         };
 
         tagged_allocator(Replica& replica)
-            : replica_(replica)
+            : ::crdt::allocator< Replica, T, Container >(replica)
         {}
 
         /*
@@ -79,31 +83,34 @@ namespace crdt
         */
 
         tagged_allocator(Replica& replica, const StateAllocator& state, const DeltaAllocator& delta)
-            : replica_(replica)
+            : ::crdt::allocator< Replica, T, StateAllocator, Container >(replica)
             , tagged_allocator_base< tag_state, StateAllocator >(state)
             , tagged_allocator_base< tag_delta, DeltaAllocator >(delta)
         {}
 
-        template < typename ReplicaU, typename U, typename StateAllocatorU, typename DeltaAllocatorU, typename TagU > tagged_allocator(
-            const tagged_allocator< ReplicaU, U, StateAllocatorU, DeltaAllocatorU, TagU >& other
+        template < typename ReplicaU, typename U, typename StateAllocatorU, typename DeltaAllocatorU, typename TagU, typename ContainerU > tagged_allocator(
+            const tagged_allocator< ReplicaU, U, StateAllocatorU, DeltaAllocatorU, TagU, ContainerU >& other
         )
             : tagged_allocator_base< tag_state, StateAllocator >(static_cast<const tagged_allocator_base< tag_state, StateAllocatorU >&>(other))
             , tagged_allocator_base< tag_delta, DeltaAllocator >(static_cast<const tagged_allocator_base< tag_delta, DeltaAllocatorU >&>(other))
-            , replica_(other.replica_)
+            , ::crdt::allocator< Replica, T, StateAllocator, Container >(other)
         {}
 
-        auto& get_replica() const { return replica_; }
-
-    private:
-        Replica& replica_;
+        template < typename ReplicaU, typename U, typename StateAllocatorU, typename DeltaAllocatorU, typename TagU, typename ContainerU > tagged_allocator(
+            const tagged_allocator< ReplicaU, U, StateAllocatorU, DeltaAllocatorU, TagU, ContainerU >& other, const Container& container
+        )
+            : tagged_allocator_base< tag_state, StateAllocator >(static_cast<const tagged_allocator_base< tag_state, StateAllocatorU >&>(other))
+            , tagged_allocator_base< tag_delta, DeltaAllocator >(static_cast<const tagged_allocator_base< tag_delta, DeltaAllocatorU >&>(other))
+            , ::crdt::allocator< Replica, T, StateAllocator, Container >(other, container)
+        {}
     };
 
-    template < typename Replica, typename T, typename StateAllocator, typename DeltaAllocator, typename Tag > class allocator_traits<
-        tagged_allocator< Replica, T, StateAllocator, DeltaAllocator, Tag >
+    template < typename Replica, typename T, typename StateAllocator, typename DeltaAllocator, typename Tag, typename Container > class allocator_traits<
+        tagged_allocator< Replica, T, StateAllocator, DeltaAllocator, Tag, Container >
     >
     {
     public:
-        template < typename TagT > using allocator_type = typename tagged_allocator< Replica, T, StateAllocator, DeltaAllocator, TagT >::template rebind< T, TagT >::other;
+        template < typename TagT > using allocator_type = typename tagged_allocator< Replica, T, StateAllocator, DeltaAllocator, TagT, Container >::template rebind< T, Container, TagT >::other;
         template < typename TagT, typename Allocator > static allocator_type< TagT > get_allocator(Allocator& allocator) { return allocator; }
     };
 

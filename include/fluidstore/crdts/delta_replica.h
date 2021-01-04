@@ -190,13 +190,13 @@ namespace crdt
     {
     public:
         template < typename Allocator, typename Delta, typename Instance > struct hook
-            : public default_hook::template hook< Allocator, Delta, Instance >
+            : public default_state_hook::template hook< Allocator, Delta, Instance >
         {
             typedef Allocator allocator_type;
             typedef typename allocator_type::replica_type::id_type id_type;
 
             hook(allocator_type allocator, const id_type& id)
-                : default_hook::template hook< Allocator, Delta, Instance >(allocator, id)
+                : default_state_hook::template hook< Allocator, Delta, Instance >(allocator, id)
                 //, instance_(*static_cast<Instance*>(this))
                 //, instance_it_(allocator.get_replica().instance_registry_.insert(id, instance_))
                 //, delta_instance_()

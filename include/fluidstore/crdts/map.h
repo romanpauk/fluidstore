@@ -106,9 +106,12 @@ namespace crdt
     };
 
     template < typename Key, typename Value, typename Allocator, typename Tag, typename Hook > class map_base< Key, Value, Allocator, Tag, Hook, void >
-        : public dot_kernel< Key, Value, Allocator, map_base< Key, Value, Allocator, Tag, Hook, void >, Tag >
+        : public Hook::template hook< Allocator, void, map_base< Key, Value, Allocator, Tag, Hook, void > >
+        , public dot_kernel< Key, Value, Allocator, map_base< Key, Value, Allocator, Tag, Hook, void >, Tag >
     {
         typedef dot_kernel< Key, Value, Allocator, map_base< Key, Value, Allocator, Tag, Hook, void >, Tag > dot_kernel_type;
+        typedef map_base< Key, Value, Allocator, Tag, Hook, void > map_base_type;
+        typedef typename Hook::template hook< Allocator, void, map_base_type > hook_type;
 
     public:
         typedef Allocator allocator_type;
@@ -119,18 +122,18 @@ namespace crdt
         };
 
         map_base(allocator_type allocator)
-            : dot_kernel_type(allocator)
+            : hook_type(allocator, typename allocator_type::replica_type::id_type())
+            , dot_kernel_type(allocator)
         {}
     };
 
-    template < typename Key, typename Value, typename Allocator, typename Hook = default_hook,
+    template < typename Key, typename Value, typename Allocator, typename Hook = default_state_hook,
         typename Delta = map_base <
             Key,
-            // typename Value::template rebind< typename allocator_traits< Allocator >::template allocator_type< tag_delta >, default_hook >::other,
             typename Value::delta_type,
             typename allocator_traits< Allocator >::template allocator_type< tag_delta >, 
             tag_delta, 
-            default_hook, 
+            default_delta_hook, 
             void 
         >
     > class map

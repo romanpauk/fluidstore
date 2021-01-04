@@ -121,14 +121,16 @@ namespace crdt
             values_.reset();
         }
 
-        crdt::set_base< Value, Allocator, tag_delta, default_hook, void > values_;
+        const typename allocator_type::replica_type::id_type& get_id() const { return values_.get_id(); }
+
+        crdt::set_base< Value, Allocator, tag_delta, Hook, void > values_;
     };
 
-    template < typename Value, typename Allocator, typename Hook = default_hook, 
+    template < typename Value, typename Allocator, typename Hook = default_state_hook, 
         typename Delta = value_mv_base< 
             Value, // TODO: Value can be recursive
             typename allocator_traits< Allocator >::template allocator_type< tag_delta >,
-            tag_delta, default_hook, void
+            tag_delta, default_delta_hook, void
         >
     > class value_mv
         : public value_mv_base< Value, Allocator, tag_state, Hook, Delta >

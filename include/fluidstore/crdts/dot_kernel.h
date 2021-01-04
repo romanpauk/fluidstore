@@ -54,7 +54,6 @@ namespace crdt
             , dots(allocator)
             , key()
             , container(allocator.get_container())
-            , id__(allocator.get_replica().generate_instance_id())
         {}
 
         dot_kernel_value(std::allocator_arg_t, allocator_type allocator, typename replica_type::id_type id)
@@ -66,7 +65,6 @@ namespace crdt
             , dots(allocator)
             , key()
             , container(allocator.get_container())
-            , id__(id)
         {}
 
         template < typename DotKernelValue > void merge(const DotKernelValue& other)
@@ -75,7 +73,7 @@ namespace crdt
             value.merge(other.value);
         }
 
-        const typename replica_type::id_type& get_id() const { return id__; } // value.get_id(); }
+        const typename replica_type::id_type& get_id() const { return value.get_id(); } 
 
         void set_key(const Key& k) { key = k; }
 
@@ -92,9 +90,6 @@ namespace crdt
 
         typename allocator_type::container_type& container;
         value_type value;
-
-        // TODO: delta types do not have hook, so they miss id and allocator. Seems we need to have both.
-        typename replica_type::id_type id__;
     };
 
     template < typename Key, typename Allocator > class dot_kernel_value< Key, void, Allocator >
@@ -260,14 +255,8 @@ namespace crdt
         {
             // TODO: repeated adds can keep just latest counter per-replica.
 
-            // TODO: delta objects do not have hooks, thus no allocators. I'll have to revisit this for ids anyway.
-            //static_cast<Container*>(this)->get_allocator();
-            // TODO: this should reuse provided alloc instead of creating arena one out of the blue...
-            //auto allocator1 = allocator_traits< allocator_type >::get_allocator< crdt::tag_delta >(static_cast< Container* >(this)->get_allocator());
-            //typedef std::set < dot_type, std::less< dot_type >, decltype(allocator) > dot_set_type;
-
-            arena< 1024 > allocator;
-            typedef std::set < dot_type, std::less< dot_type >, arena_allocator<> > dot_set_type;
+            auto allocator = allocator_traits< allocator_type >::get_allocator< crdt::tag_delta >(static_cast< Container* >(this)->get_allocator());
+            typedef std::set < dot_type, std::less< dot_type >, decltype(allocator) > dot_set_type;
 
             dot_set_type rdotsvisited(allocator);
             dot_set_type rdotsvalueless(allocator);

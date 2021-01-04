@@ -9,13 +9,13 @@ namespace crdt
     struct delta_hook
     {
         template < typename Allocator, typename Delta, typename Instance > struct hook
-            : public default_hook::template hook< Allocator, Delta, Instance >
+            : public default_state_hook::template hook< Allocator, Delta, Instance >
         {
             typedef Allocator allocator_type;
             typedef typename allocator_type::replica_type::id_type id_type;
 
             hook(Allocator allocator, const id_type& id)
-                : default_hook::template hook< Allocator, Delta, Instance >(allocator, id)
+                : default_state_hook::template hook< Allocator, Delta, Instance >(allocator, id)
             {}
 
             ~hook()
@@ -31,7 +31,7 @@ namespace crdt
                 }
 
                 delta_persistent_->merge(delta);
-                default_hook::template hook< Allocator, Delta, Instance >::commit_delta(delta);
+                default_state_hook::template hook< Allocator, Delta, Instance >::commit_delta(delta);
             }
 
             Delta extract_delta()

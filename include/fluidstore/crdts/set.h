@@ -14,7 +14,7 @@ namespace crdt
         typedef set_base< Key, Allocator, Tag, Hook, Delta > set_base_type;
         typedef dot_kernel< Key, void, Allocator, set_base_type, Tag > dot_kernel_type;
         
-        friend class dot_kernel_type;
+        friend dot_kernel_type;
 
     public:
         typedef Allocator allocator_type;
@@ -22,7 +22,10 @@ namespace crdt
         typedef typename Hook::template hook< Allocator, Delta, set_base_type > hook_type;
         typedef typename allocator_type::replica_type replica_type;
 
-        template < typename AllocatorT, typename TagT, typename HookT > struct rebind { typedef set_base< Key, AllocatorT, TagT, HookT, Delta > type; };
+        template < typename AllocatorT, typename HookT = Hook, typename TagT = Tag > struct rebind
+        {
+            using other = set_base< Key, AllocatorT, TagT, HookT, Delta >;
+        };
         
         struct delta_extractor
         {
@@ -59,20 +62,29 @@ namespace crdt
     };
 
     template < typename Key, typename Allocator, typename Tag, typename Hook > class set_base< Key, Allocator, Tag, Hook, void >
-        : public dot_kernel< Key, void, Allocator, set_base< Key, Allocator, Tag, Hook, void >, Tag >
+        : public Hook::template hook< Allocator, void, set_base< Key, Allocator, Tag, Hook, void > >
+        , public dot_kernel< Key, void, Allocator, set_base< Key, Allocator, Tag, Hook, void >, Tag >
     {
         typedef dot_kernel< Key, void, Allocator, set_base< Key, Allocator, Tag, Hook, void >, Tag > dot_kernel_type;
+        typedef set_base< Key, Allocator, Tag, Hook, void > set_base_type;
+        typedef typename Hook::template hook< Allocator, void, set_base_type > hook_type;
 
     public:
         typedef Allocator allocator_type;
+        
+        template < typename AllocatorT, typename HookT = Hook > struct rebind
+        {
+            using other = set_base< Key, AllocatorT, Tag, HookT, void >;
+        };
 
         set_base(allocator_type allocator)
-            : dot_kernel_type(allocator)
+            : hook_type(allocator, typename allocator_type::replica_type::id_type())
+            , dot_kernel_type(allocator)
         {}
     };
 
-    template < typename Key, typename Allocator, typename Hook = default_hook, 
-        typename Delta = set_base< Key, typename allocator_traits< Allocator >::template allocator_type< tag_delta >, tag_delta, default_hook, void >
+    template < typename Key, typename Allocator, typename Hook = default_state_hook, 
+        typename Delta = set_base< Key, typename allocator_traits< Allocator >::template allocator_type< tag_delta >, tag_delta, default_delta_hook, void >
     > class set
         : public set_base< Key, Allocator, tag_state, Hook, Delta >
     {
@@ -80,6 +92,8 @@ namespace crdt
 
     public:
         typedef Allocator allocator_type;
+        typedef Hook hook_type;
+        typedef Delta delta_type;
 
         set(allocator_type allocator)
             : set_base_type(allocator, allocator.get_replica().generate_instance_id())

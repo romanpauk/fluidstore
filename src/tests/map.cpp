@@ -70,7 +70,7 @@ BOOST_AUTO_TEST_CASE(map_basic_operations)
     BOOST_TEST(map.empty());
 }
 
-BOOST_AUTO_TEST_CASE(map_merge)
+BOOST_AUTO_TEST_CASE(map_value_mv_merge)
 {
     crdt::id_sequence<> sequence;
     crdt::replica<> replica(1, sequence);
@@ -105,7 +105,7 @@ BOOST_AUTO_TEST_CASE(map_merge)
     BOOST_TEST(map2.size() == 0);
 }
 
-BOOST_AUTO_TEST_CASE(map_map_merge)
+BOOST_AUTO_TEST_CASE(map_map_value_mv_merge)
 {
     crdt::id_sequence<> sequence;
     crdt::replica<> replica(1, sequence);
@@ -149,6 +149,26 @@ BOOST_AUTO_TEST_CASE(map_map_merge)
     BOOST_TEST((map1.at(3).at(1) == 1000));
     map2.merge(map1.extract_delta());
     BOOST_TEST((map2.at(3).at(1) == 1000));   
+
+    // Modify map1 through iterator so there is no 'false' addition from operator [], but proper parent update.
+    map1[4][40].set(400);
+    map2.merge(map1.extract_delta());
+    BOOST_TEST(map2.at(4).at(40).get_one() == 400);
+    map2.erase(4);
+    BOOST_TEST((map2.find(4) == map2.end()));
+    (*(*map1.find(4)).second.find(40)).second.set(4000);
+    map2.merge(map1.extract_delta());
+    BOOST_TEST(map2.at(4).at(40).get_one() == 4000);
+}
+
+BOOST_AUTO_TEST_CASE(map_set_merge)
+{
+    crdt::id_sequence<> sequence;
+    crdt::replica<> replica(1, sequence);
+    crdt::allocator<> allocator(replica);
+
+    crdt::map< int, crdt::set< int, decltype(allocator) >, decltype(allocator), crdt::delta_hook > map1(allocator);
+    crdt::map< int, crdt::set< int, decltype(allocator) >, decltype(allocator), crdt::delta_hook > map2(allocator);
 }
 
 BOOST_AUTO_TEST_CASE(map_tagged_allocator_delta)

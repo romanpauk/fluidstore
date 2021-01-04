@@ -9,6 +9,9 @@
 
 #include <algorithm>
 #include <scoped_allocator>
+#include <ostream>
+
+//#define REPARENT_DISABLED
 
 namespace crdt
 {
@@ -34,24 +37,36 @@ namespace crdt
         typedef typename replica_type::replica_id_type replica_id_type;
         typedef typename replica_type::counter_type counter_type;
 
+    #if !defined(REPARENT_DISABLED)
         // BUG: this value_type typedef is causing big slowdown while compiling map_map_merge test
         typedef typename allocator_type::template rebind< typename allocator_type::value_type, allocator_container< dot_kernel_value_type > >::other value_allocator_type;
         typedef typename Value::template rebind< value_allocator_type >::other value_type;
-        //typedef Value value_type;
-        //typedef Allocator value_allocator_type;
-
+    #else
+        typedef Value value_type;
+        typedef Allocator value_allocator_type;
+    #endif
         dot_kernel_value(std::allocator_arg_t, allocator_type allocator)
+        #if !defined(REPARENT_DISABLED)
             : value(value_allocator_type(allocator, this))
+        #else
+            : value(allocator)
+        #endif
             , dots(allocator)
             , key()
             , container(allocator.get_container())
+            , id__(allocator.get_replica().generate_instance_id())
         {}
 
         dot_kernel_value(std::allocator_arg_t, allocator_type allocator, typename replica_type::id_type id)
-            : value(value_allocator_type(allocator, this), id)
+        #if !defined(REPARENT_DISABLED)
+            : value(value_allocator_type(allocator, this))
+        #else
+            : value(allocator)
+        #endif
             , dots(allocator)
             , key()
             , container(allocator.get_container())
+            , id__(id)
         {}
 
         template < typename DotKernelValue > void merge(const DotKernelValue& other)
@@ -60,7 +75,7 @@ namespace crdt
             value.merge(other.value);
         }
 
-        const typename replica_type::id_type& get_id() const { return value.get_id(); }
+        const typename replica_type::id_type& get_id() const { return id__; } // value.get_id(); }
 
         void set_key(const Key& k) { key = k; }
 
@@ -77,6 +92,9 @@ namespace crdt
 
         typename allocator_type::container_type& container;
         value_type value;
+
+        // TODO: delta types do not have hook, so they miss id and allocator. Seems we need to have both.
+        typename replica_type::id_type id__;
     };
 
     template < typename Key, typename Allocator > class dot_kernel_value< Key, void, Allocator >
@@ -101,7 +119,7 @@ namespace crdt
             dots.insert(other.dots.begin(), other.dots.end());
         }
 
-        typename const replica_type::id_type& get_id() const { static typename replica_type::id_type id; return id; }
+        const typename replica_type::id_type& get_id() const { static typename replica_type::id_type id; return id; }
 
         void set_key(const Key&) {}
         void update() {}
@@ -164,6 +182,9 @@ namespace crdt
     private:
         template < typename Key, typename Value, typename Allocator, typename Container, typename Tag > friend class dot_kernel;
         
+        template < typename Key, typename Value, typename Allocator, typename Container, typename Tag >
+        friend std::ostream& operator << (std::ostream&, const dot_kernel< Key, Value, Allocator, Container, Tag >& kernel);
+
         // TODO: this is not exactly extensible... :(
         template < typename Key, typename Allocator, typename Tag, typename Hook, typename Delta > friend class set_base;
         template < typename Key, typename Value, typename Allocator, typename Tag, typename Hook, typename Delta > friend class map_base;
@@ -241,7 +262,6 @@ namespace crdt
 
             // TODO: delta objects do not have hooks, thus no allocators. I'll have to revisit this for ids anyway.
             //static_cast<Container*>(this)->get_allocator();
-
             // TODO: this should reuse provided alloc instead of creating arena one out of the blue...
             //auto allocator1 = allocator_traits< allocator_type >::get_allocator< crdt::tag_delta >(static_cast< Container* >(this)->get_allocator());
             //typedef std::set < dot_type, std::less< dot_type >, decltype(allocator) > dot_set_type;
@@ -392,4 +412,12 @@ namespace crdt
             static_cast< Container* >(this)->commit_delta(delta);
         }
     };
+
+    /*
+    template < typename Key, typename Value, typename Allocator, typename Container, typename Tag >
+    std::ostream& operator << (std::ostream& out, const dot_kernel< Key, Value, Allocator, Container, Tag >& kernel)
+    {
+        return out;
+    }
+    */
 }

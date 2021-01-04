@@ -113,15 +113,21 @@ namespace crdt
     public:
         typedef Allocator allocator_type;
 
+        template < typename AllocatorT, typename HookT = Hook > struct rebind
+        {
+            using other = map_base< Key, Value, AllocatorT, Tag, HookT, void >;
+        };
+
         map_base(allocator_type allocator)
             : dot_kernel_type(allocator)
         {}
     };
 
-    template < typename Key, typename Value, typename Allocator, typename Hook = default_hook, 
-        typename Delta = map_base< 
-            Key, 
-            typename Value::template rebind< typename allocator_traits< Allocator >::template allocator_type< tag_delta >, default_hook >::other,
+    template < typename Key, typename Value, typename Allocator, typename Hook = default_hook,
+        typename Delta = map_base <
+            Key,
+            // typename Value::template rebind< typename allocator_traits< Allocator >::template allocator_type< tag_delta >, default_hook >::other,
+            typename Value::delta_type,
             typename allocator_traits< Allocator >::template allocator_type< tag_delta >, 
             tag_delta, 
             default_hook, 
@@ -135,6 +141,7 @@ namespace crdt
     public:
         typedef Allocator allocator_type;
         typedef Hook hook_type;
+        typedef Delta delta_type;
 
         template < typename AllocatorT, typename HookT = Hook > struct rebind
         {

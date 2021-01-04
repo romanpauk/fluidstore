@@ -14,10 +14,10 @@ namespace crdt
 
     public:
         typedef Allocator allocator_type;
-
-        template < typename AllocatorT, typename TagT, typename HookT > struct rebind
+        
+        template < typename AllocatorT, typename HookT = Hook > struct rebind
         {
-            typedef typename value_mv_base< Value, AllocatorT, TagT, HookT, Delta > type;
+            using other = value_mv_base< Value, AllocatorT, Tag, HookT, Delta >;
         };
 
         struct delta_extractor
@@ -102,6 +102,11 @@ namespace crdt
     public:
         typedef Allocator allocator_type;
 
+        template < typename AllocatorT, typename HookT = Hook > struct rebind
+        {
+            using other = value_mv_base< Value, AllocatorT, tag_delta, HookT, void >;
+        };
+
         value_mv_base(allocator_type allocator)
             : values_(allocator)
         {}
@@ -121,7 +126,7 @@ namespace crdt
 
     template < typename Value, typename Allocator, typename Hook = default_hook, 
         typename Delta = value_mv_base< 
-            Value, 
+            Value, // TODO: Value can be recursive
             typename allocator_traits< Allocator >::template allocator_type< tag_delta >,
             tag_delta, default_hook, void
         >
@@ -134,6 +139,7 @@ namespace crdt
     public:
         typedef Allocator allocator_type;
         typedef Hook hook_type;
+        typedef Delta delta_type;
 
         template < typename AllocatorT, typename HookT = Hook > struct rebind
         {

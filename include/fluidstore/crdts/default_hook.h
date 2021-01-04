@@ -29,6 +29,7 @@ namespace crdt
             
             auto& mutable_delta() 
             { 
+                assert(!delta_);
                 if (!delta_)
                 {
                     delta_.emplace(allocator_, allocator_);
@@ -39,6 +40,7 @@ namespace crdt
 
             void commit_delta(Delta&) 
             { 
+                assert(delta_);
                 delta_.reset(allocator_); 
                 allocator_.update();
             }

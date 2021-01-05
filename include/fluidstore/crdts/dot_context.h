@@ -5,12 +5,13 @@
 
 namespace crdt
 {
-    template < typename ReplicaId, typename Counter, typename Allocator > class dot_context
+    template < typename ReplicaId, typename Counter, typename Allocator, typename Tag > class dot_context
     {
-        template < typename ReplicaId, typename Counter, typename Allocator > friend class dot_context;
+        template < typename ReplicaId, typename Counter, typename Allocator, typename Tag > friend class dot_context;
 
     public:
-        typedef Allocator allocator_type;
+        using allocator_type = Allocator;
+        using dot_type = dot< ReplicaId, Counter >;
 
         dot_context(allocator_type allocator)
             : counters_(allocator)
@@ -43,18 +44,29 @@ namespace crdt
             return counter;
         }
 
-        template < typename AllocatorT > void merge(const dot_context< ReplicaId, Counter, AllocatorT >& other, bool shrink)
+        struct default_context
+        {
+            template < typename T > void register_erase(const T&) {}
+        };
+
+        template < typename DotContextT > void merge(const DotContextT& other)
+        {
+            default_context context;
+            merge(other, context);
+        }
+
+        template < typename DotContextT, typename Context > void merge(const DotContextT& other, Context& context)
         {
             insert(other.counters_.begin(), other.counters_.end());
-            if (shrink)
+            if (std::is_same_v< Tag, tag_state >)
             {
-                collapse();
+                collapse(context);
             }
         }
 
         const auto& get() const { return counters_; }
 
-        void collapse()
+        template < typename Context > void collapse(Context& context)
         {
             if (counters_.size() > 1)
             {
@@ -66,6 +78,7 @@ namespace crdt
                     {
                         if (next->counter == prev->counter + 1)
                         {
+                            context.register_erase(*prev);
                             prev = counters_.erase(prev);
                             ++next;
                         }
@@ -90,8 +103,10 @@ namespace crdt
         auto begin() const { return counters_.begin(); }
         auto end() const { return counters_.end(); }
         auto size() const { return counters_.size(); }
-        
+        auto empty() const { return counters_.empty(); }
+        void erase(const dot_type& dot) { counters_.erase(dot); }
+
     private:
-        std::set< dot< ReplicaId, Counter >, std::less< dot< ReplicaId, Counter > >, allocator_type > counters_;
+        std::set< dot_type, std::less< dot_type >, allocator_type > counters_;
     };
 }

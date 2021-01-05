@@ -27,10 +27,14 @@ namespace crdt
             {
                 for (const auto& [rkey, rvalue] : delta)
                 {
-                    auto& lvalue = instance.at(rkey);
-                    std::remove_reference_t< decltype(lvalue) >::delta_extractor extractor;
-                    rvalue.merge(lvalue.extract_delta());
-                    extractor.apply(lvalue, rvalue);
+                    auto lvalue_it = instance.find(rkey);
+                    if (lvalue_it != instance.end())
+                    {
+                        auto& lvalue = (*lvalue_it).second;
+                        std::remove_reference_t< decltype(lvalue) >::delta_extractor extractor;
+                        rvalue.merge(lvalue.extract_delta());
+                        extractor.apply(lvalue, rvalue);
+                    }
                 }
             }
         };

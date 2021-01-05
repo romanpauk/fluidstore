@@ -11,7 +11,7 @@
 #include <scoped_allocator>
 #include <ostream>
 
-//#define REPARENT_DISABLED
+// #define REPARENT_DISABLED
 
 namespace crdt
 {
@@ -27,9 +27,26 @@ namespace crdt
     struct tag_update_wins {};
     struct tag_remove_wins {};
 
-    template < typename Key, typename Value, typename Allocator > class dot_kernel_value
+    template < typename Allocator > struct dot_kernel_value_context
     {
-        typedef dot_kernel_value< Key, Value, Allocator > dot_kernel_value_type;
+        typedef Allocator allocator_type;
+        typedef typename Allocator::replica_type replica_type;
+        typedef typename replica_type::replica_id_type replica_id_type;
+        typedef typename replica_type::counter_type counter_type;
+        typedef dot< replica_id_type, counter_type > dot_type;
+
+        dot_kernel_value_context(Allocator allocator)
+            : erased_dots(allocator)
+        {}
+         
+        void register_erase(const dot_type& dot) { erased_dots.insert(dot); }
+
+        std::set < dot_type, std::less< dot_type >, Allocator > erased_dots;
+    };
+
+    template < typename Key, typename Value, typename Allocator, typename Tag > class dot_kernel_value
+    {
+        typedef dot_kernel_value< Key, Value, Allocator, Tag > dot_kernel_value_type;
 
     public:
         typedef Allocator allocator_type;
@@ -67,9 +84,9 @@ namespace crdt
             , container(allocator.get_container())
         {}
 
-        template < typename DotKernelValue > void merge(const DotKernelValue& other)
+        template < typename DotKernelValue, typename Context > void merge(const DotKernelValue& other, Context& context)
         {
-            dots.insert(other.dots.begin(), other.dots.end());
+            dots.merge(other.dots, context);
             value.merge(other.value);
         }
 
@@ -83,8 +100,8 @@ namespace crdt
         }
 
         // TODO: move this to dot_kernel, allocating set per-value is too expensive
-        std::set< dot< replica_id_type, counter_type >, std::less< dot< replica_id_type, counter_type > >, allocator_type > dots;
-        
+        dot_context< replica_id_type, counter_type, allocator_type, Tag > dots;
+
         // TODO: for keys bigger than pointers or the ones that are not POD, store pointers instead.
         Key key;
 
@@ -92,7 +109,7 @@ namespace crdt
         value_type value;
     };
 
-    template < typename Key, typename Allocator > class dot_kernel_value< Key, void, Allocator >
+    template < typename Key, typename Allocator, typename Tag > class dot_kernel_value< Key, void, Allocator, Tag >
     {
     public:
         typedef Allocator allocator_type;
@@ -109,9 +126,9 @@ namespace crdt
             : dots(allocator)
         {}
 
-        template < typename DotKernelValue > void merge(const DotKernelValue& other)
+        template < typename DotKernelValue, typename Context > void merge(const DotKernelValue& other, Context& context)
         {
-            dots.insert(other.dots.begin(), other.dots.end());
+            dots.merge(other.dots, context);
         }
 
         const typename replica_type::id_type& get_id() const { static typename replica_type::id_type id; return id; }
@@ -119,7 +136,7 @@ namespace crdt
         void set_key(const Key&) {}
         void update() {}
 
-        std::set< dot< replica_id_type, counter_type >, std::less< dot< replica_id_type, counter_type > >, allocator_type > dots;
+        dot_context< replica_id_type, counter_type, allocator_type, Tag > dots;
     };
 
     template < typename Iterator, typename Outer > class dot_kernel_iterator_base
@@ -193,7 +210,7 @@ namespace crdt
         using dot_type = dot< replica_id_type, counter_type >;
         using dot_kernel_type = dot_kernel< Key, Value, allocator_type, Container, Tag >;
         using dot_kernel_value_allocator_type = typename allocator_type::template rebind< typename allocator_type::value_type, allocator_container< dot_kernel_type > >::other;
-        using dot_kernel_value_type = dot_kernel_value< Key, Value, dot_kernel_value_allocator_type >;
+        using dot_kernel_value_type = dot_kernel_value< Key, Value, dot_kernel_value_allocator_type, Tag >;
 
         typedef std::map< 
             Key, 
@@ -208,7 +225,7 @@ namespace crdt
         typedef dot_kernel_iterator< typename values_type::iterator, Key, typename dot_kernel_value_type::value_type > iterator;
         typedef dot_kernel_iterator< typename values_type::const_iterator, Key, typename dot_kernel_value_type::value_type > const_iterator;
 
-        dot_context< replica_id_type, counter_type, allocator_type > counters_;
+        dot_context< replica_id_type, counter_type, allocator_type, Tag > counters_;
         values_type values_;
         std::map< dot_type, typename values_type::iterator, std::less< dot_type >, allocator_type > dots_;
 
@@ -253,8 +270,6 @@ namespace crdt
         template < typename DotKernel, typename Context >
         void merge(const DotKernel& other, Context& ctx)
         {
-            // TODO: repeated adds can keep just latest counter per-replica.
-
             auto allocator = allocator_traits< allocator_type >::get_allocator< crdt::tag_delta >(static_cast< Container* >(this)->get_allocator());
             typedef std::set < dot_type, std::less< dot_type >, decltype(allocator) > dot_set_type;
 
@@ -262,6 +277,8 @@ namespace crdt
             dot_set_type rdotsvalueless(allocator);
 
             const auto& rdots = other.counters_.get();
+
+            dot_kernel_value_context value_ctx(allocator);
 
             // Merge values
             for (const auto& [rkey, rdata] : other.values_)
@@ -272,9 +289,8 @@ namespace crdt
                 // TODO: using iterator could be better for performance, issue is that iterator type and thus size is not known while dot_kernel_value
                 // class is defined. Maybe it could be forward-declared somehow?
                 ldata.set_key(rkey);
-
-                ldata.merge(rdata);
-
+                ldata.merge(rdata, value_ctx);
+                
                 // Track visited dots
                 rdotsvisited.insert(rdata.dots.begin(), rdata.dots.end());
 
@@ -311,9 +327,14 @@ namespace crdt
                     dots_.erase(dots_it);
                 }
             }
+            
+            for (const auto& ldot : value_ctx.erased_dots)
+            {
+                dots_.erase(ldot);
+            }
 
             // Merge counters
-            counters_.merge(other.counters_, std::is_same_v< Tag, tag_state >);
+            counters_.merge(other.counters_);
         }
 
         void update(const Key& key)

@@ -8,6 +8,9 @@ namespace crdt
     template < typename ReplicaId, typename Counter > class dot
     {
     public:
+        using replica_id_type = ReplicaId;
+        using counter_type = Counter;
+
         template < typename ReplicaIdT, typename CounterT > dot(ReplicaIdT&& rep, CounterT&& cnt)
             : replica_id(std::forward< ReplicaIdT >(rep))
             , counter(std::forward< CounterT >(cnt))

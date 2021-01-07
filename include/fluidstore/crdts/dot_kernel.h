@@ -369,7 +369,7 @@ namespace crdt
 
         template < typename Delta > void clear(Delta& delta)
         {
-            for (auto& [value, data] : values_)
+            for (const auto& [value, data] : values_)
             {
                 delta.counters_.insert(data.dots.begin(), data.dots.end());
             }
@@ -403,13 +403,6 @@ namespace crdt
         size_t size() const
         {
             return values_.size();
-        }
-
-        void reset()
-        {
-            values_.clear();
-            dots_.clear();
-            counters_.clear();
         }
 
     private:

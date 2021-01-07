@@ -116,11 +116,6 @@ namespace crdt
             values_.merge(other.values_);
         }
 
-        void reset()
-        {
-            values_.reset();
-        }
-
         const typename allocator_type::replica_type::id_type& get_id() const { return values_.get_id(); }
 
         crdt::set_base< Value, Allocator, tag_delta, Hook, void > values_;

@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 3.19)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/MP>")
+add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/bigobj>")
 add_link_options("$<$<CXX_COMPILER_ID:MSVC>:LINKER:/DEBUG:FASTLINK>")
 enable_testing()
 
@@ -11,6 +12,7 @@ add_library(fluidstore INTERFACE)
 target_include_directories(fluidstore INTERFACE include)
 
 target_sources(fluidstore INTERFACE
+    include/fluidstore/allocators/arena_allocator.h
     include/fluidstore/crdts/allocator.h
     include/fluidstore/crdts/allocator_ptr.h
     include/fluidstore/crdts/allocator_traits.h
@@ -30,13 +32,15 @@ target_sources(fluidstore INTERFACE
     include/fluidstore/crdts/replica.h
     include/fluidstore/crdts/tagged_allocator.h
     include/fluidstore/crdts/tagged_collection.h
-    include/fluidstore/allocators/arena_allocator.h
+    include/fluidstore/flat/set.h
+    include/fluidstore/flat/vector.h
 )
 
 find_package(Boost)
 if(Boost_FOUND)
     add_executable(fluidstoretest 
         src/tests/dot.cpp
+        src/tests/flat.cpp
         src/tests/map.cpp
         src/tests/performance.cpp
         #src/tests/replica.cpp

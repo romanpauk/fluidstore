@@ -183,9 +183,6 @@ namespace crdt
         const Key& operator *() const { return this->it_->first; }
     };
 
-    struct tag_delta {};
-    struct tag_state {};
-
     template < typename Key, typename Value, typename Allocator, typename Container, typename Tag > class dot_kernel
     {
     public:

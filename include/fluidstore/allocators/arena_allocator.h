@@ -48,7 +48,7 @@ namespace crdt
         std::array< unsigned char, N > buffer_;
     };
 
-    template < typename T = void, typename Allocator = std::allocator< T > > class arena_allocator
+    template < typename T, typename Allocator = std::allocator< T > > class arena_allocator
         : public Allocator
     {
     public:
@@ -56,9 +56,9 @@ namespace crdt
 
         template< typename U > struct rebind
         {
-            typedef arena_allocator< U,
+            using other = arena_allocator< U,
                 typename std::allocator_traits< Allocator >::template rebind_alloc< U >
-            > other;
+            >;
         };
 
         template < typename... Args > arena_allocator(arena_base& arena, Args&&... args) noexcept

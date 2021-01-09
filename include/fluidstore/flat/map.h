@@ -17,8 +17,11 @@ namespace crdt::flat
             {}
 
             bool operator < (const node& other) const { return first < other.first; }
+            bool operator <= (const node& other) const { return first <= other.first; }
             bool operator > (const node& other) const { return first > other.first; }
+            bool operator >= (const node& other) const { return first >= other.first; }
             bool operator == (const node& other) const { return first == other.first; }
+            bool operator != (const node& other) const { return first != other.first; }
         };
 
     public:
@@ -34,25 +37,14 @@ namespace crdt::flat
             : data_(std::move(other.data_))
         {}
 
-        template< typename Allocator > void emplace(Allocator& allocator, const K& k, const V& v)
+        template< typename Allocator, typename Kt, typename Vt > void emplace(Allocator& allocator, Kt&& k, Vt&& v)
         {
-            data_.emplace(allocator, node(k, v));
+            data_.emplace(allocator, node(std::forward< Kt >(k), std::forward< Vt >(v)));
         }
 
         auto find(const K& key)
         {
-            // TODO:
-            //return data_.find(node(key, V()));
-
-            for (auto it = data_.begin(); it != data_.end(); ++it)
-            {
-                if (it->first == key)
-                {
-                    return it;
-                }
-            }
-
-            return end();
+            return data_.find(node(key, V()));
         }
 
         template < typename Allocator > void erase(Allocator& allocator, const K& key)
@@ -85,20 +77,4 @@ namespace crdt::flat
     private:
         set_type data_;
     };
-
-    /*
-    template < typename T, typename Allocator > class set: private set_base< T >
-    {
-    public:
-        //using allocator_type = typename std::allocator_traits< Allocator >::template rebind< T >;
-        using typename set_base< T >::iterator;
-
-        set(Allocator& allocator)
-            : allocator_(allocator)
-        {}
-
-    private:
-        Allocator& allocator_;
-    };
-    */
 }

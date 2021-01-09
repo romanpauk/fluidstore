@@ -90,7 +90,7 @@ namespace crdt::flat
             iterator& operator += (difference_type size)
             {
                 // TODO: casts
-                assert(index_ + (size_type)size <= p_.size());
+                assert(index_ + (size_type)size <= p_->size());
                 index_ += (size_type)size;
                 return *this;
             }

@@ -67,7 +67,7 @@ namespace crdt::flat
         auto find(const T& value)
         {
             auto it = lower_bound(value);
-            if (*it == value)
+            if(it != end() && *it == value)
             {
                 return it;
             }

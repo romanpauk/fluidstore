@@ -6,12 +6,13 @@
 #include <fluidstore/crdts/dot_context.h>
 #include <fluidstore/crdts/allocator.h>
 #include <fluidstore/allocators/arena_allocator.h>
+#include <fluidstore/flat/map.h>
 
 #include <algorithm>
 #include <scoped_allocator>
 #include <ostream>
 
-// #define REPARENT_DISABLED
+//#define REPARENT_DISABLED
 
 namespace crdt
 {
@@ -68,7 +69,7 @@ namespace crdt
         #else
             : value(allocator)
         #endif
-            , dots(allocator)
+            //, dots(allocator)
             , key()
             , container(allocator.get_container())
         {}
@@ -79,34 +80,26 @@ namespace crdt
         #else
             : value(allocator)
         #endif
-            , dots(allocator)
+            // , dots(allocator)
             , key()
             , container(allocator.get_container())
         {}
 
-        template < typename DotKernelValue, typename Context > void merge(const DotKernelValue& other, Context& context)
+        template < typename Allocator, typename DotKernelValue, typename Context > void merge(Allocator& allocator, const DotKernelValue& other, Context& context)
         {
-            dots.merge(other.dots, context);
+            dots.merge(allocator, other.dots, context);
             value.merge(other.value);
         }
 
         const typename replica_type::id_type& get_id() const { return value.get_id(); } 
-
         void set_key(const Key& k) { key = k; }
-
-        void update()
-        {
-            container.update(key);
-        }
-
-        // TODO: move this to dot_kernel, allocating set per-value is too expensive
-        dot_context< replica_id_type, counter_type, allocator_type, Tag > dots;
+        void update() { container.update(key); }
 
         // TODO: for keys bigger than pointers or the ones that are not POD, store pointers instead.
         Key key;
-
         typename allocator_type::container_type& container;
         value_type value;
+        dot_context2< replica_id_type, counter_type, Tag > dots;
     };
 
     template < typename Key, typename Allocator, typename Tag > class dot_kernel_value< Key, void, Allocator, Tag >
@@ -119,16 +112,20 @@ namespace crdt
         typedef typename replica_type::counter_type counter_type;
 
         dot_kernel_value(std::allocator_arg_t, allocator_type allocator)
-            : dots(allocator)
+            //: dots(allocator)
         {}
 
         dot_kernel_value(std::allocator_arg_t, allocator_type allocator, typename replica_type::id_type)
-            : dots(allocator)
+            //: dots(allocator)
         {}
 
-        template < typename DotKernelValue, typename Context > void merge(const DotKernelValue& other, Context& context)
+        dot_kernel_value(dot_kernel_value< Key, void, Allocator, Tag >&& other)
+            : dots(std::move(other.dots))
+        {}
+
+        template < typename Allocator, typename DotKernelValue, typename Context > void merge(Allocator& allocator, const DotKernelValue& other, Context& context)
         {
-            dots.merge(other.dots, context);
+            dots.merge(allocator, other.dots, context);
         }
 
         const typename replica_type::id_type& get_id() const { static typename replica_type::id_type id; return id; }
@@ -136,7 +133,7 @@ namespace crdt
         void set_key(const Key&) {}
         void update() {}
 
-        dot_context< replica_id_type, counter_type, allocator_type, Tag > dots;
+        dot_context2< replica_id_type, counter_type, Tag > dots;
     };
 
     template < typename Iterator, typename Outer > class dot_kernel_iterator_base
@@ -222,9 +219,10 @@ namespace crdt
         typedef dot_kernel_iterator< typename values_type::iterator, Key, typename dot_kernel_value_type::value_type > iterator;
         typedef dot_kernel_iterator< typename values_type::const_iterator, Key, typename dot_kernel_value_type::value_type > const_iterator;
 
-        dot_context< replica_id_type, counter_type, allocator_type, Tag > counters_;
+        dot_context2< replica_id_type, counter_type, Tag > counters_;
         values_type values_;
-        std::map< dot_type, typename values_type::iterator, std::less< dot_type >, allocator_type > dots_;
+        flat::map_base< dot_type, Key > dots_;
+        //std::map< dot_type, Key, std::less< dot_type >, allocator_type > dots_;
 
         struct context
         {
@@ -251,9 +249,27 @@ namespace crdt
                 allocator, 
                 dot_kernel_value_allocator_type(allocator, this)
             ))
-            , counters_(allocator)
-            , dots_(allocator) 
+            //, dots_(allocator) 
         {}
+
+        dot_kernel(dot_kernel_type&& other)
+            : values_(std::move(other.values_))
+            , dots_(std::move(other.dots_))
+            , counters_(std::move(other.counters_))
+        {}
+
+        ~dot_kernel()
+        {
+            auto counters_allocator = typename std::allocator_traits< allocator_type >::template rebind_alloc< dot_type >(static_cast<Container*>(this)->get_allocator());
+            counters_.clear(counters_allocator);
+            for (auto& value : values_)
+            {
+                value.second.dots.clear(counters_allocator);
+            }
+
+            auto dots2_allocator = typename std::allocator_traits< allocator_type >::template rebind_alloc< typename decltype(dots_)::node_type >(static_cast<Container*>(this)->get_allocator());
+            dots_.clear(dots2_allocator);
+        }
 
         // TODO:
     public:
@@ -267,15 +283,16 @@ namespace crdt
         template < typename DotKernel, typename Context >
         void merge(const DotKernel& other, Context& ctx)
         {
-            auto allocator = allocator_traits< allocator_type >::get_allocator< crdt::tag_delta >(static_cast< Container* >(this)->get_allocator());
-            typedef std::set < dot_type, std::less< dot_type >, decltype(allocator) > dot_set_type;
+            auto allocator = static_cast<Container*>(this)->get_allocator();
+            auto tmp = allocator_traits< allocator_type >::get_allocator< crdt::tag_delta >(static_cast< Container* >(this)->get_allocator());
+            //typedef flat::set < dot_type, decltype(tmp) > dot_set_type;
+            typedef std::set < dot_type, std::less< dot_type >, decltype(tmp) > dot_set_type;
 
-            dot_set_type rdotsvisited(allocator);
-            dot_set_type rdotsvalueless(allocator);
+            dot_set_type rdotsvisited(tmp);
+            dot_set_type rdotsvalueless(tmp);
+            dot_kernel_value_context value_ctx(tmp);
 
             const auto& rdots = other.counters_.get();
-
-            dot_kernel_value_context value_ctx(allocator);
 
             // Merge values
             for (const auto& [rkey, rdata] : other.values_)
@@ -286,7 +303,7 @@ namespace crdt
                 // TODO: using iterator could be better for performance, issue is that iterator type and thus size is not known while dot_kernel_value
                 // class is defined. Maybe it could be forward-declared somehow?
                 ldata.set_key(rkey);
-                ldata.merge(rdata, value_ctx);
+                ldata.merge(allocator, rdata, value_ctx);
                 
                 // Track visited dots
                 rdotsvisited.insert(rdata.dots.begin(), rdata.dots.end());
@@ -294,7 +311,8 @@ namespace crdt
                 // Create dot -> key link
                 for (const auto& rdot : rdata.dots)
                 {
-                    dots_[rdot] = lpb.first;
+                    dots_.emplace(allocator, rdot, rkey);
+                    //dots_.emplace(rdot, rkey);
                 }
 
                 // Support for insert / emplace pairb result
@@ -313,34 +331,38 @@ namespace crdt
                 auto dots_it = dots_.find(rdot);
                 if (dots_it != dots_.end())
                 {
-                    auto values_it = dots_it->second;
-                    values_it->second.dots.erase(rdot);
+                    auto lkey = dots_it->second;
+                    auto values_it = values_.find(lkey);
+                    values_it->second.dots.erase(allocator, rdot);
                     if (values_it->second.dots.empty())
                     {
                         auto it = values_.erase(values_it);
                         ctx.register_erase(it);
                     }
 
-                    dots_.erase(dots_it);
+                    dots_.erase(allocator, dots_it);
+                    //dots_.erase(dots_it);
                 }
             }
             
             for (const auto& ldot : value_ctx.erased_dots)
             {
-                dots_.erase(ldot);
+                dots_.erase(allocator, ldot);
+                //dots_.erase(ldot);
             }
 
             // Merge counters
-            counters_.merge(other.counters_);
+            counters_.merge(allocator, other.counters_);
         }
 
         void update(const Key& key)
         {
             auto& delta = static_cast< Container* >(this)->mutable_delta();
+            
             auto replica_id = static_cast<Container*>(this)->get_allocator().get_replica().get_id();
             auto counter = counters_.get(replica_id) + 1;
-            delta.counters_.emplace(replica_id, counter);
-            delta.values_[key].dots.emplace(replica_id, counter);
+            delta.counters_.emplace(delta.get_allocator(), replica_id, counter);
+            delta.values_[key].dots.emplace(delta.get_allocator(), replica_id, counter);
             merge(delta);
             static_cast<Container*>(this)->commit_delta(delta);
         }
@@ -368,7 +390,7 @@ namespace crdt
         {
             for (const auto& [value, data] : values_)
             {
-                delta.counters_.insert(data.dots.begin(), data.dots.end());
+                delta.counters_.insert(delta.get_allocator(), data.dots.begin(), data.dots.end(), (unsigned)data.dots.size());
             }
         }
 
@@ -406,8 +428,9 @@ namespace crdt
         template < typename Context > void erase(typename values_type::iterator it, Context& context)
         {
             auto& delta = static_cast<Container*>(this)->mutable_delta();
+
             const auto& dots = it->second.dots;
-            delta.counters_.insert(dots.begin(), dots.end());
+            delta.counters_.insert(delta.get_allocator(), dots.begin(), dots.end(), (unsigned)dots.size());
             merge(delta, context);
             static_cast< Container* >(this)->commit_delta(delta);
         }

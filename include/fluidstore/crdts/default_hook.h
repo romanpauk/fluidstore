@@ -19,6 +19,11 @@ namespace crdt
                 , id_(id)
             {}
 
+            hook(hook< Allocator, Delta, Instance >&& other)
+                : allocator_(std::move(other.allocator_))
+                , id_(std::move(other.id_))
+            {}
+
             allocator_type& get_allocator() { return allocator_; }
             const id_type& get_id() const { return id_; }
 

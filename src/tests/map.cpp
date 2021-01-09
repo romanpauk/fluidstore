@@ -70,6 +70,7 @@ BOOST_AUTO_TEST_CASE(map_basic_operations)
     BOOST_TEST(map.empty());
 }
 
+/*
 BOOST_AUTO_TEST_CASE(map_value_mv_merge)
 {
     crdt::id_sequence<> sequence;
@@ -191,3 +192,4 @@ BOOST_AUTO_TEST_CASE(map_tagged_allocator_delta)
 
     BOOST_TEST(arena.get_allocated() == 0);
 }
+*/

@@ -1,5 +1,6 @@
 #include <fluidstore/flat/vector.h>
 #include <fluidstore/flat/set.h>
+#include <fluidstore/flat/map.h>
 
 #include <fluidstore/allocators/arena_allocator.h>
 
@@ -12,7 +13,7 @@ BOOST_AUTO_TEST_CASE(vector_basic_operations)
     crdt::arena< 32768 > arena;
     crdt::arena_allocator< int > allocator(arena);
 
-    vector< int > vec;
+    vector_base< int > vec;
     BOOST_TEST(vec.size() == 0);
     BOOST_TEST(vec.empty());
     BOOST_TEST((vec.find(1) == vec.end()));
@@ -42,7 +43,7 @@ BOOST_AUTO_TEST_CASE(set_basic_operations)
     crdt::arena< 32768 > arena;
     crdt::arena_allocator< int > allocator(arena);
 
-    set< int > set;
+    set_base< int > set;
     set.emplace(allocator, 3);
     BOOST_TEST((set.find(3) != set.end()));
     BOOST_TEST((++set.find(3) == set.end()));
@@ -56,6 +57,27 @@ BOOST_AUTO_TEST_CASE(set_basic_operations)
     BOOST_TEST((++set.find(2) == set.find(3)));
 
     set.clear(allocator);
+}
+
+BOOST_AUTO_TEST_CASE(map_basic_operations2)
+{
+    crdt::arena< 32768 > arena;
+    crdt::arena_allocator< int > allocator(arena);
+
+    map_base< int, int > map;
+    map.emplace(allocator, 3, 3);
+    BOOST_TEST((map.find(3) != map.end()));
+    BOOST_TEST((++map.find(3) == map.end()));
+    
+    map.emplace(allocator, 1, 1);
+    BOOST_TEST((map.find(1) != map.end()));
+    BOOST_TEST((++map.find(1) == map.find(3)));
+    BOOST_TEST((++map.find(3) == map.end()));
+
+    map.emplace(allocator, 2, 2);
+    BOOST_TEST((++map.find(2) == map.find(3)));
+    
+    map.clear(allocator);
 }
 
 template < typename Fn > double measure(int count, Fn fn)
@@ -79,15 +101,22 @@ template < typename Container > void test_insert(Container& container, size_t el
     }
 }
 
+const int loops = 100;
+#if defined(_DEBUG)
+const int elements = 1024;
+#else
+const int elements = 8192*4;
+#endif
+
 BOOST_AUTO_TEST_CASE(std_set_insert_performance)
 {
     {
         crdt::arena< 32768 > arena;
         crdt::arena_allocator< int > allocator(arena);
 
-        for (int count = 1; count <= 8192; count *= 2)
+        for (int count = 1; count <= elements; count *= 2)
         {
-            auto t = measure(1000, [&]
+            auto t = measure(loops, [&]
             {
                 // std::set< int, std::less< int >, decltype(allocator) > set(allocator);
                 std::set< int > set;
@@ -105,12 +134,12 @@ BOOST_AUTO_TEST_CASE(std_set_insert_performance)
         crdt::arena< 32768 > arena;
         crdt::arena_allocator< int > allocator(arena);
 
-        for (int count = 1; count <= 8192; count *= 2)
+        for (int count = 1; count <= elements; count *= 2)
         {
             std::allocator< int > allocator;
-            auto t = measure(1000, [&]
+            auto t = measure(loops, [&]
             {
-                set< int > set;
+                set_base< int > set;
                 for (int i = 0; i < count; ++i)
                 {
                     set.emplace(allocator, i);
@@ -119,7 +148,7 @@ BOOST_AUTO_TEST_CASE(std_set_insert_performance)
                 set.clear(allocator);
             });
 
-            std::cerr << "crdt::set count " << count << ", time " << t << std::endl;
+            std::cerr << "flat::set count " << count << ", time " << t << std::endl;
         }
     }
 }

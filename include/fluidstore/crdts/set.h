@@ -56,8 +56,8 @@ namespace crdt
         {
             auto replica_id = this->get_allocator().get_replica().get_id();
             auto counter = this->counters_.get(replica_id) + 1;
-            delta.counters_.emplace(replica_id, counter);
-            delta.values_[key].dots.emplace(replica_id, counter);
+            delta.counters_.emplace(delta.get_allocator(), replica_id, counter);
+            delta.values_[key].dots.emplace(delta.get_allocator(), replica_id, counter);
         }
     };
 
@@ -80,6 +80,11 @@ namespace crdt
         set_base(allocator_type allocator)
             : hook_type(allocator, typename allocator_type::replica_type::id_type())
             , dot_kernel_type(allocator)
+        {}
+
+        set_base(set_base_type&& other)
+            : hook_type(std::move(other))
+            , dot_kernel_type(std::move(other))
         {}
     };
 

@@ -1,6 +1,8 @@
 #pragma once
 
 #include <fluidstore/crdts/dot.h>
+#include <fluidstore/crdts/allocator_traits.h>
+
 #include <fluidstore/flat/set.h>
 
 #include <set>
@@ -124,7 +126,7 @@ namespace crdt
     template < typename ReplicaId, typename Counter, typename Tag > class dot_context2
     {
         using dot_type = dot< ReplicaId, Counter >;
-        using size_type = typename flat::set< dot_type >::size_type;
+        using size_type = typename flat::set_base< dot_type >::size_type;
 
         struct default_context
         {
@@ -133,16 +135,27 @@ namespace crdt
 
         template< typename T, typename Allocator > auto get_allocator(Allocator& allocator)
         {
-            return std::allocator_traits< Allocator >::rebind_alloc< T >(allocator);
+            return std::allocator_traits< Allocator >::template rebind_alloc< T >(allocator);
         }
+
+        template < typename ReplicaId, typename Counter, typename Tag > friend class dot_context2;
 
     public:
         dot_context2()
         {}
 
+        dot_context2(dot_context2&& other)
+            : counters_(std::move(other.counters_))
+        {}
+
         template < typename Allocator, typename... Args > void emplace(Allocator& allocator, Args&&... args)
         {
-            counters_.emplace(get_allocator< dot_type >(allocator), dot_type(std::forward< Args >(args)...));
+            counters_.emplace(allocator, dot_type(std::forward< Args >(args)...));
+        }
+
+        template < typename Allocator, typename It > void insert(Allocator& allocator, It begin, It end, size_type size)
+        {
+            counters_.insert(allocator, begin, end, size);
         }
 
         Counter get(const ReplicaId& replica_id) const
@@ -187,9 +200,9 @@ namespace crdt
 
         template < typename Allocator, typename Context > void collapse(Allocator& allocator, Context& context)
         {
-            flat::vector< typename flat::set< dot_type >::iterator > iterators;
-            auto iterators_alloc = get_allocator< typename flat::set< dot_type >::iterator >(allocator);
-
+            auto tmp = allocator_traits< Allocator >::get_allocator< crdt::tag_delta >(allocator);
+            flat::vector_base< typename flat::set_base< dot_type >::iterator > iterators;
+            
             if (counters_.size() > 1)
             {
                 auto next = counters_.begin();
@@ -201,7 +214,7 @@ namespace crdt
                         if (next->counter == prev->counter + 1)
                         {
                             context.register_erase(*prev);
-                            iterators.push_back(iterators_alloc, prev);
+                            iterators.push_back(tmp, prev);
                             ++prev;
                             ++next;
                         }
@@ -224,10 +237,10 @@ namespace crdt
 
             for (size_type i = iterators.size(); i > 0; --i)
             {
-                counters_.erase(iterators_alloc, iterators[i - 1]);
+                counters_.erase(allocator, iterators[i - 1]);
             }
 
-            iterators.clear(iterators_alloc);
+            iterators.clear(tmp);
         }
 
         template < typename Allocator > void clear(Allocator& allocator)
@@ -235,13 +248,14 @@ namespace crdt
             counters_.clear(get_allocator< dot_type >(allocator));
         }
 
+        template < typename Allocator > void erase(Allocator& allocator, const dot_type& dot) { counters_.erase(allocator, dot); }
+
         auto begin() const { return counters_.begin(); }
         auto end() const { return counters_.end(); }
         auto size() const { return counters_.size(); }
         auto empty() const { return counters_.empty(); }
-        void erase(const dot_type& dot) { counters_.erase(dot); }
-
+       
     private:
-        flat::set< dot_type > counters_;
+        flat::set_base< dot_type > counters_;
     };
 }

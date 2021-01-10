@@ -1,6 +1,7 @@
 #pragma once
 
 #include <fluidstore/crdts/noncopyable.h>
+#include <fluidstore/flat/memory.h>
 
 #include <iterator>
 
@@ -135,10 +136,8 @@ namespace crdt::flat
             auto alloc = std::allocator_traits< Allocator >::rebind_alloc< T >(allocator);
 
             size_type index = position.index_;
-            grow(allocator, size_ + 1);
-
-            // TODO: will have to support moves better
-            memmove(array_ + index + 1, array_ + index, (size_ - index) * sizeof(T));
+            grow(allocator, size_ + 1); // TODO: this is a bit stupid, we copy first everything and than move it again
+            move(alloc, array_ + index + 1, array_ + index, size_ - index);
             std::allocator_traits< decltype(alloc) >::construct(alloc, &array_[index], std::forward< Args >(args)...);
             size_ += 1;
 
@@ -174,9 +173,7 @@ namespace crdt::flat
         {
             auto alloc = std::allocator_traits< Allocator >::rebind_alloc< T >(allocator);
             std::allocator_traits< decltype(alloc) >::destroy(alloc, &array_[it.index_]);
-
-            // TODO: moves
-            memmove(array_ + it.index_, array_ + it.index_ + 1, (size_ - it.index_) * sizeof(T));
+            move(alloc, array_ + it.index_, array_ + it.index_ + 1, size_ - it.index_);
             size_ -= 1;
             if (size_ == 0)
             {
@@ -187,11 +184,7 @@ namespace crdt::flat
         template < typename Allocator > void clear(Allocator& allocator)
         {
             auto alloc = std::allocator_traits< Allocator >::rebind_alloc< T >(allocator);
-            for (size_type i = 0; i < size_; ++i)
-            {
-                std::allocator_traits< decltype(alloc) >::destroy(alloc, &array_[i]);
-            }
-
+            destroy(alloc, array_, size_);
             alloc.deallocate(array_, capacity_);
             array_ = nullptr;
             capacity_ = size_ = 0;
@@ -212,11 +205,11 @@ namespace crdt::flat
             {
                 auto alloc = std::allocator_traits< Allocator >::rebind_alloc< T >(allocator);
 
-                size_type capacity = size_type((capacity_ + size) * 2);
+                size_type capacity = size_type(capacity_ + size) * 3/2;
                 T* array = alloc.allocate(capacity);
                 if (array_)
                 {
-                    memcpy(array, array_, size_ * sizeof(T));
+                    move_uninitialized(alloc, array, array_, size_);
                     alloc.deallocate(array_, capacity_); // TODO: deallocate at the end
                 }
 

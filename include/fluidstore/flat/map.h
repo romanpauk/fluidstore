@@ -6,22 +6,17 @@ namespace crdt::flat
 {
     template < typename K, typename V > class map_base
     {
-        struct node : std::pair< const K, V >
-        {
-            template < typename Kt, typename Vt > node(Kt&& k, Vt&& v)
-                : std::pair< const K, V >(std::forward< Kt >(k), std::forward< Vt >(v))
-            {}
-
-            node(node&& node)
-                : pair< const K, V >(std::move(node))
-            {}
-
+        struct node
+        {            
             bool operator < (const node& other) const { return first < other.first; }
             bool operator <= (const node& other) const { return first <= other.first; }
             bool operator > (const node& other) const { return first > other.first; }
             bool operator >= (const node& other) const { return first >= other.first; }
             bool operator == (const node& other) const { return first == other.first; }
             bool operator != (const node& other) const { return first != other.first; }
+
+            const K first;
+            V second;
         };
 
     public:
@@ -39,12 +34,12 @@ namespace crdt::flat
 
         template< typename Allocator, typename Kt, typename Vt > void emplace(Allocator& allocator, Kt&& k, Vt&& v)
         {
-            data_.emplace(allocator, node(std::forward< Kt >(k), std::forward< Vt >(v)));
+            data_.emplace(allocator, node{ std::forward< Kt >(k), std::forward< Vt >(v) });
         }
 
         auto find(const K& key)
         {
-            return data_.find(node(key, V()));
+            return data_.find(node{ key, V() });
         }
 
         template < typename Allocator > void erase(Allocator& allocator, const K& key)

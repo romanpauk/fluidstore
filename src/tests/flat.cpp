@@ -80,6 +80,20 @@ BOOST_AUTO_TEST_CASE(map_basic_operations2)
     map.clear(allocator);
 }
 
+BOOST_AUTO_TEST_CASE(vector_string)
+{
+    crdt::arena< 32768 > arena;
+    crdt::arena_allocator< int > allocator(arena);
+
+    vector_base< std::string > vec;
+    vec.push_back(allocator, "1");
+    BOOST_TEST((vec.find("1") != vec.end()));
+    vec.push_back(allocator, "2");
+    BOOST_TEST((vec.find("2") != vec.end()));
+
+    vec.clear(allocator);
+}
+
 template < typename Fn > double measure(int count, Fn fn)
 {
     using namespace std::chrono;

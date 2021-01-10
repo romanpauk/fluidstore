@@ -33,6 +33,7 @@ target_sources(fluidstore INTERFACE
     include/fluidstore/crdts/tagged_allocator.h
     include/fluidstore/crdts/tagged_collection.h
     include/fluidstore/flat/map.h
+    include/fluidstore/flat/memory.h
     include/fluidstore/flat/set.h
     include/fluidstore/flat/vector.h
 )

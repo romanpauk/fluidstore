@@ -12,6 +12,7 @@ namespace crdt
     struct tag_delta {};
     struct tag_state {};
 
+    /*
     template < typename ReplicaId, typename Counter, typename Allocator, typename Tag > class dot_context
     {
         template < typename ReplicaId, typename Counter, typename Allocator, typename Tag > friend class dot_context;
@@ -26,7 +27,7 @@ namespace crdt
 
         template < typename... Args > void emplace(Args&&... args)
         {
-            counters_.emplace(std::forward< Args >(args)...);
+            counters_.emplace({ std::forward< Args >(args)... });
         }
 
         template < typename It > void insert(It begin, It end)
@@ -122,6 +123,7 @@ namespace crdt
     private:
         std::set< dot_type, std::less< dot_type >, allocator_type > counters_;
     };
+    */
 
     template < typename ReplicaId, typename Counter, typename Tag > class dot_context2
     {
@@ -150,7 +152,7 @@ namespace crdt
 
         template < typename Allocator, typename... Args > void emplace(Allocator& allocator, Args&&... args)
         {
-            counters_.emplace(allocator, dot_type(std::forward< Args >(args)...));
+            counters_.emplace(allocator, dot_type{ std::forward< Args >(args)... });
         }
 
         template < typename Allocator, typename It > void insert(Allocator& allocator, It begin, It end, size_type size)

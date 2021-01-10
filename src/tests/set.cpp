@@ -7,7 +7,7 @@
 
 #include <boost/test/unit_test.hpp>
 
-typedef boost::mpl::list<int, double, std::string > test_types;
+typedef boost::mpl::list< int, double > test_types;
 BOOST_AUTO_TEST_CASE_TEMPLATE(set_basic_operations, T, test_types)
 {
     crdt::id_sequence<> sequence;

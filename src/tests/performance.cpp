@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE(set_insert_performance)
             }
         }
     });
-
+    
     auto t3 = measure([]
     {
         crdt::arena< 32768 > arena;

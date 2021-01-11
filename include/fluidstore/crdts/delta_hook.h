@@ -18,6 +18,11 @@ namespace crdt
                 : default_state_hook::template hook< Allocator, Delta, Instance >(allocator, id)
             {}
 
+            hook(hook< Allocator, Delta, Instance >&& other)
+                : default_state_hook::template hook< Allocator, Delta, Instance >(std::move(other))
+                , delta_persistent_(std::move(other.delta_persistent_))
+            {}
+
             ~hook()
             {
                 delta_persistent_.reset(get_allocator());

@@ -20,6 +20,11 @@ namespace crdt::flat
 
             using typename std::iterator< std::random_access_iterator_tag, T >::difference_type;
 
+            iterator()
+                : p_()
+                , index_()
+            {}
+
             iterator(vector_base< T >* p, size_type index)
                 : p_(p)
                 , index_(index)
@@ -45,13 +50,13 @@ namespace crdt::flat
             {
                 return const_cast<iterator&>(*this).operator ->();
             }
-            bool operator == (const iterator& other)
+            bool operator == (const iterator& other) const
             {
                 assert(p_ == other.p_);
                 return index_ == other.index_;
             }
 
-            bool operator != (const iterator& other)
+            bool operator != (const iterator& other) const
             {
                 assert(p_ == other.p_);
                 return index_ != other.index_;
@@ -100,6 +105,9 @@ namespace crdt::flat
             vector_base< T >* p_;
             size_type index_;
         };
+
+        // TODO:
+        using const_iterator = iterator;
 
         vector_base()
             : array_()
@@ -169,25 +177,30 @@ namespace crdt::flat
             return array_[n];
         }
 
-        template < typename Allocator > void erase(Allocator& allocator, iterator it)
+        template < typename Allocator > iterator erase(Allocator& allocator, iterator it)
         {
             auto alloc = std::allocator_traits< Allocator >::rebind_alloc< T >(allocator);
             std::allocator_traits< decltype(alloc) >::destroy(alloc, &array_[it.index_]);
-            move(alloc, array_ + it.index_, array_ + it.index_ + 1, size_ - it.index_);
+            move(alloc, array_ + it.index_, array_ + it.index_ + 1, size_ - it.index_ - 1);
             size_ -= 1;
             if (size_ == 0)
             {
                 clear(allocator);
             }
+
+            return iterator(this, it.index_);
         }
 
         template < typename Allocator > void clear(Allocator& allocator)
         {
-            auto alloc = std::allocator_traits< Allocator >::rebind_alloc< T >(allocator);
-            destroy(alloc, array_, size_);
-            alloc.deallocate(array_, capacity_);
-            array_ = nullptr;
-            capacity_ = size_ = 0;
+            if (array_)
+            {
+                auto alloc = std::allocator_traits< Allocator >::rebind_alloc< T >(allocator);
+                destroy(alloc, array_, size_);
+                alloc.deallocate(array_, capacity_);
+                array_ = nullptr;
+                capacity_ = size_ = 0;
+            }
         }
 
         size_type size() const { return size_; }

@@ -12,7 +12,7 @@
 #include <scoped_allocator>
 #include <ostream>
 
-//#define REPARENT_DISABLED
+#define REPARENT_DISABLED
 
 namespace crdt
 {
@@ -69,7 +69,6 @@ namespace crdt
         #else
             : value(allocator)
         #endif
-            //, dots(allocator)
             , key()
             , container(allocator.get_container())
         {}
@@ -80,7 +79,6 @@ namespace crdt
         #else
             : value(allocator)
         #endif
-            // , dots(allocator)
             , key()
             , container(allocator.get_container())
         {}
@@ -112,11 +110,9 @@ namespace crdt
         typedef typename replica_type::counter_type counter_type;
 
         dot_kernel_value(std::allocator_arg_t, allocator_type allocator)
-            //: dots(allocator)
         {}
 
         dot_kernel_value(std::allocator_arg_t, allocator_type allocator, typename replica_type::id_type)
-            //: dots(allocator)
         {}
 
         dot_kernel_value(dot_kernel_value< Key, void, Allocator, Tag >&& other)
@@ -205,7 +201,8 @@ namespace crdt
         using dot_kernel_type = dot_kernel< Key, Value, allocator_type, Container, Tag >;
         using dot_kernel_value_allocator_type = typename allocator_type::template rebind< typename allocator_type::value_type, allocator_container< dot_kernel_type > >::other;
         using dot_kernel_value_type = dot_kernel_value< Key, Value, dot_kernel_value_allocator_type, Tag >;
-
+        
+        /*
         typedef std::map< 
             Key, 
             dot_kernel_value_type,
@@ -215,15 +212,24 @@ namespace crdt
                 dot_kernel_value_allocator_type
             >
         > values_type;
+        */
 
+        typedef flat::map<
+            Key,
+            dot_kernel_value_type,
+            std::scoped_allocator_adaptor<
+                allocator_type,
+                dot_kernel_value_allocator_type
+            >
+        > values_type;
+        
         typedef dot_kernel_iterator< typename values_type::iterator, Key, typename dot_kernel_value_type::value_type > iterator;
         typedef dot_kernel_iterator< typename values_type::const_iterator, Key, typename dot_kernel_value_type::value_type > const_iterator;
 
         dot_context2< replica_id_type, counter_type, Tag > counters_;
         values_type values_;
         flat::map_base< dot_type, Key > dots_;
-        //std::map< dot_type, Key, std::less< dot_type >, allocator_type > dots_;
-
+        
         struct context
         {
             void register_insert(std::pair< typename values_type::iterator, bool >) {}
@@ -249,7 +255,6 @@ namespace crdt
                 allocator, 
                 dot_kernel_value_allocator_type(allocator, this)
             ))
-            //, dots_(allocator) 
         {}
 
         dot_kernel(dot_kernel_type&& other)
@@ -260,15 +265,14 @@ namespace crdt
 
         ~dot_kernel()
         {
-            auto counters_allocator = typename std::allocator_traits< allocator_type >::template rebind_alloc< dot_type >(static_cast<Container*>(this)->get_allocator());
-            counters_.clear(counters_allocator);
+            auto allocator = static_cast<Container*>(this)->get_allocator();
+            counters_.clear(allocator);
             for (auto& value : values_)
             {
-                value.second.dots.clear(counters_allocator);
+                value.second.dots.clear(allocator);
             }
 
-            auto dots2_allocator = typename std::allocator_traits< allocator_type >::template rebind_alloc< typename decltype(dots_)::node_type >(static_cast<Container*>(this)->get_allocator());
-            dots_.clear(dots2_allocator);
+            dots_.clear(allocator);
         }
 
         // TODO:
@@ -312,7 +316,6 @@ namespace crdt
                 for (const auto& rdot : rdata.dots)
                 {
                     dots_.emplace(allocator, rdot, rkey);
-                    //dots_.emplace(rdot, rkey);
                 }
 
                 // Support for insert / emplace pairb result
@@ -341,14 +344,12 @@ namespace crdt
                     }
 
                     dots_.erase(allocator, dots_it);
-                    //dots_.erase(dots_it);
                 }
             }
             
             for (const auto& ldot : value_ctx.erased_dots)
             {
                 dots_.erase(allocator, ldot);
-                //dots_.erase(ldot);
             }
 
             // Merge counters

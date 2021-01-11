@@ -38,6 +38,17 @@ namespace crdt::flat
     }
 
     template < typename Allocator, typename T, typename SizeType, typename std::enable_if<
+       1 // std::is_move_assignable_v< T >
+    >::type* = 0 > void move_construct(Allocator& allocator, T* destination, T* source, SizeType count)
+    {
+        for (SizeType i = 0; i < count; ++i)
+        {
+            std::allocator_traits< Allocator >::destroy(allocator, &destination[i]);
+            std::allocator_traits< Allocator >::construct(allocator, &destination[i], std::move(source[i]));
+        }
+    }
+
+    template < typename Allocator, typename T, typename SizeType, typename std::enable_if<
         std::is_trivially_copyable_v< T > && 
         std::is_trivially_destructible_v< T >
     >::type* = 0 > void move(Allocator&, T* destination, T* source, SizeType count)
@@ -53,43 +64,31 @@ namespace crdt::flat
         if (destination < source)
         {
             ptrdiff_t diff = source - destination;
-            if (diff >= ptrdiff_t(count * sizeof(T)))
+            if (diff >= count)
             {
                 move_uninitialized(allocator, destination, source, count);
                 destroy(allocator, source, count);
             }
             else
             {
-                SizeType uninitialized_count = diff / sizeof(T);
-                move_uninitialized(allocator, destination, source, uninitialized_count);
-                move_assign(allocator, destination + uninitialized_count, source + uninitialized_count, count - uninitialized_count);
-                destroy(allocator, source + count - uninitialized_count, uninitialized_count);
+                move_uninitialized(allocator, destination, source, diff);
+                move_construct(allocator, destination + diff, source + diff, count - diff);
+                destroy(allocator, source + count - diff, diff);
             }
         }
         else
         {
             ptrdiff_t diff = destination - source;
-            if (diff >= ptrdiff_t(count * sizeof(T)))
+            if (diff >= count)
             {
                 move_uninitialized(allocator, destination, source, count);
             }
             else
             {
-                SizeType uninitialized_count = diff / sizeof(T);
-                move_uninitialized(allocator, destination + count - uninitialized_count, source + count - uninitialized_count, uninitialized_count);
-                move_assign(allocator, destination, source, count - uninitialized_count);
-                destroy(allocator, source, uninitialized_count);
+                move_uninitialized(allocator, destination + count - diff, source + count - diff, diff);
+                move_construct(allocator, destination, source, count - diff);
+                destroy(allocator, source, diff);
             }
-        }
-    }
-
-    template < typename Allocator, typename T, typename SizeType, typename std::enable_if<
-        std::is_move_assignable_v< T >
-    >::type* = 0 > void move_assign(Allocator&, T* destination, T* source, SizeType count)
-    {
-        for (SizeType i = 0; i < count; ++i)
-        {
-            destination[i] = std::move(source[i]);
         }
     }
 }

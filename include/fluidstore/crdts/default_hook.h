@@ -20,7 +20,7 @@ namespace crdt
             {}
 
             hook(hook< Allocator, Delta, Instance >&& other)
-                : allocator_(std::move(other.allocator_))
+                : allocator_(other.allocator_) // std::move(other.allocator_))
                 , id_(std::move(other.id_))
             {}
 
@@ -43,6 +43,12 @@ namespace crdt
             hook(Allocator allocator, const id_type& id)
                 : allocator_(allocator)
                 , id_(id)
+            {}
+
+            hook(hook< Allocator, Delta, Instance >&& other)
+                : allocator_(other.allocator_)//std::move(other.allocator_))
+                , id_(std::move(other.id_))
+                , delta_(std::move(other.delta_))
             {}
 
             ~hook()
@@ -74,7 +80,6 @@ namespace crdt
         private:
             allocator_type allocator_;
             id_type id_;
-
             allocator_ptr_base< Delta > delta_;
         };
     };

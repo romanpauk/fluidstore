@@ -70,7 +70,6 @@ BOOST_AUTO_TEST_CASE(map_basic_operations)
     BOOST_TEST(map.empty());
 }
 
-/*
 BOOST_AUTO_TEST_CASE(map_value_mv_merge)
 {
     crdt::id_sequence<> sequence;
@@ -151,6 +150,7 @@ BOOST_AUTO_TEST_CASE(map_map_value_mv_merge)
     map2.merge(map1.extract_delta());
     BOOST_TEST((map2.at(3).at(1) == 1000));   
 
+#if !defined(REPARENT_DISABLED)
     // Modify map1 through iterator so there is no 'false' addition from operator [], but proper parent update.
     map1[4][40].set(400);
     map2.merge(map1.extract_delta());
@@ -160,6 +160,7 @@ BOOST_AUTO_TEST_CASE(map_map_value_mv_merge)
     (*(*map1.find(4)).second.find(40)).second.set(4000);
     map2.merge(map1.extract_delta());
     BOOST_TEST(map2.at(4).at(40).get_one() == 4000);
+#endif
 }
 
 BOOST_AUTO_TEST_CASE(map_set_merge)
@@ -192,4 +193,3 @@ BOOST_AUTO_TEST_CASE(map_tagged_allocator_delta)
 
     BOOST_TEST(arena.get_allocated() == 0);
 }
-*/

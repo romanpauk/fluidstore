@@ -35,6 +35,12 @@ BOOST_AUTO_TEST_CASE(vector_basic_operations)
     BOOST_TEST((++vec.find(1) == vec.find(2)));
     BOOST_TEST((++vec.find(2) == vec.end()));
 
+    vec.erase(allocator, vec.find(1));
+    BOOST_TEST(vec.size() == 2);
+    vec.erase(allocator, vec.find(0));
+    BOOST_TEST((*vec.begin() == 2));
+    BOOST_TEST(vec.size() == 1);
+
     vec.clear(allocator);
 }
 
@@ -85,13 +91,77 @@ BOOST_AUTO_TEST_CASE(vector_string)
     crdt::arena< 32768 > arena;
     crdt::arena_allocator< int > allocator(arena);
 
-    vector_base< std::string > vec;
-    vec.push_back(allocator, "1");
-    BOOST_TEST((vec.find("1") != vec.end()));
-    vec.push_back(allocator, "2");
-    BOOST_TEST((vec.find("2") != vec.end()));
+    {
+        vector_base< std::string > vec;
+        for (size_t i = 0; i < 10; ++i)
+        {
+            vec.push_back(allocator, std::to_string(i));
+        }
 
-    vec.clear(allocator);
+        while (!vec.empty())
+        {
+            vec.erase(allocator, vec.begin());
+        }
+
+        vec.clear(allocator);
+    }
+
+    BOOST_TEST(arena.get_allocated() == 0);
+
+    {
+        vector_base< std::string > vec;
+        for (size_t i = 0; i < 10; ++i)
+        {
+            vec.push_back(allocator, std::to_string(i));
+        }
+
+        while (!vec.empty())
+        {
+            vec.erase(allocator, --vec.end());
+        }
+
+        vec.clear(allocator);
+    }
+
+    BOOST_TEST(arena.get_allocated() == 0);
+}
+
+BOOST_AUTO_TEST_CASE(set_string)
+{
+    /*
+    crdt::arena< 32768 > arena;
+    crdt::arena_allocator< int > allocator(arena);
+
+    {
+        vector_base< std::string > vec;
+        for (size_t i = 0; i < 10; ++i)
+        {
+            vec.push_back(allocator, std::to_string(i));
+        }
+    }
+    */
+}
+
+BOOST_AUTO_TEST_CASE(map_non_default)
+{
+    crdt::arena< 32768 > arena;
+    crdt::arena_allocator< int > allocator(arena);
+
+    struct data 
+    {
+        using allocator_type = decltype(allocator);
+
+        data(decltype(allocator)) {}
+        data(data&&) {}
+
+        data& operator = (data&&)
+        {
+            return *this;
+        }
+    };
+
+    map< int, data, decltype(allocator) > map(allocator);
+    // map[1];
 }
 
 template < typename Fn > double measure(int count, Fn fn)
@@ -119,9 +189,10 @@ const int loops = 100;
 #if defined(_DEBUG)
 const int elements = 1024;
 #else
-const int elements = 8192*4;
+const int elements = 4096;
 #endif
 
+/*
 BOOST_AUTO_TEST_CASE(std_set_insert_performance)
 {
     {
@@ -166,3 +237,4 @@ BOOST_AUTO_TEST_CASE(std_set_insert_performance)
         }
     }
 }
+*/

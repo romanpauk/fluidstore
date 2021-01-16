@@ -97,7 +97,7 @@ namespace crdt
         Key key;
         typename allocator_type::container_type& container;
         value_type value;
-        dot_context2< replica_id_type, counter_type, Tag > dots;
+        dot_context< replica_id_type, counter_type, Tag > dots;
     };
 
     template < typename Key, typename Allocator, typename Tag > class dot_kernel_value< Key, void, Allocator, Tag >
@@ -129,7 +129,7 @@ namespace crdt
         void set_key(const Key&) {}
         void update() {}
 
-        dot_context2< replica_id_type, counter_type, Tag > dots;
+        dot_context< replica_id_type, counter_type, Tag > dots;
     };
 
     template < typename Iterator, typename Outer > class dot_kernel_iterator_base
@@ -226,7 +226,7 @@ namespace crdt
         typedef dot_kernel_iterator< typename values_type::iterator, Key, typename dot_kernel_value_type::value_type > iterator;
         typedef dot_kernel_iterator< typename values_type::const_iterator, Key, typename dot_kernel_value_type::value_type > const_iterator;
 
-        dot_context2< replica_id_type, counter_type, Tag > counters_;
+        dot_context< replica_id_type, counter_type, Tag > counters_;
         values_type values_;
         flat::map_base< dot_type, Key > dots_;
         

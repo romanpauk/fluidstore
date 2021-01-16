@@ -46,41 +46,26 @@ namespace crdt
             {}
 
             hook(hook< Allocator, Delta, Instance >&& other)
-                : allocator_(other.allocator_)//std::move(other.allocator_))
+                : allocator_(other.allocator_)
                 , id_(std::move(other.id_))
-                , delta_(std::move(other.delta_))
             {}
-
-            ~hook()
-            {
-                delta_.reset(allocator_);
-            }
 
             allocator_type& get_allocator() { return allocator_; }
             const id_type& get_id() const { return id_; }
             
-            auto& mutable_delta() 
+            auto mutable_delta() 
             { 
-                assert(!delta_);
-                if (!delta_)
-                {
-                    delta_.emplace(allocator_, allocator_);
-                }
-                
-                return *delta_;
+                return Delta(allocator_);
             }
 
             void commit_delta(Delta&) 
             { 
-                assert(delta_);
-                delta_.reset(allocator_); 
                 allocator_.update();
             }
             
         private:
             allocator_type allocator_;
             id_type id_;
-            allocator_ptr_base< Delta > delta_;
         };
     };
 }

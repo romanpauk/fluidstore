@@ -83,6 +83,12 @@ namespace crdt
             , container(allocator.get_container())
         {}
 
+        dot_kernel_value(dot_kernel_value< Key, Value, Allocator, Tag >&& other)
+            : value(std::move(other.value))
+            , key(std::move(other.key))
+            , container(allocator.get_container())
+        {}
+
         template < typename Allocator, typename DotKernelValue, typename Context > void merge(Allocator& allocator, const DotKernelValue& other, Context& context)
         {
             dots.merge(allocator, other.dots, context);
@@ -212,6 +218,7 @@ namespace crdt
                 dot_kernel_value_allocator_type
             >
         > values_type;
+        //*/
         /*
         typedef flat::map<
             Key,
@@ -358,7 +365,7 @@ namespace crdt
 
         void update(const Key& key)
         {
-            auto& delta = static_cast< Container* >(this)->mutable_delta();
+            auto delta = static_cast< Container* >(this)->mutable_delta();
             
             auto replica_id = static_cast<Container*>(this)->get_allocator().get_replica().get_id();
             auto counter = counters_.get(replica_id) + 1;
@@ -380,7 +387,7 @@ namespace crdt
         {
             if (!empty())
             {
-                auto& delta = static_cast<Container*>(this)->mutable_delta();
+                auto delta = static_cast<Container*>(this)->mutable_delta();
                 clear(delta);
                 merge(delta);
                 static_cast< Container* >(this)->commit_delta(delta);
@@ -419,7 +426,7 @@ namespace crdt
         {
             return values_.empty();
         }
-
+        
         size_t size() const
         {
             return values_.size();
@@ -428,7 +435,7 @@ namespace crdt
     private:
         template < typename Context > void erase(typename values_type::iterator it, Context& context)
         {
-            auto& delta = static_cast<Container*>(this)->mutable_delta();
+            auto delta = static_cast<Container*>(this)->mutable_delta();
 
             const auto& dots = it->second.dots;
             delta.counters_.insert(delta.get_allocator(), dots.begin(), dots.end());

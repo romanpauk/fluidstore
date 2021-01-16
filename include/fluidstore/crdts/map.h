@@ -51,7 +51,7 @@ namespace crdt
 
         std::pair< typename dot_kernel_type::iterator, bool > insert(const Key& key, const Value& value)
         {
-            auto& delta = mutable_delta();
+            auto delta = mutable_delta();
             insert(delta, key, value);
 
             // TODO:

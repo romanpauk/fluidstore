@@ -56,7 +56,7 @@ namespace crdt
 
         void set(Value value)
         {
-            auto& delta = this->mutable_delta();
+            auto delta = this->mutable_delta();
             values_.clear(delta.values_);
             values_.insert(delta.values_, value);
             values_.merge(delta.values_);

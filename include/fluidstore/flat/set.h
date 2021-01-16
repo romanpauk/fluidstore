@@ -136,15 +136,15 @@ namespace crdt::flat
                 auto it = lower_bound(value);
                 if (*it == value)
                 {
-                    return { it, false };
+                    return it;
                 }
                 else
                 {
-                    return { data_.emplace(allocator, it, std::forward< T >(value)), true };
+                    return data_.emplace(allocator, it, std::forward< Ty >(value));
                 }
             }
 
-            return data_.emplace(allocator, data_.end(), std::forward< T >(value));
+            return data_.emplace(allocator, data_.end(), std::forward< Ty >(value));
         }
 
         template< typename Ty > auto find_impl(const Ty& value)
@@ -181,7 +181,7 @@ namespace crdt::flat
 
         ~set()
         {
-            clear(allocator_);
+            clear();
         }
 
         template < typename It > void insert(It begin, It end)
@@ -206,7 +206,7 @@ namespace crdt::flat
 
         void clear() 
         { 
-            return clear(allocator_); 
+            return set_base_type::clear(allocator_); 
         }
 
         using set_base_type::begin;

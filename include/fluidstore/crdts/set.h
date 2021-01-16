@@ -44,7 +44,7 @@ namespace crdt
 
         std::pair< typename dot_kernel_type::iterator, bool > insert(const Key& key)
         {
-            auto& delta = mutable_delta();
+            auto delta = mutable_delta();
             insert(delta, key);
             insert_context context;
             this->merge(delta, context);

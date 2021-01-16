@@ -15,12 +15,13 @@ template < typename Fn > double measure(Fn fn)
     return duration_cast<duration<double>>(end - begin).count();
 }
 
+#if 0
 #if !defined(_DEBUG)
 
 BOOST_AUTO_TEST_CASE(set_insert_performance)
 {
-#define Outer 1000
-#define Inner 1000
+#define Outer 10000
+#define Inner 100
     
     auto t1 = measure([]
     {
@@ -99,5 +100,7 @@ BOOST_AUTO_TEST_CASE(set_insert_performance)
     //std::cerr << "crdt::set " << t4 << " (delta/delta) slowdown " << t4 / t1 << std::endl;
     */
 }
+
+#endif
 
 #endif

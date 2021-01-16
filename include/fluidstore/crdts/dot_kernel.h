@@ -12,7 +12,7 @@
 #include <scoped_allocator>
 #include <ostream>
 
-#define REPARENT_DISABLED
+//#define REPARENT_DISABLED
 
 namespace crdt
 {
@@ -202,7 +202,7 @@ namespace crdt
         using dot_kernel_value_allocator_type = typename allocator_type::template rebind< typename allocator_type::value_type, allocator_container< dot_kernel_type > >::other;
         using dot_kernel_value_type = dot_kernel_value< Key, Value, dot_kernel_value_allocator_type, Tag >;
         
-        /*
+        ///*
         typedef std::map< 
             Key, 
             dot_kernel_value_type,
@@ -212,8 +212,7 @@ namespace crdt
                 dot_kernel_value_allocator_type
             >
         > values_type;
-        */
-
+        /*
         typedef flat::map<
             Key,
             dot_kernel_value_type,
@@ -222,7 +221,8 @@ namespace crdt
                 dot_kernel_value_allocator_type
             >
         > values_type;
-        
+        */
+
         typedef dot_kernel_iterator< typename values_type::iterator, Key, typename dot_kernel_value_type::value_type > iterator;
         typedef dot_kernel_iterator< typename values_type::const_iterator, Key, typename dot_kernel_value_type::value_type > const_iterator;
 

@@ -1,10 +1,12 @@
 #include <fluidstore/flat/vector.h>
 #include <fluidstore/flat/set.h>
 #include <fluidstore/flat/map.h>
+#include <fluidstore/flat/hat.h>
 
 #include <fluidstore/allocators/arena_allocator.h>
 
 #include <boost/test/unit_test.hpp>
+#include <deque>
 
 using namespace crdt::flat;
 
@@ -84,6 +86,28 @@ BOOST_AUTO_TEST_CASE(map_basic_operations2)
     BOOST_TEST((++map.find(2) == map.find(3)));
     
     map.clear(allocator);
+}
+
+BOOST_AUTO_TEST_CASE(hat_basic_operations)
+{
+    crdt::arena< 32768 > arena;
+    crdt::arena_allocator< int > allocator(arena);
+    //std::allocator< char > allocator;
+
+    hat_base< int > hat;
+    for (int i = 0; i < 16; ++i)
+    {
+        hat.push_back(allocator, i);
+        BOOST_TEST(hat[i] == i);
+        BOOST_TEST(hat.size() == i + 1);
+
+        for (int j = 0; j < i; ++j)
+        {
+            BOOST_TEST(hat[j] == j);
+        }
+    }
+
+    hat.clear(allocator);
 }
 
 BOOST_AUTO_TEST_CASE(vector_string)
@@ -185,11 +209,11 @@ template < typename Container > void test_insert(Container& container, size_t el
     }
 }
 
-const int loops = 100;
+const int loops = 10000;
 #if defined(_DEBUG)
 const int elements = 1024;
 #else
-const int elements = 4096;
+const int elements = 128;
 #endif
 
 /*
@@ -238,3 +262,73 @@ BOOST_AUTO_TEST_CASE(std_set_insert_performance)
     }
 }
 */
+
+BOOST_AUTO_TEST_CASE(flat_vector_append_performance)
+{
+    {
+        crdt::arena< 32768*4 > arena;
+        crdt::arena_allocator< int > allocator(arena);
+        //std::allocator< int > allocator;
+
+        for (int count = 1; count <= elements; count *= 2)
+        {
+            auto t = measure(loops, [&]
+            {
+                vector_base< int > vec;
+                for (int i = 0; i < count; ++i)
+                {
+                    vec.push_back(allocator, i);
+                }
+
+                vec.clear(allocator);
+            });
+
+            std::cerr << "flat::vector count " << count << ", time " << t << std::endl;
+        }
+    }
+
+    {
+        crdt::arena< 32768*4 > arena;
+        crdt::arena_allocator< int > allocator(arena);
+        //std::allocator< int > allocator;
+
+        for (int count = 1; count <= elements; count *= 2)
+        {
+            std::allocator< int > allocator;
+            auto t = measure(loops, [&]
+            {
+                hat_base< int > hat;
+                for (int i = 0; i < count; ++i)
+                {
+                    hat.push_back(allocator, i);
+                }
+
+                hat.clear(allocator);
+            });
+
+            std::cerr << "flat::hat count " << count << ", time " << t << std::endl;
+        }
+    }
+
+    /*
+    {
+        crdt::arena< 32768 * 4 > arena;
+        //crdt::arena_allocator< int > allocator(arena);
+        std::allocator< int > allocator;
+
+        for (int count = 1; count <= elements; count *= 2)
+        {
+            auto t = measure(loops, [&]
+            {
+                std::deque< int > deq;
+                for (int i = 0; i < count; ++i)
+                {
+                    deq.push_back(i);
+                }
+            });
+
+            std::cerr << "std::deque count " << count << ", time " << t << std::endl;
+        }
+    }
+    */
+}

@@ -14,11 +14,11 @@ namespace crdt::flat
         using size_type = uint32_t;
         using value_type = T;
 
-        struct iterator : public std::iterator< std::random_access_iterator_tag, T >
+        struct iterator : public std::iterator< std::random_access_iterator_tag, T, size_type >
         {
             friend class vector_base< T >;
 
-            using typename std::iterator< std::random_access_iterator_tag, T >::difference_type;
+            using typename std::iterator< std::random_access_iterator_tag, T, size_type >::difference_type;
 
             iterator()
                 : p_()

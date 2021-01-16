@@ -391,7 +391,7 @@ namespace crdt
         {
             for (const auto& [value, data] : values_)
             {
-                delta.counters_.insert(delta.get_allocator(), data.dots.begin(), data.dots.end(), (unsigned)data.dots.size());
+                delta.counters_.insert(delta.get_allocator(), data.dots.begin(), data.dots.end());
             }
         }
 
@@ -431,7 +431,7 @@ namespace crdt
             auto& delta = static_cast<Container*>(this)->mutable_delta();
 
             const auto& dots = it->second.dots;
-            delta.counters_.insert(delta.get_allocator(), dots.begin(), dots.end(), (unsigned)dots.size());
+            delta.counters_.insert(delta.get_allocator(), dots.begin(), dots.end());
             merge(delta, context);
             static_cast< Container* >(this)->commit_delta(delta);
         }

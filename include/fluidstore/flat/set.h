@@ -41,27 +41,19 @@ namespace crdt::flat
             return { data_.emplace(allocator, data_.end(), std::forward< Value >(value)), true };
         }
 
-        template < typename Allocator, typename Ty > iterator insert(Allocator& allocator, iterator hint, Ty&& value)
+        template < typename Allocator > iterator insert(Allocator& allocator, iterator hint, T&& value)
         {
-            if (!data_.empty() && !(*--end() < value)) 
-            {
-                auto it = lower_bound(value);
-                if (*it == value)
-                {
-                    return { it, false };
-                }
-                else
-                {
-                    return { data_.emplace(allocator, it, value), true };
-                }
-            }
-
-            return data_.emplace(allocator, data_.end(), std::forward< Ty >(value));
+            return insert_impl(allocator, hint, std::move(value));
         }
 
-        template < typename It, typename Allocator > void insert(Allocator& allocator, It begin, It end, size_type size)
+        template < typename Allocator > iterator insert(Allocator& allocator, iterator hint, const T& value)
         {
-            data_.reserve(allocator, data_.size() + size);
+            return insert_impl(allocator, hint, value);
+        }
+
+        template < typename It, typename Allocator > void insert(Allocator& allocator, It begin, It end)
+        {
+            data_.reserve(allocator, data_.size() + std::distance(begin, end));
             for (auto it = begin; it != end; ++it)
             {
                 emplace(allocator, *it);
@@ -137,6 +129,24 @@ namespace crdt::flat
         }
 
     // protected:
+        template < typename Allocator, typename Ty > iterator insert_impl(Allocator& allocator, iterator hint, Ty&& value)
+        {
+            if (!data_.empty() && !(*--end() < value))
+            {
+                auto it = lower_bound(value);
+                if (*it == value)
+                {
+                    return { it, false };
+                }
+                else
+                {
+                    return { data_.emplace(allocator, it, std::forward< T >(value)), true };
+                }
+            }
+
+            return data_.emplace(allocator, data_.end(), std::forward< T >(value));
+        }
+
         template< typename Ty > auto find_impl(const Ty& value)
         {
             auto it = lower_bound_impl(value);
@@ -174,9 +184,9 @@ namespace crdt::flat
             clear(allocator_);
         }
 
-        template < typename It > void insert(It begin, It end, size_type size)
+        template < typename It > void insert(It begin, It end)
         {
-            set_base_type::insert(allocator_, begin, end, size);
+            set_base_type::insert(allocator_, begin, end);
         }
 
         template < typename It, typename Ty > auto insert(It hint, Ty&& value)

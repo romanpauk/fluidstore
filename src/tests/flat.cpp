@@ -263,6 +263,7 @@ BOOST_AUTO_TEST_CASE(std_set_insert_performance)
 }
 */
 
+#if 0
 BOOST_AUTO_TEST_CASE(flat_vector_append_performance)
 {
     {
@@ -332,3 +333,5 @@ BOOST_AUTO_TEST_CASE(flat_vector_append_performance)
     }
     */
 }
+
+#endif

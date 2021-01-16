@@ -44,9 +44,9 @@ namespace crdt
             counters_.emplace(allocator, dot_type{ std::forward< Args >(args)... });
         }
 
-        template < typename Allocator, typename It > void insert(Allocator& allocator, It begin, It end, size_type size)
+        template < typename Allocator, typename It > void insert(Allocator& allocator, It begin, It end)
         {
-            counters_.insert(allocator, begin, end, size);
+            counters_.insert(allocator, begin, end);
         }
 
         Counter get(const ReplicaId& replica_id) const
@@ -74,7 +74,7 @@ namespace crdt
 
         template < typename Allocator, typename DotContextT, typename Context > void merge(Allocator& allocator, const DotContextT& other, Context& context)
         {
-            counters_.insert(get_allocator< dot_type >(allocator), other.counters_.begin(), other.counters_.end(), other.counters_.size());
+            counters_.insert(get_allocator< dot_type >(allocator), other.counters_.begin(), other.counters_.end());
             if (std::is_same_v< Tag, tag_state >)
             {
                 collapse(allocator, context);

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <fluidstore/crdts/noncopyable.h>
 #include <fluidstore/flat/memory.h>
 
 #include <iterator>
@@ -8,8 +7,10 @@
 namespace crdt::flat
 {
     template < typename T > class vector_base
-        : public noncopyable
     {
+        vector_base(const vector_base&) = delete;
+        vector_base< T >& operator = (const vector_base< T >&) = delete;
+
     public:
         using size_type = uint32_t;
         using value_type = T;

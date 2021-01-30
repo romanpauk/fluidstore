@@ -49,6 +49,11 @@ namespace crdt
             , dot_kernel_type(allocator)
         {}
 
+        map_base(map_base_type&& other)
+            : hook_type(std::move(other))
+            , dot_kernel_type(std::move(other))
+        {}
+
         std::pair< typename dot_kernel_type::iterator, bool > insert(const Key& key, const Value& value)
         {
             auto delta = mutable_delta();
@@ -128,6 +133,11 @@ namespace crdt
         map_base(allocator_type allocator)
             : hook_type(allocator, typename allocator_type::replica_type::id_type())
             , dot_kernel_type(allocator)
+        {}
+
+        map_base(map_base_type&& other)
+            : hook_type(std::move(other))
+            , dot_kernel_type(std::move(other))
         {}
     };
 

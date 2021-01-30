@@ -23,6 +23,8 @@ namespace crdt
 
         void update() { container_->update(); }
 
+        void set_container(T* container) { container_ = container; }
+
     private:
         T* container_;
     };
@@ -32,6 +34,7 @@ namespace crdt
         allocator_container(void* = 0) {}
         template< typename T > allocator_container(const allocator_container<T>&) {}
         void update() {}
+        void set_container(void*) {}
     };
 
     template <

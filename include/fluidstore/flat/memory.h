@@ -12,11 +12,11 @@ namespace crdt::flat
 
     template < typename Allocator, typename T, typename SizeType, typename std::enable_if<
         !std::is_trivially_destructible_v< T >
-    >::type* = 0 > void destroy(Allocator&, T* source, SizeType count)
+    >::type* = 0 > void destroy(Allocator& allocator, T* source, SizeType count)
     {
         for (SizeType i = 0; i < count; ++i)
         {
-            source[i].~T();
+            std::allocator_traits< Allocator >::destroy(allocator, &source[i]);
         }
     }
 

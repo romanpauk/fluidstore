@@ -179,6 +179,11 @@ namespace crdt::flat
             : allocator_(allocator)
         {}
 
+        set(set< T, Allocator >&& other)
+            : set_base< T >(std::move(other))
+            , allocator_(std::move(other.allocator_))
+        {}
+
         ~set()
         {
             clear();

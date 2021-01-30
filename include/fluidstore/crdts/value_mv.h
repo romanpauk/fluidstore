@@ -117,6 +117,7 @@ namespace crdt
         }
 
         const typename allocator_type::replica_type::id_type& get_id() const { return values_.get_id(); }
+        auto get_allocator() { return values_.get_allocator(); }
 
         crdt::set_base< Value, Allocator, tag_delta, Hook, void > values_;
     };

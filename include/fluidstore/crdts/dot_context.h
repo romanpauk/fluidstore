@@ -1,11 +1,7 @@
 #pragma once
 
 #include <fluidstore/crdts/dot.h>
-#include <fluidstore/crdts/allocator_traits.h>
-
 #include <fluidstore/flat/set.h>
-
-#include <set>
 
 namespace crdt
 {
@@ -91,9 +87,6 @@ namespace crdt
 
         template < typename Allocator, typename Context > void collapse(Allocator& allocator, Context& context)
         {
-            auto tmp = allocator_traits< Allocator >::get_allocator< crdt::tag_delta >(allocator);
-            flat::vector_base< typename flat::set_base< dot_type >::iterator > iterators;
-            
             if (counters_.size() > 1)
             {
                 auto next = counters_.begin();
@@ -105,9 +98,8 @@ namespace crdt
                         if (next->counter == prev->counter + 1)
                         {
                             context.register_erase(*prev);
-                            iterators.push_back(tmp, prev);
-                            ++prev;
-                            ++next;
+                            next = counters_.erase(allocator, prev);
+                            prev = next++;
                         }
                         else
                         {
@@ -125,13 +117,6 @@ namespace crdt
                     }
                 }
             }
-
-            for (size_type i = iterators.size(); i > 0; --i)
-            {
-                counters_.erase(allocator, iterators[i - 1]);
-            }
-
-            iterators.clear(tmp);
         }
 
         template < typename Allocator > void clear(Allocator& allocator)

@@ -124,5 +124,8 @@ BOOST_AUTO_TEST_CASE(set_sizeof)
     {
         crdt::allocator<> allocator(replica);
         PRINT_SIZEOF(crdt::set< int, decltype(allocator) >);
+        PRINT_SIZEOF(crdt::set_base< int, decltype(allocator), crdt::tag_delta, crdt::default_delta_hook, void >);
+        PRINT_SIZEOF(crdt::set_base< int, decltype(allocator), crdt::tag_state, crdt::default_state_hook, 
+            crdt::set_base< int, decltype(allocator), crdt::tag_delta, crdt::default_delta_hook, void > >);
     }
 }

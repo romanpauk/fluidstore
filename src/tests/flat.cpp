@@ -335,3 +335,10 @@ BOOST_AUTO_TEST_CASE(flat_vector_append_performance)
 }
 
 #endif
+
+#define PRINT_SIZEOF(...) std::cerr << "sizeof " << # __VA_ARGS__ << ": " << sizeof(__VA_ARGS__) << std::endl
+
+BOOST_AUTO_TEST_CASE(flat_sizeof)
+{
+    PRINT_SIZEOF(vector_base< int >);
+}

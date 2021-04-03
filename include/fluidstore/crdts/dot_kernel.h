@@ -82,11 +82,6 @@ namespace crdt
             value.get_allocator().set_container(this);
         }
 
-        ~dot_kernel_value()
-        {
-            dots.clear(allocator_);
-        }
-
         template < typename Allocator, typename DotKernelValue, typename Context > void merge(Allocator& allocator, const DotKernelValue& other, Context& context)
         {
             dots.merge(allocator, other.dots, context);
@@ -114,18 +109,11 @@ namespace crdt
         typedef typename replica_type::counter_type counter_type;
 
         dot_kernel_value(std::allocator_arg_t, allocator_type& allocator)
-            : allocator_(allocator)
         {}
 
         dot_kernel_value(dot_kernel_value< Key, void, Allocator, Tag >&& other)
             : dots(std::move(other.dots))
-            , allocator_(std::move(other.allocator_))
         {}
-
-        ~dot_kernel_value()
-        {
-            dots.clear(allocator_);
-        }
 
         template < typename Allocator, typename DotKernelValue, typename Context > void merge(Allocator& allocator, const DotKernelValue& other, Context& context)
         {
@@ -136,7 +124,6 @@ namespace crdt
         void update() {}
 
         dot_context< replica_id_type, counter_type, Tag > dots;
-        allocator_type& allocator_;
     };
 
     template < typename Iterator, typename Outer > class dot_kernel_iterator_base

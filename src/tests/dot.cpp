@@ -50,3 +50,10 @@ BOOST_AUTO_TEST_CASE(dot_context)
 
     counters.clear(allocator);
 }
+
+#define PRINT_SIZEOF(...) std::cerr << "sizeof " << # __VA_ARGS__ << ": " << sizeof(__VA_ARGS__) << std::endl
+
+BOOST_AUTO_TEST_CASE(dot_context_sizeof)
+{
+    PRINT_SIZEOF(crdt::dot_context< uint64_t, uint64_t, crdt::tag_delta >);
+}

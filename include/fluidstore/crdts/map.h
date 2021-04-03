@@ -64,8 +64,8 @@ namespace crdt
             // But we already got id. So the id would have to be returned, otherwise dot sequence will not collapse.
             
             insert_context context;
-            this->merge(delta, context);
-            this->commit_delta(delta);
+            merge(delta, context);
+            commit_delta(delta);
             return { context.result.first, context.result.second };
         }
 

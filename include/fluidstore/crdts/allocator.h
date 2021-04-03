@@ -60,6 +60,12 @@ namespace crdt
             : replica_(replica)
         {}
 
+
+        allocator(Replica& replica, Allocator& allocator)
+            : Allocator(allocator)
+            , replica_(replica)
+        {}
+
         allocator(const allocator< Replica, T, Allocator, Container >& other)
             : Allocator(other)
             , Container(other)

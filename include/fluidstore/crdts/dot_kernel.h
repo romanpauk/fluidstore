@@ -317,12 +317,10 @@ namespace crdt
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
 
-            //arena< 8192 > arena;
-            // crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > tmp(allocator.get_replica(), arena);
-            // arena_allocator< void > tmp(arena);
+            arena< 8192 > arena;
+            arena_allocator< void > arenaallocator(arena);
+            crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > tmp(allocator.get_replica(), arenaallocator);
 
-            auto tmp = allocator_traits< allocator_type >::get_allocator< crdt::tag_delta >(static_cast< Container* >(this)->get_allocator());
-            // typedef flat::set < dot_type, decltype(tmp) > dot_set_type;
             typedef std::set < dot_type, std::less< dot_type >, decltype(tmp) > dot_set_type;
 
             dot_set_type rdotsvisited(tmp);

@@ -47,8 +47,8 @@ namespace crdt
             auto delta = mutable_delta();
             insert(delta, key);
             insert_context context;
-            this->merge(delta, context);
-            this->commit_delta(delta);
+            merge(delta, context);
+            commit_delta(delta);
             return { context.result.first, context.result.second };
         }
 

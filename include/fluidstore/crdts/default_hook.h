@@ -53,12 +53,12 @@ namespace crdt
             allocator_type& get_allocator() { return allocator_; }
             const id_type& get_id() const { return id_; }
             
-            auto mutable_delta() 
-            { 
-                return Delta(allocator_);
+            template < typename Allocator > auto mutable_delta(Allocator& allocator)
+            {
+                return typename Delta::template rebind< Allocator >::other(allocator);
             }
 
-            void commit_delta(Delta&) 
+            template < typename DeltaT > void commit_delta(DeltaT&) 
             { 
                 allocator_.update();
             }

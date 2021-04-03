@@ -28,7 +28,7 @@ namespace crdt
                 delta_persistent_.reset(get_allocator());
             }
 
-            void commit_delta(Delta& delta)
+            template < typename DeltaT > void commit_delta(DeltaT& delta)
             {
                 if (!delta_persistent_)
                 {
@@ -51,11 +51,6 @@ namespace crdt
 
                     delta_persistent_.reset(get_allocator());
                 }
-                else
-                {
-                    // TODO: investigate how this can happen
-                }
-
                 return delta;
             }
 

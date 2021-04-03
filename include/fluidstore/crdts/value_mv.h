@@ -56,7 +56,12 @@ namespace crdt
 
         void set(Value value)
         {
-            auto delta = this->mutable_delta();
+            auto allocator = get_allocator();
+            arena< 8192 > arena;
+            arena_allocator< void > arenaallocator(arena);
+            crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arenaallocator);
+            auto delta = mutable_delta(deltaallocator);
+
             values_.clear(delta.values_);
             values_.insert(delta.values_, value);
             values_.merge(delta.values_);

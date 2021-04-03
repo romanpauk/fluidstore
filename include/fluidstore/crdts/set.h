@@ -44,7 +44,12 @@ namespace crdt
 
         std::pair< typename dot_kernel_type::iterator, bool > insert(const Key& key)
         {
-            auto delta = mutable_delta();
+            auto allocator = get_allocator();
+            arena< 8192 > arena;
+            arena_allocator< void > arenaallocator(arena);
+            crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arenaallocator);
+            auto delta = mutable_delta(deltaallocator);
+
             insert(delta, key);
             insert_context context;
             merge(delta, context);

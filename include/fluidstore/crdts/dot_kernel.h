@@ -316,7 +316,6 @@ namespace crdt
         void merge(const DotKernel& other, Context& ctx)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
-
             arena< 8192 > arena;
             arena_allocator< void > arenaallocator(arena);
             crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > tmp(allocator.get_replica(), arenaallocator);
@@ -389,8 +388,12 @@ namespace crdt
 
         void update(const Key& key)
         {
-            auto delta = static_cast< Container* >(this)->mutable_delta();
-            
+            auto allocator = static_cast<Container*>(this)->get_allocator();
+            arena< 8192 > arena;
+            arena_allocator< void > arenaallocator(arena);
+            crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arenaallocator);
+            auto delta = static_cast<Container*>(this)->mutable_delta(deltaallocator);
+
             auto replica_id = static_cast<Container*>(this)->get_allocator().get_replica().get_id();
             auto counter = counters_.get(replica_id) + 1;
             delta.counters_.emplace(delta.get_allocator(), replica_id, counter);
@@ -411,7 +414,12 @@ namespace crdt
         {
             if (!empty())
             {
-                auto delta = static_cast<Container*>(this)->mutable_delta();
+                auto allocator = static_cast<Container*>(this)->get_allocator();
+                arena< 8192 > arena;
+                arena_allocator< void > arenaallocator(arena);
+                crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arenaallocator);
+                auto delta = static_cast<Container*>(this)->mutable_delta(deltaallocator);
+
                 clear(delta);
                 merge(delta);
                 static_cast< Container* >(this)->commit_delta(delta);
@@ -459,7 +467,11 @@ namespace crdt
     private:
         template < typename Context > void erase(typename values_type::iterator it, Context& context)
         {
-            auto delta = static_cast<Container*>(this)->mutable_delta();
+            auto allocator = static_cast<Container*>(this)->get_allocator();
+            arena< 8192 > arena;
+            arena_allocator< void > arenaallocator(arena);
+            crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arenaallocator);
+            auto delta = static_cast<Container*>(this)->mutable_delta(deltaallocator);
 
             const auto& dots = it->second.dots;
             delta.counters_.insert(delta.get_allocator(), dots.begin(), dots.end());

@@ -2,7 +2,6 @@
 #include <fluidstore/crdts/replica.h>
 #include <fluidstore/crdts/value_mv.h>
 #include <fluidstore/crdts/allocator.h>
-#include <fluidstore/crdts/tagged_allocator.h>
 #include <fluidstore/crdts/delta_hook.h>
 
 #include <boost/test/unit_test.hpp>
@@ -173,27 +172,6 @@ BOOST_AUTO_TEST_CASE(map_set_merge)
     crdt::map< int, crdt::set< int, decltype(allocator) >, decltype(allocator), crdt::delta_hook > map2(allocator);
 }
 
-BOOST_AUTO_TEST_CASE(map_tagged_allocator_delta)
-{
-    crdt::id_sequence<> sequence;
-    crdt::replica<> replica(0, sequence);
-
-    crdt::arena< 32768 > arena;
-    crdt::arena_allocator< int > deltaallocator(arena);
-    std::allocator< int > stateallocator;
-
-    crdt::tagged_allocator< crdt::replica<>, int, decltype(stateallocator), decltype(deltaallocator) > allocator(replica, stateallocator, deltaallocator);
-
-    crdt::map< int, crdt::value_mv< int, decltype(allocator) >, decltype(allocator), crdt::delta_hook > map(allocator);
-    {
-        map[1].set(1);
-        BOOST_TEST(arena.get_allocated() > 0);
-        map.extract_delta();
-    }
-
-    BOOST_TEST(arena.get_allocated() == 0);
-}
-
 #define PRINT_SIZEOF(...) std::cerr << "sizeof " << # __VA_ARGS__ << ": " << sizeof(__VA_ARGS__) << std::endl
 
 BOOST_AUTO_TEST_CASE(map_sizeof)
@@ -206,21 +184,5 @@ BOOST_AUTO_TEST_CASE(map_sizeof)
     {
         crdt::allocator<> allocator(replica);
         PRINT_SIZEOF(crdt::map< int, crdt::value_mv< int, decltype(allocator) >, decltype(allocator) >);
-    }
-
-    {
-        crdt::arena< 32768 > arena;
-        crdt::arena_allocator< int > deltaallocator(arena);
-        std::allocator< int > stateallocator;
-        crdt::tagged_allocator< crdt::replica<>, int, decltype(stateallocator), decltype(deltaallocator) > taggedallocator(replica, stateallocator, deltaallocator);
-        PRINT_SIZEOF(crdt::map< int, crdt::value_mv< int, decltype(taggedallocator) >, decltype(taggedallocator) >);
-    }
-
-    {
-        crdt::arena< 32768 > arena;
-        crdt::arena_allocator< int > deltaallocator(arena);
-        std::allocator< int > stateallocator;
-        crdt::tagged_allocator< crdt::replica<>, int, decltype(stateallocator), decltype(deltaallocator) > taggedallocator(replica, stateallocator, deltaallocator);
-        PRINT_SIZEOF(crdt::map< int, crdt::value_mv< int, decltype(taggedallocator) >, decltype(taggedallocator), crdt::delta_hook >);
     }
 }

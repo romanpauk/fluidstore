@@ -18,8 +18,8 @@ template < typename Fn > double measure(Fn fn)
 
 BOOST_AUTO_TEST_CASE(set_insert_performance)
 {
-#define Outer 1000
-#define Inner 1000
+#define Outer 10000
+#define Inner 100
     
     auto t1 = measure([]
     {
@@ -50,6 +50,27 @@ BOOST_AUTO_TEST_CASE(set_insert_performance)
         }
     });
     std::cerr << "crdt::set " << t2 << " (normal) slowdown " << t2 / t1 << std::endl;
+
+    auto t3 = measure([]
+    {
+        crdt::arena< 32768 > arena;
+
+        for (size_t x = 0; x < Outer; ++x)
+        {
+            crdt::id_sequence<> sequence;
+            crdt::replica<> replica(0, sequence);
+            crdt::arena_allocator< void > arenaallocator(arena);
+            crdt::allocator< crdt::replica<>, void, crdt::arena_allocator< void > > allocator(replica, arenaallocator);
+
+            crdt::set< size_t, decltype(allocator) > set(allocator);
+
+            for (size_t i = 0; i < Inner; ++i)
+            {
+                set.insert(i);
+            }
+        }
+    });
+    std::cerr << "crdt::set " << t3 << " (arena) slowdown " << t3 / t1 << std::endl;
 }
 
 #endif

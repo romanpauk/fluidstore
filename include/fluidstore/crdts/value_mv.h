@@ -1,7 +1,6 @@
 #pragma once
 
 #include <fluidstore/crdts/set.h>
-#include <fluidstore/crdts/allocator_traits.h>
 
 namespace crdt
 {
@@ -130,7 +129,7 @@ namespace crdt
     template < typename Value, typename Allocator, typename Hook = default_state_hook, 
         typename Delta = value_mv_base< 
             Value, // TODO: Value can be recursive
-            typename allocator_traits< Allocator >::template allocator_type< tag_delta >,
+            Allocator,
             tag_delta, default_delta_hook, void
         >
     > class value_mv

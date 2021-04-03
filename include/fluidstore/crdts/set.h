@@ -2,7 +2,6 @@
 
 #include <fluidstore/crdts/dot_kernel.h>
 #include <fluidstore/crdts/default_hook.h>
-#include <fluidstore/crdts/allocator_traits.h>
 
 namespace crdt
 {
@@ -94,7 +93,7 @@ namespace crdt
     };
 
     template < typename Key, typename Allocator, typename Hook = default_state_hook, 
-        typename Delta = set_base< Key, typename allocator_traits< Allocator >::template allocator_type< tag_delta >, tag_delta, default_delta_hook, void >
+        typename Delta = set_base< Key, Allocator, tag_delta, default_delta_hook, void >
     > class set
         : public set_base< Key, Allocator, tag_state, Hook, Delta >
     {

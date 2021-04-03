@@ -15,7 +15,6 @@ target_sources(fluidstore INTERFACE
     include/fluidstore/allocators/arena_allocator.h
     include/fluidstore/crdts/allocator.h
     include/fluidstore/crdts/allocator_ptr.h
-    include/fluidstore/crdts/allocator_traits.h
     include/fluidstore/crdts/default_hook.h
     include/fluidstore/crdts/delta_hook.h
     include/fluidstore/crdts/delta_replica.h  

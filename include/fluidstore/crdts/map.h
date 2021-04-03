@@ -2,7 +2,6 @@
 
 #include <fluidstore/crdts/dot_kernel.h>
 #include <fluidstore/crdts/default_hook.h>
-#include <fluidstore/crdts/allocator_traits.h>
 
 #include <stdexcept>
 
@@ -150,7 +149,7 @@ namespace crdt
         typename Delta = map_base <
             Key,
             typename Value::delta_type,
-            typename allocator_traits< Allocator >::template allocator_type< tag_delta >, 
+            Allocator, 
             tag_delta, 
             default_delta_hook, 
             void 

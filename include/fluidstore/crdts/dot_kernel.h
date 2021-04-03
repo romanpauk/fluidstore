@@ -37,7 +37,7 @@ namespace crdt
         typedef typename replica_type::counter_type counter_type;
         typedef dot< replica_id_type, counter_type > dot_type;
 
-        dot_kernel_value_context(Allocator allocator)
+        dot_kernel_value_context(Allocator& allocator)
             : erased_dots(allocator)
         {}
          
@@ -71,25 +71,12 @@ namespace crdt
             : value(allocator)
         #endif
             , key()
-            , container(allocator.get_container())
-            , allocator_(allocator)
-        {}
-
-        dot_kernel_value(std::allocator_arg_t, allocator_type& allocator, typename replica_type::id_type id)
-        #if !defined(DOTKERNEL_REPARENT_DISABLED)
-            : value(value_allocator_type(allocator, this))
-        #else
-            : value(allocator)
-        #endif
-            , key()
-            , container(allocator.get_container())
             , allocator_(allocator)
         {}
 
         dot_kernel_value(dot_kernel_value< Key, Value, Allocator, Tag >&& other)
             : value(std::move(other.value))
             , key(std::move(other.key))
-            , container(other.container)
             , allocator_(other.allocator_)
         {
             value.get_allocator().set_container(this);
@@ -106,16 +93,14 @@ namespace crdt
             value.merge(other.value);
         }
 
-        const typename replica_type::id_type& get_id() const { return value.get_id(); } 
         void set_key(const Key& k) { key = k; }
-        void update() { container.update(key); }
+        void update() { allocator_.get_container().update(key); }
 
         // TODO: for keys bigger than pointers or the ones that are not POD, store pointers instead.
         Key key;
         value_type value;
         dot_context< replica_id_type, counter_type, Tag > dots;
 
-        typename allocator_type::container_type& container;
         allocator_type& allocator_;
     };
 
@@ -129,10 +114,6 @@ namespace crdt
         typedef typename replica_type::counter_type counter_type;
 
         dot_kernel_value(std::allocator_arg_t, allocator_type& allocator)
-            : allocator_(allocator)
-        {}
-
-        dot_kernel_value(std::allocator_arg_t, allocator_type& allocator, typename replica_type::id_type)
             : allocator_(allocator)
         {}
 
@@ -150,8 +131,6 @@ namespace crdt
         {
             dots.merge(allocator, other.dots, context);
         }
-
-        const typename replica_type::id_type& get_id() const { static typename replica_type::id_type id; return id; }
 
         void set_key(const Key&) {}
         void update() {}
@@ -331,7 +310,7 @@ namespace crdt
             // Merge values
             for (const auto& [rkey, rdata] : other.values_)
             {
-                auto lpb = values_.try_emplace(rkey, rdata.get_id());
+                auto lpb = values_.try_emplace(rkey);
                 auto& ldata = lpb.first->second;
              
                 // TODO: using iterator could be better for performance, issue is that iterator type and thus size is not known while dot_kernel_value

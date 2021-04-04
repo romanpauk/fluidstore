@@ -5,14 +5,11 @@
 
 BOOST_AUTO_TEST_CASE(dot_context)
 {
-    
     typedef crdt::dot< uint64_t, uint64_t > dot;
-
     static_assert(std::is_trivially_copyable_v< dot >);
 
-
     std::allocator< dot > allocator;
-    crdt::dot_context< uint64_t, uint64_t, crdt::tag_delta > counters;
+    crdt::dot_context< dot, crdt::tag_delta > counters;
 
     counters.emplace(allocator, 2u, 1u);
     counters.emplace(allocator, 2u, 3u);
@@ -37,7 +34,7 @@ BOOST_AUTO_TEST_CASE(dot_context)
 
     counters.emplace(allocator, 3u, 3u);
     {
-        crdt::dot_context< uint64_t, uint64_t, crdt::tag_delta > counters2;
+        crdt::dot_context< crdt::dot< uint64_t, uint64_t >, crdt::tag_delta > counters2;
         counters2.emplace(allocator, 3u, 2u);
         counters2.emplace(allocator, 3u, 4u);
         counters.merge(allocator, counters2);
@@ -55,5 +52,5 @@ BOOST_AUTO_TEST_CASE(dot_context)
 
 BOOST_AUTO_TEST_CASE(dot_context_sizeof)
 {
-    PRINT_SIZEOF(crdt::dot_context< uint64_t, uint64_t, crdt::tag_delta >);
+    PRINT_SIZEOF(crdt::dot_context< crdt::dot< uint64_t, uint64_t >, crdt::tag_delta >);
 }

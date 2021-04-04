@@ -11,8 +11,8 @@ namespace crdt
         using replica_id_type = ReplicaId;
         using counter_type = Counter;
 
-        ReplicaId replica_id;
-        Counter counter;
+        replica_id_type replica_id;
+        counter_type counter;
 
         bool operator < (const dot< ReplicaId, Counter >& other) const { return std::make_tuple(replica_id, counter) < std::make_tuple(other.replica_id, other.counter); }
         bool operator <= (const dot< ReplicaId, Counter >& other) const { return std::make_tuple(replica_id, counter) <= std::make_tuple(other.replica_id, other.counter); }

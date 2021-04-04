@@ -208,7 +208,7 @@ namespace crdt
 
         using dot_type = dot< replica_id_type, counter_type >;
         using dot_kernel_type = dot_kernel< Key, Value, allocator_type, Container, Tag >;
-        using dot_context_type = dot_context< replica_id_type, counter_type, Tag >;
+        using dot_context_type = dot_context< dot_type, Tag >;
         using dots_type = flat::map_base< dot_type, Key >;
 
         using dot_kernel_value_allocator_type = typename allocator_type::template rebind< typename allocator_type::value_type, allocator_container< dot_kernel_type > >::other;

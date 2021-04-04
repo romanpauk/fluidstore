@@ -8,11 +8,14 @@ namespace crdt
     struct tag_delta {};
     struct tag_state {};
 
-    template < typename ReplicaId, typename Counter, typename Tag > class dot_context
+    template < typename Dot, typename Tag > class dot_context
     {
-        template < typename ReplicaId, typename Counter, typename Tag > friend class dot_context;
+        template < typename Dot, typename Tag > friend class dot_context;
 
-        using dot_type = dot< ReplicaId, Counter >;
+        using dot_type = Dot;
+        using replica_id_type = typename dot_type::replica_id_type;
+        using counter_type = typename dot_type::replica_id_type;
+
         using size_type = typename flat::set_base< dot_type >::size_type;
 
         struct default_context
@@ -24,8 +27,6 @@ namespace crdt
         {
             return std::allocator_traits< Allocator >::template rebind_alloc< T >(allocator);
         }
-
-        template < typename ReplicaId, typename Counter, typename Tag > friend class dot_context2;
 
     public:
         dot_context()
@@ -45,10 +46,10 @@ namespace crdt
             counters_.insert(allocator, begin, end);
         }
 
-        Counter get(const ReplicaId& replica_id) const
+        counter_type get(const replica_id_type& replica_id) const
         {
-            auto counter = Counter();
-            auto it = counters_.upper_bound(dot< ReplicaId, Counter >{ replica_id, 0 });
+            auto counter = counter_type();
+            auto it = counters_.upper_bound(dot_type{ replica_id, 0 });
             while (it != counters_.end() && it->replica_id == replica_id)
             {
                 counter = it++->counter;
@@ -57,7 +58,7 @@ namespace crdt
             return counter;
         }
 
-        auto find(const dot< ReplicaId, Counter >& dot) const
+        auto find(const dot_type& dot) const
         {
             return counters_.find(dot);
         }
@@ -103,7 +104,7 @@ namespace crdt
                         }
                         else
                         {
-                            next = counters_.upper_bound({ next->replica_id, std::numeric_limits< Counter >::max() });
+                            next = counters_.upper_bound({ next->replica_id, std::numeric_limits< counter_type >::max() });
                             if (next != counters_.end())
                             {
                                 prev = next++;

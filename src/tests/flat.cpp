@@ -88,6 +88,32 @@ BOOST_AUTO_TEST_CASE(map_basic_operations2)
     map.clear(allocator);
 }
 
+BOOST_AUTO_TEST_CASE(map_custom_node)
+{
+    crdt::arena< 32768 > arena;
+    //crdt::arena_allocator< int > allocator(arena);
+    std::allocator<int> allocator;
+
+    struct node
+    {
+        node(std::allocator_arg_t, std::allocator< int >&, int key, int)
+        //node(int key, int)
+            : first(key)
+        {}
+
+        bool operator < (const int& other) const { return first < other; }
+        bool operator < (const node& other) const { return first < other.first; }
+        
+        bool operator == (const int& other) const { return first == other; }
+        bool operator == (const node& other) const { return first == other.first; }
+
+        const int first;
+    };
+
+    map_base< int, int, node > map;
+    map.emplace(allocator, node(std::allocator_arg, allocator, 1, 1));
+}
+
 BOOST_AUTO_TEST_CASE(hat_basic_operations)
 {
     crdt::arena< 32768 > arena;

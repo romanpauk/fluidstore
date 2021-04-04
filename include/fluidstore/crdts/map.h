@@ -112,9 +112,9 @@ namespace crdt
             auto replica_id = this->get_allocator().get_replica().get_id();
             auto counter = this->counters_.get(replica_id) + 1;
             delta.counters_.emplace(delta.get_allocator(), replica_id, counter);
-            auto& data = delta.values_[key];
-            data.dots.emplace(delta.get_allocator(), replica_id, counter);
-            data.value.merge(value);
+            auto& data = *delta.values_.emplace(delta.get_allocator(), delta.get_allocator(), key, nullptr).first;
+            data.second.dots.emplace(delta.get_allocator(), replica_id, counter);
+            data.second.value.merge(value);
         }
     };
 

@@ -18,8 +18,8 @@ template < typename Fn > double measure(Fn fn)
 
 BOOST_AUTO_TEST_CASE(set_insert_performance)
 {
-#define Outer 10000
-#define Inner 100
+#define Outer 1000
+#define Inner 1000
     
     auto t1 = measure([]
     {

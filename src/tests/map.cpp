@@ -149,7 +149,7 @@ BOOST_AUTO_TEST_CASE(map_map_value_mv_merge)
     map2.merge(map1.extract_delta());
     BOOST_TEST((map2.at(3).at(1) == 1000));   
 
-#if !defined(REPARENT_DISABLED)
+#if !defined(DOTKERNEL_REPARENT_DISABLED)
     // Modify map1 through iterator so there is no 'false' addition from operator [], but proper parent update.
     map1[4][40].set(400);
     map2.merge(map1.extract_delta());

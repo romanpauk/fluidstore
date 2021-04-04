@@ -12,7 +12,7 @@ namespace crdt::flat
         vector_base< T >& operator = (const vector_base< T >&) = delete;
 
     public:
-        using size_type = uint32_t;
+        using size_type = uint16_t;
         using value_type = T;
 
         struct iterator : public std::iterator< std::random_access_iterator_tag, T, size_type >

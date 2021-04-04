@@ -4,50 +4,107 @@
 
 namespace crdt::flat
 {
-    template < typename K, typename V > class map_base
+    template < typename Key, typename Value > struct map_node
     {
-        struct node
-        {            
-            bool operator < (const node& other) const { return first < other.first; }
-            bool operator <= (const node& other) const { return first <= other.first; }
-            bool operator > (const node& other) const { return first > other.first; }
-            bool operator >= (const node& other) const { return first >= other.first; }
-            bool operator == (const node& other) const { return first == other.first; }
-            bool operator != (const node& other) const { return first != other.first; }
+        bool operator < (const map_node< Key, Value >& other) const { return first < other.first; }
+        bool operator <= (const map_node< Key, Value >& other) const { return first <= other.first; }
+        bool operator > (const map_node< Key, Value >& other) const { return first > other.first; }
+        bool operator >= (const map_node< Key, Value >& other) const { return first >= other.first; }
+        bool operator == (const map_node< Key, Value >& other) const { return first == other.first; }
+        bool operator != (const map_node< Key, Value >& other) const { return first != other.first; }
 
-            bool operator == (const K& other) const { return first == other; }
-            bool operator < (const K& other) const { return first < other; }
+        bool operator == (const Key& other) const { return first == other; }
+        bool operator < (const Key& other) const { return first < other; }
 
-            const K first;
-            V second;
-        };
+        map_node(const Key& key, const Value& value)
+            : first(key)
+            , second(value)
+        {}
 
+        const Key first;
+        Value second;
+    };
+
+    template < typename Key, typename Value, typename Node = map_node< Key, Value > > class map_base
+    {
     public:
-        using set_type = set_base< node >;
-        using size_type = typename set_type::size_type;
-        using iterator = typename set_type::iterator;   
-        using const_iterator = typename set_type::const_iterator;
-        using value_type = typename set_type::value_type;
-        using node_type = node;
+        using vector_type = vector_base< Node >;
+        using value_type = typename vector_type::value_type;
+        using size_type = typename vector_type::size_type;
+        using iterator = typename vector_type::iterator;
+        using const_iterator = typename vector_type::const_iterator;
+        using node_type = Node;
 
         map_base()
         {}
 
-        map_base(map_base< K, V >&& other)
+        map_base(map_base< Key, Value, Node >&& other)
             : data_(std::move(other.data_))
         {}
 
-        template< typename Allocator, typename Kt, typename Vt > auto emplace(Allocator& allocator, Kt&& k, Vt&& v)
+        template< typename Allocator, typename... Args > std::pair< iterator, bool > emplace(Allocator& allocator, Args&&... args)
         {
-            return data_.emplace(allocator, node{ std::forward< Kt >(k), std::forward< Vt >(v) });
+            Node node(std::forward< Args >(args)...);
+
+            if (!data_.empty() && !(*--end() < node))
+            {
+                auto it = this->lower_bound_impl(node);
+                if (it != end())
+                {
+                    if (*it == node)
+                    {
+                        return { it, false };
+                    }
+                    else
+                    {
+                        return { data_.emplace(allocator, it, std::move(node)), true };
+                    }
+                }
+            }
+
+            return { data_.emplace(allocator, data_.end(), std::move(node)), true };
         }
 
-        auto find(const K& key)
+        /*
+        template< typename Allocator > std::pair< iterator, bool > emplace(Allocator& allocator, Node&& node)
         {
-            return data_.find_impl(key);
+            if (!data_.empty() && !(*--end() < node.first))
+            {
+                auto it = lower_bound(node.first);
+                if (it != end())
+                {
+                    if (*it == node.first)
+                    {
+                        return { it, false };
+                    }
+                    else
+                    {
+                        return { data_.emplace(allocator, it, std::forward< Node >(node)), true };
+                    }
+                }
+            }
+
+            return { data_.emplace(allocator, data_.end(), std::forward< Node >(node)), true };
+        }
+        */
+
+        template < typename Kt > auto find(const Kt& key)
+        {
+            return find_impl(key);
         }
 
-        template < typename Allocator > void erase(Allocator& allocator, const K& key)
+        template< typename Ty > auto find_impl(const Ty& key)
+        {
+            auto it = this->lower_bound_impl(key);
+            if (it != end() && *it == key)
+            {
+                return it;
+            }
+
+            return end();
+        }
+
+        template < typename Allocator, typename Kt > void erase(Allocator& allocator, const Kt& key)
         {
             auto it = find(key);
             if (it != end())
@@ -59,6 +116,16 @@ namespace crdt::flat
         template < typename Allocator > auto erase(Allocator& allocator, iterator it)
         {
             return data_.erase(allocator, it);
+        }
+
+        iterator lower_bound(const Key& key)
+        {
+            return lower_bound_impl(key);
+        }
+
+        template< typename Ty > auto lower_bound_impl(const Ty& value)
+        {
+            return std::lower_bound(data_.begin(), data_.end(), value);
         }
 
         auto begin() { return data_.begin(); }
@@ -75,12 +142,13 @@ namespace crdt::flat
         }
 
     private:
-        set_type data_;
+        vector_type data_;
     };
 
-    template < typename K, typename V, typename Allocator > class map : private map_base< K, V >
+    template < typename Key, typename Value, typename Allocator, typename Node = map_node< Key, Value > > class map 
+        : private map_base< Key, Value, Node >
     {
-        using map_base_type = map_base< K, V >;
+        using map_base_type = map_base< Key, Value, Node >;
 
     public:
         using allocator_type = Allocator;
@@ -93,8 +161,8 @@ namespace crdt::flat
             : allocator_(allocator)
         {}
 
-        map(map< K, V, Allocator >&& other)
-            : map_base< K, V >(std::move(other))
+        map(map< Key, Value, Allocator >&& other)
+            : map_base_type(std::move(other))
             , allocator_(std::move(other.allocator_))
         {}
 
@@ -103,24 +171,7 @@ namespace crdt::flat
             clear(allocator_); 
         }
 
-        V& operator [](const K& key)
-        {
-            // TODO: this is crazy
-            std::aligned_storage_t< sizeof(V) > v;
-            auto allocator = std::allocator_traits< Allocator >::rebind_alloc< V >(allocator_);
-            std::allocator_traits< decltype(allocator) >::construct(allocator, reinterpret_cast<V*>(&v));
-            return emplace(allocator_, key, std::move(*reinterpret_cast< V* >(&v))).first->second;
-        }
-
-        template< typename Key, typename... Args > std::pair< iterator, bool > try_emplace(Key&& key, Args&&... args)
-        {
-            std::aligned_storage_t< sizeof(V) > v;
-            auto allocator = std::allocator_traits< Allocator >::rebind_alloc< V >(allocator_);
-            std::allocator_traits< decltype(allocator) >::construct(allocator, reinterpret_cast< V* >(&v), std::forward< Args >(args)...);
-            return emplace(allocator_, std::forward< Key >(key), std::move(*reinterpret_cast<V*>(&v)));
-        }
-
-        auto erase(const K& value)
+        auto erase(const Key& value)
         {
             return erase(allocator_, value);
         }

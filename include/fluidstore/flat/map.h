@@ -16,11 +16,6 @@ namespace crdt::flat
         bool operator == (const Key& other) const { return first == other; }
         bool operator < (const Key& other) const { return first < other; }
 
-        map_node(const Key& key, const Value& value)
-            : first(key)
-            , second(value)
-        {}
-
         const Key first;
         Value second;
     };
@@ -44,7 +39,7 @@ namespace crdt::flat
 
         template< typename Allocator, typename... Args > std::pair< iterator, bool > emplace(Allocator& allocator, Args&&... args)
         {
-            Node node(std::forward< Args >(args)...);
+            Node node{ std::forward< Args >(args)... };
 
             if (!data_.empty() && !(*--end() < node))
             {
@@ -64,29 +59,6 @@ namespace crdt::flat
 
             return { data_.emplace(allocator, data_.end(), std::move(node)), true };
         }
-
-        /*
-        template< typename Allocator > std::pair< iterator, bool > emplace(Allocator& allocator, Node&& node)
-        {
-            if (!data_.empty() && !(*--end() < node.first))
-            {
-                auto it = lower_bound(node.first);
-                if (it != end())
-                {
-                    if (*it == node.first)
-                    {
-                        return { it, false };
-                    }
-                    else
-                    {
-                        return { data_.emplace(allocator, it, std::forward< Node >(node)), true };
-                    }
-                }
-            }
-
-            return { data_.emplace(allocator, data_.end(), std::forward< Node >(node)), true };
-        }
-        */
 
         template < typename Kt > auto find(const Kt& key)
         {

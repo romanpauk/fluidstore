@@ -112,6 +112,7 @@ BOOST_AUTO_TEST_CASE(map_custom_node)
 
     map_base< int, int, node > map;
     map.emplace(allocator, node(std::allocator_arg, allocator, 1, 1));
+    map.clear(allocator);
 }
 
 BOOST_AUTO_TEST_CASE(hat_basic_operations)

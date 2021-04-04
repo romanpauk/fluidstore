@@ -40,7 +40,7 @@ namespace crdt
          
         void register_erase(const dot_type& dot) { erased_dots.insert(dot); }
 
-        std::set < dot_type, std::less< dot_type >, Allocator > erased_dots;
+        flat::set < dot_type, Allocator > erased_dots;
     };
 
     template < typename Key, typename Value, typename Allocator, typename DotContext, typename DotKernel > class dot_kernel_value
@@ -280,7 +280,7 @@ namespace crdt
             arena_allocator< void > arenaallocator(arena);
             crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > tmp(allocator.get_replica(), arenaallocator);
 
-            typedef std::set < dot_type, std::less< dot_type >, decltype(tmp) > dot_set_type;
+            typedef flat::set < dot_type, decltype(tmp) > dot_set_type;
 
             dot_set_type rdotsvisited(tmp);
             dot_set_type rdotsvalueless(tmp);

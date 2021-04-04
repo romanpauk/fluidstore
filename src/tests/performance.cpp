@@ -16,10 +16,16 @@ template < typename Fn > double measure(Fn fn)
 
 #if !defined(_DEBUG)
 
+template < typename T > T tr(T val) 
+{
+    return val;
+    //return ~(val << 13); 
+}
+
 BOOST_AUTO_TEST_CASE(set_insert_performance)
 {
 #define Outer 1000
-#define Inner 1000
+#define Inner 100
     
     auto t1 = measure([]
     {
@@ -28,7 +34,7 @@ BOOST_AUTO_TEST_CASE(set_insert_performance)
             std::set< size_t > set;
             for (size_t i = 0; i < Inner; ++i)
             {
-                set.insert(i);
+                set.insert(tr(i));
             }
         }
     });
@@ -45,7 +51,7 @@ BOOST_AUTO_TEST_CASE(set_insert_performance)
 
             for (size_t i = 0; i < Inner; ++i)
             {
-                set.insert(i);
+                set.insert(tr(i));
             }
         }
     });
@@ -66,7 +72,7 @@ BOOST_AUTO_TEST_CASE(set_insert_performance)
 
             for (size_t i = 0; i < Inner; ++i)
             {
-                set.insert(i);
+                set.insert(tr(i));
             }
         }
     });

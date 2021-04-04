@@ -12,8 +12,6 @@
 #include <scoped_allocator>
 #include <ostream>
 
-// #define DOTKERNEL_REPARENT_DISABLED
-
 namespace crdt
 {
     //
@@ -45,28 +43,18 @@ namespace crdt
         std::set < dot_type, std::less< dot_type >, Allocator > erased_dots;
     };
 
-    template < typename Key, typename Value, typename Allocator, typename Tag > class dot_kernel_value
+    template < typename Key, typename Value, typename Allocator, typename DotContext, typename DotKernel > class dot_kernel_value
     {
-        typedef dot_kernel_value< Key, Value, Allocator, Tag > dot_kernel_value_type;
-
     public:
-        typedef Allocator allocator_type;
-        typedef typename Allocator::replica_type replica_type;
-        typedef typename replica_type::replica_id_type replica_id_type;
-        typedef typename replica_type::counter_type counter_type;
+        using allocator_type = Allocator;
+        using dot_kernel_value_type = dot_kernel_value< Key, Value, Allocator, DotContext, DotKernel >;
 
-    #if !defined(DOTKERNEL_REPARENT_DISABLED)
-        // BUG: this value_type typedef is causing big slowdown while compiling map_map_merge test
-        typedef typename allocator_type::template rebind< typename allocator_type::value_type, allocator_container< dot_kernel_value_type > >::other value_allocator_type;
-        typedef typename Value::template rebind< value_allocator_type >::other value_type;
-    #else
-        typedef Value value_type;
-        typedef Allocator value_allocator_type;
-    #endif
+        using value_allocator_type = typename allocator_type::template rebind< typename allocator_type::value_type, allocator_container< dot_kernel_value_type > >::other;
+        using value_type = typename Value::template rebind< value_allocator_type >::other;
         
         struct nested_value
         {
-            nested_value(value_allocator_type& allocator, void* parent)
+            nested_value(value_allocator_type& allocator, DotKernel* parent)
                 : value(allocator)
                 , parent(parent)
             {}
@@ -77,17 +65,17 @@ namespace crdt
                 , parent(std::move(other.parent))
             {}
 
-            void* parent;
-            dot_context< replica_id_type, counter_type, Tag > dots;
+            DotKernel* parent;
+            DotContext dots;
             value_type value;
         };
 
-        template < typename AllocatorT > dot_kernel_value(AllocatorT& allocator, Key key, void* parent)
+        template < typename AllocatorT > dot_kernel_value(AllocatorT& allocator, Key key, DotKernel* parent)
             : first(key)
             , second(value_allocator_type(allocator, this), parent)
         {}
 
-        dot_kernel_value(dot_kernel_value< Key, Value, Allocator, Tag >&& other)
+        dot_kernel_value(dot_kernel_value_type&& other)
             : second(std::move(other.second))
             , first(std::move(other.first))
         {
@@ -102,38 +90,36 @@ namespace crdt
 
         void update()
         {
-            // second.parent.update(first);
+            second.parent->update(first);
         }
 
         bool operator == (const Key& other) const { return first == other; }
-        bool operator == (const dot_kernel_value< Key, Value, Allocator, Tag >& other) const { return first == other.first; }
+        bool operator == (const dot_kernel_value_type& other) const { return first == other.first; }
 
         bool operator < (const Key& other) const { return first < other; }
-        bool operator < (const dot_kernel_value< Key, Value, Allocator, Tag >& other) const { return first < other.first; }
+        bool operator < (const dot_kernel_value_type& other) const { return first < other.first; }
 
         const Key first;
         nested_value second;
     };
 
-    template < typename Key, typename Allocator, typename Tag > class dot_kernel_value< Key, void, Allocator, Tag >
+    template < typename Key, typename Allocator, typename DotContext, typename DotKernel > class dot_kernel_value< Key, void, Allocator, DotContext, DotKernel >
     {
     public:        
-        typedef Allocator allocator_type;
-        typedef void value_type;
-        typedef typename Allocator::replica_type replica_type;
-        typedef typename replica_type::replica_id_type replica_id_type;
-        typedef typename replica_type::counter_type counter_type;
+        using allocator_type = Allocator;
+        using value_type = void;
+        using dot_kernel_value_type = dot_kernel_value< Key, void, Allocator, DotContext, DotKernel >;
 
         struct nested_value
         {
-            dot_context< replica_id_type, counter_type, Tag > dots;
+            DotContext dots;
         };
 
-        template < typename AllocatorT > dot_kernel_value(AllocatorT&, Key key, void* parent)
+        template < typename AllocatorT > dot_kernel_value(AllocatorT&, Key key, DotKernel*)
             : first(key)
         {}
 
-        dot_kernel_value(dot_kernel_value< Key, void, Allocator, Tag >&& other)
+        dot_kernel_value(dot_kernel_value_type&& other)
             : second(std::move(other.second))
             , first(std::move(other.first))
         {}
@@ -146,10 +132,10 @@ namespace crdt
         void update() {}
 
         bool operator == (const Key& other) const { return first == other; }
-        bool operator == (const dot_kernel_value< Key, void, Allocator, Tag >& other) const { return first == other.first; }
+        bool operator == (const dot_kernel_value_type& other) const { return first == other.first; }
 
         bool operator < (const Key& other) const { return first < other; }
-        bool operator < (const dot_kernel_value< Key, void, Allocator, Tag >& other) const { return first < other.first; }
+        bool operator < (const dot_kernel_value_type& other) const { return first < other.first; }
 
         const Key first;
         nested_value second;
@@ -222,17 +208,20 @@ namespace crdt
 
         using dot_type = dot< replica_id_type, counter_type >;
         using dot_kernel_type = dot_kernel< Key, Value, allocator_type, Container, Tag >;
+        using dot_context_type = dot_context< replica_id_type, counter_type, Tag >;
+        using dots_type = flat::map_base< dot_type, Key >;
+
         using dot_kernel_value_allocator_type = typename allocator_type::template rebind< typename allocator_type::value_type, allocator_container< dot_kernel_type > >::other;
-        using dot_kernel_value_type = dot_kernel_value< Key, Value, dot_kernel_value_allocator_type, Tag >;
+        using dot_kernel_value_type = dot_kernel_value< Key, Value, dot_kernel_value_allocator_type, dot_context_type, dot_kernel_type >;
         
-        typedef flat::map_base< Key, Value, dot_kernel_value_type > values_type;
+        using values_type = flat::map_base< Key, Value, dot_kernel_value_type >;
 
         typedef dot_kernel_iterator< typename values_type::iterator, Key, typename dot_kernel_value_type::value_type > iterator;
         typedef dot_kernel_iterator< typename values_type::const_iterator, Key, typename dot_kernel_value_type::value_type > const_iterator;
 
-        dot_context< replica_id_type, counter_type, Tag > counters_;
+        dot_context_type counters_;
         values_type values_;
-        flat::map_base< dot_type, Key > dots_;
+        dots_type dots_;
         
         struct context
         {
@@ -365,7 +354,7 @@ namespace crdt
             auto replica_id = static_cast<Container*>(this)->get_allocator().get_replica().get_id();
             auto counter = counters_.get(replica_id) + 1;
             delta.counters_.emplace(delta.get_allocator(), replica_id, counter);
-            delta.values_[key].dots.emplace(delta.get_allocator(), replica_id, counter);
+            delta.values_.emplace(delta.get_allocator(), delta.get_allocator(), key, nullptr).first->second.dots.emplace(delta.get_allocator(), replica_id, counter);
             merge(delta);
             static_cast<Container*>(this)->commit_delta(delta);
         }

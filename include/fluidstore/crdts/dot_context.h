@@ -36,6 +36,8 @@ namespace crdt
             : counters_(std::move(other.counters_))
         {}
 
+        ~dot_context() = default;
+
         template < typename Allocator, typename... Args > void emplace(Allocator& allocator, Args&&... args)
         {
             counters_.emplace(allocator, dot_type{ std::forward< Args >(args)... });

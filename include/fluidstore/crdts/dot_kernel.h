@@ -259,7 +259,7 @@ namespace crdt
             {
                 value.second.dots.clear(allocator);
             }
-
+            values_.clear(allocator);
             dots_.clear(allocator);
         }
 

@@ -18,15 +18,15 @@ template < typename Fn > double measure(Fn fn)
 
 template < typename T > T tr(T val) 
 {
-    return val;
-    //return ~(val << 13); 
+    //return val;
+    return ~(val << 13); 
 }
 
 BOOST_AUTO_TEST_CASE(set_insert_performance)
 {
 #define Outer 1000
-#define Inner 100
-    
+#define Inner 1000
+
     auto t1 = measure([]
     {
         for (size_t x = 0; x < Outer; ++x)
@@ -55,16 +55,16 @@ BOOST_AUTO_TEST_CASE(set_insert_performance)
             }
         }
     });
+    
     std::cerr << "crdt::set " << t2 << " (normal) slowdown " << t2 / t1 << std::endl;
 
     auto t3 = measure([]
     {
-        crdt::arena< 32768 > arena;
-
         for (size_t x = 0; x < Outer; ++x)
         {
             crdt::id_sequence<> sequence;
             crdt::replica<> replica(0, sequence);
+            crdt::arena< 32768 > arena;
             crdt::arena_allocator< void > arenaallocator(arena);
             crdt::allocator< crdt::replica<>, void, crdt::arena_allocator< void > > allocator(replica, arenaallocator);
 

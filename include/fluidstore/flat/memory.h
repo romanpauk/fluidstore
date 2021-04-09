@@ -5,35 +5,32 @@
 
 namespace crdt::flat
 {
-    template < typename Allocator, typename T, typename SizeType, typename std::enable_if<
-        std::is_trivially_destructible_v< T >
-    >::type* = 0 > void destroy(Allocator&, T* source, SizeType count)
-    {}
-
-    template < typename Allocator, typename T, typename SizeType, typename std::enable_if<
-        !std::is_trivially_destructible_v< T >
-    >::type* = 0 > void destroy(Allocator& allocator, T* source, SizeType count)
+    template < typename Allocator, typename T, typename SizeType > void destroy(Allocator& allocator, T* source, SizeType count)
     {
-        for (SizeType i = 0; i < count; ++i)
+        if constexpr (!std::is_trivially_destructible_v< T >)
         {
-            std::allocator_traits< Allocator >::destroy(allocator, &source[i]);
+            for (SizeType i = 0; i < count; ++i)
+            {
+                std::allocator_traits< Allocator >::destroy(allocator, &source[i]);
+            }
         }
     }
 
-    template < typename Allocator, typename T, typename SizeType, typename std::enable_if<
-        std::is_trivially_copyable_v< T > && 
-        std::is_trivially_destructible_v< T >
-    >::type* = 0 > void move_uninitialized(Allocator& allocator, T* destination, T* source, SizeType count)
+    template < typename Allocator, typename T, typename SizeType > void move_uninitialized(Allocator& allocator, T* destination, T* source, SizeType count)
     {
-        memcpy(destination, source, count * sizeof(T));
-    }
+        if constexpr (std::is_trivially_copyable_v< T >)
+        {
+            memcpy(destination, source, count * sizeof(T));
+        } 
+        else if constexpr (std::is_move_constructible_v< T >)
+        {
+            std::uninitialized_move(source, source + count, destination);
+        }
+        else
+        {
+            static_assert(false);
+        }
 
-    template < typename Allocator, typename T, typename SizeType, typename std::enable_if<
-        !std::is_trivially_copyable_v< T >&&
-        std::is_move_constructible_v< T >
-    >::type* = 0 > void move_uninitialized(Allocator& allocator, T* destination, T* source, SizeType count)
-    {
-        std::uninitialized_move(source, source + count, destination);
         destroy(allocator, source, count);
     }
 
@@ -67,7 +64,6 @@ namespace crdt::flat
             if (diff >= count)
             {
                 move_uninitialized(allocator, destination, source, count);
-                destroy(allocator, source, count);
             }
             else
             {

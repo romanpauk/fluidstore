@@ -237,7 +237,7 @@ namespace crdt
         };
 
     protected:
-        dot_kernel() {}
+        dot_kernel() = default;
         dot_kernel(dot_kernel_type&& other) = default;
 
         ~dot_kernel()

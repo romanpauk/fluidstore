@@ -134,7 +134,7 @@ namespace crdt::flat
 
         ~map() 
         { 
-            clear(allocator_); 
+            clear(); 
         }
 
         auto erase(const Key& value)
@@ -152,6 +152,11 @@ namespace crdt::flat
         using map_base_type::size;
         using map_base_type::empty;
         using map_base_type::find;
+
+        void clear()
+        {
+            clear(allocator_);
+        }
 
     private:
         // TODO: should be ref, or I need a ref-wrapper.

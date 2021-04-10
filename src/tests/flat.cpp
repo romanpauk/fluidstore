@@ -3,6 +3,9 @@
 #include <fluidstore/flat/map.h>
 #include <fluidstore/flat/hat.h>
 
+#include <fluidstore/crdts/dot_context.h>
+#include <fluidstore/crdts/dot.h>
+
 #include <fluidstore/allocators/arena_allocator.h>
 
 #include <boost/test/unit_test.hpp>
@@ -213,6 +216,38 @@ BOOST_AUTO_TEST_CASE(map_non_default)
 
     map< int, data, decltype(allocator) > map(allocator);
     // map[1];
+}
+
+BOOST_AUTO_TEST_CASE(vector_dot_context)
+{
+    crdt::arena< 32768 > arena;
+    crdt::arena_allocator< int > allocator(arena);
+
+    crdt::flat::vector_base< crdt::dot_context< crdt::dot< int, int >, crdt::tag_state > > dots;
+    //crdt::flat::vector_base< crdt::dot< int, int > > dots;
+    
+    //static_assert(std::is_trivially_copyable_v< crdt::flat::vector_base< int > >);
+
+    //crdt::flat::vector_base< crdt::flat::vector_base< crdt::dot< int, int > > > dots;
+
+    dots.emplace(allocator, {});
+    dots.emplace(allocator, {});
+    dots.emplace(allocator, {});
+
+    dots.clear(allocator);
+}
+
+BOOST_AUTO_TEST_CASE(vector_dots_type)
+{
+    crdt::arena< 32768 > arena;
+    crdt::arena_allocator< int > allocator(arena);
+
+    crdt::flat::map_base< crdt::dot< int, int >, int > dots;
+    
+    dots.emplace(allocator, crdt::dot< int, int >{1,1}, 1);
+    dots.emplace(allocator, crdt::dot< int, int >{1,2}, 1);
+
+    dots.clear(allocator);
 }
 
 template < typename Fn > double measure(int count, Fn fn)

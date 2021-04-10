@@ -30,12 +30,9 @@ namespace crdt::flat
         using const_iterator = typename vector_type::const_iterator;
         using node_type = Node;
 
-        map_base()
-        {}
-
-        map_base(map_base< Key, Value, Node >&& other)
-            : data_(std::move(other.data_))
-        {}
+        map_base() = default;
+        map_base(map_base< Key, Value, Node >&& other) = default;
+        ~map_base() = default;
 
         template< typename Allocator, typename... Args > std::pair< iterator, bool > emplace(Allocator& allocator, Args&&... args)
         {
@@ -133,10 +130,7 @@ namespace crdt::flat
             : allocator_(allocator)
         {}
 
-        map(map< Key, Value, Allocator >&& other)
-            : map_base_type(std::move(other))
-            , allocator_(std::move(other.allocator_))
-        {}
+        map(map< Key, Value, Allocator, Node >&& other) = default;
 
         ~map() 
         { 

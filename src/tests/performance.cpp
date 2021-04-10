@@ -18,8 +18,8 @@ template < typename Fn > double measure(Fn fn)
 
 template < typename T > T tr(T val) 
 {
-    //return val;
-    return ~(val << 13); 
+    return val;
+    // return ~(val << 13); 
 }
 
 BOOST_AUTO_TEST_CASE(set_insert_performance)

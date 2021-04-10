@@ -59,11 +59,7 @@ namespace crdt
                 , parent(parent)
             {}
 
-            nested_value(nested_value&& other)
-                : value(std::move(other.value))
-                , dots(std::move(other.dots))
-                , parent(std::move(other.parent))
-            {}
+            nested_value(nested_value&& other) = default;
 
             DotKernel* parent;
             DotContext dots;
@@ -119,11 +115,9 @@ namespace crdt
             : first(key)
         {}
 
-        dot_kernel_value(dot_kernel_value_type&& other)
-            : second(std::move(other.second))
-            , first(std::move(other.first))
-        {}
-
+        dot_kernel_value() = default;
+        dot_kernel_value(dot_kernel_value_type&& other) = default;
+      
         template < typename Allocator, typename DotKernelValue, typename Context > void merge(Allocator& allocator, const DotKernelValue& other, Context& context)
         {
             second.dots.merge(allocator, other.dots, context);
@@ -243,13 +237,8 @@ namespace crdt
         };
 
     protected:
-        dot_kernel(allocator_type&) {}
-
-        dot_kernel(dot_kernel_type&& other)
-            : values_(std::move(other.values_))
-            , dots_(std::move(other.dots_))
-            , counters_(std::move(other.counters_))
-        {}
+        dot_kernel() {}
+        dot_kernel(dot_kernel_type&& other) = default;
 
         ~dot_kernel()
         {

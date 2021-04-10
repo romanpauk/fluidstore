@@ -29,13 +29,8 @@ namespace crdt
         }
 
     public:
-        dot_context()
-        {}
-
-        dot_context(dot_context&& other)
-            : counters_(std::move(other.counters_))
-        {}
-
+        dot_context() = default;
+        dot_context(dot_context&& other) = default;
         ~dot_context() = default;
 
         template < typename Allocator, typename... Args > void emplace(Allocator& allocator, Args&&... args)

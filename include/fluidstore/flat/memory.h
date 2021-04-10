@@ -18,7 +18,7 @@ namespace crdt::flat
 
     template < typename Allocator, typename T, typename SizeType > void move_uninitialized(Allocator& allocator, T* destination, T* source, SizeType count)
     {
-        if constexpr (std::is_trivially_copyable_v< T >)
+        if constexpr (std::is_trivially_copyable_v< T > || std::is_trivially_move_constructible_v< T >)
         {
             memcpy(destination, source, count * sizeof(T));
         } 

@@ -13,12 +13,9 @@ namespace crdt::flat
         using iterator = typename vector_type::iterator;
         using const_iterator = typename vector_type::const_iterator;
 
-        set_base()
-        {}
-
-        set_base(set_base< T >&& other)
-            : data_(std::move(other.data_))
-        {}
+        set_base() = default;
+        set_base(set_base< T >&& other) = default;
+        ~set_base() = default;
 
         template < typename Allocator, typename Value > std::pair< iterator, bool > emplace(Allocator& allocator, Value&& value)
         {
@@ -179,10 +176,7 @@ namespace crdt::flat
             : allocator_(allocator)
         {}
 
-        set(set< T, Allocator >&& other)
-            : set_base< T >(std::move(other))
-            , allocator_(std::move(other.allocator_))
-        {}
+        set(set< T, Allocator >&& other) = default;
 
         ~set()
         {

@@ -40,18 +40,13 @@ namespace crdt
 
         map_base(allocator_type allocator)
             : hook_type(allocator, allocator.get_replica().generate_instance_id())
-            , dot_kernel_type(allocator)
         {}
 
         map_base(allocator_type allocator, typename allocator_type::replica_type::id_type id)
             : hook_type(allocator, id)
-            , dot_kernel_type(allocator)
         {}
 
-        map_base(map_base_type&& other)
-            : hook_type(std::move(other))
-            , dot_kernel_type(std::move(other))
-        {}
+        map_base(map_base_type&& other) = default;
 
         std::pair< typename dot_kernel_type::iterator, bool > insert(const Key& key, const Value& value)
         {
@@ -136,13 +131,9 @@ namespace crdt
 
         map_base(allocator_type allocator)
             : hook_type(allocator, typename allocator_type::replica_type::id_type())
-            , dot_kernel_type(allocator)
         {}
 
-        map_base(map_base_type&& other)
-            : hook_type(std::move(other))
-            , dot_kernel_type(std::move(other))
-        {}
+        map_base(map_base_type&& other) = default;
     };
 
     template < typename Key, typename Value, typename Allocator, typename Hook = default_state_hook,

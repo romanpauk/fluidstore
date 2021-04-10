@@ -8,9 +8,6 @@ namespace crdt::flat
 {
     template < typename T > class vector_base
     {
-        vector_base(const vector_base&) = delete;
-        vector_base< T >& operator = (const vector_base< T >&) = delete;
-
     public:
         using size_type = uint16_t;
         using value_type = T;
@@ -125,11 +122,10 @@ namespace crdt::flat
             other.size_ = other.capacity_ = 0;
         }
 
-        ~vector_base()
-        {
-            assert(!array_);
-        }
-
+        vector_base(const vector_base< T >&) = delete;
+        vector_base< T >& operator = (const vector_base< T >&) = delete;        
+        ~vector_base() = default;
+        
         template < typename Allocator > void reserve(Allocator& allocator, size_type size)
         {
             grow(allocator, size);

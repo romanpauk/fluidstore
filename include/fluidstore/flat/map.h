@@ -155,7 +155,7 @@ namespace crdt::flat
 
         void clear()
         {
-            clear(allocator_);
+            map_base_type::clear(allocator_);
         }
 
     private:

@@ -20,10 +20,10 @@ namespace crdt::flat
         Value second;
     };
 
-    template < typename Key, typename Value, typename Node = map_node< Key, Value > > class map_base
+    template < typename Key, typename Value, typename Node = map_node< Key, Value >, typename SizeType = uint32_t > class map_base
     {
     public:
-        using vector_type = vector_base< Node >;
+        using vector_type = vector_base< Node, SizeType >;
         using value_type = typename vector_type::value_type;
         using size_type = typename vector_type::size_type;
         using iterator = typename vector_type::iterator;
@@ -31,7 +31,7 @@ namespace crdt::flat
         using node_type = Node;
 
         map_base() = default;
-        map_base(map_base< Key, Value, Node >&& other) = default;
+        map_base(map_base< Key, Value, Node, SizeType >&& other) = default;
         ~map_base() = default;
 
         template< typename Allocator, typename... Args > std::pair< iterator, bool > emplace(Allocator& allocator, Args&&... args)
@@ -114,10 +114,10 @@ namespace crdt::flat
         vector_type data_;
     };
 
-    template < typename Key, typename Value, typename Allocator, typename Node = map_node< Key, Value > > class map 
-        : private map_base< Key, Value, Node >
+    template < typename Key, typename Value, typename Allocator, typename Node = map_node< Key, Value >, typename SizeType = uint32_t > class map 
+        : private map_base< Key, Value, Node, SizeType >
     {
-        using map_base_type = map_base< Key, Value, Node >;
+        using map_base_type = map_base< Key, Value, Node, SizeType >;
 
     public:
         using allocator_type = Allocator;
@@ -130,7 +130,7 @@ namespace crdt::flat
             : allocator_(allocator)
         {}
 
-        map(map< Key, Value, Allocator, Node >&& other) = default;
+        map(map< Key, Value, Allocator, Node, SizeType >&& other) = default;
 
         ~map() 
         { 

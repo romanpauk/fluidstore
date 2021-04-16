@@ -6,10 +6,10 @@
 
 namespace crdt::flat
 {
-    template < typename T > class vector_base
+    template < typename T, typename SizeType = uint32_t > class vector_base
     {
     public:
-        using size_type = uint16_t;
+        using size_type = SizeType;
         using value_type = T;
 
     private:
@@ -25,7 +25,7 @@ namespace crdt::flat
     public:
         struct iterator : public std::iterator< std::random_access_iterator_tag, T, size_type >
         {
-            friend class vector_base< T >;
+            friend class vector_base< T, SizeType >;
 
             using typename std::iterator< std::random_access_iterator_tag, T, size_type >::difference_type;
 
@@ -34,7 +34,7 @@ namespace crdt::flat
                 , index_()
             {}
 
-            iterator(vector_base< T >* p, size_type index)
+            iterator(vector_base< T, SizeType >* p, size_type index)
                 : p_(p)
                 , index_(index)
             {}
@@ -111,7 +111,7 @@ namespace crdt::flat
             }
 
         private:
-            vector_base< T >* p_;
+            vector_base< T, SizeType >* p_;
             size_type index_;
         };
 
@@ -122,21 +122,16 @@ namespace crdt::flat
             : data_()
         {}
 
-        vector_base(vector_base< T >&& other)
+        vector_base(vector_base< T, SizeType >&& other)
             : data_(other.data_)
         {
             other.data_ = nullptr;
         }
 
-        vector_base(const vector_base< T >&) = delete;
+        vector_base(const vector_base< T, SizeType >&) = delete;
         vector_base< T >& operator = (const vector_base< T >&) = delete;        
         ~vector_base() = default;
         
-        template < typename Allocator > void reserve(Allocator& allocator, size_type nsize)
-        {
-            grow(allocator, nsize);
-        }
-
         template < typename Allocator > void push_back(Allocator& allocator, const T& value)
         {
             emplace(allocator, end(), value);
@@ -147,7 +142,13 @@ namespace crdt::flat
             auto alloc = std::allocator_traits< Allocator >::rebind_alloc< T >(allocator);
 
             size_type index = position.index_;
-            grow(allocator, size() + 1); // TODO: this is a bit stupid, we copy first everything and than move it again
+
+            if (size() + 1 < size())
+            {
+                throw std::runtime_error("overflow");
+            }
+
+            reserve(allocator, size() + 1); // TODO: this is a bit stupid, we copy first everything and than move it again
             move(alloc, data_->get(index + 1), data_->get(index), size() - index);
             std::allocator_traits< decltype(alloc) >::construct(alloc, data_->get(index), std::forward< Args >(args)...);
             ++data_->size;
@@ -200,7 +201,7 @@ namespace crdt::flat
             {
                 auto alloc = std::allocator_traits< Allocator >::rebind_alloc< unsigned char >(allocator);
                 destroy(alloc, data_->get(), data_->size);
-                alloc.deallocate((unsigned char*)data_, sizeof(vector_data) + sizeof(T) * data_->capacity);
+                alloc.deallocate((unsigned char*)data_, get_vector_data_size(data_->capacity));
                 data_ = nullptr;
             }
         }
@@ -215,6 +216,11 @@ namespace crdt::flat
             return data_ ? data_->capacity : 0;
         }
 
+        constexpr size_type max_size() const
+        {
+            return std::numeric_limist< size_type >::max();
+        }
+
         bool empty() const { return size() == 0; }
 
         iterator begin() { return iterator(this, 0); }
@@ -222,16 +228,25 @@ namespace crdt::flat
         iterator end() { return iterator(this, size()); }
         iterator end() const { return iterator(const_cast<vector_base< T >*>(this), size()); }
 
-    private:
-        template < typename Allocator > void grow(Allocator& allocator, size_type nsize)
+        template < typename Allocator > void reserve(Allocator& allocator, size_type nsize)
         {
             size_type ocapacity = capacity();
             if (ocapacity < nsize)
             {
                 auto alloc = std::allocator_traits< Allocator >::rebind_alloc< unsigned char >(allocator);
 
-                size_type ncapacity = size_type(ocapacity + nsize) * 3/2;
-                vector_data* data = (vector_data*)alloc.allocate(sizeof(vector_data) + sizeof(T) * ncapacity);
+                size_type ncapacity = (ocapacity + nsize);
+                if (ncapacity < ocapacity)
+                {
+                    throw std::runtime_error("overflow");
+                }
+
+                if (ncapacity * 3 / 2 > ncapacity)
+                {
+                    ncapacity *= 3 / 2;
+                }
+
+                vector_data* data = (vector_data*)alloc.allocate(get_vector_data_size(ncapacity));
                 data->capacity = ncapacity;
                 data->size = 0;
 
@@ -239,11 +254,17 @@ namespace crdt::flat
                 {
                     move_uninitialized(alloc, data->get(), data_->get(), data_->size);
                     data->size = data_->size;
-                    alloc.deallocate((unsigned char*)data_, sizeof(vector_data) + sizeof(T) * ocapacity); // TODO: deallocate at the end
+                    alloc.deallocate((unsigned char*)data_, get_vector_data_size(ocapacity)); // TODO: deallocate at the end
                 }
 
                 data_ = data;
             }
+        }
+
+    private:
+        size_type get_vector_data_size(size_type capacity)
+        {
+            return sizeof(vector_data) + sizeof(T) * capacity - sizeof(vector_data::buffer);
         }
 
         vector_data* data_;

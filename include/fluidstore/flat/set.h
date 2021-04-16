@@ -4,17 +4,17 @@
 
 namespace crdt::flat
 {
-    template < typename T > class set_base
+    template < typename T, typename SizeType = uint32_t > class set_base
     {
     public:
-        using vector_type = vector_base< T >;
+        using vector_type = vector_base< T, SizeType >;
         using value_type = typename vector_type::value_type;
         using size_type = typename vector_type::size_type;
         using iterator = typename vector_type::iterator;
         using const_iterator = typename vector_type::const_iterator;
 
         set_base() = default;
-        set_base(set_base< T >&& other) = default;
+        set_base(set_base< T, SizeType >&& other) = default;
         ~set_base() = default;
 
         template < typename Allocator, typename Value > std::pair< iterator, bool > emplace(Allocator& allocator, Value&& value)
@@ -163,9 +163,9 @@ namespace crdt::flat
         vector_base< T > data_;
     };
 
-    template < typename T, typename Allocator > class set: private set_base< T >
+    template < typename T, typename Allocator, typename SizeType = uint32_t > class set: private set_base< T, SizeType >
     {
-        using set_base_type = set_base< T >;
+        using set_base_type = set_base< T, SizeType >;
 
     public:
         using typename set_base_type::iterator;
@@ -176,7 +176,7 @@ namespace crdt::flat
             : allocator_(allocator)
         {}
 
-        set(set< T, Allocator >&& other) = default;
+        set(set< T, Allocator, SizeType >&& other) = default;
 
         ~set()
         {

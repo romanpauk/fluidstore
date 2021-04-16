@@ -8,15 +8,15 @@ namespace crdt
     struct tag_delta {};
     struct tag_state {};
 
-    template < typename Dot, typename Tag > class dot_context
+    template < typename Dot, typename Tag, typename SizeType = uint32_t > class dot_context
     {
-        template < typename Dot, typename Tag > friend class dot_context;
+        template < typename Dot, typename Tag, typename SizeType > friend class dot_context;
 
         using dot_type = Dot;
         using replica_id_type = typename dot_type::replica_id_type;
         using counter_type = typename dot_type::replica_id_type;
 
-        using size_type = typename flat::set_base< dot_type >::size_type;
+        using size_type = typename flat::set_base< dot_type, SizeType >::size_type;
 
         struct default_context
         {
@@ -130,6 +130,6 @@ namespace crdt
         auto empty() const { return counters_.empty(); }
        
     private:
-        flat::set_base< dot_type > counters_;
+        flat::set_base< dot_type, size_type > counters_;
     };
 }

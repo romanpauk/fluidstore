@@ -27,13 +27,8 @@ namespace crdt
             }
         };
 
-        value_mv_base(allocator_type allocator)
-            : hook_type(allocator, allocator.get_replica().generate_instance_id())
-            , values_(allocator)
-        {}
-
-        value_mv_base(allocator_type allocator, typename allocator_type::replica_type::id_type id)
-            : hook_type(allocator, id)
+        value_mv_base(allocator_type& allocator)
+            : hook_type(allocator)
             , values_(allocator)
         {}
 
@@ -149,14 +144,10 @@ namespace crdt
         };
 
         value_mv(allocator_type allocator)
-            : value_mv_base_type(allocator, allocator.get_replica().generate_instance_id())
+            : value_mv_base_type(allocator)
         {}
 
-        value_mv(allocator_type allocator, typename Allocator::replica_type::id_type id)
-            : value_mv_base_type(allocator, id)
-        {}
-
-        value_mv(allocator_type allocator, typename Allocator::replica_type::id_type id, const Value& value)
+        value_mv(allocator_type allocator, const Value& value)
             : value_mv_base_type(allocator, id)
         {
             set(value);

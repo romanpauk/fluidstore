@@ -12,10 +12,9 @@ namespace crdt
             : public default_state_hook::template hook< Allocator, Delta, Instance >
         {
             typedef Allocator allocator_type;
-            typedef typename allocator_type::replica_type::id_type id_type;
-
-            hook(Allocator allocator, const id_type& id)
-                : default_state_hook::template hook< Allocator, Delta, Instance >(allocator, id)
+            
+            hook(Allocator allocator)
+                : default_state_hook::template hook< Allocator, Delta, Instance >(allocator)
             {}
 
             hook(hook< Allocator, Delta, Instance >&& other)

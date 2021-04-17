@@ -16,7 +16,7 @@ namespace crdt
             other.ptr_ = nullptr;
         }
 
-        ~allocator_ptr_base() { assert(!ptr_); }
+        ~allocator_ptr_base() = default;
 
         template < typename Allocator, typename... Args > void emplace(Allocator& allocator, Args&&... args)
         {
@@ -59,11 +59,7 @@ namespace crdt
             : allocator_(allocator)
         {}
 
-        allocator_ptr(allocator_ptr< T, Allocator >&& other)
-            : allocator_ptr_base(std::move(other))
-            , allocator_(other.allocator_)
-        {}
-
+        allocator_ptr(allocator_ptr< T, Allocator >&& other) = default;
         ~allocator_ptr() { reset(allocator_); }
 
         template < typename... Args > void emplace(Args&&... args)

@@ -38,12 +38,8 @@ namespace crdt
             }
         };
 
-        map_base(allocator_type allocator)
-            : hook_type(allocator, allocator.get_replica().generate_instance_id())
-        {}
-
-        map_base(allocator_type allocator, typename allocator_type::replica_type::id_type id)
-            : hook_type(allocator, id)
+        map_base(allocator_type& allocator)
+            : hook_type(allocator)
         {}
 
         map_base(map_base_type&& other) = default;
@@ -130,7 +126,7 @@ namespace crdt
         };
 
         map_base(allocator_type allocator)
-            : hook_type(allocator, typename allocator_type::replica_type::id_type())
+            : hook_type(allocator)
         {}
 
         map_base(map_base_type&& other) = default;
@@ -160,12 +156,8 @@ namespace crdt
             typedef map< Key, typename Value::template rebind< AllocatorT, HookT >::other, AllocatorT, HookT, Delta > other;
         };
 
-        map(allocator_type allocator)
-            : map_base_type(allocator, allocator.get_replica().generate_instance_id())
-        {}
-
-        map(allocator_type allocator, typename allocator_type::replica_type::id_type id)
-            : map_base_type(allocator, id)
+        map(allocator_type& allocator)
+            : map_base_type(allocator)
         {}
     };
 }

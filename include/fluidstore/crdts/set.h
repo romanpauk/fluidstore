@@ -31,12 +31,8 @@ namespace crdt
             template < typename Delta > void apply(set_base_type& instance, Delta& delta) {}
         };
 
-        set_base(allocator_type allocator)
-            : hook_type(allocator, allocator.get_replica().generate_instance_id())
-        {}
-
-        set_base(allocator_type allocator, typename allocator_type::replica_type::id_type id)
-            : hook_type(allocator, id)
+        set_base(allocator_type& allocator)
+            : hook_type(allocator)
         {}
 
         std::pair< typename dot_kernel_type::iterator, bool > insert(const Key& key)
@@ -79,8 +75,8 @@ namespace crdt
             using other = set_base< Key, AllocatorT, Tag, HookT, void >;
         };
 
-        set_base(allocator_type allocator)
-            : hook_type(allocator, typename allocator_type::replica_type::id_type())
+        set_base(allocator_type& allocator)
+            : hook_type(allocator)
         {}
 
         set_base(set_base_type&& other) = default;
@@ -98,12 +94,8 @@ namespace crdt
         typedef Hook hook_type;
         typedef Delta delta_type;
 
-        set(allocator_type allocator)
-            : set_base_type(allocator, allocator.get_replica().generate_instance_id())
-        {}
-
-        set(allocator_type allocator, typename allocator_type::replica_type::id_type id)
-            : set_base_type(allocator, id)
+        set(allocator_type& allocator)
+            : set_base_type(allocator)
         {}
     };
 }

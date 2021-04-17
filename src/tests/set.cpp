@@ -95,6 +95,7 @@ BOOST_AUTO_TEST_CASE(set_merge)
     BOOST_TEST((set1.find(11) != set1.end()));
 }
 
+#if 0
 BOOST_AUTO_TEST_CASE(set_merge_replica)
 {
     crdt::registry<> registry;
@@ -111,6 +112,7 @@ BOOST_AUTO_TEST_CASE(set_merge_replica)
 
     // TODO: unfinished
 }
+#endif
 
 #define PRINT_SIZEOF(...) std::cerr << "sizeof " << # __VA_ARGS__ << ": " << sizeof(__VA_ARGS__) << std::endl
 

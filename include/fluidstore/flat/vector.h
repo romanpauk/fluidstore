@@ -143,7 +143,7 @@ namespace crdt::flat
 
             size_type index = position.index_;
 
-            if (size() + 1 < size())
+            if (std::numeric_limits< size_type >::max() - 1 < size())
             {
                 throw std::runtime_error("overflow");
             }
@@ -218,7 +218,7 @@ namespace crdt::flat
 
         constexpr size_type max_size() const
         {
-            return std::numeric_limist< size_type >::max();
+            return std::numeric_limits< size_type >::max();
         }
 
         bool empty() const { return size() == 0; }
@@ -241,7 +241,7 @@ namespace crdt::flat
                     throw std::runtime_error("overflow");
                 }
 
-                if (ncapacity * 3 / 2 > ncapacity)
+                if ((ncapacity * 3 / 2) > ncapacity)
                 {
                     ncapacity *= 3 / 2;
                 }
@@ -262,7 +262,7 @@ namespace crdt::flat
         }
 
     private:
-        size_type get_vector_data_size(size_type capacity)
+        size_t get_vector_data_size(size_type capacity)
         {
             return sizeof(vector_data) + sizeof(T) * capacity - sizeof(vector_data::buffer);
         }

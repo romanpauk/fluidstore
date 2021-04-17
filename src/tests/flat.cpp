@@ -250,6 +250,21 @@ BOOST_AUTO_TEST_CASE(vector_dots_type)
     dots.clear(allocator);
 }
 
+BOOST_AUTO_TEST_CASE(vector_size_type)
+{
+    std::allocator< char > allocator;
+    crdt::flat::vector_base< char, unsigned char > vector;
+
+    BOOST_TEST(vector.max_size() == std::numeric_limits< unsigned char >::max());
+    for (size_t i = 0; i < vector.max_size(); ++i)
+    {
+        vector.push_back(allocator, i);
+    }
+
+    BOOST_CHECK_THROW(vector.push_back(allocator, 0), std::runtime_error);
+    vector.clear(allocator);
+}
+
 template < typename Fn > double measure(int count, Fn fn)
 {
     using namespace std::chrono;

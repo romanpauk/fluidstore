@@ -14,33 +14,15 @@
 
 namespace crdt
 {
-    //
-    // TODO: we need two strategies to solve conflicts:
-    // remove-wins and add-wins. Right now it is a mess, if map is accessed through operator [], it does insert in the background,
-    // but if it is accessed through iterator, it does not. So the way code is written has an impact on final merge.
-    // For remove-wins, [] should not do insert and increase sequences, for add-wins (or, update-wins), we need to increase parent
-    // sequences with each mutation operation of the value. Link to parent will have to be passed to value so parent can
-    // update dots_[newdot] and value can add newdot to dots. The same will go for it's parent...
-    // 
-
-    struct tag_update_wins {};
-    struct tag_remove_wins {};
-
-    template < typename Allocator > struct dot_kernel_value_context
+    template < typename Allocator, typename Dot > struct dot_kernel_value_context
     {
-        typedef Allocator allocator_type;
-        typedef typename Allocator::replica_type replica_type;
-        typedef typename replica_type::replica_id_type replica_id_type;
-        typedef typename replica_type::counter_type counter_type;
-        typedef dot< replica_id_type, counter_type > dot_type;
-
         dot_kernel_value_context(Allocator& allocator)
             : erased_dots(allocator)
         {}
          
-        void register_erase(const dot_type& dot) { erased_dots.insert(dot); }
+        void register_erase(const Dot& dot) { erased_dots.push_back(dot); }
 
-        flat::set < dot_type, Allocator > erased_dots;
+        flat::vector < Dot, Allocator > erased_dots;
     };
 
     template < typename Key, typename Value, typename Allocator, typename DotContext, typename DotKernel > class dot_kernel_value
@@ -270,10 +252,11 @@ namespace crdt
             crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > tmp(allocator.get_replica(), arenaallocator);
 
             typedef flat::set < dot_type, decltype(tmp) > dot_set_type;
+            typedef flat::vector < dot_type, decltype(tmp) > dot_vec_type;
 
             dot_set_type rdotsvisited(tmp);
-            dot_set_type rdotsvalueless(tmp);
-            dot_kernel_value_context value_ctx(tmp);
+            dot_vec_type rdotsvalueless(tmp);
+            dot_kernel_value_context< decltype(tmp), dot_type > value_ctx(tmp);
 
             const auto& rdots = other.counters_.get();
 
@@ -302,7 +285,7 @@ namespace crdt
             std::set_difference(
                 rdots.begin(), rdots.end(),
                 rdotsvisited.begin(), rdotsvisited.end(),
-                std::inserter(rdotsvalueless, rdotsvalueless.end())
+                std::back_inserter(rdotsvalueless)
             );
 
             for (const auto& rdot : rdotsvalueless)

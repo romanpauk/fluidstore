@@ -269,4 +269,43 @@ namespace crdt::flat
 
         vector_data* data_;
     };
+
+    template < typename T, typename Allocator, typename SizeType = uint32_t > class vector : private vector_base< T, SizeType >
+    {
+        using vector_base_type = vector_base< T, SizeType >;
+
+    public:
+        using typename vector_base_type::iterator;
+        using typename vector_base_type::const_iterator;
+        using typename vector_base_type::value_type;
+
+        vector(Allocator& allocator)
+            : allocator_(allocator)
+        {}
+
+        vector(vector< T, Allocator, SizeType >&& other) = default;
+
+        ~vector()
+        {
+            clear();
+        }
+
+        void clear()
+        {
+            return vector_base_type::clear(allocator_);
+        }
+
+        void push_back(const T& value)
+        {
+            vector_base_type::push_back(allocator_, value);
+        }
+
+        using vector_base_type::begin;
+        using vector_base_type::end;
+        using vector_base_type::size;
+        using vector_base_type::empty;
+
+    private:
+        Allocator& allocator_;
+    };
 }

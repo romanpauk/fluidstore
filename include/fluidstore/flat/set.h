@@ -109,7 +109,7 @@ namespace crdt::flat
 
         iterator lower_bound(const T& value) const
         {
-            return const_cast<set_base< T >&>(*this).upper_bound(value);
+            return const_cast<set_base< T >&>(*this).lower_bound(value);
         }
 
         auto begin() { return data_.begin(); }

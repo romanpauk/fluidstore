@@ -41,13 +41,12 @@ namespace crdt
             pairb.first->second.emplace(allocator, dot.counter);
         }
 
-        template < typename Allocator, typename It > void insert(Allocator& allocator, It begin, It end)
+        template < typename Allocator, typename Dots > void insert(Allocator& allocator, const Dots& dots)
         {
-            for (auto rit = begin; rit != end; ++rit)
+            for (auto& [replica_id, counters] : dots)
             {
-                auto replica_id = rit->first;
-                auto lit = counters_.emplace(allocator, replica_id, flat::set_base< counter_type, size_type >());
-                lit.first->second.insert(allocator, rit->second.begin(), rit->second.end());
+                auto it = counters_.emplace(allocator, replica_id, flat::set_base< counter_type, size_type >());
+                it.first->second.insert(allocator, counters.begin(), counters.end());
             }
         }
 
@@ -84,7 +83,7 @@ namespace crdt
 
         template < typename Allocator, typename DotContextT, typename Context > void merge(Allocator& allocator, const DotContextT& other, Context& context)
         {
-            insert(get_allocator< dot_type >(allocator), other.counters_.begin(), other.counters_.end());
+            insert(allocator, other.counters_);
             if (std::is_same_v< Tag, tag_state >)
             {
                 collapse(allocator, context);

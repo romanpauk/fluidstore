@@ -217,7 +217,17 @@ namespace crdt
             }
         }
 
-        const auto& get() const { return counters_; }
+        template < typename Dots > void get_dots(Dots& dots) const 
+        {
+            dots.reserve(size());
+            for (auto& [replica_id, counters] : counters_)
+            {
+                for (auto& counter : counters)
+                {
+                    dots.insert(dot_type{ replica_id, counter });
+                }
+            }
+        }
 
         template < typename Allocator > void collapse(Allocator& allocator)
         {
@@ -236,7 +246,7 @@ namespace crdt
                     if (*next == *prev + 1)
                     {
                         // TODO: we should find a largest block to erase, not erase single element and continue
-                        context.register_erase(*prev);
+                        context.register_erase(dot_type{ replica_id, *prev });
                         next = counters.erase(allocator, prev);
                         prev = next++;
                     }
@@ -258,10 +268,10 @@ namespace crdt
             auto it = counters_.find(dot.replica_id);
             if (it != counters_.end())
             {
-                it->second.erase(dot.counter);
+                it->second.erase(allocator, dot.counter);
                 if (it->second.empty())
                 {
-                    counters_.erase(it);
+                    counters_.erase(allocator, it);
                 }
             } 
         }

@@ -119,6 +119,9 @@ namespace crdt::flat
 
         auto empty() const { return data_.empty(); }
         auto size() const { return data_.size(); }
+        auto back() const { return data_.back(); }
+
+        template < typename Allocator > void reserve(Allocator& allocator, size_type count) { data_.reserve(allocator, count); }
 
         template < typename Allocator > void clear(Allocator& allocator)
         {
@@ -171,6 +174,7 @@ namespace crdt::flat
         using typename set_base_type::iterator;
         using typename set_base_type::const_iterator;
         using typename set_base_type::value_type;
+        using size_type = SizeType;
 
         set(Allocator& allocator)
             : allocator_(allocator)
@@ -211,6 +215,11 @@ namespace crdt::flat
         void clear() 
         { 
             return set_base_type::clear(allocator_); 
+        }
+
+        void reserve(size_type count)
+        {
+            set_base_type::reserve(allocator_, count);
         }
 
         using set_base_type::begin;

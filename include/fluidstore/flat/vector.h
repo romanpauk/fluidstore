@@ -228,6 +228,17 @@ namespace crdt::flat
         iterator end() { return iterator(this, size()); }
         iterator end() const { return iterator(const_cast<vector_base< T >*>(this), size()); }
 
+        T& back()
+        {
+            assert(!empty());
+            return *data_->get(size() - 1);
+        }
+
+        const T& back() const
+        {
+            return const_cast<vector_base< T, SizeType >& >(*this).back();
+        }
+
         template < typename Allocator > void reserve(Allocator& allocator, size_type nsize)
         {
             size_type ocapacity = capacity();

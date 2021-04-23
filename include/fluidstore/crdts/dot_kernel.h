@@ -184,7 +184,7 @@ namespace crdt
 
         using dot_type = dot< replica_id_type, counter_type >;
         using dot_kernel_type = dot_kernel< Key, Value, allocator_type, Container, Tag >;
-        using dot_context_type = dot_context< dot_type, Tag >;
+        using dot_context_type = dot_context2< dot_type, Tag >;
         using dots_type = flat::map_base< dot_type, Key >;
 
         using dot_kernel_value_allocator_type = typename allocator_type::template rebind< typename allocator_type::value_type, allocator_container< dot_kernel_type > >::other;
@@ -258,7 +258,8 @@ namespace crdt
             dot_vec_type rdotsvalueless(tmp);
             dot_kernel_value_context< decltype(tmp), dot_type > value_ctx(tmp);
 
-            const auto& rdots = other.counters_.get();
+            dot_set_type rdots(tmp);
+            other.counters_.get_dots(rdots);
 
             // Merge values
             for (const auto& [rkey, rdata] : other.values_)
@@ -268,13 +269,16 @@ namespace crdt
              
                 ldata.merge(allocator, rdata, value_ctx);
                 
-                // Track visited dots
-                rdotsvisited.insert(rdata.dots.begin(), rdata.dots.end());
-
-                // Create dot -> key link
-                for (const auto& rdot : rdata.dots)
+                for (const auto& [replica_id, counters] : rdata.dots)
                 {
-                    dots_.emplace(allocator, rdot, rkey);
+                    for (const auto& counter: counters)
+                    {
+                        // Create dot -> key link
+                        dots_.emplace(allocator, dot_type{ replica_id, counter }, rkey);
+
+                        // Track visited dots
+                        rdotsvisited.insert(dot_type{ replica_id, counter });
+                    }
                 }
 
                 // Support for insert / emplace pairb result

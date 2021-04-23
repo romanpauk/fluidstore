@@ -7,10 +7,10 @@
 
 namespace crdt::flat
 {
-    template < typename T > class hat_base
+    template < typename T, typename SizeType = uint32_t > class hat_base
     {
     public:
-        using size_type = uint32_t;
+        using size_type = SizeType;
 
         hat_base()
             : top_()

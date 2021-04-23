@@ -281,6 +281,8 @@ namespace crdt
                 ctx.register_insert(lpb);
             }
 
+            // TODO: add separate path for erase if rdotsvisited.empty().
+            // 
             // Find dots that do not have values - those are removed
             std::set_difference(
                 rdots.begin(), rdots.end(),

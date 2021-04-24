@@ -40,9 +40,39 @@ namespace crdt
             counters_.erase(allocator, counter);
         }
 
+        template < typename Allocator > void emplace(Allocator& allocator, counter_type counter)
+        {
+            counters_.emplace(allocator, counter);
+        }
+
+        template < typename Allocator, typename Counters > void insert(Allocator& allocator, const Counters& counters)
+        {
+            counters_.insert(allocator, counters.counters_);
+        }
+
         size_type size() const
         {
             return counters_.size();
+        }
+
+        template < typename Allocator, typename ReplicaId, typename Context > void collapse(Allocator& allocator, const ReplicaId& replica_id, Context& context)
+        {
+            auto next = counters_.begin();
+            auto prev = next++;
+            for (; next != counters_.end();)
+            {
+                if (*next == *prev + 1)
+                {
+                    // TODO: we should find a largest block to erase, not erase single element and continue
+                    context.register_erase(dot< ReplicaId, counter_type >{ replica_id, *prev });
+                    next = counters_.erase(allocator, prev);
+                    prev = next++;
+                }
+                else
+                {
+                    break;
+                }
+            }
         }
 
         flat::set_base< counter_type, size_type > counters_;
@@ -76,7 +106,7 @@ namespace crdt
         template < typename Allocator, typename... Args > void emplace(Allocator& allocator, const dot_type& dot)
         {
             auto pairb = counters_.emplace(allocator, dot.replica_id, dot_counters_base< counter_type, size_type >());
-            pairb.first->second.counters_.emplace(allocator, dot.counter);
+            pairb.first->second.emplace(allocator, dot.counter);
         }
 
         template < typename Allocator, typename TagT, typename SizeTypeT > void insert(Allocator& allocator, const dot_context< Dot, TagT, SizeTypeT >& dots)
@@ -84,7 +114,7 @@ namespace crdt
             for (auto& [replica_id, counters] : dots)
             {
                 auto it = counters_.emplace(allocator, replica_id, dot_counters_base< counter_type, size_type >());
-                it.first->second.counters_.insert(allocator, counters.counters_);
+                it.first->second.insert(allocator, counters);
             }
         }
 
@@ -121,7 +151,7 @@ namespace crdt
             for (auto& [replica_id, rcounters] : other.counters_)
             {
                 auto& counters = counters_.emplace(allocator, replica_id, dot_counters_base< counter_type, size_type >()).first->second;
-                update(allocator, replica_id, counters.counters_, rcounters.counters_, context);
+                update(allocator, replica_id, counters, rcounters, context);
             }
         }
 
@@ -149,9 +179,9 @@ namespace crdt
             else if (counters.size() == 1 && rcounters.size() == 1)
             {
                 // Maybe in-place replace
-                if (*counters.begin() == *rcounters.begin() + 1)
+                if (*counters.counters_.begin() == *rcounters.counters_.begin() + 1)
                 {
-                    counters.update(counters.begin(), *counters.begin() + 1);
+                    counters.counters_.update(counters.counters_.begin(), *counters.counters_.begin() + 1);
 
                     // No need to collapse here
                     return;
@@ -169,7 +199,7 @@ namespace crdt
 
             if (std::is_same_v< Tag, tag_state >)
             {
-                collapse(allocator, replica_id, counters, context);
+                counters.collapse(allocator, replica_id, context);
             }
         }
 
@@ -177,27 +207,7 @@ namespace crdt
         {
             for (auto& [replica_id, counters] : counters_)
             {
-                collapse(allocator, replica_id, counters.counters_, context);
-            }
-        }
-
-        template < typename Allocator, typename Counters, typename Context > void collapse(Allocator& allocator, const replica_id_type& replica_id, Counters& counters, Context& context)
-        {
-            auto next = counters.begin();
-            auto prev = next++;
-            for (; next != counters.end();)
-            {
-                if (*next == *prev + 1)
-                {
-                    // TODO: we should find a largest block to erase, not erase single element and continue
-                    context.register_erase(dot_type{ replica_id, *prev });
-                    next = counters.erase(allocator, prev);
-                    prev = next++;
-                }
-                else
-                {
-                    break;
-                }
+                counters.collapse(allocator, replica_id, context);
             }
         }
 

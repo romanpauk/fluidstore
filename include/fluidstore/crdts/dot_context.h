@@ -20,6 +20,31 @@ namespace crdt
         dot_counters_base(dot_counters_base&& other) = default;
         ~dot_counters_base() = default;
 
+        counter_type get() const
+        {
+            return !counters_.empty() ? counters_.back() : counter_type();
+        }
+
+        bool has(counter_type counter) const
+        {
+            return counters_.find(counter) != counters_.end();
+        }
+        
+        bool empty() const
+        {
+            return counters_.empty();
+        }
+
+        template < typename Allocator > void erase(Allocator& allocator, counter_type counter)
+        {
+            counters_.erase(allocator, counter);
+        }
+
+        size_type size() const
+        {
+            return counters_.size();
+        }
+
         flat::set_base< counter_type, size_type > counters_;
     };
 
@@ -68,10 +93,7 @@ namespace crdt
             auto it = counters_.find(replica_id);
             if (it != counters_.end())
             {
-                if (!it->second.counters_.empty())
-                {
-                    return it->second.counters_.back();
-                }
+                return it->second.get();
             }
 
             return counter_type();
@@ -82,7 +104,7 @@ namespace crdt
             auto it = counters_.find(dot.replica_id);
             if (it != counters_.end())
             {
-                return it->second.counters_.find(dot.counter) != it->second.counters_.end();
+                return it->second.has(dot.counter);
             }
 
             return false;
@@ -189,8 +211,8 @@ namespace crdt
             auto it = counters_.find(dot.replica_id);
             if (it != counters_.end())
             {
-                it->second.counters_.erase(allocator, dot.counter);
-                if (it->second.counters_.empty())
+                it->second.erase(allocator, dot.counter);
+                if (it->second.empty())
                 {
                     counters_.erase(allocator, it);
                 }
@@ -203,7 +225,7 @@ namespace crdt
             size_type count = 0;
             for (auto& [replica_id, counters]: counters_)
             {
-                count += counters.counters_.size();
+                count += counters.size();
             }
 
             return count;

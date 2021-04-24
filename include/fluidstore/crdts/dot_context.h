@@ -8,13 +8,28 @@ namespace crdt
     struct tag_delta {};
     struct tag_state {};
 
+    template < typename CounterType, typename Tag, typename SizeType = uint32_t > class dot_counters_base
+    {
+        template < typename CounterType, typename Tag, typename SizeType > friend class dot_counters_base;
+
+        using counter_type = CounterType;
+        using size_type = SizeType;
+
+    public:
+        dot_counters_base() = default;
+        dot_counters_base(dot_counters_base&& other) = default;
+        ~dot_counters_base() = default;
+
+        flat::set_base< counter_type, size_type > counters_;
+    };
+
     template < typename Dot, typename Tag, typename SizeType = uint32_t > class dot_context
     {
         template < typename Dot, typename Tag, typename SizeType > friend class dot_context;
 
         using dot_type = Dot;
         using replica_id_type = typename dot_type::replica_id_type;
-        using counter_type = typename dot_type::replica_id_type;
+        using counter_type = typename dot_type::counter_type;
 
         using size_type = SizeType;
 
@@ -35,16 +50,16 @@ namespace crdt
 
         template < typename Allocator, typename... Args > void emplace(Allocator& allocator, const dot_type& dot)
         {
-            auto pairb = counters_.emplace(allocator, dot.replica_id, flat::set_base< counter_type, size_type >());
-            pairb.first->second.emplace(allocator, dot.counter);
+            auto pairb = counters_.emplace(allocator, dot.replica_id, dot_counters_base< counter_type, size_type >());
+            pairb.first->second.counters_.emplace(allocator, dot.counter);
         }
 
         template < typename Allocator, typename TagT, typename SizeTypeT > void insert(Allocator& allocator, const dot_context< Dot, TagT, SizeTypeT >& dots)
         {
             for (auto& [replica_id, counters] : dots)
             {
-                auto it = counters_.emplace(allocator, replica_id, flat::set_base< counter_type, size_type >());
-                it.first->second.insert(allocator, counters);
+                auto it = counters_.emplace(allocator, replica_id, dot_counters_base< counter_type, size_type >());
+                it.first->second.counters_.insert(allocator, counters.counters_);
             }
         }
 
@@ -53,9 +68,9 @@ namespace crdt
             auto it = counters_.find(replica_id);
             if (it != counters_.end())
             {
-                if (!it->second.empty())
+                if (!it->second.counters_.empty())
                 {
-                    return it->second.back();
+                    return it->second.counters_.back();
                 }
             }
 
@@ -67,7 +82,7 @@ namespace crdt
             auto it = counters_.find(dot.replica_id);
             if (it != counters_.end())
             {
-                return it->second.find(dot.counter) != it->second.end();
+                return it->second.counters_.find(dot.counter) != it->second.counters_.end();
             }
 
             return false;
@@ -83,8 +98,8 @@ namespace crdt
         {
             for (auto& [replica_id, rcounters] : other.counters_)
             {
-                auto& counters = counters_.emplace(allocator, replica_id, flat::set_base< counter_type, size_type >()).first->second;
-                update(allocator, replica_id, counters, rcounters, context);
+                auto& counters = counters_.emplace(allocator, replica_id, dot_counters_base< counter_type, size_type >()).first->second;
+                update(allocator, replica_id, counters.counters_, rcounters.counters_, context);
             }
         }
 
@@ -92,7 +107,7 @@ namespace crdt
         {
             auto it = counters_.find(replica_id);
             assert(it != counters_.end());
-            return it->second;
+            return it->second.counters_;
         }
 
         template < typename Allocator > void collapse(Allocator& allocator)
@@ -140,7 +155,7 @@ namespace crdt
         {
             for (auto& [replica_id, counters] : counters_)
             {
-                collapse(allocator, replica_id, counters, context);
+                collapse(allocator, replica_id, counters.counters_, context);
             }
         }
 
@@ -174,8 +189,8 @@ namespace crdt
             auto it = counters_.find(dot.replica_id);
             if (it != counters_.end())
             {
-                it->second.erase(allocator, dot.counter);
-                if (it->second.empty())
+                it->second.counters_.erase(allocator, dot.counter);
+                if (it->second.counters_.empty())
                 {
                     counters_.erase(allocator, it);
                 }
@@ -188,7 +203,7 @@ namespace crdt
             size_type count = 0;
             for (auto& [replica_id, counters]: counters_)
             {
-                count += counters.size();
+                count += counters.counters_.size();
             }
 
             return count;
@@ -201,8 +216,8 @@ namespace crdt
     private:
         // TODO: constness
         mutable flat::map_base< 
-            replica_id_type, flat::set_base< counter_type, size_type >, 
-            flat::map_node< replica_id_type, flat::set_base< counter_type, size_type > >,
+            replica_id_type, dot_counters_base< counter_type, size_type >, 
+            flat::map_node< replica_id_type, dot_counters_base< counter_type, size_type > >,
             size_type 
         > counters_;
     };

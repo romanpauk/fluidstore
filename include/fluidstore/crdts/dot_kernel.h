@@ -195,14 +195,15 @@ namespace crdt
         typedef dot_kernel_iterator< typename values_type::iterator, Key, typename dot_kernel_value_type::value_type > iterator;
         typedef dot_kernel_iterator< typename values_type::const_iterator, Key, typename dot_kernel_value_type::value_type > const_iterator;
 
-        // replica_id, counter
+        // replica_id, counters
         dot_context_type counters_;
-
-        // key, value (replica_id, counter)
-        values_type values_;
 
         // replica_id, counter -> value
         dots_type dots_;
+
+        // key, value (replica_id, counters)
+        values_type values_;
+
         
         struct context
         {
@@ -283,9 +284,9 @@ namespace crdt
 
                     // Track visited dots
                     auto stat_pairb = rvisited.emplace(tmp, replica_id, flat::set_base< counter_type >());
-                    stat_pairb.first->second.insert(tmp, counters);
+                    stat_pairb.first->second.insert(tmp, counters.counters_);
 
-                    for (const auto& counter : counters)
+                    for (const auto& counter : counters.counters_)
                     {
                         // Create dot -> key link
                         pairb.first->second.emplace(allocator, counter, rkey);

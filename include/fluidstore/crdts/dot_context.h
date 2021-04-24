@@ -75,6 +75,41 @@ namespace crdt
             }
         }
 
+        template < typename Allocator, typename ReplicaId, typename RCounters, typename Context >
+        void update(Allocator& allocator, const ReplicaId& replica_id, RCounters& rcounters, Context& context)
+        {
+            if (counters_.size() == 0)
+            {
+                // Trivial append
+                counters_.insert(allocator, rcounters.counters_);
+            }
+            else if (counters_.size() == 1 && rcounters.size() == 1)
+            {
+                // Maybe in-place replace
+                if (*counters_.begin() == *rcounters.counters_.begin() + 1)
+                {
+                    counters_.update(counters_.begin(), *counters_.begin() + 1);
+
+                    // No need to collapse here
+                    return;
+                }
+                else
+                {
+                    counters_.insert(allocator, rcounters.counters_);
+                }
+            }
+            else
+            {
+                // TODO: two sets merge
+                counters_.insert(allocator, rcounters.counters_);
+            }
+
+            if (std::is_same_v< Tag, tag_state >)
+            {
+                collapse(allocator, replica_id, context);
+            }
+        }
+
         flat::set_base< counter_type, size_type > counters_;
     };
 
@@ -105,7 +140,7 @@ namespace crdt
 
         template < typename Allocator, typename... Args > void emplace(Allocator& allocator, const dot_type& dot)
         {
-            auto pairb = counters_.emplace(allocator, dot.replica_id, dot_counters_base< counter_type, size_type >());
+            auto pairb = counters_.emplace(allocator, dot.replica_id, dot_counters_base< counter_type, Tag, size_type >());
             pairb.first->second.emplace(allocator, dot.counter);
         }
 
@@ -113,7 +148,7 @@ namespace crdt
         {
             for (auto& [replica_id, counters] : dots)
             {
-                auto it = counters_.emplace(allocator, replica_id, dot_counters_base< counter_type, size_type >());
+                auto it = counters_.emplace(allocator, replica_id, dot_counters_base< counter_type, Tag, size_type >());
                 it.first->second.insert(allocator, counters);
             }
         }
@@ -150,8 +185,8 @@ namespace crdt
         {
             for (auto& [replica_id, rcounters] : other.counters_)
             {
-                auto& counters = counters_.emplace(allocator, replica_id, dot_counters_base< counter_type, size_type >()).first->second;
-                update(allocator, replica_id, counters, rcounters, context);
+                auto& counters = counters_.emplace(allocator, replica_id, dot_counters_base< counter_type, Tag, size_type >()).first->second;
+                counters.update(allocator, replica_id, rcounters, context);
             }
         }
 
@@ -166,41 +201,6 @@ namespace crdt
         {
             default_context context;
             collapse(allocator, context);
-        }
-
-        template < typename Allocator, typename Counters, typename RCounters, typename Context > 
-        void update(Allocator& allocator, const replica_id_type& replica_id, Counters& counters, RCounters& rcounters, Context& context)
-        {
-            if (counters.size() == 0)
-            {
-                // Trivial append
-                counters.insert(allocator, rcounters);
-            }
-            else if (counters.size() == 1 && rcounters.size() == 1)
-            {
-                // Maybe in-place replace
-                if (*counters.counters_.begin() == *rcounters.counters_.begin() + 1)
-                {
-                    counters.counters_.update(counters.counters_.begin(), *counters.counters_.begin() + 1);
-
-                    // No need to collapse here
-                    return;
-                }
-                else
-                {
-                    counters.insert(allocator, rcounters);
-                }
-            }
-            else
-            {
-                // TODO: two sets merge
-                counters.insert(allocator, rcounters);
-            }
-
-            if (std::is_same_v< Tag, tag_state >)
-            {
-                counters.collapse(allocator, replica_id, context);
-            }
         }
 
         template < typename Allocator, typename Context > void collapse(Allocator& allocator, Context& context)
@@ -248,8 +248,8 @@ namespace crdt
     private:
         // TODO: constness
         mutable flat::map_base< 
-            replica_id_type, dot_counters_base< counter_type, size_type >, 
-            flat::map_node< replica_id_type, dot_counters_base< counter_type, size_type > >,
+            replica_id_type, dot_counters_base< counter_type, Tag, size_type >, 
+            flat::map_node< replica_id_type, dot_counters_base< counter_type, Tag, size_type > >,
             size_type 
         > counters_;
     };

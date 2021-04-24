@@ -195,8 +195,13 @@ namespace crdt
         typedef dot_kernel_iterator< typename values_type::iterator, Key, typename dot_kernel_value_type::value_type > iterator;
         typedef dot_kernel_iterator< typename values_type::const_iterator, Key, typename dot_kernel_value_type::value_type > const_iterator;
 
+        // replica_id, counter
         dot_context_type counters_;
+
+        // key, value (replica_id, counter)
         values_type values_;
+
+        // replica_id, counter -> value
         dots_type dots_;
         
         struct context
@@ -253,6 +258,7 @@ namespace crdt
 
             typedef flat::vector < counter_type, decltype(tmp) > dot_vec_type;
 
+            // TODO: this should directly clear dots_.
             dot_kernel_value_context< decltype(tmp), dot_type > value_ctx(tmp);
 
             flat::map_base< replica_id_type, flat::set_base< counter_type > > rvisited;
@@ -277,7 +283,7 @@ namespace crdt
 
                     // Track visited dots
                     auto stat_pairb = rvisited.emplace(tmp, replica_id, flat::set_base< counter_type >());
-                    stat_pairb.first->second.insert(tmp, counters.begin(), counters.end());
+                    stat_pairb.first->second.insert(tmp, counters);
 
                     for (const auto& counter : counters)
                     {
@@ -365,8 +371,10 @@ namespace crdt
 
             auto replica_id = static_cast<Container*>(this)->get_allocator().get_replica().get_id();
             auto counter = counters_.get(replica_id) + 1;
-            delta.counters_.emplace(delta.get_allocator(), replica_id, counter);
-            delta.values_.emplace(delta.get_allocator(), delta.get_allocator(), key, nullptr).first->second.dots.emplace(delta.get_allocator(), replica_id, counter);
+            auto dot = dot_type{ replica_id, counter };
+
+            delta.counters_.emplace(delta.get_allocator(), dot);
+            delta.values_.emplace(delta.get_allocator(), delta.get_allocator(), key, nullptr).first->second.dots.emplace(delta.get_allocator(), dot);
             merge(delta);
             static_cast<Container*>(this)->commit_delta(delta);
         }

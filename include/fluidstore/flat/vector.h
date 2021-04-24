@@ -272,6 +272,21 @@ namespace crdt::flat
             }
         }
 
+        template < typename Allocator > void assign(Allocator& allocator, iterator begin, iterator end)
+        {
+            clear(allocator);
+            auto size = std::distance(begin, end);
+            reserve(allocator, size);
+            copy_uninitialized(allocator, data_->get(), &*begin, size);
+            data_->size = size;
+        }
+
+        template < typename Ty > void update(iterator it, Ty&& value)
+        {
+            assert(!empty());
+            *data_->get(it.index_) = std::forward< Ty >(value);
+        }
+
     private:
         size_t get_vector_data_size(size_type capacity)
         {

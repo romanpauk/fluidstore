@@ -54,8 +54,10 @@ namespace crdt
         {
             auto replica_id = this->get_allocator().get_replica().get_id();
             auto counter = this->counters_.get(replica_id) + 1;
-            delta.counters_.emplace(delta.get_allocator(), replica_id, counter);
-            delta.values_.emplace(delta.get_allocator(), delta.get_allocator(), key, nullptr).first->second.dots.emplace(delta.get_allocator(), replica_id, counter);
+            auto dot = dot_type{ replica_id, counter };
+
+            delta.counters_.emplace(delta.get_allocator(), dot);
+            delta.values_.emplace(delta.get_allocator(), delta.get_allocator(), key, nullptr).first->second.dots.emplace(delta.get_allocator(), dot);
         }
     };
 

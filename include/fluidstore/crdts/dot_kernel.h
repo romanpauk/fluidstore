@@ -169,8 +169,7 @@ namespace crdt
         using dot_type = dot< replica_id_type, counter_type >;
         using dot_kernel_type = dot_kernel< Key, Value, allocator_type, Container, Tag >;
         using dot_context_type = dot_context< dot_type, Tag >;
-        using dots_type = flat::map_base< replica_id_type, flat::map_base< counter_type, Key > >;
-
+        
         using dot_kernel_value_allocator_type = typename allocator_type::template rebind< typename allocator_type::value_type, allocator_container< dot_kernel_type > >::other;
         using dot_kernel_value_type = dot_kernel_value< Key, Value, dot_kernel_value_allocator_type, dot_context_type, dot_kernel_type >;
         
@@ -229,6 +228,7 @@ namespace crdt
                 }
             }
 
+        private:
             Allocator& allocator_;
             flat::map_base< replica_id_type, replica_data >& replica_;
         };
@@ -486,24 +486,5 @@ namespace crdt
             data.second.dots.emplace(allocator, dot);
             data.second.value.merge(value);
         }
-
-        auto& get_counters(const replica_id_type& replica_id)
-        {
-            auto it = replica_.find(replica_id);
-            if (it != replica_.end())
-            {
-                return it->second.counters;
-            }
-
-            std::abort();
-        }
     };
-
-    /*
-    template < typename Key, typename Value, typename Allocator, typename Container, typename Tag >
-    std::ostream& operator << (std::ostream& out, const dot_kernel< Key, Value, Allocator, Container, Tag >& kernel)
-    {
-        return out;
-    }
-    */
 }

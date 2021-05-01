@@ -20,6 +20,11 @@ namespace crdt::flat
             alignas(T) unsigned char buffer[1];
 
             T* get(size_type n = 0) { return (T*)buffer + n; }
+
+            static size_t get_memory_size(size_type capacity)
+            {
+                return sizeof(vector_data) + sizeof(T) * capacity - sizeof(vector_data::buffer);
+            }
         };
 
     public:
@@ -209,7 +214,7 @@ namespace crdt::flat
             {
                 auto alloc = std::allocator_traits< Allocator >::rebind_alloc< unsigned char >(allocator);
                 destroy(alloc, data_->get(), data_->size);
-                alloc.deallocate((unsigned char*)data_, get_vector_data_size(data_->capacity));
+                alloc.deallocate((unsigned char*)data_, vector_data::get_memory_size(data_->capacity));
                 data_ = nullptr;
             }
         }
@@ -265,7 +270,7 @@ namespace crdt::flat
                     ncapacity *= 3 / 2;
                 }
 
-                vector_data* data = (vector_data*)alloc.allocate(get_vector_data_size(ncapacity));
+                vector_data* data = (vector_data*)alloc.allocate(vector_data::get_memory_size(ncapacity));
                 data->capacity = ncapacity;
                 data->size = 0;
 
@@ -273,7 +278,7 @@ namespace crdt::flat
                 {
                     move_uninitialized(alloc, data->get(), data_->get(), data_->size);
                     data->size = data_->size;
-                    alloc.deallocate((unsigned char*)data_, get_vector_data_size(ocapacity)); // TODO: deallocate at the end
+                    alloc.deallocate((unsigned char*)data_, vector_data::get_memory_size(ocapacity)); // TODO: deallocate at the end
                 }
 
                 data_ = data;
@@ -296,11 +301,6 @@ namespace crdt::flat
         }
 
     private:
-        size_t get_vector_data_size(size_type capacity)
-        {
-            return sizeof(vector_data) + sizeof(T) * capacity - sizeof(vector_data::buffer);
-        }
-
         vector_data* data_;
     };
 

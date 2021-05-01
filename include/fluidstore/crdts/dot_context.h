@@ -15,6 +15,11 @@ namespace crdt
         using counter_type = CounterType;
         using size_type = SizeType;
 
+        struct default_context
+        {
+            template < typename T > void register_erase(const T&) {}
+        };
+
     public:
         dot_counters_base() = default;
         dot_counters_base(dot_counters_base&& other) = default;
@@ -108,6 +113,13 @@ namespace crdt
             {
                 collapse(allocator, replica_id, context);
             }
+        }
+
+        template < typename Allocator, typename ReplicaId, typename Counters >
+        void merge(Allocator& allocator, const ReplicaId& replica_id, Counters& counters)
+        {
+            default_context context;
+            update(allocator, replica_id, counters, context);
         }
 
         template < typename Allocator > void clear(Allocator& allocator)

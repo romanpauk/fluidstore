@@ -190,9 +190,6 @@ namespace crdt
         typedef dot_kernel_iterator< typename values_type::iterator, Key, typename dot_kernel_value_type::value_type > iterator;
         typedef dot_kernel_iterator< typename values_type::const_iterator, Key, typename dot_kernel_value_type::value_type > const_iterator;
 
-        // replica_id, counters
-        dot_context_type counters_;
-
         // replica_id, counter -> value
         dots_type dots_;
 
@@ -233,7 +230,6 @@ namespace crdt
         ~dot_kernel()
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
-            counters_.clear(allocator);
             for (auto& value : values_)
             {
                 value.second.dots.clear(allocator);
@@ -245,6 +241,13 @@ namespace crdt
                 dots.clear(allocator);
             }
             dots_.clear(allocator);
+
+            for (auto& [replica_id, data] : replica_)
+            {
+                data.counters.clear(allocator);
+                data.dots.clear(allocator);
+            }
+            replica_.clear(allocator);
         }
 
         // TODO:
@@ -271,9 +274,13 @@ namespace crdt
 
             flat::map_base< replica_id_type, flat::set_base< counter_type > > rvisited;
 
-            for (const auto& [replica_id, counters] : other.counters_)
+            for (const auto& [replica_id, rdata] : other.replica_)
             {
                 rvisited.emplace(tmp, replica_id, flat::set_base< counter_type >());
+
+                // Merge counters
+                auto& ldata = replica_.emplace(allocator, replica_id, replica_data()).first->second;
+                ldata.counters.merge(allocator, replica_id, rdata.counters);
             }
 
             // Merge values
@@ -306,9 +313,11 @@ namespace crdt
 
             for (auto& [replica_id, rdotsvisited] : rvisited)
             {
+                
                 // Find dots that were not visited - those are the ones to be removed
 
-                const auto& rdots = other.counters_.get_dots(replica_id);
+                // TODO: const
+                const auto& rdots = const_cast< DotKernel& >(other).get_counters(replica_id).counters_;
                 dot_vec_type rdotsvalueless(tmp);
 
                 std::set_difference(
@@ -347,15 +356,9 @@ namespace crdt
                             dots_.erase(allocator, replica_it);
                         }
                     }
-
-                    rdotsvisited.clear(tmp);
                 }
-            }
 
-            // TODO: clear needs better pattern, we should detect if clear needs to be recursive.
-            for (auto& [replica_id, dots] : rvisited)
-            {
-                dots.clear(tmp);
+                rdotsvisited.clear(tmp);
             }
             rvisited.clear(tmp);
 
@@ -371,9 +374,6 @@ namespace crdt
                     }
                 }
             }
-
-            // Merge counters
-            counters_.merge(allocator, other.counters_);
         }
 
         void update(const Key& key)
@@ -472,21 +472,30 @@ namespace crdt
         template < typename Dots > void add_counter_dots(const Dots& dots)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
-            counters_.insert(allocator, dots);
+            for (auto& [replica_id, counters] : dots)
+            {
+                replica_.emplace(allocator, replica_id, replica_data()).first->second.counters.insert(allocator, counters);
+            }
         }
 
         void add_counter_dot(const dot_type& dot)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
-            counters_.emplace(allocator, dot);
+            replica_.emplace(allocator, dot.replica_id, replica_data()).first->second.counters.emplace(allocator, dot.counter);
         }
 
         // TODO: const
         dot_type get_next_dot()
         {
             auto replica_id = static_cast<Container*>(this)->get_allocator().get_replica().get_id();
-            auto counter = counters_.get(replica_id) + 1;
-            return dot_type{ replica_id, counter };
+            counter_type counter = 1;
+            auto it = replica_.find(replica_id);
+            if (it != replica_.end())
+            {
+                counter = it->second.counters.get() + 1;
+            }
+            
+            return { replica_id, counter };
         }
 
         void add_value(const Key& key, const dot_type& dot)
@@ -502,6 +511,17 @@ namespace crdt
             auto& data = *values_.emplace(allocator, allocator, key, nullptr).first;
             data.second.dots.emplace(allocator, dot);
             data.second.value.merge(value);
+        }
+
+        auto& get_counters(const replica_id_type& replica_id)
+        {
+            auto it = replica_.find(replica_id);
+            if (it != replica_.end())
+            {
+                return it->second.counters;
+            }
+
+            std::abort();
         }
     };
 

@@ -190,16 +190,17 @@ namespace crdt
         typedef dot_kernel_iterator< typename values_type::iterator, Key, typename dot_kernel_value_type::value_type > iterator;
         typedef dot_kernel_iterator< typename values_type::const_iterator, Key, typename dot_kernel_value_type::value_type > const_iterator;
 
-        // replica_id, counter -> value
-        dots_type dots_;
-
-        // key, value (replica_id, counters)
         values_type values_;
 
         struct replica_data
         {
+            // Persistent data
             dot_counters_base< counter_type, Tag > counters;
-            flat::set_base< counter_type > dots;
+            flat::map_base< counter_type, Key > dots;
+
+            // Temporary merge data
+            flat::set_base< counter_type > visited;
+            const flat::set_base< counter_type >* other_counters;
         };
         
         flat::map_base< replica_id_type, replica_data > replica_;
@@ -230,17 +231,12 @@ namespace crdt
         ~dot_kernel()
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
+
             for (auto& value : values_)
             {
                 value.second.dots.clear(allocator);
             }
             values_.clear(allocator);
-
-            for (auto& [replica_id, dots]: dots_)
-            {
-                dots.clear(allocator);
-            }
-            dots_.clear(allocator);
 
             for (auto& [replica_id, data] : replica_)
             {
@@ -272,38 +268,33 @@ namespace crdt
             // TODO: this should directly clear dots_.
             dot_kernel_value_context< decltype(tmp), dot_type > value_ctx(tmp);
 
-            flat::map_base< replica_id_type, flat::set_base< counter_type > > rvisited;
-
             for (const auto& [replica_id, rdata] : other.replica_)
             {
-                rvisited.emplace(tmp, replica_id, flat::set_base< counter_type >());
-
                 // Merge counters
                 auto& ldata = replica_.emplace(allocator, replica_id, replica_data()).first->second;
                 ldata.counters.merge(allocator, replica_id, rdata.counters);
+                ldata.other_counters = &rdata.counters.counters_;
             }
 
             // Merge values
-            for (const auto& [rkey, rdata] : other.values_)
+            for (const auto& [rkey, rvalue] : other.values_)
             {
                 auto lpb = values_.emplace(allocator, allocator, rkey, this);
-                auto& ldata = *lpb.first;
+                auto& lvalue = *lpb.first;
 
-                ldata.merge(allocator, rdata, value_ctx);
+                lvalue.merge(allocator, rvalue, value_ctx);
 
-                for (const auto& [replica_id, counters] : rdata.dots)
+                for (const auto& [replica_id, rdots] : rvalue.dots)
                 {
-                    auto pairb = dots_.emplace(allocator, replica_id, flat::map_base< counter_type, Key >());
-                    // pairb.first->second.reserve(pairb.first->second.size() + counters.size());
-
+                    auto& ldata = replica_.emplace(allocator, replica_id, replica_data()).first->second;
+                    
                     // Track visited dots
-                    auto stat_pairb = rvisited.emplace(tmp, replica_id, flat::set_base< counter_type >());
-                    stat_pairb.first->second.insert(tmp, counters.counters_);
-
-                    for (const auto& counter : counters.counters_)
+                    ldata.visited.insert(tmp, rdots.counters_);
+                    
+                    for (const auto& counter : rdots.counters_)
                     {
                         // Create dot -> key link
-                        pairb.first->second.emplace(allocator, counter, rkey);
+                        ldata.dots.emplace(allocator, counter, rkey);
                     }
                 }
 
@@ -311,32 +302,28 @@ namespace crdt
                 ctx.register_insert(lpb);
             }
 
-            for (auto& [replica_id, rdotsvisited] : rvisited)
+            for (auto& [replica_id, rdata] : other.replica_)
             {
-                
-                // Find dots that were not visited - those are the ones to be removed
-
-                // TODO: const
-                const auto& rdots = const_cast< DotKernel& >(other).get_counters(replica_id).counters_;
-                dot_vec_type rdotsvalueless(tmp);
-
-                std::set_difference(
-                    rdots.begin(), rdots.end(),
-                    rdotsvisited.begin(), rdotsvisited.end(),
-                    std::back_inserter(rdotsvalueless)
-                );
-
-                if (!rdotsvalueless.empty())
+                auto replica_it = replica_.find(replica_id);
+                if (replica_it != replica_.end())
                 {
-                    auto replica_it = dots_.find(replica_id);
-                    if (replica_it != dots_.end())
-                    {
-                        auto& counters = replica_it->second;
+                    auto& ldata = replica_it->second;
 
+                    // Find dots that were not visited - those are the ones to be removed
+
+                    dot_vec_type rdotsvalueless(tmp);
+                    std::set_difference(
+                        ldata.other_counters->begin(), ldata.other_counters->end(),
+                        ldata.visited.begin(), ldata.visited.end(),
+                        std::back_inserter(rdotsvalueless)
+                    );
+
+                    if (!rdotsvalueless.empty())
+                    {
                         for (const auto& counter : rdotsvalueless)
                         {
-                            auto counter_it = counters.find(counter);
-                            if (counter_it != counters.end())
+                            auto counter_it = ldata.dots.find(counter);
+                            if (counter_it != ldata.dots.end())
                             {
                                 auto& lkey = counter_it->second;
                                 auto values_it = values_.find(lkey);
@@ -347,31 +334,21 @@ namespace crdt
                                     ctx.register_erase(it);
                                 }
 
-                                counters.erase(allocator, counter_it);
+                                ldata.dots.erase(allocator, counter_it);
                             }
                         }
-
-                        if (counters.empty())
-                        {
-                            dots_.erase(allocator, replica_it);
-                        }
                     }
+
+                    ldata.visited.clear(tmp);
                 }
-
-                rdotsvisited.clear(tmp);
             }
-            rvisited.clear(tmp);
-
+            
             for (const auto& ldot : value_ctx.erased_dots)
             {
-                auto it = dots_.find(ldot.replica_id);
-                if (it != dots_.end())
+                auto it = replica_.find(ldot.replica_id);
+                if (it != replica_.end())
                 {
-                    it->second.erase(allocator, ldot.counter);
-                    if (it->second.empty())
-                    {
-                        dots_.erase(allocator, it);
-                    }
+                    it->second.dots.erase(allocator, ldot.counter);
                 }
             }
         }

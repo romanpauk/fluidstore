@@ -384,12 +384,9 @@ namespace crdt
             crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arenaallocator);
             auto delta = static_cast<Container*>(this)->mutable_delta(deltaallocator);
 
-            auto replica_id = static_cast<Container*>(this)->get_allocator().get_replica().get_id();
-            auto counter = counters_.get(replica_id) + 1;
-            auto dot = dot_type{ replica_id, counter };
-
-            delta.counters_.emplace(delta.get_allocator(), dot);
-            delta.values_.emplace(delta.get_allocator(), delta.get_allocator(), key, nullptr).first->second.dots.emplace(delta.get_allocator(), dot);
+            auto dot = get_next_dot();
+            delta.add_counter_dot(dot);
+            delta.add_value(key, dot);
             merge(delta);
             static_cast<Container*>(this)->commit_delta(delta);
         }
@@ -422,7 +419,7 @@ namespace crdt
         {
             for (const auto& [value, data] : values_)
             {
-                delta.counters_.insert(delta.get_allocator(), data.dots);
+                delta.add_counter_dots(data.dots);
             }
         }
 

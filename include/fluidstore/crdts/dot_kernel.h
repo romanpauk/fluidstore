@@ -14,17 +14,6 @@
 
 namespace crdt
 {
-    template < typename Allocator, typename Dot > struct dot_kernel_value_context
-    {
-        dot_kernel_value_context(Allocator& allocator)
-            : erased_dots(allocator)
-        {}
-         
-        void register_erase(const Dot& dot) { erased_dots.push_back(dot); }
-
-        flat::vector < Dot, Allocator > erased_dots;
-    };
-
     template < typename Key, typename Value, typename Allocator, typename DotContext, typename DotKernel > class dot_kernel_value
     {
     public:
@@ -197,7 +186,7 @@ namespace crdt
             // Persistent data
             dot_counters_base< counter_type, Tag > counters;
             flat::map_base< counter_type, Key > dots;
-
+            
             // Temporary merge data
             flat::set_base< counter_type > visited;
             const flat::set_base< counter_type >* other_counters;
@@ -224,6 +213,26 @@ namespace crdt
             size_t count = 0;
         };
 
+        template < typename Allocator > struct value_context
+        {
+            value_context(Allocator& allocator, flat::map_base< replica_id_type, replica_data >& replica)
+                : allocator_(allocator)
+                , replica_(replica)
+            {}
+
+            void register_erase(const dot_type& dot) 
+            { 
+                auto it = replica_.find(dot.replica_id);
+                if (it != replica_.end())
+                {
+                    it->second.dots.erase(allocator_, dot.counter);
+                }
+            }
+
+            Allocator& allocator_;
+            flat::map_base< replica_id_type, replica_data >& replica_;
+        };
+
     protected:
         dot_kernel() = default;
         dot_kernel(dot_kernel_type&& other) = default;
@@ -246,7 +255,7 @@ namespace crdt
             replica_.clear(allocator);
         }
 
-        // TODO:
+        // TODO: public
     public:
         template < typename DotKernel >
         void merge(const DotKernel& other)
@@ -263,16 +272,12 @@ namespace crdt
             arena_allocator< void > arenaallocator(arena);
             crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > tmp(allocator.get_replica(), arenaallocator);
 
-            typedef flat::vector < counter_type, decltype(tmp) > dot_vec_type;
-
-            // TODO: this should directly clear dots_.
-            dot_kernel_value_context< decltype(tmp), dot_type > value_ctx(tmp);
-
             for (const auto& [replica_id, rdata] : other.replica_)
             {
                 // Merge counters
                 auto& ldata = replica_.emplace(allocator, replica_id, replica_data()).first->second;
                 ldata.counters.merge(allocator, replica_id, rdata.counters);
+
                 ldata.other_counters = &rdata.counters.counters_;
             }
 
@@ -280,8 +285,10 @@ namespace crdt
             for (const auto& [rkey, rvalue] : other.values_)
             {
                 auto lpb = values_.emplace(allocator, allocator, rkey, this);
+
                 auto& lvalue = *lpb.first;
 
+                value_context value_ctx(allocator, replica_);
                 lvalue.merge(allocator, rvalue, value_ctx);
 
                 for (const auto& [replica_id, rdots] : rvalue.dots)
@@ -309,9 +316,8 @@ namespace crdt
                 {
                     auto& ldata = replica_it->second;
 
-                    // Find dots that were not visited - those are the ones to be removed
-
-                    dot_vec_type rdotsvalueless(tmp);
+                    // Find dots that were not visited during processing of values (thus valueless). Those are the ones to be removed.
+                    flat::vector < counter_type, decltype(tmp) > rdotsvalueless(tmp);
                     std::set_difference(
                         ldata.other_counters->begin(), ldata.other_counters->end(),
                         ldata.visited.begin(), ldata.visited.end(),
@@ -340,15 +346,6 @@ namespace crdt
                     }
 
                     ldata.visited.clear(tmp);
-                }
-            }
-            
-            for (const auto& ldot : value_ctx.erased_dots)
-            {
-                auto it = replica_.find(ldot.replica_id);
-                if (it != replica_.end())
-                {
-                    it->second.dots.erase(allocator, ldot.counter);
                 }
             }
         }

@@ -172,11 +172,6 @@ namespace crdt
         template < typename Key, typename Value, typename Allocator, typename Container, typename Tag >
         friend std::ostream& operator << (std::ostream&, const dot_kernel< Key, Value, Allocator, Container, Tag >& kernel);
 
-        // TODO: this is not exactly extensible... :(
-        template < typename Key, typename Allocator, typename Tag, typename Hook, typename Delta > friend class set_base;
-        template < typename Key, typename Value, typename Allocator, typename Tag, typename Hook, typename Delta > friend class map_base;
-        template < typename Key, typename Allocator, typename Tag, typename Hook, typename Delta > friend class value_mv_base;
-
     protected:
         using replica_type = typename allocator_type::replica_type;
         using replica_id_type = typename replica_type::replica_id_type;
@@ -204,7 +199,14 @@ namespace crdt
         // key, value (replica_id, counters)
         values_type values_;
 
+        struct replica_data
+        {
+            dot_counters_base< counter_type, Tag > counters;
+            flat::set_base< counter_type > dots;
+        };
         
+        flat::map_base< replica_id_type, replica_data > replica_;
+
         struct context
         {
             void register_insert(std::pair< typename values_type::iterator, bool >) {}
@@ -464,9 +466,45 @@ namespace crdt
             auto delta = static_cast<Container*>(this)->mutable_delta(deltaallocator);
 
             const auto& dots = it->second.dots;
-            delta.counters_.insert(delta.get_allocator(), dots);
+            delta.add_counter_dots(dots);
             merge(delta, context);
             static_cast< Container* >(this)->commit_delta(delta);
+        }
+
+    public:
+        template < typename Dots > void add_counter_dots(const Dots& dots)
+        {
+            auto allocator = static_cast<Container*>(this)->get_allocator();
+            counters_.insert(allocator, dots);
+        }
+
+        void add_counter_dot(const dot_type& dot)
+        {
+            auto allocator = static_cast<Container*>(this)->get_allocator();
+            counters_.emplace(allocator, dot);
+        }
+
+        // TODO: const
+        dot_type get_next_dot()
+        {
+            auto replica_id = static_cast<Container*>(this)->get_allocator().get_replica().get_id();
+            auto counter = counters_.get(replica_id) + 1;
+            return dot_type{ replica_id, counter };
+        }
+
+        void add_value(const Key& key, const dot_type& dot)
+        {
+            auto allocator = static_cast<Container*>(this)->get_allocator();
+            auto& data = *values_.emplace(allocator, allocator, key, nullptr).first;
+            data.second.dots.emplace(allocator, dot);
+        }
+
+        template < typename ValueT > void add_value(const Key& key, const dot_type& dot, ValueT&& value)
+        {
+            auto allocator = static_cast<Container*>(this)->get_allocator();
+            auto& data = *values_.emplace(allocator, allocator, key, nullptr).first;
+            data.second.dots.emplace(allocator, dot);
+            data.second.value.merge(value);
         }
     };
 

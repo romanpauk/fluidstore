@@ -52,12 +52,9 @@ namespace crdt
 
         template < typename Delta > void insert(Delta& delta, const Key& key)
         {
-            auto replica_id = this->get_allocator().get_replica().get_id();
-            auto counter = this->counters_.get(replica_id) + 1;
-            auto dot = dot_type{ replica_id, counter };
-
-            delta.counters_.emplace(delta.get_allocator(), dot);
-            delta.values_.emplace(delta.get_allocator(), delta.get_allocator(), key, nullptr).first->second.dots.emplace(delta.get_allocator(), dot);
+            auto dot = this->get_next_dot();
+            delta.add_counter_dot(dot);
+            delta.add_value(key, dot);
         }
     };
 

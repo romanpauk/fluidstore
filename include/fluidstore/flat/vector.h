@@ -129,9 +129,17 @@ namespace crdt::flat
         }
 
         vector_base(const vector_base< T, SizeType >&) = delete;
-        vector_base< T >& operator = (const vector_base< T >&) = delete;        
+        vector_base< T >& operator = (const vector_base< T >&) = delete;
+    
+    #if defined(_DEBUG)
+        ~vector_base()
+        {
+            assert(!data_);
+        }
+    #else
         ~vector_base() = default;
-        
+    #endif
+
         template < typename Allocator > void push_back(Allocator& allocator, const T& value)
         {
             emplace(allocator, end(), value);

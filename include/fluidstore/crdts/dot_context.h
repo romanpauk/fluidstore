@@ -110,6 +110,11 @@ namespace crdt
             }
         }
 
+        template < typename Allocator > void clear(Allocator& allocator)
+        {
+            counters_.clear(allocator);
+        }
+
         flat::set_base< counter_type, size_type > counters_;
     };
 
@@ -213,6 +218,10 @@ namespace crdt
 
         template < typename Allocator > void clear(Allocator& allocator)
         {
+            for (auto& [replica_id, counters] : counters_)
+            {
+                counters.clear(allocator);
+            }
             counters_.clear(get_allocator< dot_type >(allocator));
         }
 

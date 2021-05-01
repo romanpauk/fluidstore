@@ -237,6 +237,11 @@ namespace crdt
                 value.second.dots.clear(allocator);
             }
             values_.clear(allocator);
+
+            for (auto& [replica_id, dots]: dots_)
+            {
+                dots.clear(allocator);
+            }
             dots_.clear(allocator);
         }
 
@@ -344,7 +349,14 @@ namespace crdt
                     rdotsvisited.clear(tmp);
                 }
             }
-            
+
+            // TODO: clear needs better pattern, we should detect if clear needs to be recursive.
+            for (auto& [replica_id, dots] : rvisited)
+            {
+                dots.clear(tmp);
+            }
+            rvisited.clear(tmp);
+
             for (const auto& ldot : value_ctx.erased_dots)
             {
                 auto it = dots_.find(ldot.replica_id);

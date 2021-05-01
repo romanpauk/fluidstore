@@ -87,4 +87,20 @@ namespace crdt::flat
             }
         }
     }
+
+    template < typename Allocator, typename T, typename SizeType > void copy_uninitialized(Allocator& allocator, T* destination, T* source, SizeType count)
+    {
+        if constexpr (std::is_trivially_copyable_v< T > || std::is_trivially_move_constructible_v< T >)
+        {
+            memcpy(destination, source, count * sizeof(T));
+        }
+        else if constexpr (std::is_copy_constructible_v< T >)
+        {
+            std::uninitialized_copy_n(source, source + count, destination);
+        }
+        else
+        {
+            static_assert(false);
+        }
+    }
 }

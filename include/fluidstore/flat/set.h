@@ -38,22 +38,23 @@ namespace crdt::flat
             return { data_.emplace(allocator, data_.end(), std::forward< Value >(value)), true };
         }
 
-        template < typename Allocator > iterator insert(Allocator& allocator, iterator hint, T&& value)
+        template < typename Allocator, typename SizeTypeT > void insert(Allocator& allocator, const set_base< T, SizeTypeT >& data)
         {
-            return insert_impl(allocator, hint, std::move(value));
-        }
-
-        template < typename Allocator > iterator insert(Allocator& allocator, iterator hint, const T& value)
-        {
-            return insert_impl(allocator, hint, value);
-        }
-
-        template < typename It, typename Allocator > void insert(Allocator& allocator, It begin, It end)
-        {
-            data_.reserve(allocator, data_.size() + std::distance(begin, end));
-            for (auto it = begin; it != end; ++it)
+            if (empty())
             {
-                emplace(allocator, *it);
+                data_.assign(allocator, data.begin(), data.end());
+            }
+            else
+            {
+                data_.reserve(allocator, data_.size() + data.size());
+                auto it = data_.begin();
+                for (auto& value: data)
+                {
+                    // it = lower_bound(it, value);
+                    // it = emplace(allocator, it, value);
+
+                    emplace(allocator, value);
+                }
             }
         }
 
@@ -87,14 +88,6 @@ namespace crdt::flat
         iterator upper_bound(const T& value)
         {
             return std::upper_bound(data_.begin(), data_.end(), value);
-
-            for (auto it = data_.begin(); it != data_.end(); ++it)
-            {
-                if (*it > value)
-                    return it;
-            }
-
-            return data_.end();
         }
 
         iterator upper_bound(const T& value) const
@@ -109,7 +102,7 @@ namespace crdt::flat
 
         iterator lower_bound(const T& value) const
         {
-            return const_cast<set_base< T >&>(*this).upper_bound(value);
+            return const_cast<set_base< T >&>(*this).lower_bound(value);
         }
 
         auto begin() { return data_.begin(); }
@@ -119,10 +112,18 @@ namespace crdt::flat
 
         auto empty() const { return data_.empty(); }
         auto size() const { return data_.size(); }
+        auto back() const { return data_.back(); }
+
+        template < typename Allocator > void reserve(Allocator& allocator, size_type count) { data_.reserve(allocator, count); }
 
         template < typename Allocator > void clear(Allocator& allocator)
         {
             data_.clear(allocator);
+        }
+
+        template < typename Ty > void update(iterator it, Ty&& value)
+        {
+            data_.update(it, std::forward< Ty >(value));
         }
 
     // protected:
@@ -171,6 +172,7 @@ namespace crdt::flat
         using typename set_base_type::iterator;
         using typename set_base_type::const_iterator;
         using typename set_base_type::value_type;
+        using size_type = SizeType;
 
         set(Allocator& allocator)
             : allocator_(allocator)
@@ -211,6 +213,11 @@ namespace crdt::flat
         void clear() 
         { 
             return set_base_type::clear(allocator_); 
+        }
+
+        void reserve(size_type count)
+        {
+            set_base_type::reserve(allocator_, count);
         }
 
         using set_base_type::begin;

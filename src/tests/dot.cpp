@@ -11,39 +11,39 @@ BOOST_AUTO_TEST_CASE(dot_context)
     std::allocator< dot > allocator;
     crdt::dot_context< dot, crdt::tag_delta > counters;
 
-    counters.emplace(allocator, 2u, 1u);
-    counters.emplace(allocator, 2u, 3u);
+    counters.emplace(allocator, dot{ 2u, 1u });
+    counters.emplace(allocator, dot{ 2u, 3u });
     counters.collapse(allocator);
-    BOOST_TEST((counters.find(dot{ 2, 1 }) != counters.end()));
-    BOOST_TEST((counters.find(dot{ 2, 3 }) != counters.end()));
+    BOOST_TEST(counters.has(dot{ 2, 1 }));
+    BOOST_TEST(counters.has(dot{ 2, 3 }));
     BOOST_TEST(counters.size() == 2);
-    counters.emplace(allocator, 2u, 2u);
+    counters.emplace(allocator, dot{ 2u, 2u });
     counters.collapse(allocator);
-    BOOST_TEST((counters.find(dot{ 2, 3 }) != counters.end()));
+    BOOST_TEST(counters.has(dot{ 2, 3 }));
     BOOST_TEST(counters.size() == 1);
 
-    counters.emplace(allocator, 1u, 2u);
+    counters.emplace(allocator, dot{ 1u, 2u });
     counters.collapse(allocator);
     BOOST_TEST(counters.size() == 2);
-    counters.emplace(allocator, 1u, 1u);
+    counters.emplace(allocator, dot{ 1u, 1u });
     counters.collapse(allocator);
     BOOST_TEST(counters.size() == 2);
-    BOOST_TEST((counters.find(dot{ 1, 1 }) == counters.end()));
+    BOOST_TEST(!counters.has(dot{ 1, 1 }));
 
     // TODO: this will collapse without waiting for 1.
 
-    counters.emplace(allocator, 3u, 3u);
+    counters.emplace(allocator, dot{ 3u, 3u });
     {
         crdt::dot_context< crdt::dot< uint64_t, uint64_t >, crdt::tag_delta > counters2;
-        counters2.emplace(allocator, 3u, 2u);
-        counters2.emplace(allocator, 3u, 4u);
+        counters2.emplace(allocator, dot{ 3u, 2u });
+        counters2.emplace(allocator, dot{ 3u, 4u });
         counters.merge(allocator, counters2);
         counters.collapse(allocator);
 
         counters2.clear(allocator);
     }
     BOOST_TEST(counters.size() == 3);
-    BOOST_TEST((counters.find(dot{ 3, 4 }) != counters.end()));
+    BOOST_TEST(counters.has(dot{ 3, 4 }));
 
     counters.clear(allocator);
 }

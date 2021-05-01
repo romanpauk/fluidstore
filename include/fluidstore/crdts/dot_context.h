@@ -1,12 +1,134 @@
 #pragma once
 
 #include <fluidstore/crdts/dot.h>
-#include <fluidstore/flat/set.h>
+#include <fluidstore/flat/map.h>
 
 namespace crdt
 {
     struct tag_delta {};
     struct tag_state {};
+
+    template < typename CounterType, typename Tag, typename SizeType = uint32_t > class dot_counters_base
+    {
+        template < typename CounterType, typename Tag, typename SizeType > friend class dot_counters_base;
+
+        using counter_type = CounterType;
+        using size_type = SizeType;
+
+        struct default_context
+        {
+            template < typename T > void register_erase(const T&) {}
+        };
+
+    public:
+        dot_counters_base() = default;
+        dot_counters_base(dot_counters_base&& other) = default;
+        ~dot_counters_base() = default;
+
+        counter_type get() const
+        {
+            return !counters_.empty() ? counters_.back() : counter_type();
+        }
+
+        bool has(counter_type counter) const
+        {
+            return counters_.find(counter) != counters_.end();
+        }
+        
+        bool empty() const
+        {
+            return counters_.empty();
+        }
+
+        template < typename Allocator > void erase(Allocator& allocator, counter_type counter)
+        {
+            counters_.erase(allocator, counter);
+        }
+
+        template < typename Allocator > void emplace(Allocator& allocator, counter_type counter)
+        {
+            counters_.emplace(allocator, counter);
+        }
+
+        template < typename Allocator, typename Counters > void insert(Allocator& allocator, const Counters& counters)
+        {
+            counters_.insert(allocator, counters.counters_);
+        }
+
+        size_type size() const
+        {
+            return counters_.size();
+        }
+
+        template < typename Allocator, typename ReplicaId, typename Context > void collapse(Allocator& allocator, const ReplicaId& replica_id, Context& context)
+        {
+            auto next = counters_.begin();
+            auto prev = next++;
+            for (; next != counters_.end();)
+            {
+                if (*next == *prev + 1)
+                {
+                    // TODO: we should find a largest block to erase, not erase single element and continue
+                    context.register_erase(dot< ReplicaId, counter_type >{ replica_id, *prev });
+                    next = counters_.erase(allocator, prev);
+                    prev = next++;
+                }
+                else
+                {
+                    break;
+                }
+            }
+        }
+
+        template < typename Allocator, typename ReplicaId, typename RCounters, typename Context >
+        void update(Allocator& allocator, const ReplicaId& replica_id, RCounters& rcounters, Context& context)
+        {
+            if (counters_.size() == 0)
+            {
+                // Trivial append
+                counters_.insert(allocator, rcounters.counters_);
+            }
+            else if (counters_.size() == 1 && rcounters.size() == 1)
+            {
+                // Maybe in-place replace
+                if (*counters_.begin() == *rcounters.counters_.begin() + 1)
+                {
+                    counters_.update(counters_.begin(), *counters_.begin() + 1);
+
+                    // No need to collapse here
+                    return;
+                }
+                else
+                {
+                    counters_.insert(allocator, rcounters.counters_);
+                }
+            }
+            else
+            {
+                // TODO: two sets merge
+                counters_.insert(allocator, rcounters.counters_);
+            }
+
+            if (std::is_same_v< Tag, tag_state >)
+            {
+                collapse(allocator, replica_id, context);
+            }
+        }
+
+        template < typename Allocator, typename ReplicaId, typename Counters >
+        void merge(Allocator& allocator, const ReplicaId& replica_id, Counters& counters)
+        {
+            default_context context;
+            update(allocator, replica_id, counters, context);
+        }
+
+        template < typename Allocator > void clear(Allocator& allocator)
+        {
+            counters_.clear(allocator);
+        }
+
+        flat::set_base< counter_type, size_type > counters_;
+    };
 
     template < typename Dot, typename Tag, typename SizeType = uint32_t > class dot_context
     {
@@ -14,9 +136,9 @@ namespace crdt
 
         using dot_type = Dot;
         using replica_id_type = typename dot_type::replica_id_type;
-        using counter_type = typename dot_type::replica_id_type;
+        using counter_type = typename dot_type::counter_type;
 
-        using size_type = typename flat::set_base< dot_type, SizeType >::size_type;
+        using size_type = SizeType;
 
         struct default_context
         {
@@ -33,31 +155,41 @@ namespace crdt
         dot_context(dot_context&& other) = default;
         ~dot_context() = default;
 
-        template < typename Allocator, typename... Args > void emplace(Allocator& allocator, Args&&... args)
+        template < typename Allocator, typename... Args > void emplace(Allocator& allocator, const dot_type& dot)
         {
-            counters_.emplace(allocator, dot_type{ std::forward< Args >(args)... });
+            auto pairb = counters_.emplace(allocator, dot.replica_id, dot_counters_base< counter_type, Tag, size_type >());
+            pairb.first->second.emplace(allocator, dot.counter);
         }
 
-        template < typename Allocator, typename It > void insert(Allocator& allocator, It begin, It end)
+        template < typename Allocator, typename TagT, typename SizeTypeT > void insert(Allocator& allocator, const dot_context< Dot, TagT, SizeTypeT >& dots)
         {
-            counters_.insert(allocator, begin, end);
+            for (auto& [replica_id, counters] : dots)
+            {
+                auto it = counters_.emplace(allocator, replica_id, dot_counters_base< counter_type, Tag, size_type >());
+                it.first->second.insert(allocator, counters);
+            }
         }
 
         counter_type get(const replica_id_type& replica_id) const
         {
-            auto counter = counter_type();
-            auto it = counters_.upper_bound(dot_type{ replica_id, 0 });
-            while (it != counters_.end() && it->replica_id == replica_id)
+            auto it = counters_.find(replica_id);
+            if (it != counters_.end())
             {
-                counter = it++->counter;
+                return it->second.get();
             }
 
-            return counter;
+            return counter_type();
         }
 
-        auto find(const dot_type& dot) const
+        bool has(const dot_type& dot) const
         {
-            return counters_.find(dot);
+            auto it = counters_.find(dot.replica_id);
+            if (it != counters_.end())
+            {
+                return it->second.has(dot.counter);
+            }
+
+            return false;
         }
 
         template < typename Allocator, typename DotContextT > void merge(Allocator& allocator, const DotContextT& other)
@@ -68,14 +200,19 @@ namespace crdt
 
         template < typename Allocator, typename DotContextT, typename Context > void merge(Allocator& allocator, const DotContextT& other, Context& context)
         {
-            counters_.insert(get_allocator< dot_type >(allocator), other.counters_.begin(), other.counters_.end());
-            if (std::is_same_v< Tag, tag_state >)
+            for (auto& [replica_id, rcounters] : other.counters_)
             {
-                collapse(allocator, context);
+                auto& counters = counters_.emplace(allocator, replica_id, dot_counters_base< counter_type, Tag, size_type >()).first->second;
+                counters.update(allocator, replica_id, rcounters, context);
             }
         }
 
-        const auto& get() const { return counters_; }
+        auto& get_dots(const replica_id_type& replica_id) const 
+        {
+            auto it = counters_.find(replica_id);
+            assert(it != counters_.end());
+            return it->second.counters_;
+        }
 
         template < typename Allocator > void collapse(Allocator& allocator)
         {
@@ -85,51 +222,56 @@ namespace crdt
 
         template < typename Allocator, typename Context > void collapse(Allocator& allocator, Context& context)
         {
-            if (counters_.size() > 1)
+            for (auto& [replica_id, counters] : counters_)
             {
-                auto next = counters_.begin();
-                auto prev = next++;
-                for (; next != counters_.end();)
-                {
-                    if (next->replica_id == prev->replica_id)
-                    {
-                        if (next->counter == prev->counter + 1)
-                        {
-                            context.register_erase(*prev);
-                            next = counters_.erase(allocator, prev);
-                            prev = next++;
-                        }
-                        else
-                        {
-                            next = counters_.upper_bound({ next->replica_id, std::numeric_limits< counter_type >::max() });
-                            if (next != counters_.end())
-                            {
-                                prev = next++;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        prev = next;
-                        ++next;
-                    }
-                }
+                counters.collapse(allocator, replica_id, context);
             }
         }
 
         template < typename Allocator > void clear(Allocator& allocator)
         {
+            for (auto& [replica_id, counters] : counters_)
+            {
+                counters.clear(allocator);
+            }
             counters_.clear(get_allocator< dot_type >(allocator));
         }
 
-        template < typename Allocator > void erase(Allocator& allocator, const dot_type& dot) { counters_.erase(allocator, dot); }
+        template < typename Allocator > void erase(Allocator& allocator, const dot_type& dot) 
+        { 
+            auto it = counters_.find(dot.replica_id);
+            if (it != counters_.end())
+            {
+                it->second.erase(allocator, dot.counter);
+                if (it->second.empty())
+                {
+                    counters_.erase(allocator, it);
+                }
+            } 
+        }
+
+        size_type size() const
+        {
+            // TODO: this seems to be used only for testing, as well as find().
+            size_type count = 0;
+            for (auto& [replica_id, counters]: counters_)
+            {
+                count += counters.size();
+            }
+
+            return count;
+        }
 
         auto begin() const { return counters_.begin(); }
         auto end() const { return counters_.end(); }
-        auto size() const { return counters_.size(); }
         auto empty() const { return counters_.empty(); }
-       
+
     private:
-        flat::set_base< dot_type, size_type > counters_;
+        // TODO: constness
+        mutable flat::map_base< 
+            replica_id_type, dot_counters_base< counter_type, Tag, size_type >, 
+            flat::map_node< replica_id_type, dot_counters_base< counter_type, Tag, size_type > >,
+            size_type 
+        > counters_;
     };
 }

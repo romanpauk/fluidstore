@@ -20,6 +20,11 @@ namespace crdt::flat
             alignas(T) unsigned char buffer[1];
 
             T* get(size_type n = 0) { return (T*)buffer + n; }
+
+            static size_t get_memory_size(size_type capacity)
+            {
+                return sizeof(vector_data) + sizeof(T) * capacity - sizeof(vector_data::buffer);
+            }
         };
 
     public:
@@ -129,9 +134,17 @@ namespace crdt::flat
         }
 
         vector_base(const vector_base< T, SizeType >&) = delete;
-        vector_base< T >& operator = (const vector_base< T >&) = delete;        
+        vector_base< T >& operator = (const vector_base< T >&) = delete;
+    
+    #if defined(_DEBUG)
+        ~vector_base()
+        {
+            assert(!data_);
+        }
+    #else
         ~vector_base() = default;
-        
+    #endif
+
         template < typename Allocator > void push_back(Allocator& allocator, const T& value)
         {
             emplace(allocator, end(), value);
@@ -201,7 +214,7 @@ namespace crdt::flat
             {
                 auto alloc = std::allocator_traits< Allocator >::rebind_alloc< unsigned char >(allocator);
                 destroy(alloc, data_->get(), data_->size);
-                alloc.deallocate((unsigned char*)data_, get_vector_data_size(data_->capacity));
+                alloc.deallocate((unsigned char*)data_, vector_data::get_memory_size(data_->capacity));
                 data_ = nullptr;
             }
         }
@@ -228,6 +241,17 @@ namespace crdt::flat
         iterator end() { return iterator(this, size()); }
         iterator end() const { return iterator(const_cast<vector_base< T >*>(this), size()); }
 
+        T& back()
+        {
+            assert(!empty());
+            return *data_->get(size() - 1);
+        }
+
+        const T& back() const
+        {
+            return const_cast<vector_base< T, SizeType >& >(*this).back();
+        }
+
         template < typename Allocator > void reserve(Allocator& allocator, size_type nsize)
         {
             size_type ocapacity = capacity();
@@ -246,7 +270,7 @@ namespace crdt::flat
                     ncapacity *= 3 / 2;
                 }
 
-                vector_data* data = (vector_data*)alloc.allocate(get_vector_data_size(ncapacity));
+                vector_data* data = (vector_data*)alloc.allocate(vector_data::get_memory_size(ncapacity));
                 data->capacity = ncapacity;
                 data->size = 0;
 
@@ -254,19 +278,29 @@ namespace crdt::flat
                 {
                     move_uninitialized(alloc, data->get(), data_->get(), data_->size);
                     data->size = data_->size;
-                    alloc.deallocate((unsigned char*)data_, get_vector_data_size(ocapacity)); // TODO: deallocate at the end
+                    alloc.deallocate((unsigned char*)data_, vector_data::get_memory_size(ocapacity)); // TODO: deallocate at the end
                 }
 
                 data_ = data;
             }
         }
 
-    private:
-        size_t get_vector_data_size(size_type capacity)
+        template < typename Allocator > void assign(Allocator& allocator, iterator begin, iterator end)
         {
-            return sizeof(vector_data) + sizeof(T) * capacity - sizeof(vector_data::buffer);
+            clear(allocator);
+            auto size = std::distance(begin, end);
+            reserve(allocator, size);
+            copy_uninitialized(allocator, data_->get(), &*begin, size);
+            data_->size = size;
         }
 
+        template < typename Ty > void update(iterator it, Ty&& value)
+        {
+            assert(!empty());
+            *data_->get(it.index_) = std::forward< Ty >(value);
+        }
+
+    private:
         vector_data* data_;
     };
 

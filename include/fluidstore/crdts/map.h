@@ -100,12 +100,9 @@ namespace crdt
     private:
         template < typename Delta, typename ValueT > void insert(Delta& delta, const Key& key, const ValueT& value)
         {
-            auto replica_id = this->get_allocator().get_replica().get_id();
-            auto counter = this->counters_.get(replica_id) + 1;
-            delta.counters_.emplace(delta.get_allocator(), replica_id, counter);
-            auto& data = *delta.values_.emplace(delta.get_allocator(), delta.get_allocator(), key, nullptr).first;
-            data.second.dots.emplace(delta.get_allocator(), replica_id, counter);
-            data.second.value.merge(value);
+            auto dot = this->get_next_dot();
+            delta.add_counter_dot(dot);
+            delta.add_value(key, dot, value);
         }
     };
 

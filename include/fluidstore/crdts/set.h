@@ -41,12 +41,13 @@ namespace crdt
             arena< 8192 > arena;
             arena_allocator< void > arenaallocator(arena);
             crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arenaallocator);
+            
             auto delta = mutable_delta(deltaallocator);
-
             insert(delta, key);
             insert_context context;
             merge(delta, context);
             commit_delta(delta);
+
             return { context.result.first, context.result.second };
         }
 

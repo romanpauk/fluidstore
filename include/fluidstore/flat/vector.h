@@ -162,7 +162,11 @@ namespace crdt::flat
             }
 
             reserve(allocator, size() + 1); // TODO: this is a bit stupid, we copy first everything and than move it again
-            move(alloc, data_->get(index + 1), data_->get(index), size() - index);
+            if (size() - index > 0)
+            {
+                move(alloc, data_->get(index + 1), data_->get(index), size() - index);
+            }
+
             std::allocator_traits< decltype(alloc) >::construct(alloc, data_->get(index), std::forward< Args >(args)...);
             ++data_->size;
 

@@ -91,11 +91,16 @@ namespace crdt
             else if (counters_.size() == 1 && rcounters.size() == 1)
             {
                 // Maybe in-place replace
-                if (*counters_.begin() == *rcounters.counters_.begin() + 1)
+                if (*counters_.begin() + 1 == *rcounters.counters_.begin())
                 {
+                    auto counter = *counters_.begin();
+
+                    // TODO: test missing
                     counters_.update(counters_.begin(), *counters_.begin() + 1);
 
-                    // No need to collapse here
+                    // No need to collapse here, but have to notify upper layer about removal
+                    context.register_erase(dot< ReplicaId, counter_type >{ replica_id, counter });
+
                     return;
                 }
                 else
@@ -234,7 +239,7 @@ namespace crdt
             {
                 counters.clear(allocator);
             }
-            counters_.clear(get_allocator< dot_type >(allocator));
+            counters_.clear(allocator);
         }
 
         template < typename Allocator > void erase(Allocator& allocator, const dot_type& dot) 

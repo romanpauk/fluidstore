@@ -29,10 +29,6 @@ BOOST_AUTO_TEST_CASE(btree_insert_loop)
         // Check that the tree was not damaged by insertion
         for (int j = 0; j < i; ++j)
         {
-            if (!c.find(j))
-            {
-                int a(1);
-            }
             BOOST_TEST(c.find(j) == true);
         }
     }

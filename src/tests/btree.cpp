@@ -7,22 +7,23 @@ BOOST_AUTO_TEST_CASE(btree_insert)
     btree::set< int > c;
     BOOST_TEST(c.size() == 0);
     BOOST_TEST(c.empty());
-    BOOST_TEST(c.find(0) == false);
+    BOOST_TEST((c.find(0) == c.end()));
 
     {
         auto pairb = c.insert(2);
         BOOST_TEST(pairb.second == true);
         BOOST_TEST(*pairb.first == 2);
+        BOOST_TEST((c.find(2) == pairb.first));
+        BOOST_TEST((c.find(2) != c.end()));
 
         BOOST_TEST(c.size() == 1);
-        BOOST_TEST(c.find(2) == true);
-
         BOOST_TEST(c.insert(2).second == false);
+        BOOST_TEST(c.size() == 1);
     }
 
     c.insert(1);
     BOOST_TEST(c.size() == 2);
-    BOOST_TEST(c.find(1) == true);
+    BOOST_TEST((c.find(1) != c.end()));
 }
 
 BOOST_AUTO_TEST_CASE(btree_range_for)
@@ -48,12 +49,12 @@ BOOST_AUTO_TEST_CASE(btree_insert_loop)
     for (int i = 0; i < 1000; ++i)
     {
         c.insert(i);
-        BOOST_TEST(c.find(i) == true);
+        BOOST_TEST(*c.find(i) == i);
 
         // Check that the tree was not damaged by insertion
         for (int j = 0; j < i; ++j)
         {
-            BOOST_TEST(c.find(j) == true);
+            BOOST_TEST(*c.find(j) == j);
         }
     }
 }

@@ -204,9 +204,9 @@ namespace btree
             }
         }
 
-        bool find(const Key& key)
+        iterator find(const Key& key)
         {
-            return root_ ? find(root_, key) : false;
+            return root_ ? find(root_, key) : end();
         }
 
         template < typename KeyT > std::pair< iterator, bool > insert(KeyT&& key)
@@ -245,19 +245,14 @@ namespace btree
         iterator end() { return iterator(nullptr, 0); }
 
     private:
-
-        bool find(node* n, const Key& key)
+        iterator find(node* n, const Key& key)
         {
             fixed_vector< Key, node_descriptor > nkeys(n);
 
             auto index = find_index(nkeys, key);
             
             auto i = index - nkeys.begin();
-            if (i < nkeys.size() && key == nkeys[i])
-            {
-                return true;
-            }
-
+            
             // TODO: recursion
             if (n->is_internal())
             {
@@ -266,7 +261,14 @@ namespace btree
             }
             else
             {
-                return false;
+                if (i < nkeys.size() && key == nkeys[i])
+                {
+                    return iterator(reinterpret_cast< value_node* >(n), i);
+                }
+                else
+                {
+                    return end();
+                }
             }
         }
 

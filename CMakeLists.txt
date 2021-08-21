@@ -13,6 +13,7 @@ target_include_directories(fluidstore INTERFACE include)
 
 target_sources(fluidstore INTERFACE
     include/fluidstore/allocators/arena_allocator.h
+    include/fluidstore/btree/btree.h
     include/fluidstore/crdts/allocator.h
     include/fluidstore/crdts/allocator_ptr.h
     include/fluidstore/crdts/default_hook.h
@@ -39,6 +40,7 @@ target_sources(fluidstore INTERFACE
 find_package(Boost)
 if(Boost_FOUND)
     add_executable(fluidstoretest 
+        src/tests/btree.cpp
         src/tests/dot.cpp
         src/tests/flat.cpp
         src/tests/map.cpp

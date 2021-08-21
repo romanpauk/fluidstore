@@ -158,16 +158,13 @@ namespace btree
             }
             else
             {
-                // TODO: return split key in a nicer way...
-                Key splitkey = *(keys.end() - N);
-                auto n = split_node(root_);
+                auto [n, splitkey] = split_node(root_);
              
                 auto root = allocate_node< internal_node >();
                 root->children[0] = root_;
                 root->children[1] = n;
 
                 fixed_vector< Key, node_descriptor > rkeys(root);
-                fixed_vector< Key, node_descriptor > nkeys(n);
                 rkeys.push_back(splitkey);
 
                 root_ = root;
@@ -226,9 +223,7 @@ namespace btree
                 fixed_vector< Key, node_descriptor > ckeys(cnode);
                 if (ckeys.size() == ckeys.capacity())
                 {
-                    // TODO: return splitkey in a better way.
-                    Key splitkey = *(ckeys.end() - N);
-                    node* dnode = split_node(cnode);
+                    auto [dnode, splitkey] = split_node(cnode);
 
                     // TODO: better move
                     for (size_t i = nkeys.size(); i > p; --i)
@@ -285,7 +280,7 @@ namespace btree
             return reinterpret_cast< Node* >(n); 
         }
         
-        node* split_node(node* lnode)
+        std::tuple< node*, Key > split_node(node* lnode)
         {
             node* rnode = 0;
             if (lnode->is_internal())
@@ -308,6 +303,7 @@ namespace btree
             }
 
             // Remove splitkey, too (begin - 1). Each node should end up with N-1 keys.
+            Key splitkey = *(begin - 1);
             lkeys.erase_to_end(begin - 1);
 
             assert(lkeys.size() == N - 1);
@@ -325,8 +321,7 @@ namespace btree
                 }
             }
 
-            // TODO: return split key, too.
-            return rnode;
+            return { rnode, splitkey };
         }
 
         void free_node(node* n)

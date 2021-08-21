@@ -139,6 +139,59 @@ namespace btree
         };
 
     public:
+        struct iterator
+        {
+            iterator(value_node* n, size_t i)
+                : node_(n)
+                , i_(i)
+            {}
+
+            bool operator == (const iterator& rhs) const
+            {
+                return node_ == rhs.node_ && i_ == rhs.i_;
+            }
+
+            bool operator != (const iterator& rhs) const
+            {
+                return !(*this == rhs);
+            }
+
+            const Key& operator*() const
+            {
+                fixed_vector< Key, node_descriptor > keys(node_);
+                return keys[i_];
+            }
+
+            const Key* operator -> () const
+            {
+                fixed_vector< Key, node_descriptor > keys(node_);
+                return keys_[i_];
+            }
+
+            iterator& operator ++ ()
+            {
+                fixed_vector< Key, node_descriptor > keys(node_);
+                if (++i_ == keys.size())
+                {
+                    node_ = node_->right;
+                    i_ = 0;
+                }
+
+                return *this;
+            }
+
+            iterator operator++(int)
+            {
+                iterator it = *this;
+                ++* this;
+                return it;
+            }
+
+        private:
+            value_node* node_;
+            size_t i_;
+        };
+
         set()
             : root_()
             , size_()
@@ -188,6 +241,9 @@ namespace btree
 
         size_t size() const { return size_; }
         bool empty() const { return size_ == 0; }
+
+        iterator begin() { return iterator(empty() ? nullptr : begin_node(), 0); }
+        iterator end() { return iterator(nullptr, 0); }
 
     private:
 
@@ -317,9 +373,17 @@ namespace btree
 
             // Remove splitkey, too (begin - 1). Each node should end up with N-1 keys.
             Key splitkey = *(begin - 1);
-            lkeys.erase_to_end(begin - 1);
+            if (lnode->is_internal())
+            {
+                lkeys.erase_to_end(begin - 1);
+                assert(lkeys.size() == N - 1);
+            }
+            else
+            {
+                lkeys.erase_to_end(begin);
+                assert(lkeys.size() == N);
+            }
 
-            assert(lkeys.size() == N - 1);
             assert(rkeys.size() == N - 1);
 
             if (lnode->is_internal())
@@ -358,6 +422,19 @@ namespace btree
             }
 
             deallocate_node(n);
+        }
+
+        value_node* begin_node() const
+        {
+            assert(root_);
+
+            node* n = root_;
+            while (n->is_internal())
+            {
+                n = reinterpret_cast<internal_node*>(n)->children[0];
+            }
+
+            return reinterpret_cast<value_node*>(n);
         }
 
         node* root_;

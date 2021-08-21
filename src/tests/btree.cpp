@@ -18,6 +18,21 @@ BOOST_AUTO_TEST_CASE(btree_insert)
     BOOST_TEST(c.find(1) == true);
 }
 
+BOOST_AUTO_TEST_CASE(btree_range_for)
+{
+    btree::set< int > c;
+    for (int i = 0; i < 30; ++i)
+    {
+        c.insert(i);
+    }
+
+    int i = 0;
+    for (auto& value : c)
+    {
+        BOOST_TEST(value == i++);
+    }
+}
+
 BOOST_AUTO_TEST_CASE(btree_insert_loop)
 {
     btree::set< int > c;

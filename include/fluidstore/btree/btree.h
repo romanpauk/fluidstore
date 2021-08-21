@@ -81,7 +81,6 @@ namespace btree
                 : meta()
             {}
 
-                // 64 bytes
             uint8_t keys[(2 * N - 1) * sizeof(Key)];
             uint8_t meta;
                 
@@ -210,7 +209,7 @@ namespace btree
             return root_ ? find(root_, key) : false;
         }
 
-        template < typename KeyT > void insert(KeyT&& key)
+        template < typename KeyT > std::pair< iterator, bool > insert(KeyT&& key)
         {
             if (!root_)
             {
@@ -220,7 +219,7 @@ namespace btree
             fixed_vector< Key, node_descriptor > keys(root_);
             if (keys.size() < keys.capacity())
             {
-                insert(root_, std::forward< KeyT >(key));
+                return insert(root_, std::forward< KeyT >(key));
             }
             else
             {
@@ -235,7 +234,7 @@ namespace btree
 
                 root_ = root;
 
-                insert(root->children[compare_(splitkey, key)], std::forward< KeyT >(key));
+                return insert(root->children[compare_(splitkey, key)], std::forward< KeyT >(key));
             }
         }
 
@@ -271,7 +270,7 @@ namespace btree
             }
         }
 
-        template < typename KeyT > void insert(node* n, KeyT&& key)
+        template < typename KeyT > std::pair< iterator, bool > insert(node* n, KeyT&& key)
         {
             fixed_vector< Key, node_descriptor > nkeys(n);
             assert(nkeys.size() < nkeys.capacity());
@@ -280,8 +279,17 @@ namespace btree
 
             if (!n->is_internal())
             {
-                nkeys.insert(index, std::forward< KeyT >(key));
-                ++size_;
+                if (index < nkeys.end() && *index == key)
+                {
+                    return { iterator(reinterpret_cast<value_node*>(n), index - nkeys.begin()), false };
+                }
+                else
+                {
+                    nkeys.insert(index, std::forward< KeyT >(key));
+                    ++size_;
+
+                    return { iterator(reinterpret_cast<value_node*>(n), index - nkeys.begin()), true };
+                }
             }
             else
             {
@@ -303,11 +311,11 @@ namespace btree
 
                     nkeys.insert(index, splitkey);
 
-                    insert(in->children[p + compare_(splitkey, key)], std::forward< KeyT >(key));
+                    return insert(in->children[p + compare_(splitkey, key)], std::forward< KeyT >(key));
                 }
                 else
                 {
-                    insert(cnode, std::forward< KeyT >(key));
+                    return insert(cnode, std::forward< KeyT >(key));
                 }
             }
         }
@@ -371,15 +379,16 @@ namespace btree
                 rkeys.push_back(*it);
             }
 
-            // Remove splitkey, too (begin - 1). Each node should end up with N-1 keys.
             Key splitkey = *(begin - 1);
             if (lnode->is_internal())
             {
+                // Remove splitkey, too (begin - 1). Each node should end up with N-1 keys as split key will be propagated to parent node.
                 lkeys.erase_to_end(begin - 1);
                 assert(lkeys.size() == N - 1);
             }
             else
             {
+                // Keep splitkey.
                 lkeys.erase_to_end(begin);
                 assert(lkeys.size() == N);
             }

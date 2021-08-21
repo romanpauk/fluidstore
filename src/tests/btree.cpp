@@ -9,9 +9,16 @@ BOOST_AUTO_TEST_CASE(btree_insert)
     BOOST_TEST(c.empty());
     BOOST_TEST(c.find(0) == false);
 
-    c.insert(2);
-    BOOST_TEST(c.size() == 1);
-    BOOST_TEST(c.find(2) == true);
+    {
+        auto pairb = c.insert(2);
+        BOOST_TEST(pairb.second == true);
+        BOOST_TEST(*pairb.first == 2);
+
+        BOOST_TEST(c.size() == 1);
+        BOOST_TEST(c.find(2) == true);
+
+        BOOST_TEST(c.insert(2).second == false);
+    }
 
     c.insert(1);
     BOOST_TEST(c.size() == 2);
@@ -31,6 +38,8 @@ BOOST_AUTO_TEST_CASE(btree_range_for)
     {
         BOOST_TEST(value == i++);
     }
+
+    BOOST_TEST(i == c.size());
 }
 
 BOOST_AUTO_TEST_CASE(btree_insert_loop)

@@ -125,6 +125,18 @@ namespace btree
             , size_()
         {}
 
+        bool find(const Key& key)
+        {
+            if (root_)
+            {
+                return find(root_, key);
+            }
+            else
+            {
+                return false;
+            }
+        }
+
         template < typename KeyT > void insert(KeyT&& key)
         {
             if (!root_)
@@ -152,7 +164,7 @@ namespace btree
 
                 root_ = root;
 
-                insert(root->children[*rkeys.begin() > key], std::forward< KeyT >(key));
+                insert(root->children[compare_(*rkeys.begin(), key)], std::forward< KeyT >(key));
             }
         }
 
@@ -160,6 +172,38 @@ namespace btree
         bool empty() const { return size_ == 0; }
 
     private:
+
+        bool find(node* n, const Key& key)
+        {
+            fixed_vector< Key, node_descriptor > nkeys(n);
+
+            auto index = nkeys.begin();
+            for (; index != nkeys.end(); ++index)
+            {
+                if (!compare_(*index, key))
+                {
+                    break;
+                }
+            }
+
+            auto i = index - nkeys.begin();
+            if (i < nkeys.size() && key == nkeys[i])
+            {
+                return true;
+            }
+
+            // TODO: recursion
+            if (n->is_internal())
+            {
+                auto in = reinterpret_cast<internal_node*>(n);
+                return find(in->children[i], key);
+            }
+            else
+            {
+                return false;
+            }
+        }
+
         template < typename KeyT > void insert(node* n, KeyT&& key)
         {
             fixed_vector< Key, node_descriptor > nkeys(n);
@@ -168,7 +212,7 @@ namespace btree
             auto index = nkeys.begin();
             for (; index != nkeys.end(); ++index)
             {
-                if (*index > key)
+                if (!compare_(*index, key))
                 {
                     break;
                 }
@@ -199,9 +243,9 @@ namespace btree
                     in->children[p + 1] = dnode;
 
                     fixed_vector< Key, node_descriptor > dkeys(dnode);
-                    nkeys[p] = *dkeys.begin();
+                    nkeys.insert(index, *dkeys.begin());
 
-                    insert(in->children[p + (nkeys[p] > key)], std::forward< KeyT >(key));
+                    insert(in->children[p + compare_(*dkeys.begin(), key)], std::forward< KeyT >(key));
                 }
                 else
                 {
@@ -251,7 +295,7 @@ namespace btree
                 auto rinode = reinterpret_cast<internal_node*>(rnode);
 
                 // split children
-                for (size_t i = 0; i < lkeys.size() + 1; ++i)
+                for (size_t i = 0; i < rkeys.size() + 1; ++i)
                 {
                     rinode->children[i] = linode->children[i + KeyCount / 2];
                 }
@@ -263,5 +307,6 @@ namespace btree
         node* root_;
         size_t size_;
         Allocator allocator_;
+        Compare compare_;
     };
 }

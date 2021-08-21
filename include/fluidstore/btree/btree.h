@@ -98,6 +98,19 @@ namespace btree
             std::array< node*, 2 * N > children;
         };
 
+        struct value_node : node
+        {
+            value_node()
+                : left()
+                , right()
+            {}
+
+            // uint8_t values[(2 * N - 1) * sizeof(Value)];
+            // uint8_t meta;
+            value_node* left;
+            value_node* right;
+        };
+
         struct node_descriptor
         {
             node_descriptor() = default;
@@ -148,7 +161,7 @@ namespace btree
         {
             if (!root_)
             {
-                root_ = allocate_node< node >();
+                root_ = allocate_node< value_node >();
             }
 
             fixed_vector< Key, node_descriptor > keys(root_);
@@ -289,7 +302,7 @@ namespace btree
             }
             else
             {
-                rnode = allocate_node< node >();
+                rnode = allocate_node< value_node >();
             }
 
             fixed_vector< Key, node_descriptor > lkeys(lnode);
@@ -319,6 +332,13 @@ namespace btree
                 {
                     rinode->children[i] = linode->children[i + N];
                 }
+            }
+            else
+            {
+                auto lvnode = reinterpret_cast<value_node*>(lnode);
+                auto rvnode = reinterpret_cast<value_node*>(rnode);
+                lvnode->right = rvnode;
+                rvnode->left = lvnode;
             }
 
             return { rnode, splitkey };

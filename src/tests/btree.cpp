@@ -58,3 +58,10 @@ BOOST_AUTO_TEST_CASE(btree_insert_loop)
         }
     }
 }
+
+
+BOOST_AUTO_TEST_CASE(btree_erase)
+{
+    btree::set< int > c;
+    c.erase(1);
+}

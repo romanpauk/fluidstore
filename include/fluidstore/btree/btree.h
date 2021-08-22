@@ -20,10 +20,27 @@ namespace btree
             desc_.set_size(index + 1);
         }
 
-        void erase_to_end(T* begin)
+        void erase(T* index)
         {
-            assert(begin <= end());
-            desc_.set_size(size() - (end() - begin));
+            assert(begin() <= index && index < end());
+            // TODO:
+            std::memmove(index, index + 1, end() - index);
+            desc_.set_size(size() - 1);
+        }
+
+        void erase(T* from, T* to)
+        {
+            assert(begin() <= from && from <= to);
+            assert(from <= to && to <= end());
+
+            if (to == end())
+            {
+                desc_.set_size(size() - (to - from));
+            }
+            else
+            {
+                std::abort(); // TODO
+            }
         }
 
         auto size() { return desc_.size(); }
@@ -46,6 +63,18 @@ namespace btree
             desc_.set_size(desc_.size() + 1);
         }
         
+        void insert(T* index, T* from, T* to)
+        {
+            assert(begin() <= index && index <= end());
+            assert(from < to);
+            assert(to - from <= capacity() - size());
+
+            // TODO
+            std::memmove(index + (to - from), from, to - from);
+            std::memmove(index, from, to - from);
+            desc_.set_size(size() + to - from);
+        }
+
         T& operator[](size_t index)
         {
             assert(index < size());
@@ -185,6 +214,8 @@ namespace btree
     public:
         struct iterator
         {
+            friend class set< Key, Compare, Allocator >;
+
             iterator(value_node* n, size_t i)
                 : node_(n)
                 , i_(i)
@@ -295,18 +326,35 @@ namespace btree
         void erase(iterator it)
         {
             assert(it != end());
-            
-            fixed_vector< Key, node_descriptor > nkeys(it->node_);
-            nkeys.erase(nkeys.begin() + it->i_);
+            auto node = it.node_;
 
-            if (nkeys.size() >= N - 1 || false)
+            fixed_vector< Key, node_descriptor > nkeys(node);
+            nkeys.erase(nkeys.begin() + it.i_);
+
+            if (nkeys.size() < N - 1)
             {
-                return;
-            }
-            else
-            {
-                // either distribute keys to neighbours,
-                // or merge neighbours with this
+                if (node->parent)
+                {
+                    auto left = node->get_left();
+                    auto right = node->get_right();
+
+                    // For value nodes:
+                    //      If left has more than N - 1, take left key
+                    //      If right has more than N - 1, take right key
+                    if (rebalance_move_key(node, true, left) ||
+                        rebalance_move_key(node, false, right))
+                    {
+                        return;
+                    }
+
+                    //      If left has exactly N - 1, merge with left
+                    //      If right has exactly N - 1, merge with right
+                    if (rebalance_move_keys(left, true, node) ||
+                        rebalance_move_keys(right, false, node))
+                    {
+                        //  Rebalance parent as we will also remove the key in parent
+                    }
+                }
             }
         }
 
@@ -457,13 +505,13 @@ namespace btree
             if (lnode->is_internal())
             {
                 // Remove splitkey, too (begin - 1). Each node should end up with N-1 keys as split key will be propagated to parent node.
-                lkeys.erase_to_end(begin - 1);
+                lkeys.erase(begin - 1, lkeys.end());
                 assert(lkeys.size() == N - 1);
             }
             else
             {
                 // Keep splitkey.
-                lkeys.erase_to_end(begin);
+                lkeys.erase(begin, lkeys.end());
                 assert(lkeys.size() == N);
             }
 
@@ -511,6 +559,54 @@ namespace btree
             }
 
             return reinterpret_cast<value_node*>(n);
+        }
+
+        bool rebalance_move_key(node* target, bool left, node* source)
+        {
+            fixed_vector< Key, node_descriptor > skeys(source);
+            fixed_vector< Key, node_descriptor > tkeys(target);
+
+            if (skeys.size() > N - 1)
+            {
+                auto key = left ? skeys.end() - 1 : skeys.begin();
+                if (left)
+                {
+                    // Right-most key from the left node
+                    tkeys.insert(tkeys.begin(), *key);
+                }
+                else
+                {
+                    // Left-most key from the right node
+                    tkeys.insert(tkeys.end(), *key);
+                }
+                skeys.erase(key);
+                
+                return true;
+            }
+
+            return false;
+        }
+
+        bool rebalance_move_keys(node* target, bool left, node* source)
+        {
+            fixed_vector< Key, node_descriptor > skeys(source);
+            fixed_vector< Key, node_descriptor > tkeys(target);
+
+            if (tkeys.size() == N - 1)
+            {
+                if (left)
+                {
+                    tkeys.insert(tkeys.end(), skeys.begin(), skeys.end());
+                }
+                else
+                {
+                    tkeys.insert(tkeys.begin(), skeys.begin(), skeys.end());
+                }
+
+                return true;
+            }
+
+            return false;
         }
 
         node* root_;

@@ -75,16 +75,51 @@ namespace btree
         // One page - 64 * 64 (or ~60 + metadata, freelist etc)
         //   6 bits for addressing
         
+        struct internal_node;
+
         struct node 
         {
             node()
                 : meta()
+                , parent()
+                , index()
             {}
 
+            // The idea is that those are 64byte aligned, are they?
             uint8_t keys[(2 * N - 1) * sizeof(Key)];
             uint8_t meta;
-                
+            
+            internal_node* parent;
+            uint8_t index;
+
             bool is_internal() const { return meta & 1; }
+
+            node* get_left()
+            {
+                if (parent)
+                {
+                    if (index >= 1)
+                    {
+                        return parent->get_node(index - 1);
+                    }
+                }
+
+                return nullptr;
+            }
+
+            node* get_right()
+            {
+                if (parent)
+                {
+                    fixed_vector< Key, node_descriptor > pkeys(parent);
+                    if (index + 1 <= pkeys.size())
+                    {
+                        return parent->get_node(index + 1);
+                    }
+                }
+
+                return nullptr;
+            }
         };
 
         struct internal_node: node
@@ -94,20 +129,30 @@ namespace btree
                 meta = 1;
             }
 
+            void add_node(node* n, int index)
+            {
+                n->parent = this;
+                n->index = index;
+                children[index] = n;
+            }
+
+            node* get_node(int index) 
+            { 
+                return children[index]; 
+            }
+
+            
+        private:
             std::array< node*, 2 * N > children;
         };
 
         struct value_node : node
         {
             value_node()
-                : left()
-                , right()
             {}
 
             // uint8_t values[(2 * N - 1) * sizeof(Value)];
             // uint8_t meta;
-            value_node* left;
-            value_node* right;
         };
 
         struct node_descriptor
@@ -172,8 +217,8 @@ namespace btree
                 fixed_vector< Key, node_descriptor > keys(node_);
                 if (++i_ == keys.size())
                 {
-                    node_ = node_->right;
                     i_ = 0;
+                    node_ = reinterpret_cast< value_node* >(node_->get_right());
                 }
 
                 return *this;
@@ -226,15 +271,42 @@ namespace btree
                 auto [n, splitkey] = split_node(root_);
              
                 auto root = allocate_node< internal_node >();
-                root->children[0] = root_;
-                root->children[1] = n;
-
+                root->add_node(root_, 0); 
+                root->add_node(n, 1); 
+                
                 fixed_vector< Key, node_descriptor > rkeys(root);
                 rkeys.push_back(splitkey);
 
                 root_ = root;
 
-                return insert(root->children[compare_(splitkey, key)], std::forward< KeyT >(key));
+                return insert(root->get_node(compare_(splitkey, key)), std::forward< KeyT >(key));
+            }
+        }
+
+        void erase(const Key& key)
+        {
+            auto it = find(key);
+            if (it != end())
+            {
+                erase(it);
+            }
+        }
+
+        void erase(iterator it)
+        {
+            assert(it != end());
+            
+            fixed_vector< Key, node_descriptor > nkeys(it->node_);
+            nkeys.erase(nkeys.begin() + it->i_);
+
+            if (nkeys.size() >= N - 1 || false)
+            {
+                return;
+            }
+            else
+            {
+                // either distribute keys to neighbours,
+                // or merge neighbours with this
             }
         }
 
@@ -257,7 +329,7 @@ namespace btree
             if (n->is_internal())
             {
                 auto in = reinterpret_cast<internal_node*>(n);
-                return find(in->children[i], key);
+                return find(in->get_node(i), key);
             }
             else
             {
@@ -297,7 +369,7 @@ namespace btree
             {
                 auto p = index - nkeys.begin();
                 internal_node* in = reinterpret_cast< internal_node* >(n);
-                auto cnode = in->children[p];
+                auto cnode = in->get_node(p);
 
                 fixed_vector< Key, node_descriptor > ckeys(cnode);
                 if (ckeys.size() == ckeys.capacity())
@@ -307,13 +379,13 @@ namespace btree
                     // TODO: better move
                     for (size_t i = nkeys.size(); i > p; --i)
                     {
-                        in->children[i + 1] = in->children[i];
+                        in->add_node(in->get_node(i), i + 1);
                     }
-                    in->children[p + 1] = dnode;
+                    in->add_node(dnode, p + 1);
 
                     nkeys.insert(index, splitkey);
 
-                    return insert(in->children[p + compare_(splitkey, key)], std::forward< KeyT >(key));
+                    return insert(in->get_node(p + compare_(splitkey, key)), std::forward< KeyT >(key));
                 }
                 else
                 {
@@ -405,15 +477,8 @@ namespace btree
                 // split children
                 for (size_t i = 0; i < N; ++i)
                 {
-                    rinode->children[i] = linode->children[i + N];
+                    rinode->add_node(linode->get_node(i + N), i);
                 }
-            }
-            else
-            {
-                auto lvnode = reinterpret_cast<value_node*>(lnode);
-                auto rvnode = reinterpret_cast<value_node*>(rnode);
-                lvnode->right = rvnode;
-                rvnode->left = lvnode;
             }
 
             return { rnode, splitkey };
@@ -428,7 +493,7 @@ namespace btree
                 auto in = reinterpret_cast<internal_node*>(n);
                 for (size_t i = 0; i < nkeys.size() + 1; ++i)
                 {
-                    free_node(in->children[i]);
+                    free_node(in->get_node(i));
                 }
             }
 
@@ -442,7 +507,7 @@ namespace btree
             node* n = root_;
             while (n->is_internal())
             {
-                n = reinterpret_cast<internal_node*>(n)->children[0];
+                n = reinterpret_cast<internal_node*>(n)->get_node(0);
             }
 
             return reinterpret_cast<value_node*>(n);

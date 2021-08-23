@@ -341,18 +341,19 @@ namespace btree
                     // For value nodes:
                     //      If left has more than N - 1, take left key
                     //      If right has more than N - 1, take right key
-                    if (rebalance_move_key(node, true, left) ||
-                        rebalance_move_key(node, false, right))
+                    if (rotate_key(node, true, left) ||
+                        rotate_key(node, false, right))
                     {
                         return;
                     }
 
                     //      If left has exactly N - 1, merge with left
                     //      If right has exactly N - 1, merge with right
-                    if (rebalance_move_keys(left, true, node) ||
-                        rebalance_move_keys(right, false, node))
+                    if (merge_keys(left, true, node) ||
+                        merge_keys(right, false, node))
                     {
                         //  Rebalance parent as we will also remove the key in parent
+
                     }
                 }
             }
@@ -561,33 +562,41 @@ namespace btree
             return reinterpret_cast<value_node*>(n);
         }
 
-        bool rebalance_move_key(node* target, bool left, node* source)
+        bool rotate_key(node* target, bool left, node* source)
         {
             fixed_vector< Key, node_descriptor > skeys(source);
             fixed_vector< Key, node_descriptor > tkeys(target);
+            fixed_vector< Key, node_descriptor > pkeys(target->parent);
 
             if (skeys.size() > N - 1)
             {
-                auto key = left ? skeys.end() - 1 : skeys.begin();
                 if (left)
                 {
                     // Right-most key from the left node
+                    auto key = skeys.end() - 1;
                     tkeys.insert(tkeys.begin(), *key);
+                    skeys.erase(key);
+
+                    // This is wrong...
+                    pkeys[target->index] = *(skeys.end() - 1);
                 }
                 else
                 {
                     // Left-most key from the right node
+                    auto key = skeys.begin();
                     tkeys.insert(tkeys.end(), *key);
+                    skeys.erase(key);
+
+                    pkeys[target->index - 1] = *skeys.begin();
                 }
-                skeys.erase(key);
-                
+
                 return true;
             }
 
             return false;
         }
 
-        bool rebalance_move_keys(node* target, bool left, node* source)
+        bool merge_keys(node* target, bool left, node* source)
         {
             fixed_vector< Key, node_descriptor > skeys(source);
             fixed_vector< Key, node_descriptor > tkeys(target);

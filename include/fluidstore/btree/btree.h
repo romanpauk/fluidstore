@@ -374,20 +374,17 @@ namespace btree
             while (n->is_internal())
             {
                 fixed_vector< Key, node_descriptor > nkeys(n);
-                auto index = find_index(nkeys, key);
+                auto index = find(nkeys, key);
 
-                auto i = index - nkeys.begin();
                 auto in = reinterpret_cast<internal_node*>(n);
-
-                n = in->get_node(i);
+                n = in->get_node(index - nkeys.begin());
             }
 
             fixed_vector< Key, node_descriptor > nkeys(n);
-            auto index = find_index(nkeys, key);
-            auto i = index - nkeys.begin();
-            if (i < nkeys.size() && key == nkeys[i])
+            auto index = find(nkeys, key);
+            if (index < nkeys.end() && key == *index)
             {
-                return iterator(reinterpret_cast<value_node*>(n), i);
+                return iterator(reinterpret_cast<value_node*>(n), index - nkeys.begin());
             }
             else
             {
@@ -400,7 +397,7 @@ namespace btree
             fixed_vector< Key, node_descriptor > nkeys(n);
             assert(nkeys.size() < nkeys.capacity());
 
-            auto index = find_index(nkeys, key);
+            auto index = find(nkeys, key);
 
             if (index < nkeys.end() && *index == key)
             {
@@ -420,7 +417,7 @@ namespace btree
             fixed_vector< Key, node_descriptor > nkeys(n);
             assert(nkeys.size() < nkeys.capacity());
 
-            auto index = find_index(nkeys, key);
+            auto index = find(nkeys, key);
 
             auto p = index - nkeys.begin();
             auto cnode = n->get_node(p);
@@ -459,7 +456,8 @@ namespace btree
             }
         }
 
-        Key* find_index(fixed_vector< Key, node_descriptor >& keys, const Key& key)
+        // TODO: const
+        Key* find(/*const */fixed_vector< Key, node_descriptor >& keys, const Key& key)
         {
             // TODO: better search
             auto index = keys.begin();

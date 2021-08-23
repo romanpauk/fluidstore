@@ -114,13 +114,10 @@ namespace btree
                 , index()
             {}
 
-            // The idea is that those are 64byte aligned, are they?
-            uint8_t keys[(2 * N - 1) * sizeof(Key)];
-            uint8_t meta;
-            
             internal_node* parent;
             uint8_t index;
-
+            uint8_t meta;
+            
             bool is_internal() const { return meta & 1; }
 
             node* get_left()
@@ -170,7 +167,7 @@ namespace btree
                 return children[index]; 
             }
 
-            
+            uint8_t keys[(2 * N - 1) * sizeof(Key)];
         private:
             std::array< node*, 2 * N > children;
         };
@@ -179,6 +176,8 @@ namespace btree
         {
             value_node()
             {}
+
+            uint8_t keys[2 * N * sizeof(Key)];
 
             // uint8_t values[(2 * N - 1) * sizeof(Value)];
             // uint8_t meta;
@@ -203,9 +202,13 @@ namespace btree
                 node_->meta = (size << 1) | (node_->meta & 1);
             }
 
-            size_t capacity() { return 2 * N - 1; }
+            size_t capacity() { return node_->is_internal() ? 2 * N - 1 : 2 * N; }
 
-            Key* data() { return reinterpret_cast< Key* >(node_->keys); }
+            Key* data() 
+            { 
+                auto keys = node_->is_internal() ? reinterpret_cast<internal_node*>(node_)->keys : reinterpret_cast<value_node*>(node_)->keys; 
+                return reinterpret_cast<Key*>(keys);
+            }
 
         private:
             node* node_;
@@ -508,15 +511,17 @@ namespace btree
                 // Remove splitkey, too (begin - 1). Each node should end up with N-1 keys as split key will be propagated to parent node.
                 lkeys.erase(begin - 1, lkeys.end());
                 assert(lkeys.size() == N - 1);
+                assert(rkeys.size() == N - 1);
             }
             else
             {
                 // Keep splitkey.
                 lkeys.erase(begin, lkeys.end());
                 assert(lkeys.size() == N);
+                assert(rkeys.size() == N);
             }
 
-            assert(rkeys.size() == N - 1);
+           
 
             if (lnode->is_internal())
             {

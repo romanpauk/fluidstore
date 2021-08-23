@@ -87,7 +87,7 @@ namespace btree
 
     template < typename Key, typename Compare = std::less< Key >, typename Allocator = std::allocator< Key > > class set
     {
-        static const size_t N = 4; 
+        static const size_t N = 4;
 
         // 32bit keys:
         //  11 * 4 = 44
@@ -103,10 +103,10 @@ namespace btree
         // 
         // One page - 64 * 64 (or ~60 + metadata, freelist etc)
         //   6 bits for addressing
-        
+
         struct internal_node;
 
-        struct node 
+        struct node
         {
             node()
                 : meta()
@@ -117,7 +117,7 @@ namespace btree
             internal_node* parent;
             uint8_t index;
             uint8_t meta;
-            
+
             bool is_internal() const { return meta & 1; }
 
             node* get_left()
@@ -148,7 +148,7 @@ namespace btree
             }
         };
 
-        struct internal_node: node
+        struct internal_node : node
         {
             internal_node()
             {
@@ -162,9 +162,9 @@ namespace btree
                 children[index] = n;
             }
 
-            node* get_node(int index) 
-            { 
-                return children[index]; 
+            node* get_node(int index)
+            {
+                return children[index];
             }
 
             uint8_t keys[(2 * N - 1) * sizeof(Key)];
@@ -186,7 +186,7 @@ namespace btree
         struct node_descriptor
         {
             node_descriptor() = default;
-          
+
             node_descriptor(node* node)
                 : node_(node)
             {}
@@ -204,9 +204,9 @@ namespace btree
 
             size_t capacity() { return node_->is_internal() ? 2 * N - 1 : 2 * N; }
 
-            Key* data() 
-            { 
-                auto keys = node_->is_internal() ? reinterpret_cast<internal_node*>(node_)->keys : reinterpret_cast<value_node*>(node_)->keys; 
+            Key* data()
+            {
+                auto keys = node_->is_internal() ? reinterpret_cast<internal_node*>(node_)->keys : reinterpret_cast<value_node*>(node_)->keys;
                 return reinterpret_cast<Key*>(keys);
             }
 
@@ -252,7 +252,7 @@ namespace btree
                 if (++i_ == keys.size())
                 {
                     i_ = 0;
-                    node_ = reinterpret_cast< value_node* >(node_->get_right());
+                    node_ = reinterpret_cast<value_node*>(node_->get_right());
                 }
 
                 return *this;
@@ -303,11 +303,11 @@ namespace btree
             else
             {
                 auto [n, splitkey] = split_node(root_);
-             
+
                 auto root = allocate_node< internal_node >();
-                root->add_node(root_, 0); 
-                root->add_node(n, 1); 
-                
+                root->add_node(root_, 0);
+                root->add_node(n, 1);
+
                 fixed_vector< Key, node_descriptor > rkeys(root);
                 rkeys.push_back(splitkey);
 
@@ -374,9 +374,9 @@ namespace btree
             fixed_vector< Key, node_descriptor > nkeys(n);
 
             auto index = find_index(nkeys, key);
-            
+
             auto i = index - nkeys.begin();
-            
+
             // TODO: recursion
             if (n->is_internal())
             {
@@ -387,7 +387,7 @@ namespace btree
             {
                 if (i < nkeys.size() && key == nkeys[i])
                 {
-                    return iterator(reinterpret_cast< value_node* >(n), i);
+                    return iterator(reinterpret_cast<value_node*>(n), i);
                 }
                 else
                 {
@@ -396,53 +396,67 @@ namespace btree
             }
         }
 
-        template < typename KeyT > std::pair< iterator, bool > insert(node* n, KeyT&& key)
+        template < typename KeyT > std::pair< iterator, bool > insert(value_node* n, KeyT&& key)
         {
             fixed_vector< Key, node_descriptor > nkeys(n);
             assert(nkeys.size() < nkeys.capacity());
 
             auto index = find_index(nkeys, key);
 
-            if (!n->is_internal())
+            if (index < nkeys.end() && *index == key)
             {
-                if (index < nkeys.end() && *index == key)
-                {
-                    return { iterator(reinterpret_cast<value_node*>(n), index - nkeys.begin()), false };
-                }
-                else
-                {
-                    nkeys.insert(index, std::forward< KeyT >(key));
-                    ++size_;
-
-                    return { iterator(reinterpret_cast<value_node*>(n), index - nkeys.begin()), true };
-                }
+                return { iterator(reinterpret_cast<value_node*>(n), index - nkeys.begin()), false };
             }
             else
             {
-                auto p = index - nkeys.begin();
-                internal_node* in = reinterpret_cast< internal_node* >(n);
-                auto cnode = in->get_node(p);
+                nkeys.insert(index, std::forward< KeyT >(key));
+                ++size_;
 
-                fixed_vector< Key, node_descriptor > ckeys(cnode);
-                if (ckeys.size() == ckeys.capacity())
+                return { iterator(reinterpret_cast<value_node*>(n), index - nkeys.begin()), true };
+            }
+        }
+
+        template < typename KeyT > std::pair< iterator, bool > insert(internal_node* n, KeyT&& key)
+        {
+            fixed_vector< Key, node_descriptor > nkeys(n);
+            assert(nkeys.size() < nkeys.capacity());
+
+            auto index = find_index(nkeys, key);
+
+            auto p = index - nkeys.begin();
+            auto cnode = n->get_node(p);
+
+            fixed_vector< Key, node_descriptor > ckeys(cnode);
+            if (ckeys.size() == ckeys.capacity())
+            {
+                auto [dnode, splitkey] = split_node(cnode);
+
+                // TODO: better move
+                for (size_t i = nkeys.size(); i > p; --i)
                 {
-                    auto [dnode, splitkey] = split_node(cnode);
-
-                    // TODO: better move
-                    for (size_t i = nkeys.size(); i > p; --i)
-                    {
-                        in->add_node(in->get_node(i), i + 1);
-                    }
-                    in->add_node(dnode, p + 1);
-
-                    nkeys.insert(index, splitkey);
-
-                    return insert(in->get_node(p + compare_(splitkey, key)), std::forward< KeyT >(key));
+                    n->add_node(n->get_node(i), i + 1);
                 }
-                else
-                {
-                    return insert(cnode, std::forward< KeyT >(key));
-                }
+                n->add_node(dnode, p + 1);
+
+                nkeys.insert(index, splitkey);
+
+                return insert(n->get_node(p + compare_(splitkey, key)), std::forward< KeyT >(key));
+            }
+            else
+            {
+                return insert(cnode, std::forward< KeyT >(key));
+            }
+        }
+
+        template < typename KeyT > std::pair< iterator, bool > insert(node* n, KeyT&& key)
+        {
+            if (!n->is_internal())
+            {
+                return insert(reinterpret_cast<value_node*>(n), std::forward< KeyT >(key));
+            }
+            else
+            {
+                return insert(reinterpret_cast<internal_node*>(n), std::forward< KeyT >(key));
             }
         }
 
@@ -478,22 +492,14 @@ namespace btree
             }
         }
 
-        template < typename Node > Node* node_cast(node* n) 
-        { 
-            return reinterpret_cast< Node* >(n); 
-        }
-        
-        std::tuple< node*, Key > split_node(node* lnode)
+        template < typename Node > Node* node_cast(node* n)
         {
-            node* rnode = 0;
-            if (lnode->is_internal())
-            {
-                rnode = allocate_node< internal_node >();
-            }
-            else
-            {
-                rnode = allocate_node< value_node >();
-            }
+            return reinterpret_cast<Node*>(n);
+        }
+
+        std::tuple< node*, Key > split_node(internal_node* lnode)
+        {
+            auto rnode = allocate_node< internal_node >();
 
             fixed_vector< Key, node_descriptor > lkeys(lnode);
             fixed_vector< Key, node_descriptor > rkeys(rnode);
@@ -506,36 +512,55 @@ namespace btree
             }
 
             Key splitkey = *(begin - 1);
-            if (lnode->is_internal())
-            {
-                // Remove splitkey, too (begin - 1). Each node should end up with N-1 keys as split key will be propagated to parent node.
-                lkeys.erase(begin - 1, lkeys.end());
-                assert(lkeys.size() == N - 1);
-                assert(rkeys.size() == N - 1);
-            }
-            else
-            {
-                // Keep splitkey.
-                lkeys.erase(begin, lkeys.end());
-                assert(lkeys.size() == N);
-                assert(rkeys.size() == N);
-            }
 
-           
-
-            if (lnode->is_internal())
+            // Remove splitkey, too (begin - 1). Each node should end up with N-1 keys as split key will be propagated to parent node.
+            lkeys.erase(begin - 1, lkeys.end());
+            assert(lkeys.size() == N - 1);
+            assert(rkeys.size() == N - 1);
+       
+            // Split children
+            for (size_t i = 0; i < N; ++i)
             {
-                auto linode = reinterpret_cast<internal_node*>(lnode);
-                auto rinode = reinterpret_cast<internal_node*>(rnode);
-
-                // split children
-                for (size_t i = 0; i < N; ++i)
-                {
-                    rinode->add_node(linode->get_node(i + N), i);
-                }
+                rnode->add_node(lnode->get_node(i + N), i);
             }
 
             return { rnode, splitkey };
+        }
+
+        std::tuple< node*, Key > split_node(value_node* lnode)
+        {
+            auto rnode = allocate_node< value_node >();
+
+            fixed_vector< Key, node_descriptor > lkeys(lnode);
+            fixed_vector< Key, node_descriptor > rkeys(rnode);
+
+            // TODO: better move support, integers should be memcpy-ed as a range, strings moved one by one, etc.
+            auto begin = lkeys.begin() + N;
+            for (auto it = begin; it != lkeys.end(); ++it)
+            {
+                rkeys.push_back(*it);
+            }
+
+            Key splitkey = *(begin - 1);
+
+            // Keep splitkey.
+            lkeys.erase(begin, lkeys.end());
+            assert(lkeys.size() == N);
+            assert(rkeys.size() == N);
+
+            return { rnode, splitkey };
+        }
+
+        std::tuple< node*, Key > split_node(node* node)
+        {
+            if (node->is_internal())
+            {
+                return split_node(reinterpret_cast<internal_node*>(node));
+            }
+            else
+            {
+                return split_node(reinterpret_cast<value_node*>(node));
+            }
         }
 
         void free_node(node* n)

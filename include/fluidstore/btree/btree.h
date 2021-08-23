@@ -371,28 +371,27 @@ namespace btree
     private:
         iterator find(node* n, const Key& key)
         {
-            fixed_vector< Key, node_descriptor > nkeys(n);
-
-            auto index = find_index(nkeys, key);
-
-            auto i = index - nkeys.begin();
-
-            // TODO: recursion
-            if (n->is_internal())
+            while (n->is_internal())
             {
+                fixed_vector< Key, node_descriptor > nkeys(n);
+                auto index = find_index(nkeys, key);
+
+                auto i = index - nkeys.begin();
                 auto in = reinterpret_cast<internal_node*>(n);
-                return find(in->get_node(i), key);
+
+                n = in->get_node(i);
+            }
+
+            fixed_vector< Key, node_descriptor > nkeys(n);
+            auto index = find_index(nkeys, key);
+            auto i = index - nkeys.begin();
+            if (i < nkeys.size() && key == nkeys[i])
+            {
+                return iterator(reinterpret_cast<value_node*>(n), i);
             }
             else
             {
-                if (i < nkeys.size() && key == nkeys[i])
-                {
-                    return iterator(reinterpret_cast<value_node*>(n), i);
-                }
-                else
-                {
-                    return end();
-                }
+                return end();
             }
         }
 

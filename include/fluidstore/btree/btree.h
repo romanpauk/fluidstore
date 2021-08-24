@@ -295,25 +295,18 @@ namespace btree
                 root_ = allocate_node< value_node >();
             }
 
-            fixed_vector< Key, node_descriptor > keys(root_);
-            if (keys.size() < keys.capacity())
+            auto n = find_value_node(root_, key);
+            fixed_vector< Key, node_descriptor > nkeys(n);
+            if (nkeys.size() < nkeys.capacity())
             {
-                return insert(root_, std::forward< KeyT >(key));
+                return insert(n, std::forward< KeyT >(key));
             }
             else
             {
-                auto [n, splitkey] = split_node(root_);
+                auto [s, skey] = split_node(n);
+                rebalance(n, s, skey);
 
-                auto root = allocate_node< internal_node >();
-                root->add_node(root_, 0);
-                root->add_node(n, 1);
-
-                fixed_vector< Key, node_descriptor > rkeys(root);
-                rkeys.push_back(splitkey);
-
-                root_ = root;
-
-                return insert(root->get_node(compare_(splitkey, key)), std::forward< KeyT >(key));
+                return insert(reinterpret_cast<value_node*>(n->parent->get_node(n->index + compare_(skey, key))), std::forward< KeyT >(key));
             }
         }
 
@@ -369,7 +362,7 @@ namespace btree
         iterator end() { return iterator(nullptr, 0); }
 
     private:
-        iterator find(node* n, const Key& key)
+        value_node* find_value_node(node* n, const Key& key)
         {
             while (n->is_internal())
             {
@@ -380,11 +373,18 @@ namespace btree
                 n = in->get_node(index - nkeys.begin());
             }
 
-            fixed_vector< Key, node_descriptor > nkeys(n);
+            return reinterpret_cast<value_node*>(n);
+        }
+
+        iterator find(node* n, const Key& key)
+        {
+            auto vn = find_value_node(n, key);
+
+            fixed_vector< Key, node_descriptor > nkeys(vn);
             auto index = find(nkeys, key);
             if (index < nkeys.end() && key == *index)
             {
-                return iterator(reinterpret_cast<value_node*>(n), index - nkeys.begin());
+                return iterator(vn, index - nkeys.begin());
             }
             else
             {
@@ -409,50 +409,6 @@ namespace btree
                 ++size_;
 
                 return { iterator(reinterpret_cast<value_node*>(n), index - nkeys.begin()), true };
-            }
-        }
-
-        template < typename KeyT > std::pair< iterator, bool > insert(internal_node* n, KeyT&& key)
-        {
-            fixed_vector< Key, node_descriptor > nkeys(n);
-            assert(nkeys.size() < nkeys.capacity());
-
-            auto index = find(nkeys, key);
-
-            auto p = index - nkeys.begin();
-            auto cnode = n->get_node(p);
-
-            fixed_vector< Key, node_descriptor > ckeys(cnode);
-            if (ckeys.size() == ckeys.capacity())
-            {
-                auto [dnode, splitkey] = split_node(cnode);
-
-                // TODO: better move
-                for (size_t i = nkeys.size(); i > p; --i)
-                {
-                    n->add_node(n->get_node(i), i + 1);
-                }
-                n->add_node(dnode, p + 1);
-
-                nkeys.insert(index, splitkey);
-
-                return insert(n->get_node(p + compare_(splitkey, key)), std::forward< KeyT >(key));
-            }
-            else
-            {
-                return insert(cnode, std::forward< KeyT >(key));
-            }
-        }
-
-        template < typename KeyT > std::pair< iterator, bool > insert(node* n, KeyT&& key)
-        {
-            if (!n->is_internal())
-            {
-                return insert(reinterpret_cast<value_node*>(n), std::forward< KeyT >(key));
-            }
-            else
-            {
-                return insert(reinterpret_cast<internal_node*>(n), std::forward< KeyT >(key));
             }
         }
 
@@ -557,6 +513,42 @@ namespace btree
             else
             {
                 return split_node(reinterpret_cast<value_node*>(node));
+            }
+        }
+
+        void rebalance(node* l, node* r, Key key)
+        {
+            auto p = l->parent;
+            if (p)
+            {
+                fixed_vector< Key, node_descriptor > pkeys(p);
+                if (pkeys.size() < pkeys.capacity())
+                {
+                    for (size_t i = pkeys.size(); i > l->index; --i)
+                    {
+                        p->add_node(p->get_node(i), i + 1);
+                    }
+                    p->add_node(r, l->index + 1);
+                    pkeys.insert(pkeys.begin() + l->index, key);
+                }
+                else
+                {
+                    auto [q, pkey] = split_node(p);
+                    rebalance(p, q, pkey);
+                    rebalance(l, r, key);
+                }
+            }
+            else
+            {
+                auto root = allocate_node< internal_node >();
+
+                root->add_node(l, 0);
+                root->add_node(r, 1);
+
+                fixed_vector< Key, node_descriptor > rkeys(root);
+                rkeys.push_back(key);
+
+                root_ = root;
             }
         }
 

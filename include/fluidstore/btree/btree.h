@@ -27,10 +27,7 @@ namespace btree
         void erase(T* index)
         {
             assert(begin() <= index && index < end());
-            if (*index == 16)
-            {
-                int a(1);
-            }
+            
             // TODO:
             std::memmove(index, index + 1, sizeof(T) * (end() - index));
             desc_.set_size(size() - 1);
@@ -57,6 +54,7 @@ namespace btree
 
         auto size() { return desc_.size(); }
         auto capacity() { return desc_.capacity(); }
+        auto empty() { return desc_.size() == 0; }
 
         T* begin() { return desc_.data(); }
         T* end() { return desc_.data() + desc_.size(); }
@@ -64,12 +62,16 @@ namespace btree
         template < typename Ty > void insert(T* it, Ty&& value)
         {
             assert(size() < capacity());
+            assert(it >= begin());
+            assert(it <= end());
 
             auto index = it - desc_.data();
-            assert(index <= size());
-
-            // TODO: this assumes std layout type
-            std::memmove(it + 1, it, sizeof(T) * (desc_.size() - index));
+            
+            if (!empty())
+            {
+                // TODO
+                std::memmove(it + 1, it, sizeof(T) * (desc_.size() - index));
+            }
 
             *it = std::forward< Ty >(value);
             desc_.set_size(desc_.size() + 1);
@@ -80,11 +82,13 @@ namespace btree
         void insert(T* index, T* from, T* to)
         {
             assert(begin() <= index && index <= end());
-            assert(from < to);
-            assert(to - from <= capacity() - size());
-
-            // TODO
-            std::memmove(index + (to - from), index, sizeof(T) * size());
+            assert(to - from + index - begin() <= capacity());
+            
+            if (index < end())
+            {
+                std::memmove(index + (to - from), index, sizeof(T) * (end() - index));
+            }
+            
             std::memmove(index, from, sizeof(T) * (to - from));
             desc_.set_size(size() + to - from);
 
@@ -94,10 +98,6 @@ namespace btree
         T& operator[](size_t index)
         {
             assert(index < size());
-            if (*(begin() + index) == 16)
-            {
-                int a(1);
-            }
             return *(begin() + index);
         }
 
@@ -105,7 +105,10 @@ namespace btree
         void checkvec()
         {
         #if defined(_DEBUG)
-            vec_.assign(begin(), end());
+            assert(end() - begin() == size());
+            assert(size() <= capacity());
+
+            // vec_.assign(begin(), end());
         
             if (vec_.size() > 1)
             {
@@ -113,7 +116,7 @@ namespace btree
                 {
                     if (vec_[i] >= vec_[i + 1])
                     {
-                        int a(1);
+                        assert(false);
                     }
                 }
             }
@@ -121,6 +124,7 @@ namespace btree
         }
 
         Descriptor desc_;
+
     #if defined(_DEBUG)
         std::vector< T > vec_;
     #endif
@@ -149,12 +153,14 @@ namespace btree
 
         struct node
         {
+        protected:
             node()
                 : meta()
                 , parent()
                 , index()
             {}
 
+        public:
             internal_node* parent;
             uint8_t index;
             uint8_t meta;
@@ -209,6 +215,7 @@ namespace btree
             }
 
             uint8_t keys[(2 * N - 1) * sizeof(Key)];
+
         private:
             std::array< node*, 2 * N > children;
         };
@@ -219,9 +226,6 @@ namespace btree
             {}
 
             uint8_t keys[2 * N * sizeof(Key)];
-
-            // uint8_t values[(2 * N - 1) * sizeof(Value)];
-            // uint8_t meta;
         };
 
         struct node_descriptor
@@ -314,13 +318,19 @@ namespace btree
         set()
             : root_()
             , size_()
-        {}
+        {
+            // Make sure the objects alias.
+            value_node v;
+            assert(&v == (node*)&v);
+            internal_node n;
+            assert(&n == (node*)&n);
+        }
 
         ~set()
         {
             if (root_)
             {
-                //free_node(root_);
+                free_node(root_);
             }
         }
 
@@ -481,7 +491,7 @@ namespace btree
             }
             else
             {
-                delete n;
+                delete reinterpret_cast<value_node*>(n);
             }
         }
 
@@ -653,18 +663,10 @@ namespace btree
 
                     assert(false);
                 }
-                else
+                else if(nkeys.empty())
                 {
-                    size_t k = nkeys.size();
-                    if (k == 0)
-                    {
-                        root_ = node->get_node(0);
-                        root_->parent = 0;
-                    }
-                    else
-                    {
-                        int a(1);
-                    }
+                    root_ = node->get_node(0);
+                    root_->parent = 0;
                 }
             }
         }
@@ -752,15 +754,15 @@ namespace btree
             {
                 if (left)
                 {
-                    for (int i = 0; i < tkeys.size(); ++i)
+                    for (int i = 0; i < tkeys.size()+1; ++i)
                     {
                         target->add_node(target->get_node(i), i + 1);
                     }
                     target->add_node(source->get_node(skeys.size()), 0);
 
-                    tkeys.insert(tkeys.begin(), pkeys[target->index]);    
+                    tkeys.insert(tkeys.begin(), pkeys[source->index]);    
 
-                    pkeys[target->index] = *(skeys.end() - 1);
+                    pkeys[source->index] = *(skeys.end() - 1);
                     skeys.erase(skeys.end() - 1);
                 }
                 else
@@ -825,13 +827,14 @@ namespace btree
             {
                 if (left)
                 {
+                    for (int i = 0; i < skeys.size() + 1; ++i)
+                    {
+                        // +1 because of pkey[source->index]
+                        target->add_node(source->get_node(i), tkeys.size() + i + 1);
+                    }
+
                     tkeys.insert(tkeys.end(), pkeys[source->index - 1]);
                     tkeys.insert(tkeys.end(), skeys.begin(), skeys.end());
-                    
-                    for (int i = 0; i < skeys.size(); ++i)
-                    {
-                        target->add_node(source->get_node(i), tkeys.size() + i);
-                    }                        
                 }
                 else
                 {

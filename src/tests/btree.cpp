@@ -62,10 +62,14 @@ BOOST_AUTO_TEST_CASE(btree_insert_loop)
 
 BOOST_AUTO_TEST_CASE(btree_erase)
 {
-    for (int i = 0; i < 100; ++i)
-    {
-        std::cerr << "i: " << i << std::endl;
+#if defined(_DEBUG)
+    const int N = 100;
+#else
+    const int N = 1000;
+#endif
 
+    for (int i = 0; i < N; ++i)
+    {
         btree::set< int > c;
         for (int j = 0; j < i; ++j)
         {
@@ -84,10 +88,11 @@ BOOST_AUTO_TEST_CASE(btree_erase)
         }
     }
 
-    for (int i = 0; i < 100; ++i)
-    {
-        std::cerr << "j: " << i << std::endl;
+    //_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF | _CRTDBG_CHECK_ALWAYS_DF);
+    //_CrtSetBreakAlloc(6668782);
 
+    for (int i = 0; i < N; ++i)
+    {
         btree::set< int > c;
         for (int j = 0; j < i; ++j)
         {
@@ -97,20 +102,10 @@ BOOST_AUTO_TEST_CASE(btree_erase)
         for (int j = i - 1; j > 0; --j)
         {
             c.erase(j);
-            if (c.find(j) != c.end())
-            {
-                int a(1);
-            }
-
             BOOST_REQUIRE((c.find(j) == c.end()));
 
             for (int k = j - 1; k > 0; --k)
             {
-                if (c.find(k) == c.end())
-                {
-                    int a(1);
-                }
-
                 BOOST_REQUIRE(c.find(k) != c.end());
             }
         }

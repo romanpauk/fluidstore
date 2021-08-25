@@ -9,7 +9,9 @@ namespace btree
     public:
         fixed_vector(Descriptor desc) 
             : desc_(desc)
-        {}
+        {
+            checkvec();
+        }
 
         void push_back(T value)
         {
@@ -18,14 +20,22 @@ namespace btree
             auto index = size();
             new(desc_.data() + index) T(value);
             desc_.set_size(index + 1);
+
+            checkvec();
         }
 
         void erase(T* index)
         {
             assert(begin() <= index && index < end());
+            if (*index == 16)
+            {
+                int a(1);
+            }
             // TODO:
-            std::memmove(index, index + 1, end() - index);
+            std::memmove(index, index + 1, sizeof(T) * (end() - index));
             desc_.set_size(size() - 1);
+
+            checkvec();
         }
 
         void erase(T* from, T* to)
@@ -41,6 +51,8 @@ namespace btree
             {
                 std::abort(); // TODO
             }
+
+            checkvec();
         }
 
         auto size() { return desc_.size(); }
@@ -57,10 +69,12 @@ namespace btree
             assert(index <= size());
 
             // TODO: this assumes std layout type
-            std::memmove(it + 1, it, desc_.size() - index);
+            std::memmove(it + 1, it, sizeof(T) * (desc_.size() - index));
 
             *it = std::forward< Ty >(value);
             desc_.set_size(desc_.size() + 1);
+
+            checkvec();
         }
         
         void insert(T* index, T* from, T* to)
@@ -70,19 +84,46 @@ namespace btree
             assert(to - from <= capacity() - size());
 
             // TODO
-            std::memmove(index + (to - from), from, to - from);
-            std::memmove(index, from, to - from);
+            std::memmove(index + (to - from), index, sizeof(T) * size());
+            std::memmove(index, from, sizeof(T) * (to - from));
             desc_.set_size(size() + to - from);
+
+            checkvec();
         }
 
         T& operator[](size_t index)
         {
             assert(index < size());
+            if (*(begin() + index) == 16)
+            {
+                int a(1);
+            }
             return *(begin() + index);
         }
 
     private:
+        void checkvec()
+        {
+        #if defined(_DEBUG)
+            vec_.assign(begin(), end());
+        
+            if (vec_.size() > 1)
+            {
+                for (size_t i = 0; i < size() - 1; ++i)
+                {
+                    if (vec_[i] >= vec_[i + 1])
+                    {
+                        int a(1);
+                    }
+                }
+            }
+        #endif
+        }
+
         Descriptor desc_;
+    #if defined(_DEBUG)
+        std::vector< T > vec_;
+    #endif
     };
 
     template < typename Key, typename Compare = std::less< Key >, typename Allocator = std::allocator< Key > > class set
@@ -279,7 +320,7 @@ namespace btree
         {
             if (root_)
             {
-                free_node(root_);
+                //free_node(root_);
             }
         }
 
@@ -304,7 +345,7 @@ namespace btree
             else
             {
                 auto [s, skey] = split_node(n);
-                rebalance(n, s, skey);
+                rebalance_insert(n, s, skey);
 
                 return insert(reinterpret_cast<value_node*>(n->parent->get_node(n->index + compare_(skey, key))), std::forward< KeyT >(key));
             }
@@ -327,32 +368,7 @@ namespace btree
             fixed_vector< Key, node_descriptor > nkeys(node);
             nkeys.erase(nkeys.begin() + it.i_);
 
-            if (nkeys.size() < N - 1)
-            {
-                if (node->parent)
-                {
-                    auto left = node->get_left();
-                    auto right = node->get_right();
-
-                    // For value nodes:
-                    //      If left has more than N - 1, take left key
-                    //      If right has more than N - 1, take right key
-                    if (rotate_key(node, true, left) ||
-                        rotate_key(node, false, right))
-                    {
-                        return;
-                    }
-
-                    //      If left has exactly N - 1, merge with left
-                    //      If right has exactly N - 1, merge with right
-                    if (merge_keys(left, true, node) ||
-                        merge_keys(right, false, node))
-                    {
-                        //  Rebalance parent as we will also remove the key in parent
-
-                    }
-                }
-            }
+            rebalance_erase(node);
         }
 
         size_t size() const { return size_; }
@@ -368,9 +384,16 @@ namespace btree
             {
                 fixed_vector< Key, node_descriptor > nkeys(n);
                 auto index = find(nkeys, key);
-
                 auto in = reinterpret_cast<internal_node*>(n);
-                n = in->get_node(index - nkeys.begin());
+
+                if (index != nkeys.end())
+                {
+                    n = in->get_node(index - nkeys.begin() + !compare_(key, *index));
+                }
+                else
+                {
+                    n = in->get_node(nkeys.size());
+                }               
             }
 
             return reinterpret_cast<value_node*>(n);
@@ -426,6 +449,23 @@ namespace btree
             }
 
             return index;
+        }
+
+        void remove_node(internal_node* parent, node* n, int key_index)
+        {
+            fixed_vector< Key, node_descriptor > pkeys(parent);
+            assert(n->index <= pkeys.size());
+
+            for (size_t i = n->index; i < pkeys.size(); ++i)
+            {
+                parent->add_node(parent->get_node(i + 1), i);
+            }
+            pkeys.erase(pkeys.begin() + key_index);
+
+            if (pkeys.size() < N - 1)
+            {
+                rebalance_erase(parent);
+            }
         }
 
         template < typename Node > Node* allocate_node()
@@ -494,14 +534,12 @@ namespace btree
                 rkeys.push_back(*it);
             }
 
-            Key splitkey = *(begin - 1);
-
             // Keep splitkey.
             lkeys.erase(begin, lkeys.end());
             assert(lkeys.size() == N);
             assert(rkeys.size() == N);
 
-            return { rnode, splitkey };
+            return { rnode, *rkeys.begin() };
         }
 
         std::tuple< node*, Key > split_node(node* node)
@@ -516,7 +554,7 @@ namespace btree
             }
         }
 
-        void rebalance(node* l, node* r, Key key)
+        void rebalance_insert(node* l, node* r, Key key)
         {
             auto p = l->parent;
             if (p)
@@ -534,8 +572,10 @@ namespace btree
                 else
                 {
                     auto [q, pkey] = split_node(p);
-                    rebalance(p, q, pkey);
-                    rebalance(l, r, key);
+                    rebalance_insert(p, q, pkey);
+
+                    // TODO: This just retries the call after making space.
+                    rebalance_insert(l, r, key);
                 }
             }
             else
@@ -549,6 +589,83 @@ namespace btree
                 rkeys.push_back(key);
 
                 root_ = root;
+            }
+        }
+
+        void rebalance_erase(value_node* node)
+        {
+            fixed_vector< Key, node_descriptor > nkeys(node);
+            if (nkeys.size() < N)
+            {
+                if (node->parent)
+                {
+                    auto left = reinterpret_cast< value_node* >(node->get_left());
+                    auto right = reinterpret_cast< value_node* >(node->get_right());
+
+                    if (borrow_keys(node, true, left) ||
+                        borrow_keys(node, false, right))
+                    {
+                        return;
+                    }
+
+                    if (merge_keys(left, true, node))
+                    {
+                        remove_node(node->parent, node, node->index - 1);
+                        return;
+                    }
+
+                    if(merge_keys(right, false, node))
+                    {
+                        remove_node(node->parent, node, node->index);
+                        return;
+                    }
+                }
+            }
+        }
+
+        void rebalance_erase(internal_node* node)
+        {
+            fixed_vector< Key, node_descriptor > nkeys(node);
+            if (nkeys.size() < N - 1)
+            {
+                if (node->parent)
+                {
+                    auto left = reinterpret_cast<internal_node*>(node->get_left());
+                    auto right = reinterpret_cast<internal_node*>(node->get_right());
+
+                    if (borrow_keys(node, true, left) ||
+                        borrow_keys(node, false, right))
+                    {
+                        return;
+                    }
+
+                    if (merge_keys(left, true, node))
+                    {
+                        remove_node(node->parent, node, node->index - 1);
+                        return;
+                    }
+
+                    if (merge_keys(right, false, node))
+                    {
+                        remove_node(node->parent, node, node->index);
+                        return;
+                    }
+
+                    assert(false);
+                }
+                else
+                {
+                    size_t k = nkeys.size();
+                    if (k == 0)
+                    {
+                        root_ = node->get_node(0);
+                        root_->parent = 0;
+                    }
+                    else
+                    {
+                        int a(1);
+                    }
+                }
             }
         }
 
@@ -581,13 +698,18 @@ namespace btree
             return reinterpret_cast<value_node*>(n);
         }
 
-        bool rotate_key(node* target, bool left, node* source)
+        bool borrow_keys(value_node* target, bool left, value_node* source)
         {
+            if (!source)
+            {
+                return false;
+            }
+
             fixed_vector< Key, node_descriptor > skeys(source);
             fixed_vector< Key, node_descriptor > tkeys(target);
             fixed_vector< Key, node_descriptor > pkeys(target->parent);
 
-            if (skeys.size() > N - 1)
+            if (skeys.size() > N)
             {
                 if (left)
                 {
@@ -596,8 +718,8 @@ namespace btree
                     tkeys.insert(tkeys.begin(), *key);
                     skeys.erase(key);
 
-                    // This is wrong...
-                    pkeys[target->index] = *(skeys.end() - 1);
+                    assert(target->index > 0);
+                    pkeys[target->index - 1] = *tkeys.begin();
                 }
                 else
                 {
@@ -606,7 +728,7 @@ namespace btree
                     tkeys.insert(tkeys.end(), *key);
                     skeys.erase(key);
 
-                    pkeys[target->index - 1] = *skeys.begin();
+                    pkeys[target->index] = *skeys.begin();
                 }
 
                 return true;
@@ -615,12 +737,63 @@ namespace btree
             return false;
         }
 
-        bool merge_keys(node* target, bool left, node* source)
+        bool borrow_keys(internal_node* target, bool left, internal_node* source)
         {
+            if (!source)
+            {
+                return false;
+            }
+
+            fixed_vector< Key, node_descriptor > skeys(source);
+            fixed_vector< Key, node_descriptor > tkeys(target);
+            fixed_vector< Key, node_descriptor > pkeys(target->parent);
+
+            if (skeys.size() > N - 1)
+            {
+                if (left)
+                {
+                    for (int i = 0; i < tkeys.size(); ++i)
+                    {
+                        target->add_node(target->get_node(i), i + 1);
+                    }
+                    target->add_node(source->get_node(skeys.size()), 0);
+
+                    tkeys.insert(tkeys.begin(), pkeys[target->index]);    
+
+                    pkeys[target->index] = *(skeys.end() - 1);
+                    skeys.erase(skeys.end() - 1);
+                }
+                else
+                {
+                    tkeys.insert(tkeys.end(), pkeys[target->index]);
+                    
+                    target->add_node(source->get_node(0), tkeys.size());
+                    for (int i = 0; i < skeys.size(); ++i)
+                    {
+                        source->add_node(source->get_node(i + 1), i);
+                    }
+
+                    pkeys[target->index] = *skeys.begin();
+                    skeys.erase(skeys.begin());
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
+        bool merge_keys(value_node* target, bool left, value_node* source)
+        {
+            if (!target)
+            {
+                return false;
+            }
+
             fixed_vector< Key, node_descriptor > skeys(source);
             fixed_vector< Key, node_descriptor > tkeys(target);
 
-            if (tkeys.size() == N - 1)
+            if (tkeys.size() == N)
             {
                 if (left)
                 {
@@ -628,6 +801,53 @@ namespace btree
                 }
                 else
                 {
+                    tkeys.insert(tkeys.begin(), skeys.begin(), skeys.end());
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
+        bool merge_keys(internal_node* target, bool left, internal_node* source)
+        {
+            if (!target)
+            {
+                return false;
+            }
+
+            fixed_vector< Key, node_descriptor > skeys(source);
+            fixed_vector< Key, node_descriptor > tkeys(target);
+            fixed_vector< Key, node_descriptor > pkeys(target->parent);
+
+            if (tkeys.size() == N - 1)
+            {
+                if (left)
+                {
+                    tkeys.insert(tkeys.end(), pkeys[source->index - 1]);
+                    tkeys.insert(tkeys.end(), skeys.begin(), skeys.end());
+                    
+                    for (int i = 0; i < skeys.size(); ++i)
+                    {
+                        target->add_node(source->get_node(i), tkeys.size() + i);
+                    }                        
+                }
+                else
+                {
+                    for (int i = tkeys.size(); i >= 0; --i)
+                    {
+                        // +1 because of pkey[source->index]
+                        target->add_node(target->get_node(i), i + skeys.size() + 1);
+                    }
+
+                    for (size_t i = 0; i < skeys.size() + 1; ++i)
+                    {
+                        target->add_node(source->get_node(i), i);
+                    }
+
+                    // TODO:
+                    tkeys.insert(tkeys.begin(), pkeys[source->index]);
                     tkeys.insert(tkeys.begin(), skeys.begin(), skeys.end());
                 }
 

@@ -139,7 +139,7 @@ namespace btree
 
         void insert(int index, T* node)
         {
-            assert(size() + 1 < capacity());
+            assert(size() + 1 <= capacity());
             auto data = desc_.data();
 
             for (size_t i = index; i < size_; ++i)
@@ -475,7 +475,8 @@ namespace btree
                 auto [s, skey] = split_node(n);
                 rebalance_insert(n, s, skey);
 
-                return insert(reinterpret_cast<value_node*>(n->parent->get_node(n->index + compare_(skey, key))), std::forward< KeyT >(key));
+                node_vector< node, node_vector_descriptor > pchildren(n->parent);
+                return insert(reinterpret_cast<value_node*>(pchildren[n->index + compare_(skey, key)]), std::forward< KeyT >(key));
             }
         }
 
@@ -631,12 +632,8 @@ namespace btree
             fixed_vector< Key, node_descriptor > lkeys(lnode);
             fixed_vector< Key, node_descriptor > rkeys(rnode);
 
-            // TODO: better move support, integers should be memcpy-ed as a range, strings moved one by one, etc.
             auto begin = lkeys.begin() + N;
-            for (auto it = begin; it != lkeys.end(); ++it)
-            {
-                rkeys.push_back(*it);
-            }
+            rkeys.insert(rkeys.end(), begin, lkeys.end());
 
             Key splitkey = *(begin - 1);
 
@@ -655,12 +652,8 @@ namespace btree
             fixed_vector< Key, node_descriptor > lkeys(lnode);
             fixed_vector< Key, node_descriptor > rkeys(rnode);
 
-            // TODO: better move support, integers should be memcpy-ed as a range, strings moved one by one, etc.
             auto begin = lkeys.begin() + N;
-            for (auto it = begin; it != lkeys.end(); ++it)
-            {
-                rkeys.push_back(*it);
-            }
+            rkeys.insert(rkeys.end(), begin, lkeys.end());
 
             // Keep splitkey.
             lkeys.erase(begin, lkeys.end());
@@ -690,12 +683,8 @@ namespace btree
                 fixed_vector< Key, node_descriptor > pkeys(p);
                 if (pkeys.size() < pkeys.capacity())
                 {
-                    // TODO: insert(l->index + 1, ...)
-                    for (size_t i = pkeys.size(); i > l->index; --i)
-                    {
-                        p->add_node(p->get_node(i), i + 1);
-                    }
-                    p->add_node(r, l->index + 1);
+                    node_vector< node, node_vector_descriptor > pchildren(p);
+                    pchildren.insert(l->index + 1, r);
                     pkeys.insert(pkeys.begin() + l->index, key);
                 }
                 else
@@ -804,9 +793,11 @@ namespace btree
                 fixed_vector< Key, node_descriptor > nkeys(n);
 
                 auto in = reinterpret_cast<internal_node*>(n);
-                for (size_t i = 0; i < nkeys.size() + 1; ++i)
+                node_vector< node, node_vector_descriptor > nchildren(in);
+
+                for (auto child: nchildren)
                 {
-                    free_node(in->get_node(i));
+                    free_node(child);
                 }
             }
 
@@ -894,16 +885,9 @@ namespace btree
                 {
                     tkeys.insert(tkeys.end(), pkeys[target->index]);
                     
-                    
-                    // TODO: insert(end...) and erase(begin...)
-                    //tchildren.insert(tchildren.size(), schildren[0]);
-                    //schildren.erase(schildren[0]);
-
-                    target->add_node(source->get_node(0), tkeys.size());
-                    for (int i = 0; i < skeys.size(); ++i)
-                    {
-                        source->add_node(source->get_node(i + 1), i);
-                    }
+                    auto ch = schildren[0];
+                    schildren.erase(schildren[0]);
+                    tchildren.insert(tchildren.size(), ch);
 
                     pkeys[target->index] = *skeys.begin();
                     skeys.erase(skeys.begin());
@@ -927,15 +911,7 @@ namespace btree
 
             if (tkeys.size() == N)
             {
-                if (left)
-                {
-                    tkeys.insert(tkeys.end(), skeys.begin(), skeys.end());
-                }
-                else
-                {
-                    tkeys.insert(tkeys.begin(), skeys.begin(), skeys.end());
-                }
-
+                tkeys.insert(left ? tkeys.end() : tkeys.begin(), skeys.begin(), skeys.end());
                 return true;
             }
 

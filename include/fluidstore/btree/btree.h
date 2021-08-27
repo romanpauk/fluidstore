@@ -183,13 +183,13 @@ namespace btree
             size_ += to - from;
         }
 
-        void erase(T* it)
+        void erase(int index)
         {
-            assert(it->index < size());
+            assert(index < size());
             assert(size() >= 2);
 
             auto data = desc_.data();
-            for (size_t i = it->index; i < size() - 1; ++i)
+            for (size_t i = index; i < size() - 1; ++i)
             {
                 data[i] = data[i + 1];
                 data[i]->index = i;
@@ -601,12 +601,12 @@ namespace btree
             return nodes.size();
         }
 
-        void remove_node(internal_node* parent, node* n, int key_index)
+        void remove_node(internal_node* parent, node* n, size_t nindex, int key_index)
         {
             fixed_vector< Key, node_descriptor > pkeys(parent);
             
             node_vector< node, node_vector_descriptor > pchildren(parent);
-            pchildren.erase(n);
+            pchildren.erase(nindex);
                         
             pkeys.erase(pkeys.begin() + key_index);
 
@@ -757,14 +757,14 @@ namespace btree
 
                     if (merge_keys(left, true, n, nindex))
                     {
-                        remove_node(n->parent, n, nindex - 1);
+                        remove_node(n->parent, n, nindex, nindex - 1);
                         deallocate_node(n);
                         return;
                     }
 
                     if(merge_keys(right, false, n, nindex))
                     {
-                        remove_node(n->parent, n, nindex);
+                        remove_node(n->parent, n, nindex, nindex);
                         deallocate_node(n);
                         return;
                     }
@@ -793,14 +793,14 @@ namespace btree
 
                     if (merge_keys(left, true, n, nindex))
                     {
-                        remove_node(n->parent, n, nindex - 1);
+                        remove_node(n->parent, n, nindex, nindex - 1);
                         deallocate_node(n);
                         return;
                     }
 
                     if (merge_keys(right, false, n, nindex))
                     {
-                        remove_node(n->parent, n, nindex);
+                        remove_node(n->parent, n, nindex, nindex);
                         deallocate_node(n);
                         return;
                     }
@@ -919,7 +919,7 @@ namespace btree
                     tkeys.insert(tkeys.end(), pkeys[tindex]);
                     
                     auto ch = schildren[0];
-                    schildren.erase(schildren[0]);
+                    schildren.erase(0);
                     tchildren.insert(tchildren.size(), ch);
 
                     pkeys[tindex] = *skeys.begin();

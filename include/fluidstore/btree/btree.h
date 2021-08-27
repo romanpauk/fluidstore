@@ -264,7 +264,7 @@ namespace btree
             {}
 
         public:
-            internal_node* parent;
+            internal_node* parent;    
             uint8_t index;
             uint8_t meta;
 
@@ -699,22 +699,25 @@ namespace btree
             auto p = l->parent;
             if (p)
             {
-                if (lindex != -1)
-                {
-                    assert(lindex = l->index);
-                }
-
                 fixed_vector< Key, node_descriptor > pkeys(p);
                 if (pkeys.size() < pkeys.capacity())
                 {
                     node_vector< node, node_vector_descriptor > pchildren(p);
-                    pchildren.insert(l->index + 1, r);
-                    pkeys.insert(pkeys.begin() + l->index, key);
+                    pchildren.insert(lindex + 1, r);
+                    pkeys.insert(pkeys.begin() + lindex, key);
                 }
                 else
                 {
                     auto [q, pkey] = split_node(p);
-                    rebalance_insert(p, -1, q, pkey);
+                    
+                    size_t pindex = -1;
+                    if (p->parent)
+                    {
+                        node_vector< node, node_vector_descriptor > pchildren(p->parent);
+                        pindex = find_node_index(pchildren, p);
+                    }
+
+                    rebalance_insert(p, pindex, q, pkey);
 
                     // TODO: This just retries the call after making space.
                     node_vector< node, node_vector_descriptor > pchildren(l->parent);
@@ -746,20 +749,20 @@ namespace btree
                     auto left = reinterpret_cast< value_node* >(n->get_left(nindex));
                     auto right = reinterpret_cast< value_node* >(n->get_right(nindex));
 
-                    if (borrow_keys(n, true, left) ||
-                        borrow_keys(n, false, right))
+                    if (borrow_keys(n, nindex, true, left, nindex - 1) ||
+                        borrow_keys(n, nindex, false, right, nindex + 1))
                     {
                         return;
                     }
 
-                    if (merge_keys(left, true, n))
+                    if (merge_keys(left, true, n, nindex))
                     {
                         remove_node(n->parent, n, nindex - 1);
                         deallocate_node(n);
                         return;
                     }
 
-                    if(merge_keys(right, false, n))
+                    if(merge_keys(right, false, n, nindex))
                     {
                         remove_node(n->parent, n, nindex);
                         deallocate_node(n);
@@ -782,20 +785,20 @@ namespace btree
                     auto left = reinterpret_cast<internal_node*>(n->get_left(nindex));
                     auto right = reinterpret_cast<internal_node*>(n->get_right(nindex));
 
-                    if (borrow_keys(n, true, left) ||
-                        borrow_keys(n, false, right))
+                    if (borrow_keys(n, nindex, true, left, nindex - 1) ||
+                        borrow_keys(n, nindex, false, right, nindex + 1))
                     {
                         return;
                     }
 
-                    if (merge_keys(left, true, n))
+                    if (merge_keys(left, true, n, nindex))
                     {
                         remove_node(n->parent, n, nindex - 1);
                         deallocate_node(n);
                         return;
                     }
 
-                    if (merge_keys(right, false, n))
+                    if (merge_keys(right, false, n, nindex))
                     {
                         remove_node(n->parent, n, nindex);
                         deallocate_node(n);
@@ -847,7 +850,7 @@ namespace btree
             return reinterpret_cast<value_node*>(n);
         }
 
-        bool borrow_keys(value_node* target, bool left, value_node* source)
+        bool borrow_keys(value_node* target, size_t tindex, bool left, value_node* source, size_t sindex)
         {
             if (!source)
             {
@@ -867,8 +870,8 @@ namespace btree
                     tkeys.insert(tkeys.begin(), *key);
                     skeys.erase(key);
 
-                    assert(target->index > 0);
-                    pkeys[target->index - 1] = *tkeys.begin();
+                    assert(tindex > 0);
+                    pkeys[tindex - 1] = *tkeys.begin();
                 }
                 else
                 {
@@ -877,7 +880,7 @@ namespace btree
                     tkeys.insert(tkeys.end(), *key);
                     skeys.erase(key);
 
-                    pkeys[target->index] = *skeys.begin();
+                    pkeys[tindex] = *skeys.begin();
                 }
 
                 return true;
@@ -886,7 +889,7 @@ namespace btree
             return false;
         }
 
-        bool borrow_keys(internal_node* target, bool left, internal_node* source)
+        bool borrow_keys(internal_node* target, size_t tindex, bool left, internal_node* source, size_t sindex)
         {
             if (!source)
             {
@@ -906,20 +909,20 @@ namespace btree
                 {
                     tchildren.insert(0, schildren[0]);
 
-                    tkeys.insert(tkeys.begin(), pkeys[source->index]);    
+                    tkeys.insert(tkeys.begin(), pkeys[sindex]);    
 
-                    pkeys[source->index] = *(skeys.end() - 1);
+                    pkeys[sindex] = *(skeys.end() - 1);
                     skeys.erase(skeys.end() - 1);
                 }
                 else
                 {
-                    tkeys.insert(tkeys.end(), pkeys[target->index]);
+                    tkeys.insert(tkeys.end(), pkeys[tindex]);
                     
                     auto ch = schildren[0];
                     schildren.erase(schildren[0]);
                     tchildren.insert(tchildren.size(), ch);
 
-                    pkeys[target->index] = *skeys.begin();
+                    pkeys[tindex] = *skeys.begin();
                     skeys.erase(skeys.begin());
                 }
 
@@ -929,7 +932,7 @@ namespace btree
             return false;
         }
 
-        bool merge_keys(value_node* target, bool left, value_node* source)
+        bool merge_keys(value_node* target, bool left, value_node* source, size_t sindex)
         {
             if (!target)
             {
@@ -948,7 +951,7 @@ namespace btree
             return false;
         }
 
-        bool merge_keys(internal_node* target, bool left, internal_node* source)
+        bool merge_keys(internal_node* target, bool left, internal_node* source, size_t sindex)
         {
             if (!target)
             {
@@ -967,14 +970,14 @@ namespace btree
                 {
                     tchildren.insert(tchildren.size(), schildren.begin(), schildren.end());
 
-                    tkeys.insert(tkeys.end(), pkeys[source->index - 1]);
+                    tkeys.insert(tkeys.end(), pkeys[sindex - 1]);
                     tkeys.insert(tkeys.end(), skeys.begin(), skeys.end());
                 }
                 else
                 {
                     tchildren.insert(0, schildren.begin(), schildren.end());
 
-                    tkeys.insert(tkeys.begin(), pkeys[source->index]);
+                    tkeys.insert(tkeys.begin(), pkeys[sindex]);
                     tkeys.insert(tkeys.begin(), skeys.begin(), skeys.end());
                 }
 

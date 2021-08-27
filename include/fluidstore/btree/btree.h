@@ -453,7 +453,7 @@ namespace btree
         {
             if (root_)
             {
-                free_node(root_);
+                free_node(root_, depth_);
             }
         }
 
@@ -627,16 +627,14 @@ namespace btree
             return new Node;
         }
 
-        void deallocate_node(node* n)
+        void deallocate_node(internal_node* n)
         {
-            if (n->is_internal())
-            {
-                delete reinterpret_cast<internal_node*>(n);
-            }
-            else
-            {
-                delete reinterpret_cast<value_node*>(n);
-            }
+            delete n;
+        }
+
+        void deallocate_node(value_node* n)
+        {
+            delete n;
         }
 
         template < typename Node > Node* node_cast(node* n)
@@ -686,18 +684,6 @@ namespace btree
             assert(rkeys.size() == N);
 
             return { rnode, *rkeys.begin() };
-        }
-
-        std::tuple< node*, Key > split_node(node* node)
-        {
-            if (node->is_internal())
-            {
-                return split_node(reinterpret_cast<internal_node*>(node));
-            }
-            else
-            {
-                return split_node(reinterpret_cast<value_node*>(node));
-            }
         }
 
         void rebalance_insert(node* l, size_t lindex, node* r, Key key)
@@ -832,9 +818,9 @@ namespace btree
             }
         }
 
-        void free_node(node* n)
+        void free_node(node* n, size_t depth)
         {
-            if (n->is_internal())
+            if (--depth > 0)
             {
                 fixed_vector< Key, node_descriptor > nkeys(n);
 
@@ -843,19 +829,24 @@ namespace btree
 
                 for (auto child: nchildren)
                 {
-                    free_node(child);
+                    free_node(child, depth);
                 }
-            }
 
-            deallocate_node(n);
+                deallocate_node(in);
+            }
+            else
+            {
+                deallocate_node(reinterpret_cast< value_node* >(n));
+            }
         }
 
         value_node* begin_node() const
         {
             assert(root_);
 
+            size_t depth = depth_;
             node* n = root_;
-            while (n->is_internal())
+            while (--depth)
             {
                 node_vector< node, node_vector_descriptor > children(reinterpret_cast<internal_node*>(n));
                 n = children[0];

@@ -226,20 +226,27 @@ namespace btree
 
         // Some ideas about the layout:
         // 
+        // Memory and file-mapped cases are effectively the same, with the difference that file mapped needs to use offsets instead of pointers
+        // and that it cannot store anything into pointers.
+        // 
+        // We also meed to find out if node is internal or value on the common place.
+        // Can we just
+        //  Store if root is internal or value
+        //  Store depth
+        //      So we would know where to switch the node type?
+        // 
         // File-mapped case:
         //
         // Memory case:
         //      value_node
         //          N keys
-        //          parent
-        //          metadata (count, node type, index)
-        //          (N values)
-        //
+        //         (N values)
+        //          metadata (parent, count)
+        //          
         //      internal_node
         //          N-1 keys (actually, there will be 1 unused)
-        //          parent
-        //          metadata (count, node type, index)
         //          N pointers
+        //          metadata (parent, count)
         //
         // - ideally, both keys and pointers will be cache-aligned
         //      int8    64
@@ -432,6 +439,8 @@ namespace btree
         set()
             : root_()
             , size_()
+            , depth_()
+            , root_internal_()
         {
             // Make sure the objects alias.
             value_node v;
@@ -458,6 +467,8 @@ namespace btree
             if (!root_)
             {
                 root_ = allocate_node< value_node >();
+                root_internal_ = false;
+                ++depth_;
             }
 
             auto [n, nindex] = find_value_node(root_, key);
@@ -506,27 +517,29 @@ namespace btree
     private:
         std::tuple< value_node*, size_t > find_value_node(node* n, const Key& key)
         {
-            size_t vnindex = 0;
-            while (n->is_internal())
+            size_t depth = depth_;
+            size_t nindex = 0;
+            while (--depth)
             {
                 fixed_vector< Key, node_descriptor > nkeys(n);
                 
                 auto in = reinterpret_cast<internal_node*>(n);
                 node_vector< node, node_vector_descriptor > nchildren(in);
 
-                auto index = find_key_index(nkeys, key);
-                if (index != nkeys.end())
+                auto kindex = find_key_index(nkeys, key);
+                if (kindex != nkeys.end())
                 {
-                    vnindex = index - nkeys.begin() + !compare_(key, *index);
+                    nindex = kindex - nkeys.begin() + !compare_(key, *kindex);
                 }
                 else
                 {
-                    vnindex = nkeys.size();
+                    nindex = nkeys.size();
                 }
-                n = nchildren[vnindex];
+
+                n = nchildren[nindex];
             }
 
-            return { reinterpret_cast<value_node*>(n), vnindex };
+            return { reinterpret_cast<value_node*>(n), nindex };
         }
 
         iterator find(node* n, const Key& key)
@@ -729,6 +742,8 @@ namespace btree
                 rkeys.push_back(key);
 
                 root_ = root;
+                root_internal_ = true;
+                ++depth_;
             }
         }
 
@@ -805,6 +820,12 @@ namespace btree
                     node_vector< node, node_vector_descriptor > nchildren(n, 1); // override the size to 1
                     root_ = nchildren[0];
                     root_->parent = 0;
+                    --depth_;
+
+                    if (depth_ == 0)
+                    {
+                        root_internal_ = false;
+                    }
 
                     deallocate_node(n);
                 }
@@ -981,7 +1002,11 @@ namespace btree
         }
 
         node* root_;
+        
         size_t size_;
+        size_t depth_;
+        bool root_internal_;
+
         Allocator allocator_;
         Compare compare_;
     };

@@ -464,7 +464,7 @@ namespace btree
                 root_ = allocate_node< value_node >();
             }
 
-            auto n = find_value_node(root_, key);
+            auto [n, nindex] = find_value_node(root_, key);
             fixed_vector< Key, node_descriptor > nkeys(n);
             if (nkeys.size() < nkeys.capacity())
             {
@@ -476,7 +476,9 @@ namespace btree
                 rebalance_insert(n, s, skey);
 
                 node_vector< node, node_vector_descriptor > pchildren(n->parent);
-                return insert(reinterpret_cast<value_node*>(pchildren[n->index + compare_(skey, key)]), std::forward< KeyT >(key));
+                nindex = find_node_index(pchildren, n);
+
+                return insert(reinterpret_cast<value_node*>(pchildren[nindex + compare_(skey, key)]), std::forward< KeyT >(key));
             }
         }
 
@@ -507,8 +509,9 @@ namespace btree
         iterator end() { return iterator(nullptr, 0); }
 
     private:
-        value_node* find_value_node(node* n, const Key& key)
+        std::tuple< value_node*, size_t > find_value_node(node* n, const Key& key)
         {
+            size_t vnindex = 0;
             while (n->is_internal())
             {
                 fixed_vector< Key, node_descriptor > nkeys(n);
@@ -519,20 +522,21 @@ namespace btree
                 auto index = find_key_index(nkeys, key);
                 if (index != nkeys.end())
                 {
-                    n = nchildren[index - nkeys.begin() + !compare_(key, *index)];
+                    vnindex = index - nkeys.begin() + !compare_(key, *index);
                 }
                 else
                 {
-                    n = nchildren[nkeys.size()];
-                }               
+                    vnindex = nkeys.size();
+                }
+                n = nchildren[vnindex];
             }
 
-            return reinterpret_cast<value_node*>(n);
+            return { reinterpret_cast<value_node*>(n), vnindex };
         }
 
         iterator find(node* n, const Key& key)
         {
-            auto vn = find_value_node(n, key);
+            auto [vn, vnindex] = find_value_node(n, key);
 
             fixed_vector< Key, node_descriptor > nkeys(vn);
             auto index = find_key_index(nkeys, key);
@@ -580,6 +584,19 @@ namespace btree
             }
 
             return index;
+        }
+
+        size_t find_node_index(/*const */node_vector< node, node_vector_descriptor >& nodes, const node* n)
+        {
+            for (size_t i = 0; i < nodes.size(); ++i)
+            {
+                if (nodes[i] == n)
+                {
+                    return i;
+                }
+            }
+
+            return nodes.size();
         }
 
         void remove_node(internal_node* parent, node* n, int key_index)

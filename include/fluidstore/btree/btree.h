@@ -382,8 +382,9 @@ namespace btree
         {
             friend class set< Key, Compare, Allocator >;
 
-            iterator(value_node* n, size_t i)
+            iterator(value_node* n, size_t nindex, size_t i)
                 : node_(n)
+                , nindex_(nindex)
                 , i_(i)
             {}
 
@@ -430,6 +431,7 @@ namespace btree
 
         private:
             value_node* node_;
+            size_t nindex_;
             size_t i_;
         };
 
@@ -468,7 +470,7 @@ namespace btree
             fixed_vector< Key, node_descriptor > nkeys(n);
             if (nkeys.size() < nkeys.capacity())
             {
-                return insert(n, std::forward< KeyT >(key));
+                return insert(n, nindex, std::forward< KeyT >(key));
             }
             else
             {
@@ -478,7 +480,7 @@ namespace btree
                 node_vector< node, node_vector_descriptor > pchildren(n->parent);
                 nindex = find_node_index(pchildren, n);
 
-                return insert(reinterpret_cast<value_node*>(pchildren[nindex + compare_(skey, key)]), std::forward< KeyT >(key));
+                return insert(reinterpret_cast<value_node*>(pchildren[nindex + compare_(skey, key)]), nindex, std::forward< KeyT >(key));
             }
         }
 
@@ -505,8 +507,8 @@ namespace btree
         size_t size() const { return size_; }
         bool empty() const { return size_ == 0; }
 
-        iterator begin() { return iterator(empty() ? nullptr : begin_node(), 0); }
-        iterator end() { return iterator(nullptr, 0); }
+        iterator begin() { return iterator(empty() ? nullptr : begin_node(), 0, 0); }
+        iterator end() { return iterator(nullptr, 0, 0); }
 
     private:
         std::tuple< value_node*, size_t > find_value_node(node* n, const Key& key)
@@ -542,7 +544,7 @@ namespace btree
             auto index = find_key_index(nkeys, key);
             if (index < nkeys.end() && key == *index)
             {
-                return iterator(vn, index - nkeys.begin());
+                return iterator(vn, vnindex, index - nkeys.begin());
             }
             else
             {
@@ -550,7 +552,7 @@ namespace btree
             }
         }
 
-        template < typename KeyT > std::pair< iterator, bool > insert(value_node* n, KeyT&& key)
+        template < typename KeyT > std::pair< iterator, bool > insert(value_node* n, size_t nindex, KeyT&& key)
         {
             fixed_vector< Key, node_descriptor > nkeys(n);
             assert(nkeys.size() < nkeys.capacity());
@@ -559,14 +561,14 @@ namespace btree
 
             if (index < nkeys.end() && *index == key)
             {
-                return { iterator(reinterpret_cast<value_node*>(n), index - nkeys.begin()), false };
+                return { iterator(reinterpret_cast<value_node*>(n), nindex, index - nkeys.begin()), false };
             }
             else
             {
                 nkeys.insert(index, std::forward< KeyT >(key));
                 ++size_;
 
-                return { iterator(reinterpret_cast<value_node*>(n), index - nkeys.begin()), true };
+                return { iterator(reinterpret_cast<value_node*>(n), nindex, index - nkeys.begin()), true };
             }
         }
 

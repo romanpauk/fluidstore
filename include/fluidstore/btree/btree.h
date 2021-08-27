@@ -267,18 +267,18 @@ namespace btree
             {}
 
         public:
-            node* get_left(size_t index)
+            template< typename Node > static Node* get_left(internal_node* parent, size_t index)
             {
                 if (parent && index > 0)
                 {
                     node_vector< node, node_vector_descriptor > pchildren(parent);
-                    return pchildren[index - 1];
+                    return reinterpret_cast< Node* >(pchildren[index - 1]);
                 }
 
                 return nullptr;
             }
 
-            node* get_right(size_t index)
+            template< typename Node > static Node* get_right(internal_node* parent, size_t index)
             {
                 if (parent)
                 {
@@ -286,7 +286,7 @@ namespace btree
                     if (index + 1 <= pkeys.size())
                     {
                         node_vector< node, node_vector_descriptor > pchildren(parent);
-                        return pchildren[index + 1];
+                        return reinterpret_cast< Node* >(pchildren[index + 1]);
                     }
                 }
 
@@ -298,6 +298,7 @@ namespace btree
 
         private:
             template < typename Node, size_t Capacity > friend struct node_descriptor;
+            friend struct iterator;
 
             internal_node* parent;
             uint8_t size;
@@ -406,7 +407,7 @@ namespace btree
                 if (++i_ == keys.size())
                 {
                     i_ = 0;
-                    node_ = reinterpret_cast<value_node*>(node_->get_right(nindex_));
+                    node_ = reinterpret_cast<value_node*>(node_->get_right< value_node >(node_->parent, nindex_));
                     ++nindex_;
                 }
 
@@ -430,7 +431,6 @@ namespace btree
             : root_()
             , size_()
             , depth_()
-            , root_internal_()
         {
             // Make sure the objects alias.
             value_node v;
@@ -457,7 +457,6 @@ namespace btree
             if (!root_)
             {
                 root_ = allocate_node< value_node >();
-                root_internal_ = false;
                 ++depth_;
             }
 
@@ -718,7 +717,6 @@ namespace btree
                 rkeys.push_back(key);
 
                 root_ = root;
-                root_internal_ = true;
                 ++depth_;
             }
         }
@@ -730,8 +728,8 @@ namespace btree
             {
                 if (n->get_parent())
                 {
-                    auto left = reinterpret_cast< value_node* >(n->get_left(nindex));
-                    auto right = reinterpret_cast< value_node* >(n->get_right(nindex));
+                    auto left = n->get_left< value_node >(n->get_parent(), nindex);
+                    auto right = n->get_right< value_node >(n->get_parent(), nindex);
 
                     if (borrow_keys(n, nindex, true, left, nindex - 1) ||
                         borrow_keys(n, nindex, false, right, nindex + 1))
@@ -766,8 +764,8 @@ namespace btree
                     node_vector< node, node_vector_descriptor > pchildren(n->get_parent());
                     size_t nindex = find_node_index(pchildren, n);
 
-                    auto left = reinterpret_cast<internal_node*>(n->get_left(nindex));
-                    auto right = reinterpret_cast<internal_node*>(n->get_right(nindex));
+                    auto left = n->get_left< internal_node >(n->get_parent(), nindex);
+                    auto right = n->get_right< internal_node >(n->get_parent(), nindex);
 
                     if (borrow_keys(n, nindex, true, left, nindex - 1) ||
                         borrow_keys(n, nindex, false, right, nindex + 1))
@@ -797,11 +795,6 @@ namespace btree
                     root_ = nchildren[0];
                     root_->set_parent(nullptr);
                     --depth_;
-
-                    if (depth_ == 0)
-                    {
-                        root_internal_ = false;
-                    }
 
                     deallocate_node(n);
                 }
@@ -983,11 +976,10 @@ namespace btree
         }
 
         node* root_;
-        
+
         size_t size_;
         size_t depth_;
-        bool root_internal_;
-
+        
         Allocator allocator_;
         Compare compare_;
     };

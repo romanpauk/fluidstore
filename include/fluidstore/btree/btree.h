@@ -137,6 +137,11 @@ namespace btree
             , desc_(desc)
         {}
 
+        node_vector(Descriptor desc, size_t size)
+            : size_(size)
+            , desc_(desc)
+        {}
+
         void insert(int index, T* node)
         {
             assert(size() + 1 <= capacity());
@@ -259,12 +264,10 @@ namespace btree
 
             node* get_left()
             {
-                if (parent)
+                if (parent && index > 0)
                 {
-                    if (index >= 1)
-                    {
-                        return parent->get_node(index - 1);
-                    }
+                    node_vector< node, node_vector_descriptor > pchildren(parent);
+                    return pchildren[index - 1];
                 }
 
                 return nullptr;
@@ -277,7 +280,8 @@ namespace btree
                     fixed_vector< Key, node_descriptor > pkeys(parent);
                     if (index + 1 <= pkeys.size())
                     {
-                        return parent->get_node(index + 1);
+                        node_vector< node, node_vector_descriptor > pchildren(parent);
+                        return pchildren[index + 1];
                     }
                 }
 
@@ -290,18 +294,6 @@ namespace btree
             internal_node()
             {
                 meta = 1;
-            }
-
-            void add_node(node* n, int index)
-            {
-                n->parent = this;
-                n->index = index;
-                children[index] = n;
-            }
-
-            node* get_node(int index)
-            {
-                return children[index];
             }
 
             uint8_t keys[(2 * N - 1) * sizeof(Key)];
@@ -711,66 +703,66 @@ namespace btree
             }
         }
 
-        void rebalance_erase(value_node* node)
+        void rebalance_erase(value_node* n)
         {
-            fixed_vector< Key, node_descriptor > nkeys(node);
+            fixed_vector< Key, node_descriptor > nkeys(n);
             if (nkeys.size() < N)
             {
-                if (node->parent)
+                if (n->parent)
                 {
-                    auto left = reinterpret_cast< value_node* >(node->get_left());
-                    auto right = reinterpret_cast< value_node* >(node->get_right());
+                    auto left = reinterpret_cast< value_node* >(n->get_left());
+                    auto right = reinterpret_cast< value_node* >(n->get_right());
 
-                    if (borrow_keys(node, true, left) ||
-                        borrow_keys(node, false, right))
+                    if (borrow_keys(n, true, left) ||
+                        borrow_keys(n, false, right))
                     {
                         return;
                     }
 
-                    if (merge_keys(left, true, node))
+                    if (merge_keys(left, true, n))
                     {
-                        remove_node(node->parent, node, node->index - 1);
-                        deallocate_node(node);
+                        remove_node(n->parent, n, n->index - 1);
+                        deallocate_node(n);
                         return;
                     }
 
-                    if(merge_keys(right, false, node))
+                    if(merge_keys(right, false, n))
                     {
-                        remove_node(node->parent, node, node->index);
-                        deallocate_node(node);
+                        remove_node(n->parent, n, n->index);
+                        deallocate_node(n);
                         return;
                     }
                 }
             }
         }
 
-        void rebalance_erase(internal_node* node)
+        void rebalance_erase(internal_node* n)
         {
-            fixed_vector< Key, node_descriptor > nkeys(node);
+            fixed_vector< Key, node_descriptor > nkeys(n);
             if (nkeys.size() < N - 1)
             {
-                if (node->parent)
+                if (n->parent)
                 {
-                    auto left = reinterpret_cast<internal_node*>(node->get_left());
-                    auto right = reinterpret_cast<internal_node*>(node->get_right());
+                    auto left = reinterpret_cast<internal_node*>(n->get_left());
+                    auto right = reinterpret_cast<internal_node*>(n->get_right());
 
-                    if (borrow_keys(node, true, left) ||
-                        borrow_keys(node, false, right))
+                    if (borrow_keys(n, true, left) ||
+                        borrow_keys(n, false, right))
                     {
                         return;
                     }
 
-                    if (merge_keys(left, true, node))
+                    if (merge_keys(left, true, n))
                     {
-                        remove_node(node->parent, node, node->index - 1);
-                        deallocate_node(node);
+                        remove_node(n->parent, n, n->index - 1);
+                        deallocate_node(n);
                         return;
                     }
 
-                    if (merge_keys(right, false, node))
+                    if (merge_keys(right, false, n))
                     {
-                        remove_node(node->parent, node, node->index);
-                        deallocate_node(node);
+                        remove_node(n->parent, n, n->index);
+                        deallocate_node(n);
                         return;
                     }
 
@@ -778,10 +770,11 @@ namespace btree
                 }
                 else if(nkeys.empty())
                 {
-                    root_ = node->get_node(0);
+                    node_vector< node, node_vector_descriptor > nchildren(n, 1); // override the size to 1
+                    root_ = nchildren[0];
                     root_->parent = 0;
 
-                    deallocate_node(node);
+                    deallocate_node(n);
                 }
             }
         }
@@ -811,7 +804,8 @@ namespace btree
             node* n = root_;
             while (n->is_internal())
             {
-                n = reinterpret_cast<internal_node*>(n)->get_node(0);
+                node_vector< node, node_vector_descriptor > children(reinterpret_cast<internal_node*>(n));
+                n = children[0];
             }
 
             return reinterpret_cast<value_node*>(n);

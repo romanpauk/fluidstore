@@ -150,9 +150,8 @@ namespace btree
             for (size_t i = index; i < size_; ++i)
             {
                 data[i + 1] = data[i];
-                data[i + 1]->index = i + 1;
             }
-            node->index = index;
+            //node->index = index;
             node->parent = desc_.get_parent();
             data[index] = node;
             ++size_;
@@ -169,14 +168,12 @@ namespace btree
                 for (int i = size() - 1;  i >= index; --i)
                 {
                     data[i + (to - from)] = data[i];
-                    data[i + (to - from)]->index = i + (to - from);
                 }
             }
         
             for (size_t i = 0; i < to - from; ++i)
             {
                 data[index + i] = *(from + i);
-                data[index + i]->index = index + i;
                 data[index + i]->parent = desc_.get_parent();
             }
 
@@ -192,7 +189,6 @@ namespace btree
             for (size_t i = index; i < size() - 1; ++i)
             {
                 data[i] = data[i + 1];
-                data[i]->index = i;
             }
             --size_;
         }
@@ -201,7 +197,6 @@ namespace btree
         {
             assert(size() + 1 < capacity());
             
-            node->index = size_;
             node->parent = desc_.get_parent();
 
             auto data = desc_.data();
@@ -260,28 +255,26 @@ namespace btree
             node()
                 : meta()
                 , parent()
-                , index()
             {}
 
         public:
             internal_node* parent;    
-            uint8_t index;
             uint8_t meta;
 
             bool is_internal() const { return meta & 1; }
 
-            node* get_left(size_t pindex)
+            node* get_left(size_t index)
             {
-                if (parent && pindex > 0)
+                if (parent && index > 0)
                 {
                     node_vector< node, node_vector_descriptor > pchildren(parent);
-                    return pchildren[pindex - 1];
+                    return pchildren[index - 1];
                 }
 
                 return nullptr;
             }
 
-            node* get_right(size_t pindex)
+            node* get_right(size_t index)
             {
                 if (parent)
                 {
@@ -289,7 +282,7 @@ namespace btree
                     if (index + 1 <= pkeys.size())
                     {
                         node_vector< node, node_vector_descriptor > pchildren(parent);
-                        return pchildren[pindex + 1];
+                        return pchildren[index + 1];
                     }
                 }
 

@@ -229,20 +229,28 @@ namespace btree
     {
         static const size_t N = 4;
 
-        // 32bit keys:
-        //  11 * 4 = 44
-        //  8 + 12 = 20
-        //           64
-        //    metadata in pointer
+        // Some ideas about the layout:
         // 
-        // 64bit keys:
-        //  6 * 8 = 48
-        //  8 + 7 = 15
-        //          63
-        //    metadata in separate byte
-        // 
-        // One page - 64 * 64 (or ~60 + metadata, freelist etc)
-        //   6 bits for addressing
+        // File-mapped case:
+        //
+        // Memory case:
+        //      value_node
+        //          N keys
+        //          parent
+        //          metadata (count, node type, index)
+        //          (N values)
+        //
+        //      internal_node
+        //          N-1 keys (actually, there will be 1 unused)
+        //          parent
+        //          metadata (count, node type, index)
+        //          N pointers
+        //
+        // - ideally, both keys and pointers will be cache-aligned
+        //      int8    64
+        //      int16   32
+        //      int32   16
+        //      int64   8
 
         struct internal_node;
 
@@ -508,7 +516,7 @@ namespace btree
                 auto in = reinterpret_cast<internal_node*>(n);
                 node_vector< node, node_vector_descriptor > nchildren(in);
 
-                auto index = find(nkeys, key);
+                auto index = find_key_index(nkeys, key);
                 if (index != nkeys.end())
                 {
                     n = nchildren[index - nkeys.begin() + !compare_(key, *index)];
@@ -527,7 +535,7 @@ namespace btree
             auto vn = find_value_node(n, key);
 
             fixed_vector< Key, node_descriptor > nkeys(vn);
-            auto index = find(nkeys, key);
+            auto index = find_key_index(nkeys, key);
             if (index < nkeys.end() && key == *index)
             {
                 return iterator(vn, index - nkeys.begin());
@@ -543,7 +551,7 @@ namespace btree
             fixed_vector< Key, node_descriptor > nkeys(n);
             assert(nkeys.size() < nkeys.capacity());
 
-            auto index = find(nkeys, key);
+            auto index = find_key_index(nkeys, key);
 
             if (index < nkeys.end() && *index == key)
             {
@@ -559,7 +567,7 @@ namespace btree
         }
 
         // TODO: const
-        Key* find(/*const */fixed_vector< Key, node_descriptor >& keys, const Key& key)
+        Key* find_key_index(/*const */fixed_vector< Key, node_descriptor >& keys, const Key& key)
         {
             // TODO: better search
             auto index = keys.begin();

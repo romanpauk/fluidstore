@@ -260,15 +260,13 @@ namespace btree
         {
         protected:
             node()
-                : meta()
-                , parent()
+                : parent()
+                , size()
             {}
 
         public:
             internal_node* parent;    
-            uint8_t meta;
-
-            bool is_internal() const { return meta & 1; }
+            uint8_t size;
 
             node* get_left(size_t index)
             {
@@ -285,7 +283,7 @@ namespace btree
             {
                 if (parent)
                 {
-                    fixed_vector< Key, node_descriptor > pkeys(parent);
+                    fixed_vector< Key, internal_node_descriptor > pkeys(parent);
                     if (index + 1 <= pkeys.size())
                     {
                         node_vector< node, node_vector_descriptor > pchildren(parent);
@@ -299,59 +297,39 @@ namespace btree
 
         struct internal_node : node
         {
-            internal_node()
-            {
-                meta = 1;
-            }
-
             uint8_t keys[(2 * N - 1) * sizeof(Key)];
-
-        // private:
             std::array< node*, 2 * N > children;
         };
 
         struct value_node : node
         {
-            value_node()
-            {}
-
             uint8_t keys[2 * N * sizeof(Key)];
         };
 
-        struct node_descriptor
+        struct internal_node_descriptor
         {
-            node_descriptor(node* node)
+            internal_node_descriptor(internal_node* node)
                 : node_(node)
             {}
 
-            node_descriptor(const node_descriptor& other) = default;
+            internal_node_descriptor(const internal_node_descriptor& other) = default;
 
-            //    : node_(other.node_)
-            //{}
-
-            size_t size()
-            {
-                return node_->meta >> 1;
-            }
+            size_t size() { return node_->size; }
 
             void set_size(size_t size)
             {
                 assert(size <= capacity());
-                node_->meta = (size << 1) | (node_->meta & 1);
+                node_->size = size;
             }
 
-            size_t capacity() const { return node_->is_internal() ? 2 * N - 1 : 2 * N; }
+            size_t capacity() const { return 2 * N - 1; }
 
-            Key* data()
-            {
-                auto keys = node_->is_internal() ? reinterpret_cast<internal_node*>(node_)->keys : reinterpret_cast<value_node*>(node_)->keys;
-                return reinterpret_cast<Key*>(keys);
-            }
+            Key* data() { return reinterpret_cast<Key*>(node_->keys); }
 
-            node* get_node() { return node_; }
+            internal_node* get_node() { return node_; }
 
         private:
-            node* node_;
+            internal_node* node_;
         };
 
         struct value_node_descriptor
@@ -362,25 +340,19 @@ namespace btree
 
             value_node_descriptor(const value_node_descriptor& other) = default;
 
-            size_t size()
-            {
-                return node_->meta >> 1;
-            }
+            size_t size() { return node_->size; }
 
             void set_size(size_t size)
             {
                 assert(size <= capacity());
-                node_->meta = (size << 1) | (node_->meta & 1);
+                node_->size = size;
             }
 
             size_t capacity() const { return 2 * N; }
 
-            Key* data()
-            {
-                return reinterpret_cast<Key*>(node_->keys);
-            }
+            Key* data() { return reinterpret_cast<Key*>(node_->keys);  }
 
-            node* get_node() { return node_; }
+            value_node* get_node() { return node_; }
 
         private:
             value_node* node_;
@@ -399,14 +371,14 @@ namespace btree
 
             node** data()
             {
-                auto data = reinterpret_cast<internal_node*>(desc_.get_node())->children.data();
+                auto data = desc_.get_node()->children.data();
                 return reinterpret_cast<node**>(data);
             }
 
-            internal_node* get_parent() { return reinterpret_cast< internal_node* >(desc_.get_node()); }
+            internal_node* get_parent() { return desc_.get_node(); }
 
         private:
-            node_descriptor desc_;
+            internal_node_descriptor desc_;
         };
 
     public:
@@ -555,7 +527,7 @@ namespace btree
             {
                 auto in = reinterpret_cast<internal_node*>(n);
 
-                fixed_vector< Key, node_descriptor > nkeys(n);
+                fixed_vector< Key, internal_node_descriptor > nkeys(in);
                 node_vector< node, node_vector_descriptor > nchildren(in);
 
                 auto kindex = find_key_index(nkeys, key);
@@ -641,7 +613,7 @@ namespace btree
 
         void remove_node(internal_node* parent, node* n, size_t nindex, int key_index)
         {
-            fixed_vector< Key, node_descriptor > pkeys(parent);
+            fixed_vector< Key, internal_node_descriptor > pkeys(parent);
             
             node_vector< node, node_vector_descriptor > pchildren(parent);
             pchildren.erase(nindex);
@@ -684,8 +656,8 @@ namespace btree
             
             rchildren.insert(0, lchildren.begin() + N, lchildren.end());
 
-            fixed_vector< Key, node_descriptor > lkeys(lnode);
-            fixed_vector< Key, node_descriptor > rkeys(rnode);
+            fixed_vector< Key, internal_node_descriptor > lkeys(lnode);
+            fixed_vector< Key, internal_node_descriptor > rkeys(rnode);
 
             auto begin = lkeys.begin() + N;
             rkeys.insert(rkeys.end(), begin, lkeys.end());
@@ -723,7 +695,7 @@ namespace btree
             auto p = l->parent;
             if (p)
             {
-                fixed_vector< Key, node_descriptor > pkeys(p);
+                fixed_vector< Key, internal_node_descriptor > pkeys(p);
                 if (pkeys.size() < pkeys.capacity())
                 {
                     node_vector< node, node_vector_descriptor > pchildren(p);
@@ -756,7 +728,7 @@ namespace btree
                 children.push_back(l);
                 children.push_back(r);
 
-                fixed_vector< Key, node_descriptor > rkeys(root);
+                fixed_vector< Key, internal_node_descriptor > rkeys(root);
                 rkeys.push_back(key);
 
                 root_ = root;
@@ -800,7 +772,7 @@ namespace btree
 
         void rebalance_erase(internal_node* n)
         {
-            fixed_vector< Key, node_descriptor > nkeys(n);
+            fixed_vector< Key, internal_node_descriptor > nkeys(n);
             if (nkeys.size() < N - 1)
             {
                 if (n->parent)
@@ -856,7 +828,7 @@ namespace btree
             {
                 auto in = reinterpret_cast<internal_node*>(n);
 
-                fixed_vector< Key, node_descriptor > nkeys(n);
+                fixed_vector< Key, internal_node_descriptor > nkeys(in);
                 node_vector< node, node_vector_descriptor > nchildren(in);
 
                 for (auto child: nchildren)
@@ -896,7 +868,7 @@ namespace btree
 
             fixed_vector< Key, value_node_descriptor > skeys(source);
             fixed_vector< Key, value_node_descriptor > tkeys(target);
-            fixed_vector< Key, node_descriptor > pkeys(target->parent);
+            fixed_vector< Key, internal_node_descriptor > pkeys(target->parent);
 
             if (skeys.size() > N)
             {
@@ -933,9 +905,9 @@ namespace btree
                 return false;
             }
 
-            fixed_vector< Key, node_descriptor > skeys(source);
-            fixed_vector< Key, node_descriptor > tkeys(target);
-            fixed_vector< Key, node_descriptor > pkeys(target->parent);
+            fixed_vector< Key, internal_node_descriptor > skeys(source);
+            fixed_vector< Key, internal_node_descriptor > tkeys(target);
+            fixed_vector< Key, internal_node_descriptor > pkeys(target->parent);
 
             if (skeys.size() > N - 1)
             {
@@ -995,9 +967,9 @@ namespace btree
                 return false;
             }
 
-            fixed_vector< Key, node_descriptor > skeys(source);
-            fixed_vector< Key, node_descriptor > tkeys(target);
-            fixed_vector< Key, node_descriptor > pkeys(target->parent);
+            fixed_vector< Key, internal_node_descriptor > skeys(source);
+            fixed_vector< Key, internal_node_descriptor > tkeys(target);
+            fixed_vector< Key, internal_node_descriptor > pkeys(target->parent);
 
             if (tkeys.size() == N - 1)
             {

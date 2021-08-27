@@ -473,7 +473,7 @@ namespace btree
             else
             {
                 auto [s, skey] = split_node(n);
-                rebalance_insert(n, s, skey);
+                rebalance_insert(n, nindex, s, skey);
 
                 node_vector< node, node_vector_descriptor > pchildren(n->parent);
                 nindex = find_node_index(pchildren, n);
@@ -692,11 +692,16 @@ namespace btree
             }
         }
 
-        void rebalance_insert(node* l, node* r, Key key)
+        void rebalance_insert(node* l, size_t lindex, node* r, Key key)
         {
             auto p = l->parent;
             if (p)
             {
+                if (lindex != -1)
+                {
+                    assert(lindex = l->index);
+                }
+
                 fixed_vector< Key, node_descriptor > pkeys(p);
                 if (pkeys.size() < pkeys.capacity())
                 {
@@ -707,10 +712,11 @@ namespace btree
                 else
                 {
                     auto [q, pkey] = split_node(p);
-                    rebalance_insert(p, q, pkey);
+                    rebalance_insert(p, -1, q, pkey);
 
                     // TODO: This just retries the call after making space.
-                    rebalance_insert(l, r, key);
+                    node_vector< node, node_vector_descriptor > pchildren(l->parent);
+                    rebalance_insert(l, find_node_index(pchildren, l), r, key);
                 }
             }
             else

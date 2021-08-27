@@ -754,14 +754,14 @@ namespace btree
 
                     if (merge_keys(left, true, n))
                     {
-                        remove_node(n->parent, n, n->index - 1);
+                        remove_node(n->parent, n, nindex - 1);
                         deallocate_node(n);
                         return;
                     }
 
                     if(merge_keys(right, false, n))
                     {
-                        remove_node(n->parent, n, n->index);
+                        remove_node(n->parent, n, nindex);
                         deallocate_node(n);
                         return;
                     }
@@ -790,14 +790,14 @@ namespace btree
 
                     if (merge_keys(left, true, n))
                     {
-                        remove_node(n->parent, n, n->index - 1);
+                        remove_node(n->parent, n, nindex - 1);
                         deallocate_node(n);
                         return;
                     }
 
                     if (merge_keys(right, false, n))
                     {
-                        remove_node(n->parent, n, n->index);
+                        remove_node(n->parent, n, nindex);
                         deallocate_node(n);
                         return;
                     }

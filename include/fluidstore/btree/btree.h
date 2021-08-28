@@ -206,7 +206,7 @@ namespace btree
         T* operator[](size_t index)
         {
             assert(index < size());
-            return desc_.data()[index];
+            return reinterpret_cast< T** >(desc_.data())[index];
         }
 
         size_t size() const { return size_; }
@@ -303,8 +303,8 @@ namespace btree
             template < typename Node, size_t Capacity > friend struct node_descriptor;
             friend struct iterator;
 
+        protected:
             internal_node* parent;
-           
         };
 
         struct internal_node : node
@@ -312,6 +312,9 @@ namespace btree
             internal_node()
                 : size()
             {}
+
+            internal_node* get_left(size_t index) { return node::get_left< internal_node >(parent, index); }
+            internal_node* get_right(size_t index) { return node::get_right< internal_node >(parent, index); }
 
             uint8_t keys[(2 * N - 1) * sizeof(Key)];
             std::array< node*, 2 * N > children;
@@ -323,6 +326,9 @@ namespace btree
             value_node()
                 : size()
             {}
+
+            value_node* get_left(size_t index) { return node::get_left< value_node >(parent, index); }
+            value_node* get_right(size_t index) { return node::get_right< value_node >(parent, index); }
 
             uint8_t keys[2 * N * sizeof(Key)];
             // uint8_t values[2 * N * sizeof(Value)];
@@ -378,6 +384,11 @@ namespace btree
             internal_node_descriptor desc_;
         };
 
+        struct context
+        {
+            size_t depth;
+        };
+
     public:
         struct iterator
         {
@@ -417,7 +428,7 @@ namespace btree
                 if (++i_ == keys.size())
                 {
                     i_ = 0;
-                    node_ = reinterpret_cast<value_node*>(node_->get_right< value_node >(node_->parent, nindex_));
+                    node_ = node_->get_right(nindex_);
                     ++nindex_;
                 }
 
@@ -481,10 +492,10 @@ namespace btree
                 auto [s, skey] = split_node(n);
                 rebalance_insert(n, nindex, s, skey);
 
-                node_vector< node, node_vector_descriptor > pchildren(n->get_parent());
+                node_vector< value_node, node_vector_descriptor > pchildren(n->get_parent());
                 nindex = find_node_index(pchildren, n);
 
-                return insert(reinterpret_cast<value_node*>(pchildren[nindex + compare_(skey, key)]), nindex, std::forward< KeyT >(key));
+                return insert(pchildren[nindex + compare_(skey, key)], nindex, std::forward< KeyT >(key));
             }
         }
 
@@ -593,7 +604,7 @@ namespace btree
             return index;
         }
 
-        size_t find_node_index(/*const */node_vector< node, node_vector_descriptor >& nodes, const node* n)
+        template < typename Node > size_t find_node_index(/*const */node_vector< Node, node_vector_descriptor >& nodes, const node* n)
         {
             for (size_t i = 0; i < nodes.size(); ++i)
             {
@@ -738,8 +749,8 @@ namespace btree
             {
                 if (n->get_parent())
                 {
-                    auto left = n->get_left< value_node >(n->get_parent(), nindex);
-                    auto right = n->get_right< value_node >(n->get_parent(), nindex);
+                    auto left = n->get_left(nindex);
+                    auto right = n->get_right(nindex);
 
                     if (borrow_keys(n, nindex, true, left, nindex - 1) ||
                         borrow_keys(n, nindex, false, right, nindex + 1))
@@ -774,8 +785,8 @@ namespace btree
                     node_vector< node, node_vector_descriptor > pchildren(n->get_parent());
                     size_t nindex = find_node_index(pchildren, n);
 
-                    auto left = n->get_left< internal_node >(n->get_parent(), nindex);
-                    auto right = n->get_right< internal_node >(n->get_parent(), nindex);
+                    auto left = n->get_left(nindex);
+                    auto right = n->get_right(nindex);
 
                     if (borrow_keys(n, nindex, true, left, nindex - 1) ||
                         borrow_keys(n, nindex, false, right, nindex + 1))

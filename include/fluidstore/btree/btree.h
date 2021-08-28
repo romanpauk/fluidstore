@@ -142,29 +142,31 @@ namespace btree
             , desc_(desc)
         {}
 
-        void insert(size_t index, T* node)
+        void insert(T** it, T* node)
         {
+            assert(it >= begin() && it <= end());
             assert(size() + 1 <= capacity());
             auto data = desc_.data();
 
-            for (size_t i = index; i < size_; ++i)
+            for (size_t i = it - begin(); i < size_; ++i)
             {
                 data[i + 1] = data[i];
             }
             
-            data[index] = node;
+            data[it - begin()] = node;
             ++size_;
         }
 
-        void insert(size_t index, T** from, T** to)
+        void insert(T** it, T** from, T** to)
         {
-            assert(0 <= index && index <= size());
-            assert(to - from + index <= capacity());
+            assert(it >= begin() && it <= end());
+            assert(to - from + it - begin() <= capacity());
             auto data = desc_.data();
 
-            if (index < size())
+            size_t index = it - begin();
+            if (it < end())
             {
-                for (size_t i = size();  i > index; --i)
+                for (size_t i = size(); i > index; --i)
                 {
                     data[i + (to - from) - 1] = data[i - 1];
                 }
@@ -178,12 +180,13 @@ namespace btree
             size_ += to - from;
         }
 
-        void erase(size_t index)
+        void erase(T** it)
         {
-            assert(index < size());
+            assert(it >= begin() && it < end());
             assert(size() >= 2);
 
             auto data = desc_.data();
+            size_t index = it - begin();
             for (size_t i = index; i < size() - 1; ++i)
             {
                 data[i] = data[i + 1];
@@ -616,7 +619,7 @@ namespace btree
             fixed_vector< Key, internal_node_descriptor > pkeys(parent);
             
             node_vector< node, node_vector_descriptor > pchildren(parent);
-            pchildren.erase(nindex);
+            pchildren.erase(pchildren.begin() + nindex);
                         
             pkeys.erase(pkeys.begin() + key_index);
 
@@ -654,7 +657,7 @@ namespace btree
             node_vector< node, node_vector_descriptor > lchildren(lnode);
             node_vector< node, node_vector_descriptor > rchildren(rnode);
             
-            rchildren.insert(0, lchildren.begin() + N, lchildren.end());
+            rchildren.insert(rchildren.begin(), lchildren.begin() + N, lchildren.end());
             std::for_each(lchildren.begin() + N, lchildren.end(), [&](auto& n) { n->set_parent(rnode); });
 
             fixed_vector< Key, internal_node_descriptor > lkeys(lnode);
@@ -700,7 +703,7 @@ namespace btree
                 if (pkeys.size() < pkeys.capacity())
                 {
                     node_vector< node, node_vector_descriptor > pchildren(p);
-                    pchildren.insert(lindex + 1, r);
+                    pchildren.insert(pchildren.begin() + lindex + 1, r);
                     r->set_parent(p);
 
                     pkeys.insert(pkeys.begin() + lindex, key);
@@ -916,7 +919,7 @@ namespace btree
 
                 if (left)
                 {
-                    tchildren.insert(0, schildren[0]);
+                    tchildren.insert(tchildren.begin(), schildren[0]);
                     schildren[0]->set_parent(target);
 
                     tkeys.insert(tkeys.begin(), pkeys[sindex]);    
@@ -929,8 +932,8 @@ namespace btree
                     tkeys.insert(tkeys.end(), pkeys[tindex]);
                     
                     auto ch = schildren[0];
-                    schildren.erase(0);
-                    tchildren.insert(tchildren.size(), ch);
+                    schildren.erase(schildren.begin());
+                    tchildren.insert(tchildren.end(), ch);
                     ch->set_parent(target);
 
                     pkeys[tindex] = *skeys.begin();
@@ -979,7 +982,7 @@ namespace btree
                 node_vector< node, node_vector_descriptor > tchildren(target);
                 if (left)
                 {
-                    tchildren.insert(tchildren.size(), schildren.begin(), schildren.end());
+                    tchildren.insert(tchildren.end(), schildren.begin(), schildren.end());
                     std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { n->set_parent(target); });
 
                     tkeys.insert(tkeys.end(), pkeys[sindex - 1]);
@@ -987,7 +990,7 @@ namespace btree
                 }
                 else
                 {
-                    tchildren.insert(0, schildren.begin(), schildren.end());
+                    tchildren.insert(tchildren.begin(), schildren.begin(), schildren.end());
                     std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { n->set_parent(target); });
 
                     tkeys.insert(tkeys.begin(), pkeys[sindex]);

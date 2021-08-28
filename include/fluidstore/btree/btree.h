@@ -267,7 +267,6 @@ namespace btree
         protected:
             node()
                 : parent()
-                , size()
             {}
 
         public:
@@ -305,22 +304,29 @@ namespace btree
             friend struct iterator;
 
             internal_node* parent;
-            uint8_t size;
+           
         };
 
         struct internal_node : node
         {
+            internal_node()
+                : size()
+            {}
+
             uint8_t keys[(2 * N - 1) * sizeof(Key)];
             std::array< node*, 2 * N > children;
-            // metadata
+            uint8_t size;
         };
 
         struct value_node : node
         {
+            value_node()
+                : size()
+            {}
+
             uint8_t keys[2 * N * sizeof(Key)];
             // uint8_t values[2 * N * sizeof(Value)];
-            
-            // metadata
+            uint8_t size;
         };
 
         template < typename Node, size_t Capacity > struct node_descriptor

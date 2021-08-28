@@ -151,8 +151,7 @@ namespace btree
             {
                 data[i + 1] = data[i];
             }
-            //node->index = index;
-            node->set_parent(desc_.get_parent());
+            
             data[index] = node;
             ++size_;
         }
@@ -174,7 +173,6 @@ namespace btree
             for (size_t i = 0; i < (uintptr_t)(to - from); ++i)
             {
                 data[index + i] = *(from + i);
-                data[index + i]->set_parent(desc_.get_parent());
             }
 
             size_ += to - from;
@@ -196,9 +194,6 @@ namespace btree
         void push_back(T* node)
         {
             assert(size() + 1 < capacity());
-            
-            node->set_parent(desc_.get_parent());
-
             auto data = desc_.data();
             data[size_++] = node;
         }
@@ -660,6 +655,7 @@ namespace btree
             node_vector< node, node_vector_descriptor > rchildren(rnode);
             
             rchildren.insert(0, lchildren.begin() + N, lchildren.end());
+            std::for_each(lchildren.begin() + N, lchildren.end(), [&](auto& n) { n->set_parent(rnode); });
 
             fixed_vector< Key, internal_node_descriptor > lkeys(lnode);
             fixed_vector< Key, internal_node_descriptor > rkeys(rnode);
@@ -705,6 +701,8 @@ namespace btree
                 {
                     node_vector< node, node_vector_descriptor > pchildren(p);
                     pchildren.insert(lindex + 1, r);
+                    r->set_parent(p);
+
                     pkeys.insert(pkeys.begin() + lindex, key);
                 }
                 else
@@ -728,10 +726,13 @@ namespace btree
             else
             {
                 auto root = allocate_node< internal_node >();
-
                 node_vector< node, node_vector_descriptor > children(root);
+
                 children.push_back(l);
+                l->set_parent(root);
+
                 children.push_back(r);
+                r->set_parent(root);
 
                 fixed_vector< Key, internal_node_descriptor > rkeys(root);
                 rkeys.push_back(key);
@@ -916,6 +917,7 @@ namespace btree
                 if (left)
                 {
                     tchildren.insert(0, schildren[0]);
+                    schildren[0]->set_parent(target);
 
                     tkeys.insert(tkeys.begin(), pkeys[sindex]);    
 
@@ -929,6 +931,7 @@ namespace btree
                     auto ch = schildren[0];
                     schildren.erase(0);
                     tchildren.insert(tchildren.size(), ch);
+                    ch->set_parent(target);
 
                     pkeys[tindex] = *skeys.begin();
                     skeys.erase(skeys.begin());
@@ -977,6 +980,7 @@ namespace btree
                 if (left)
                 {
                     tchildren.insert(tchildren.size(), schildren.begin(), schildren.end());
+                    std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { n->set_parent(target); });
 
                     tkeys.insert(tkeys.end(), pkeys[sindex - 1]);
                     tkeys.insert(tkeys.end(), skeys.begin(), skeys.end());
@@ -984,6 +988,7 @@ namespace btree
                 else
                 {
                     tchildren.insert(0, schildren.begin(), schildren.end());
+                    std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { n->set_parent(target); });
 
                     tkeys.insert(tkeys.begin(), pkeys[sindex]);
                     tkeys.insert(tkeys.begin(), skeys.begin(), skeys.end());

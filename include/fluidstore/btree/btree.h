@@ -79,17 +79,17 @@ namespace btree
             checkvec();
         }
         
-        void insert(T* index, T* from, T* to)
+        void insert(T* it, T* from, T* to)
         {
-            assert(begin() <= index && index <= end());
-            assert(to - from + index - begin() <= capacity());
+            assert(begin() <= it && it <= end());
+            assert((uintptr_t)(to - from + it - begin()) <= capacity());
             
-            if (index < end())
+            if (it < end())
             {
-                std::memmove(index + (to - from), index, sizeof(T) * (end() - index));
+                std::memmove(it + (to - from), it, sizeof(T) * (end() - it));
             }
             
-            std::memmove(index, from, sizeof(T) * (to - from));
+            std::memmove(it, from, sizeof(T) * (to - from));
             desc_.set_size(size() + to - from);
 
             checkvec();
@@ -142,7 +142,7 @@ namespace btree
             , desc_(desc)
         {}
 
-        void insert(int index, T* node)
+        void insert(size_t index, T* node)
         {
             assert(size() + 1 <= capacity());
             auto data = desc_.data();
@@ -157,7 +157,7 @@ namespace btree
             ++size_;
         }
 
-        void insert(int index, T** from, T** to)
+        void insert(size_t index, T** from, T** to)
         {
             assert(0 <= index && index <= size());
             assert(to - from + index <= capacity());
@@ -165,13 +165,13 @@ namespace btree
 
             if (index < size())
             {
-                for (int i = size() - 1;  i >= index; --i)
+                for (size_t i = size();  i > index; --i)
                 {
-                    data[i + (to - from)] = data[i];
+                    data[i + (to - from) - 1] = data[i - 1];
                 }
             }
         
-            for (size_t i = 0; i < to - from; ++i)
+            for (size_t i = 0; i < (uintptr_t)(to - from); ++i)
             {
                 data[index + i] = *(from + i);
                 data[index + i]->set_parent(desc_.get_parent());
@@ -180,7 +180,7 @@ namespace btree
             size_ += to - from;
         }
 
-        void erase(int index)
+        void erase(size_t index)
         {
             assert(index < size());
             assert(size() >= 2);
@@ -318,7 +318,7 @@ namespace btree
 
             uint8_t keys[(2 * N - 1) * sizeof(Key)];
             std::array< node*, 2 * N > children;
-            uint8_t size;
+            size_t size; // TODO: this needs to be smaller, and elsewhere.
         };
 
         struct value_node : node
@@ -332,7 +332,7 @@ namespace btree
 
             uint8_t keys[2 * N * sizeof(Key)];
             // uint8_t values[2 * N * sizeof(Value)];
-            uint8_t size;
+            size_t size; // TODO: this needs to be smaller, and elsewhere.
         };
 
         template < typename Node, size_t Capacity > struct node_descriptor
@@ -342,15 +342,14 @@ namespace btree
             {}
 
             size_t size() const { return node_->size; }
-            
+            size_t capacity() const { return Capacity; }
+
             void set_size(size_t size)
             {
                 assert(size <= capacity());
                 node_->size = size;
             }
-
-            size_t capacity() const { return Capacity; }
-
+           
             Key* data() { return reinterpret_cast<Key*>(node_->keys); }
             Node* get_node() { return node_; }
 
@@ -617,7 +616,7 @@ namespace btree
             return nodes.size();
         }
 
-        void remove_node(internal_node* parent, node* n, size_t nindex, int key_index)
+        void remove_node(internal_node* parent, node* n, size_t nindex, size_t key_index)
         {
             fixed_vector< Key, internal_node_descriptor > pkeys(parent);
             

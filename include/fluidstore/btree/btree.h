@@ -229,6 +229,10 @@ namespace btree
         // Memory and file-mapped cases are effectively the same, with the difference that file mapped needs to use offsets instead of pointers
         // and that it cannot store anything into pointers.
         // 
+        // On a way down because of searching, just key and child pointers (and values at the end) are accessed.
+        //      = align keys, child pointers and values on cache line
+        // On a way down because if insert/erase, it is possible that we will need to go back up to rebalance.
+        //      = the parent pointer is on another cache line and might not be loaded
         // 
         // File-mapped case:
         //
@@ -236,12 +240,12 @@ namespace btree
         //      value_node
         //          N keys
         //         (N values)
-        //          metadata (parent, count)
+        //          parent, count
         //          
         //      internal_node
-        //          N-1 keys (actually, there will be 1 unused)
+        //          N-1 keys (actually N, but there will be 1 unused - and that should be used for count)
         //          N pointers
-        //          metadata (parent, count)
+        //          parent
         //
         // - ideally, both keys and pointers will be cache-aligned
         //      int8    64

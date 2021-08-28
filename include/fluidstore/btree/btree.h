@@ -7,6 +7,9 @@ namespace btree
     template < typename T, typename Descriptor > struct fixed_vector
     {
     public:
+        //fixed_vector(const fixed_vector< T, Descriptor >&) = delete;
+        //fixed_vector(fixed_vector< T, Descriptor >&&) = delete;
+
         fixed_vector(Descriptor desc) 
             : desc_(desc)
         {
@@ -227,6 +230,9 @@ namespace btree
             internal_node* get_left(size_t index) { return node::get_left< internal_node >(parent, index); }
             internal_node* get_right(size_t index) { return node::get_right< internal_node >(parent, index); }
 
+            auto get_keys() { return fixed_vector< Key, internal_keys >(this); }
+            // template < typename Node > auto get_children() { return fixed_vector< Node, internal_children >(this); }
+
             uint8_t keys[(2 * N - 1) * sizeof(Key)];
             uint8_t children[2 * N * sizeof(node*)];
 
@@ -241,6 +247,7 @@ namespace btree
 
             value_node* get_left(size_t index) { return node::get_left< value_node >(parent, index); }
             value_node* get_right(size_t index) { return node::get_right< value_node >(parent, index); }
+            auto get_keys() { return fixed_vector< Key, value_keys >(this); }
 
             uint8_t keys[2 * N * sizeof(Key)];
             // uint8_t values[2 * N * sizeof(Value)];
@@ -312,32 +319,15 @@ namespace btree
                 , i_(i)
             {}
 
-            bool operator == (const iterator& rhs) const
-            {
-                return node_ == rhs.node_ && i_ == rhs.i_;
-            }
+            bool operator == (const iterator& rhs) const { return node_ == rhs.node_ && i_ == rhs.i_; }
+            bool operator != (const iterator& rhs) const { return !(*this == rhs); }
 
-            bool operator != (const iterator& rhs) const
-            {
-                return !(*this == rhs);
-            }
-
-            const Key& operator*() const
-            {
-                fixed_vector< Key, value_keys > keys(node_);
-                return keys[i_];
-            }
-
-            const Key* operator -> () const
-            {
-                fixed_vector< Key, value_keys > keys(node_);
-                return keys_[i_];
-            }
+            const Key& operator*() const { return node_->get_keys()[i_]; }
+            const Key* operator -> () const { return node_->get_keys()[_i]; }
 
             iterator& operator ++ ()
             {
-                fixed_vector< Key, value_keys > keys(node_);
-                if (++i_ == keys.size())
+                if (++i_ == node_->get_keys().size())
                 {
                     i_ = 0;
                     node_ = node_->get_right(nindex_);
@@ -394,7 +384,7 @@ namespace btree
             }
 
             auto [n, nindex] = find_value_node(root_, key);
-            fixed_vector< Key, value_keys > nkeys(n);
+            auto nkeys = n->get_keys();
             if (nkeys.size() < nkeys.capacity())
             {
                 return insert(n, nindex, std::forward< KeyT >(key));
@@ -424,7 +414,7 @@ namespace btree
         {
             assert(it != end());
 
-            fixed_vector< Key, value_keys > nkeys(it.node_);
+            auto nkeys = it.node_->get_keys();
             nkeys.erase(nkeys.begin() + it.i_);
 
             rebalance_erase(it.node_, it.nindex_);
@@ -445,9 +435,7 @@ namespace btree
             {
                 auto in = reinterpret_cast<internal_node*>(n);
 
-                fixed_vector< Key, internal_keys > nkeys(in);
-                fixed_vector< node*, internal_children > nchildren(in);
-
+                auto nkeys = in->get_keys();
                 auto kindex = find_key_index(nkeys, key);
                 if (kindex != nkeys.end())
                 {
@@ -458,6 +446,7 @@ namespace btree
                     nindex = nkeys.size();
                 }
 
+                fixed_vector< node*, internal_children > nchildren(in);
                 n = nchildren[nindex];
             }
 
@@ -467,8 +456,9 @@ namespace btree
         iterator find(node* n, const Key& key)
         {
             auto [vn, vnindex] = find_value_node(n, key);
+            assert(vn);
 
-            fixed_vector< Key, value_keys > nkeys(vn);
+            auto nkeys = vn->get_keys();
             auto index = find_key_index(nkeys, key);
             if (index < nkeys.end() && key == *index)
             {
@@ -482,11 +472,10 @@ namespace btree
 
         template < typename KeyT > std::pair< iterator, bool > insert(value_node* n, size_t nindex, KeyT&& key)
         {
-            fixed_vector< Key, value_keys > nkeys(n);
+            auto nkeys = n->get_keys();
             assert(nkeys.size() < nkeys.capacity());
 
             auto index = find_key_index(nkeys, key);
-
             if (index < nkeys.end() && *index == key)
             {
                 return { iterator(reinterpret_cast<value_node*>(n), nindex, index - nkeys.begin()), false };
@@ -531,11 +520,10 @@ namespace btree
 
         void remove_node(internal_node* parent, node* n, size_t nindex, size_t key_index)
         {
-            fixed_vector< Key, internal_keys > pkeys(parent);
-            
             fixed_vector< node*, internal_children > pchildren(parent);
             pchildren.erase(pchildren.begin() + nindex);
-                        
+            
+            auto pkeys = parent->get_keys();
             pkeys.erase(pkeys.begin() + key_index);
 
             if (pkeys.size() < N - 1)
@@ -575,8 +563,8 @@ namespace btree
             rchildren.insert(rchildren.begin(), lchildren.begin() + N, lchildren.end());
             std::for_each(lchildren.begin() + N, lchildren.end(), [&](auto& n) { n->set_parent(rnode); });
 
-            fixed_vector< Key, internal_keys > lkeys(lnode);
-            fixed_vector< Key, internal_keys > rkeys(rnode);
+            auto lkeys = lnode->get_keys();
+            auto rkeys = rnode->get_keys();
 
             auto begin = lkeys.begin() + N;
             rkeys.insert(rkeys.end(), begin, lkeys.end());
@@ -595,8 +583,8 @@ namespace btree
         {
             auto rnode = allocate_node< value_node >();
 
-            fixed_vector< Key, value_keys > lkeys(lnode);
-            fixed_vector< Key, value_keys > rkeys(rnode);
+            auto lkeys = lnode->get_keys();
+            auto rkeys = rnode->get_keys();
 
             auto begin = lkeys.begin() + N;
             rkeys.insert(rkeys.end(), begin, lkeys.end());
@@ -614,7 +602,7 @@ namespace btree
             auto p = l->get_parent();
             if (p)
             {
-                fixed_vector< Key, internal_keys > pkeys(p);
+                auto pkeys = p->get_keys();
                 if (pkeys.size() < pkeys.capacity())
                 {
                     fixed_vector< node*, internal_children > pchildren(p);
@@ -652,8 +640,7 @@ namespace btree
                 children.push_back(r);
                 r->set_parent(root);
 
-                fixed_vector< Key, internal_keys > rkeys(root);
-                rkeys.push_back(key);
+                root->get_keys().push_back(key);
 
                 root_ = root;
                 ++depth_;
@@ -662,8 +649,7 @@ namespace btree
 
         void rebalance_erase(value_node* n, size_t nindex)
         {
-            fixed_vector< Key, value_keys > nkeys(n);
-            if (nkeys.size() < N)
+            if (n->get_keys().size() < N)
             {
                 if (n->get_parent())
                 {
@@ -746,7 +732,7 @@ namespace btree
             {
                 auto in = reinterpret_cast<internal_node*>(n);
 
-                fixed_vector< Key, internal_keys > nkeys(in);
+                auto nkeys = in->get_keys();
                 fixed_vector< node*, internal_children > nchildren(in);
 
                 for (auto child: nchildren)
@@ -784,8 +770,8 @@ namespace btree
                 return false;
             }
 
-            fixed_vector< Key, value_keys > skeys(source);
-            fixed_vector< Key, value_keys > tkeys(target);
+            auto skeys = source->get_keys();
+            auto tkeys = target->get_keys();
             fixed_vector< Key, internal_keys > pkeys(target->get_parent());
 
             if (skeys.size() > N)
@@ -823,8 +809,8 @@ namespace btree
                 return false;
             }
 
-            fixed_vector< Key, internal_keys > skeys(source);
-            fixed_vector< Key, internal_keys > tkeys(target);
+            auto skeys = source->get_keys(); 
+            auto tkeys = target->get_keys();
             fixed_vector< Key, internal_keys > pkeys(target->get_parent());
 
             if (skeys.size() > N - 1)
@@ -868,11 +854,10 @@ namespace btree
                 return false;
             }
 
-            fixed_vector< Key, value_keys > skeys(source);
-            fixed_vector< Key, value_keys > tkeys(target);
-
+            auto tkeys = target->get_keys();
             if (tkeys.size() == N)
             {
+                auto skeys = source->get_keys();
                 tkeys.insert(left ? tkeys.end() : tkeys.begin(), skeys.begin(), skeys.end());
                 return true;
             }
@@ -887,9 +872,9 @@ namespace btree
                 return false;
             }
 
-            fixed_vector< Key, internal_keys > skeys(source);
-            fixed_vector< Key, internal_keys > tkeys(target);
-            fixed_vector< Key, internal_keys > pkeys(target->get_parent());
+            auto skeys = source->get_keys();
+            auto tkeys = target->get_keys();
+            auto pkeys = target->get_parent()->get_keys();
 
             if (tkeys.size() == N - 1)
             {

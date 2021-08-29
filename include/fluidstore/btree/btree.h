@@ -183,6 +183,10 @@ namespace btree
                 : parent()
             {}
 
+        #if defined(_DEBUG)
+            virtual ~node() {}
+        #endif
+
         public:
             template< typename Node > static Node* get_left(internal_node* parent, size_t index)
             {
@@ -209,8 +213,13 @@ namespace btree
                 return nullptr;
             }
 
-            void set_parent(bool valuenode, internal_node* n) 
+            void set_parent(bool valuenode, internal_node* n)
             {
+            #if defined(_DEBUG)
+                bool isvaluenode = dynamic_cast<value_node*>(this);
+                assert(valuenode == isvaluenode);
+            #endif
+
                 /*
                 if (valuenode)
                 {
@@ -829,6 +838,8 @@ namespace btree
             auto tkeys = target->get_keys();
             fixed_vector< Key, internal_keys > pkeys(target->get_parent());
 
+            assert(depth_ >= depth + 1);
+
             if (skeys.size() > N - 1)
             {
                 fixed_vector< node*, internal_children > schildren(source);
@@ -837,7 +848,7 @@ namespace btree
                 if (left)
                 {
                     tchildren.insert(tchildren.begin(), schildren[0]);
-                    schildren[0]->set_parent(depth == depth_, target);
+                    schildren[0]->set_parent(depth_ == depth + 1, target);
 
                     tkeys.insert(tkeys.begin(), pkeys[sindex]);    
 
@@ -851,7 +862,7 @@ namespace btree
                     auto ch = schildren[0];
                     schildren.erase(schildren.begin());
                     tchildren.insert(tchildren.end(), ch);
-                    ch->set_parent(depth == depth_, target);
+                    ch->set_parent(depth_ == depth + 1, target);
 
                     pkeys[tindex] = *skeys.begin();
                     skeys.erase(skeys.begin());
@@ -894,12 +905,14 @@ namespace btree
 
             if (tkeys.size() == N - 1)
             {
+                assert(depth_ >= depth + 1);
+
                 fixed_vector< node*, internal_children > schildren(source);
                 fixed_vector< node*, internal_children > tchildren(target);
                 if (left)
                 {
                     tchildren.insert(tchildren.end(), schildren.begin(), schildren.end());
-                    std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { n->set_parent(depth_ == depth, target); });
+                    std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { n->set_parent(depth_ == depth + 1, target); });
 
                     tkeys.insert(tkeys.end(), pkeys[sindex - 1]);
                     tkeys.insert(tkeys.end(), skeys.begin(), skeys.end());
@@ -907,7 +920,7 @@ namespace btree
                 else
                 {
                     tchildren.insert(tchildren.begin(), schildren.begin(), schildren.end());
-                    std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { n->set_parent(depth_ == depth, target); });
+                    std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { n->set_parent(depth_ == depth + 1, target); });
 
                     tkeys.insert(tkeys.begin(), pkeys[sindex]);
                     tkeys.insert(tkeys.begin(), skeys.begin(), skeys.end());

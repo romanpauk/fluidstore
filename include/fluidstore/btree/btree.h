@@ -199,8 +199,7 @@ namespace btree
             {
                 if (parent)
                 {
-                    fixed_vector< Key, internal_keys > pkeys(parent);
-                    if (index + 1 <= pkeys.size())
+                    if (index + 1 <= parent->get_keys().size())
                     {
                         fixed_vector< Node*, internal_children > pchildren(parent);
                         return pchildren[index + 1];
@@ -210,7 +209,6 @@ namespace btree
                 return nullptr;
             }
 
-            internal_node* get_parent() { return parent; }
             void set_parent(internal_node* n) { parent = n; }
 
         private:
@@ -229,8 +227,9 @@ namespace btree
 
             internal_node* get_left(size_t index) { return node::get_left< internal_node >(parent, index); }
             internal_node* get_right(size_t index) { return node::get_right< internal_node >(parent, index); }
-
             auto get_keys() { return fixed_vector< Key, internal_keys >(this); }
+            internal_node* get_parent() { return parent; }
+            void set_parent(internal_node* n) { parent = n; }
             // template < typename Node > auto get_children() { return fixed_vector< Node, internal_children >(this); }
 
             uint8_t keys[(2 * N - 1) * sizeof(Key)];
@@ -248,6 +247,8 @@ namespace btree
             value_node* get_left(size_t index) { return node::get_left< value_node >(parent, index); }
             value_node* get_right(size_t index) { return node::get_right< value_node >(parent, index); }
             auto get_keys() { return fixed_vector< Key, value_keys >(this); }
+            internal_node* get_parent() { return parent; }
+            void set_parent(internal_node* n) { parent = n; }
 
             uint8_t keys[2 * N * sizeof(Key)];
             // uint8_t values[2 * N * sizeof(Value)];
@@ -282,9 +283,15 @@ namespace btree
         struct internal_children
         {
             internal_children(internal_node* node)
-                : desc_(node)
-                , size_(desc_.size() ? desc_.size() + 1 : 0)
-            {}
+                : node_(node)
+                , size_()
+            {
+                auto keys = node_->get_keys();
+                if (!keys.empty())
+                {
+                    size_ = keys.size() + 1;
+                }
+            }
 
             internal_children(const internal_children& other) = default;
 
@@ -294,12 +301,12 @@ namespace btree
 
             node** data()
             {
-                auto data = desc_.get_node()->children;
+                auto data = node_->children;
                 return reinterpret_cast<node**>(data);
             }
 
         private:
-            internal_keys desc_;
+            internal_node* node_;
             size_t size_;
         };
 
@@ -478,14 +485,14 @@ namespace btree
             auto index = find_key_index(nkeys, key);
             if (index < nkeys.end() && *index == key)
             {
-                return { iterator(reinterpret_cast<value_node*>(n), nindex, index - nkeys.begin()), false };
+                return { iterator(n, nindex, index - nkeys.begin()), false };
             }
             else
             {
                 nkeys.insert(index, std::forward< KeyT >(key));
                 ++size_;
 
-                return { iterator(reinterpret_cast<value_node*>(n), nindex, index - nkeys.begin()), true };
+                return { iterator(n, nindex, index - nkeys.begin()), true };
             }
         }
 
@@ -505,7 +512,7 @@ namespace btree
             return index;
         }
 
-        template < typename Node > size_t find_node_index(/*const */fixed_vector< Node, internal_children >& nodes, const node* n)
+        template < typename Node > size_t find_node_index(/*const */fixed_vector< Node*, internal_children >& nodes, const node* n)
         {
             for (size_t i = 0; i < nodes.size(); ++i)
             {
@@ -537,22 +544,12 @@ namespace btree
             return new Node;
         }
 
-        void deallocate_node(internal_node* n)
+        template < typename Node > void deallocate_node(Node* n)
         {
             delete n;
         }
 
-        void deallocate_node(value_node* n)
-        {
-            delete n;
-        }
-
-        template < typename Node > Node* node_cast(node* n)
-        {
-            return reinterpret_cast<Node*>(n);
-        }
-
-        std::tuple< node*, Key > split_node(internal_node* lnode)
+        std::tuple< internal_node*, Key > split_node(internal_node* lnode)
         {
             auto rnode = allocate_node< internal_node >();
 
@@ -579,7 +576,7 @@ namespace btree
             return { rnode, splitkey };
         }
 
-        std::tuple< node*, Key > split_node(value_node* lnode)
+        std::tuple< value_node*, Key > split_node(value_node* lnode)
         {
             auto rnode = allocate_node< value_node >();
 
@@ -597,7 +594,7 @@ namespace btree
             return { rnode, *rkeys.begin() };
         }
 
-        void rebalance_insert(node* l, size_t lindex, node* r, Key key)
+        template < typename Node > void rebalance_insert(Node* l, size_t lindex, Node* r, Key key)
         {
             auto p = l->get_parent();
             if (p)
@@ -656,8 +653,8 @@ namespace btree
                     auto left = n->get_left(nindex);
                     auto right = n->get_right(nindex);
 
-                    if (borrow_keys(n, nindex, true, left, nindex - 1) ||
-                        borrow_keys(n, nindex, false, right, nindex + 1))
+                    if (share_keys(n, nindex, true, left, nindex - 1) ||
+                        share_keys(n, nindex, false, right, nindex + 1))
                     {
                         return;
                     }
@@ -692,8 +689,8 @@ namespace btree
                     auto left = n->get_left(nindex);
                     auto right = n->get_right(nindex);
 
-                    if (borrow_keys(n, nindex, true, left, nindex - 1) ||
-                        borrow_keys(n, nindex, false, right, nindex + 1))
+                    if (share_keys(n, nindex, true, left, nindex - 1) ||
+                        share_keys(n, nindex, false, right, nindex + 1))
                     {
                         return;
                     }
@@ -720,6 +717,7 @@ namespace btree
                     root_ = nchildren[0];
                     root_->set_parent(nullptr);
                     --depth_;
+                    assert(depth_ >= 1);
 
                     deallocate_node(n);
                 }
@@ -763,7 +761,7 @@ namespace btree
             return reinterpret_cast<value_node*>(n);
         }
 
-        bool borrow_keys(value_node* target, size_t tindex, bool left, value_node* source, size_t sindex)
+        bool share_keys(value_node* target, size_t tindex, bool left, value_node* source, size_t sindex)
         {
             if (!source)
             {
@@ -802,7 +800,7 @@ namespace btree
             return false;
         }
 
-        bool borrow_keys(internal_node* target, size_t tindex, bool left, internal_node* source, size_t sindex)
+        bool share_keys(internal_node* target, size_t tindex, bool left, internal_node* source, size_t sindex)
         {
             if (!source)
             {

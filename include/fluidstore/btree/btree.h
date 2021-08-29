@@ -209,7 +209,20 @@ namespace btree
                 return nullptr;
             }
 
-            void set_parent(internal_node* n) { parent = n; }
+            void set_parent(bool valuenode, internal_node* n) 
+            {
+                /*
+                if (valuenode)
+                {
+                    reinterpret_cast<value_node*>(this)->set_parent(n);
+                }
+                else
+                {
+                    reinterpret_cast<internal_node*>(this)->set_parent(n);
+                }
+                */
+                parent = n; 
+            }
 
         private:
             template < typename Node, size_t Capacity > friend struct node_descriptor;
@@ -373,7 +386,7 @@ namespace btree
         {
             if (root_)
             {
-                free_node(root_, depth_);
+                free_node(1, root_);
             }
         }
 
@@ -387,7 +400,7 @@ namespace btree
             if (!root_)
             {
                 root_ = allocate_node< value_node >();
-                ++depth_;
+                depth_ = 1;
             }
 
             auto [n, nindex] = find_value_node(root_, key);
@@ -399,7 +412,7 @@ namespace btree
             else
             {
                 auto [s, skey] = split_node(n);
-                rebalance_insert(n, nindex, s, skey);
+                rebalance_insert(depth_, n, nindex, s, skey);
 
                 fixed_vector< value_node*, internal_children > pchildren(n->get_parent());
                 nindex = find_node_index(pchildren, n);
@@ -424,7 +437,7 @@ namespace btree
             auto nkeys = it.node_->get_keys();
             nkeys.erase(nkeys.begin() + it.i_);
 
-            rebalance_erase(it.node_, it.nindex_);
+            rebalance_erase(depth_, it.node_, it.nindex_);
         }
 
         size_t size() const { return size_; }
@@ -525,7 +538,7 @@ namespace btree
             return nodes.size();
         }
 
-        void remove_node(internal_node* parent, node* n, size_t nindex, size_t key_index)
+        void remove_node(size_t depth, internal_node* parent, node* n, size_t nindex, size_t key_index)
         {
             fixed_vector< node*, internal_children > pchildren(parent);
             pchildren.erase(pchildren.begin() + nindex);
@@ -535,7 +548,8 @@ namespace btree
 
             if (pkeys.size() < N - 1)
             {
-                rebalance_erase(parent);
+                assert(depth > 1);
+                rebalance_erase(depth - 1, parent);
             }
         }
 
@@ -549,7 +563,7 @@ namespace btree
             delete n;
         }
 
-        std::tuple< internal_node*, Key > split_node(internal_node* lnode)
+        std::tuple< internal_node*, Key > split_node(size_t depth, internal_node* lnode)
         {
             auto rnode = allocate_node< internal_node >();
 
@@ -557,8 +571,9 @@ namespace btree
             fixed_vector< node*, internal_children > lchildren(lnode);
             fixed_vector< node*, internal_children > rchildren(rnode);
             
+            assert(depth_ >= depth + 1);
             rchildren.insert(rchildren.begin(), lchildren.begin() + N, lchildren.end());
-            std::for_each(lchildren.begin() + N, lchildren.end(), [&](auto& n) { n->set_parent(rnode); });
+            std::for_each(lchildren.begin() + N, lchildren.end(), [&](auto& n) { n->set_parent(depth_ == depth + 1, rnode); });
 
             auto lkeys = lnode->get_keys();
             auto rkeys = rnode->get_keys();
@@ -594,7 +609,7 @@ namespace btree
             return { rnode, *rkeys.begin() };
         }
 
-        template < typename Node > void rebalance_insert(Node* l, size_t lindex, Node* r, Key key)
+        template < typename Node > void rebalance_insert(size_t depth, Node* l, size_t lindex, Node* r, Key key)
         {
             auto p = l->get_parent();
             if (p)
@@ -610,7 +625,8 @@ namespace btree
                 }
                 else
                 {
-                    auto [q, pkey] = split_node(p);
+                    assert(depth > 1);
+                    auto [q, pkey] = split_node(depth - 1, p);
                     
                     size_t pindex = -1;
                     if (p->get_parent())
@@ -619,15 +635,18 @@ namespace btree
                         pindex = find_node_index(pchildren, p);
                     }
 
-                    rebalance_insert(p, pindex, q, pkey);
+                    assert(depth > 1);
+                    rebalance_insert(depth - 1, p, pindex, q, pkey);
 
                     // TODO: This just retries the call after making space.
                     fixed_vector< node*, internal_children > pchildren(l->get_parent());
-                    rebalance_insert(l, find_node_index(pchildren, l), r, key);
+                    rebalance_insert(depth, l, find_node_index(pchildren, l), r, key);
                 }
             }
             else
             {
+                assert(depth == 1);
+
                 auto root = allocate_node< internal_node >();
                 fixed_vector< node*, internal_children > children(root);
 
@@ -644,7 +663,7 @@ namespace btree
             }
         }
 
-        void rebalance_erase(value_node* n, size_t nindex)
+        void rebalance_erase(size_t depth, value_node* n, size_t nindex)
         {
             if (n->get_keys().size() < N)
             {
@@ -653,22 +672,22 @@ namespace btree
                     auto left = n->get_left(nindex);
                     auto right = n->get_right(nindex);
 
-                    if (share_keys(n, nindex, true, left, nindex - 1) ||
-                        share_keys(n, nindex, false, right, nindex + 1))
+                    if (share_keys(depth, n, nindex, true, left, nindex - 1) ||
+                        share_keys(depth, n, nindex, false, right, nindex + 1))
                     {
                         return;
                     }
 
-                    if (merge_keys(left, true, n, nindex))
+                    if (merge_keys(depth, left, true, n, nindex))
                     {
-                        remove_node(n->get_parent(), n, nindex, nindex - 1);
+                        remove_node(depth, n->get_parent(), n, nindex, nindex - 1);
                         deallocate_node(n);
                         return;
                     }
 
-                    if(merge_keys(right, false, n, nindex))
+                    if(merge_keys(depth, right, false, n, nindex))
                     {
-                        remove_node(n->get_parent(), n, nindex, nindex);
+                        remove_node(depth, n->get_parent(), n, nindex, nindex);
                         deallocate_node(n);
                         return;
                     }
@@ -676,9 +695,9 @@ namespace btree
             }
         }
 
-        void rebalance_erase(internal_node* n)
+        void rebalance_erase(size_t depth, internal_node* n)
         {
-            fixed_vector< Key, internal_keys > nkeys(n);
+            auto nkeys = n->get_keys();
             if (nkeys.size() < N - 1)
             {
                 if (n->get_parent())
@@ -689,22 +708,22 @@ namespace btree
                     auto left = n->get_left(nindex);
                     auto right = n->get_right(nindex);
 
-                    if (share_keys(n, nindex, true, left, nindex - 1) ||
-                        share_keys(n, nindex, false, right, nindex + 1))
+                    if (share_keys(depth, n, nindex, true, left, nindex - 1) ||
+                        share_keys(depth, n, nindex, false, right, nindex + 1))
                     {
                         return;
                     }
 
-                    if (merge_keys(left, true, n, nindex))
+                    if (merge_keys(depth, left, true, n, nindex))
                     {
-                        remove_node(n->get_parent(), n, nindex, nindex - 1);
+                        remove_node(depth, n->get_parent(), n, nindex, nindex - 1);
                         deallocate_node(n);
                         return;
                     }
 
-                    if (merge_keys(right, false, n, nindex))
+                    if (merge_keys(depth, right, false, n, nindex))
                     {
-                        remove_node(n->get_parent(), n, nindex, nindex);
+                        remove_node(depth, n->get_parent(), n, nindex, nindex);
                         deallocate_node(n);
                         return;
                     }
@@ -715,18 +734,17 @@ namespace btree
                 {
                     fixed_vector< node*, internal_children > nchildren(n, 1); // override the size to 1
                     root_ = nchildren[0];
-                    root_->set_parent(nullptr);
                     --depth_;
                     assert(depth_ >= 1);
-
+                    root_->set_parent(depth_ == 1, nullptr);
                     deallocate_node(n);
                 }
             }
         }
 
-        void free_node(node* n, size_t depth)
+        void free_node(size_t depth, node* n)
         {
-            if (--depth > 0)
+            if (depth != depth_)
             {
                 auto in = reinterpret_cast<internal_node*>(n);
 
@@ -735,7 +753,7 @@ namespace btree
 
                 for (auto child: nchildren)
                 {
-                    free_node(child, depth);
+                    free_node(depth + 1, child);
                 }
 
                 deallocate_node(in);
@@ -761,7 +779,7 @@ namespace btree
             return reinterpret_cast<value_node*>(n);
         }
 
-        bool share_keys(value_node* target, size_t tindex, bool left, value_node* source, size_t sindex)
+        bool share_keys(size_t, value_node* target, size_t tindex, bool left, value_node* source, size_t sindex)
         {
             if (!source)
             {
@@ -800,7 +818,7 @@ namespace btree
             return false;
         }
 
-        bool share_keys(internal_node* target, size_t tindex, bool left, internal_node* source, size_t sindex)
+        bool share_keys(size_t depth, internal_node* target, size_t tindex, bool left, internal_node* source, size_t sindex)
         {
             if (!source)
             {
@@ -819,7 +837,7 @@ namespace btree
                 if (left)
                 {
                     tchildren.insert(tchildren.begin(), schildren[0]);
-                    schildren[0]->set_parent(target);
+                    schildren[0]->set_parent(depth == depth_, target);
 
                     tkeys.insert(tkeys.begin(), pkeys[sindex]);    
 
@@ -833,7 +851,7 @@ namespace btree
                     auto ch = schildren[0];
                     schildren.erase(schildren.begin());
                     tchildren.insert(tchildren.end(), ch);
-                    ch->set_parent(target);
+                    ch->set_parent(depth == depth_, target);
 
                     pkeys[tindex] = *skeys.begin();
                     skeys.erase(skeys.begin());
@@ -845,7 +863,7 @@ namespace btree
             return false;
         }
 
-        bool merge_keys(value_node* target, bool left, value_node* source, size_t sindex)
+        bool merge_keys(size_t depth, value_node* target, bool left, value_node* source, size_t sindex)
         {
             if (!target)
             {
@@ -863,7 +881,7 @@ namespace btree
             return false;
         }
 
-        bool merge_keys(internal_node* target, bool left, internal_node* source, size_t sindex)
+        bool merge_keys(size_t depth, internal_node* target, bool left, internal_node* source, size_t sindex)
         {
             if (!target)
             {
@@ -881,7 +899,7 @@ namespace btree
                 if (left)
                 {
                     tchildren.insert(tchildren.end(), schildren.begin(), schildren.end());
-                    std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { n->set_parent(target); });
+                    std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { n->set_parent(depth_ == depth, target); });
 
                     tkeys.insert(tkeys.end(), pkeys[sindex - 1]);
                     tkeys.insert(tkeys.end(), skeys.begin(), skeys.end());
@@ -889,7 +907,7 @@ namespace btree
                 else
                 {
                     tchildren.insert(tchildren.begin(), schildren.begin(), schildren.end());
-                    std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { n->set_parent(target); });
+                    std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { n->set_parent(depth_ == depth, target); });
 
                     tkeys.insert(tkeys.begin(), pkeys[sindex]);
                     tkeys.insert(tkeys.begin(), skeys.begin(), skeys.end());

@@ -179,15 +179,12 @@ namespace btree
         struct node
         {
         protected:
-            node()
-                : parent()
-            {}
+            node() {}
 
         #if defined(_DEBUG)
             virtual ~node() {}
         #endif
 
-        public:
             template< typename Node > static Node* get_left(internal_node* parent, size_t index)
             {
                 if (parent && index > 0)
@@ -213,6 +210,7 @@ namespace btree
                 return nullptr;
             }
 
+        public:
             void set_parent(bool valuenode, internal_node* n)
             {
             #if defined(_DEBUG)
@@ -220,7 +218,6 @@ namespace btree
                 assert(valuenode == isvaluenode);
             #endif
 
-                /*
                 if (valuenode)
                 {
                     reinterpret_cast<value_node*>(this)->set_parent(n);
@@ -228,23 +225,15 @@ namespace btree
                 else
                 {
                     reinterpret_cast<internal_node*>(this)->set_parent(n);
-                }
-                */
-                parent = n; 
+                } 
             }
-
-        private:
-            template < typename Node, size_t Capacity > friend struct node_descriptor;
-            friend struct iterator;
-
-        protected:
-            internal_node* parent;
         };
 
         struct internal_node : node
         {
             internal_node()
                 : size()
+                , parent()
             {}
 
             internal_node* get_left(size_t index) { return node::get_left< internal_node >(parent, index); }
@@ -256,14 +245,15 @@ namespace btree
 
             uint8_t keys[(2 * N - 1) * sizeof(Key)];
             uint8_t children[2 * N * sizeof(node*)];
-
             size_t size; // TODO: this needs to be smaller, and elsewhere.
+            internal_node* parent;
         };
 
         struct value_node : node
         {
             value_node()
                 : size()
+                , parent()
             {}
 
             value_node* get_left(size_t index) { return node::get_left< value_node >(parent, index); }
@@ -275,6 +265,7 @@ namespace btree
             uint8_t keys[2 * N * sizeof(Key)];
             // uint8_t values[2 * N * sizeof(Value)];
             size_t size; // TODO: this needs to be smaller, and elsewhere.
+            internal_node* parent;
         };
 
         template < typename Node, size_t Capacity > struct keys_descriptor
@@ -330,11 +321,6 @@ namespace btree
         private:
             internal_node* node_;
             size_t size_;
-        };
-
-        struct context
-        {
-            size_t depth;
         };
 
     public:

@@ -681,14 +681,14 @@ namespace btree
                         return;
                     }
 
-                    if (merge_keys(depth, left, true, n, nindex))
+                    if (merge_keys(depth, left, nindex - 1, n, nindex))
                     {
                         remove_node(depth, n->get_parent(), n, nindex, nindex - 1);
                         deallocate_node(n);
                         return;
                     }
 
-                    if(merge_keys(depth, right, false, n, nindex))
+                    if(merge_keys(depth, right, nindex + 1, n, nindex))
                     {
                         remove_node(depth, n->get_parent(), n, nindex, nindex);
                         deallocate_node(n);
@@ -717,14 +717,14 @@ namespace btree
                         return;
                     }
 
-                    if (merge_keys(depth, left, true, n, nindex))
+                    if (merge_keys(depth, left, nindex - 1, n, nindex))
                     {
                         remove_node(depth, n->get_parent(), n, nindex, nindex - 1);
                         deallocate_node(n);
                         return;
                     }
 
-                    if (merge_keys(depth, right, false, n, nindex))
+                    if (merge_keys(depth, right, nindex + 1, n, nindex))
                     {
                         remove_node(depth, n->get_parent(), n, nindex, nindex);
                         deallocate_node(n);
@@ -868,7 +868,7 @@ namespace btree
             return false;
         }
 
-        bool merge_keys(size_t depth, value_node* target, bool left, value_node* source, size_t sindex)
+        bool merge_keys(size_t depth, value_node* target, size_t tindex, value_node* source, size_t sindex)
         {
             if (!target)
             {
@@ -879,14 +879,14 @@ namespace btree
             if (tkeys.size() == N)
             {
                 auto skeys = source->get_keys();
-                tkeys.insert(left ? tkeys.end() : tkeys.begin(), skeys.begin(), skeys.end());
+                tkeys.insert(tindex < sindex ? tkeys.end() : tkeys.begin(), skeys.begin(), skeys.end());
                 return true;
             }
 
             return false;
         }
 
-        bool merge_keys(size_t depth, internal_node* target, bool left, internal_node* source, size_t sindex)
+        bool merge_keys(size_t depth, internal_node* target, size_t tindex, internal_node* source, size_t sindex)
         {
             if (!target)
             {
@@ -903,7 +903,7 @@ namespace btree
 
                 fixed_vector< node*, internal_children > schildren(source);
                 fixed_vector< node*, internal_children > tchildren(target);
-                if (left)
+                if (tindex < sindex)
                 {
                     tchildren.insert(tchildren.end(), schildren.begin(), schildren.end());
                     std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { n->set_parent(depth_ == depth + 1, target); });

@@ -406,7 +406,15 @@ namespace btree
             }
             else
             {
-                auto [s, skey] = split_node(n);
+                // We can't insert, meaning we will have to:
+                //  1. try to share keys with other nodes, so we can insert.
+                //  2. prepare parent to accomodate new node
+                //  3. split this node and add it to parent
+                //
+                //rebalance< 2*N >(depth_, n, nindex);
+                //return insert(n, nindex, std::forward< KeyT >(key));
+
+                auto [s, skey] = split_node(depth_, n);
                 rebalance_insert(depth_, n, nindex, s, skey);
 
                 fixed_vector< value_node*, internal_children > pchildren(n->get_parent());
@@ -586,7 +594,7 @@ namespace btree
             return { rnode, splitkey };
         }
 
-        std::tuple< value_node*, Key > split_node(value_node* lnode)
+        std::tuple< value_node*, Key > split_node(size_t, value_node* lnode)
         {
             auto rnode = allocate_node< value_node >();
 
@@ -667,8 +675,8 @@ namespace btree
                     auto left = n->get_left(nindex);
                     auto right = n->get_right(nindex);
 
-                    if (share_keys(depth, n, nindex, true, left, nindex - 1) ||
-                        share_keys(depth, n, nindex, false, right, nindex + 1))
+                    if (share_keys(depth, n, nindex, left, nindex - 1) ||
+                        share_keys(depth, n, nindex, right, nindex + 1))
                     {
                         return;
                     }
@@ -703,8 +711,8 @@ namespace btree
                     auto left = n->get_left(nindex);
                     auto right = n->get_right(nindex);
 
-                    if (share_keys(depth, n, nindex, true, left, nindex - 1) ||
-                        share_keys(depth, n, nindex, false, right, nindex + 1))
+                    if (share_keys(depth, n, nindex, left, nindex - 1) ||
+                        share_keys(depth, n, nindex, right, nindex + 1))
                     {
                         return;
                     }
@@ -774,7 +782,7 @@ namespace btree
             return reinterpret_cast<value_node*>(n);
         }
 
-        bool share_keys(size_t, value_node* target, size_t tindex, bool left, value_node* source, size_t sindex)
+        bool share_keys(size_t, value_node* target, size_t tindex, value_node* source, size_t sindex)
         {
             if (!source)
             {
@@ -787,7 +795,7 @@ namespace btree
 
             if (skeys.size() > N)
             {
-                if (left)
+                if (tindex > sindex)
                 {
                     // Right-most key from the left node
                     auto key = skeys.end() - 1;
@@ -813,7 +821,7 @@ namespace btree
             return false;
         }
 
-        bool share_keys(size_t depth, internal_node* target, size_t tindex, bool left, internal_node* source, size_t sindex)
+        bool share_keys(size_t depth, internal_node* target, size_t tindex, internal_node* source, size_t sindex)
         {
             if (!source)
             {
@@ -831,7 +839,7 @@ namespace btree
                 fixed_vector< node*, internal_children > schildren(source);
                 fixed_vector< node*, internal_children > tchildren(target);
 
-                if (left)
+                if (tindex > sindex)
                 {
                     tchildren.insert(tchildren.begin(), schildren[0]);
                     schildren[0]->set_parent(depth_ == depth + 1, target);
@@ -916,6 +924,104 @@ namespace btree
             }
 
             return false;
+        }
+
+        /*
+        void rebalance(size_t depth, internal_node* n)
+        {
+            auto nkeys = n->get_keys();
+            if (nkeys.size() == 2 * N - 1)
+            {
+                if (n->get_parent())
+                {
+                    fixed_vector< node*, internal_children > pchildren(n->get_parent());
+                    size_t nindex = find_node_index(pchildren, n);
+
+                    auto left = n->get_left(nindex);
+                    auto right = n->get_right(nindex);
+                    
+                    if (share_keys(depth, left, nindex - 1, false, n, nindex) ||
+                        share_keys(depth, right, nindex + 1, true, n, nindex))
+                    {
+                        return;
+                    }
+                }
+                else
+                {
+                    auto root = allocate_node< internal_node >();
+                    fixed_vector< node*, internal_children > children(root);
+
+                    auto [p, splitkey] = split_node(depth, n);
+
+                    children.push_back(n);
+                    n->set_parent(root);
+
+                    children.push_back(p);
+                    p->set_parent(root);
+
+                    root->get_keys().push_back(splitkey);
+
+                    root_ = root;
+                    ++depth_;
+                }
+            }
+        }
+        */
+
+        template < size_t NN, typename Node > void rebalance(size_t depth, Node* n, size_t nindex)
+        {
+            auto nkeys = n->get_keys();
+            if (nkeys.size() == NN)
+            {
+                if (n->get_parent())
+                {
+                    {
+                        fixed_vector< node*, internal_children > pchildren(n->get_parent());
+                        size_t nindex = find_node_index(pchildren, n);
+
+                        auto left = n->get_left(nindex);
+                        auto right = n->get_right(nindex);
+
+                        if (share_keys(depth, left, nindex - 1, false, n, nindex) ||
+                            share_keys(depth, right, nindex + 1, true, n, nindex))
+                        {
+                            return;
+                        }
+                    }
+
+                    assert(depth > 1);
+                    rebalance< 2*N-1 >(depth - 1, n->get_parent(), -1);
+
+                    auto [p, splitkey] = split_node(depth, n);
+                    
+                    fixed_vector< node*, internal_children > pchildren(n->get_parent());
+                    assert(pchildren.size() < pchildren.capacity());
+
+                    pchildren.insert(pchildren.begin() + nindex + 1, p);
+                    p->set_parent(n->get_parent());
+
+                    fixed_vector< Key, internal_keys > pkeys(n->get_parent());
+                    pkeys.insert(pkeys.begin() + nindex, splitkey);
+                }
+                else
+                {
+                    auto root = allocate_node< internal_node >();
+                    fixed_vector< node*, internal_children > children(root);
+
+                    auto [p, splitkey] = split_node(depth, n);
+
+                    children.push_back(n);
+                    n->set_parent(root);
+
+                    children.push_back(p);
+                    p->set_parent(root);
+
+                    root->get_keys().push_back(splitkey);
+
+                    root_ = root;
+                    ++depth_;
+                }
+            }
         }
 
         node* root_;

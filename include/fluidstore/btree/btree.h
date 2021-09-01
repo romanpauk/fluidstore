@@ -2,8 +2,7 @@
 
 #include <set>
 
-// #define PREINSERT_BALANCE
-#define PREERASE_BALANCE
+#define PREINSERT_BALANCE
 
 namespace btree
 {
@@ -788,8 +787,8 @@ namespace btree
 
                 if (tindex > sindex)
                 {
-                    tchildren.insert(tchildren.begin(), schildren[0]);
-                    schildren[0]->set_parent(depth_ == depth + 1, target);
+                    tchildren.insert(tchildren.begin(), schildren[skeys.size()]);
+                    schildren[skeys.size()]->set_parent(depth_ == depth + 1, target);
 
                     tkeys.insert(tkeys.begin(), pkeys[sindex]);    
 
@@ -801,10 +800,11 @@ namespace btree
                     tkeys.insert(tkeys.end(), pkeys[tindex]);
                     
                     auto ch = schildren[0];
-                    schildren.erase(schildren.begin());
-                    tchildren.insert(tchildren.end(), ch);
                     ch->set_parent(depth_ == depth + 1, target);
 
+                    schildren.erase(schildren.begin());
+                    tchildren.insert(tchildren.end(), ch);
+                    
                     pkeys[tindex] = *skeys.begin();
                     skeys.erase(skeys.begin());
                 }
@@ -940,6 +940,9 @@ namespace btree
                     return { cmp ? p : n, cmp };
                 }
             }
+
+            return { n, 0 };
+            // assert(false);
         }
 
         template < typename Node > std::tuple< Node*, size_t > rebalance_erase(size_t depth, Node* n)

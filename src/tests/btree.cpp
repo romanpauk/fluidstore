@@ -110,14 +110,7 @@ BOOST_AUTO_TEST_CASE(btree_erase)
 
         for (int j = i - 1; j > 0; --j)
         {
-            if (j == 63 && i == 97)
-            {
-                int a(1);
-            }
-            c.find(39);
             c.erase(j);
-            c.find(39);
-
             BOOST_REQUIRE((c.find(j) == c.end()));
 
             for (int k = j - 1; k > 0; --k)

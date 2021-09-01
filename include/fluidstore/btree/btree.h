@@ -2,8 +2,6 @@
 
 #include <set>
 
-#define PREINSERT_BALANCE
-
 namespace btree
 {
     template < typename T, typename Descriptor > struct fixed_vector
@@ -409,24 +407,8 @@ namespace btree
             }
             else
             {
-            #if defined(PREINSERT_BALANCE)
-                // We can't insert, meaning we will have to:
-                //  1. try to share keys with other nodes, so we can insert.
-                //  2. prepare parent to accomodate new node
-                //  3. split this node and add it to parent
-                //
-                std::tie(n, nindex) = rebalance_ins(depth_, n, key);
+                std::tie(n, nindex) = rebalance_insert(depth_, n, key);
                 return insert(n, nindex, std::forward< KeyT >(key));
-            #else
-                auto [s, splitkey] = split_node(depth_, n);
-                rebalance_insert(depth_, n, nindex, s, splitkey);
-
-                fixed_vector< value_node*, internal_children > pchildren(n->get_parent());
-                nindex = find_node_index(pchildren, n);
-
-                size_t cmp = !compare_(key, splitkey);
-                return insert(pchildren[nindex + cmp], nindex + cmp, std::forward< KeyT >(key));
-            #endif
             }
         }
 
@@ -637,60 +619,6 @@ namespace btree
             return { rnode, *rkeys.begin() };
         }
 
-        template < typename Node > void rebalance_insert(size_t depth, Node* l, size_t lindex, Node* r, Key key)
-        {
-            auto p = l->get_parent();
-            if (p)
-            {
-                auto pkeys = p->get_keys();
-                if (pkeys.size() < pkeys.capacity())
-                {
-                    fixed_vector< node*, internal_children > pchildren(p);
-                    pchildren.insert(pchildren.begin() + lindex + 1, r);
-                    r->set_parent(p);
-
-                    pkeys.insert(pkeys.begin() + lindex, key);
-                }
-                else
-                {
-                    assert(depth > 1);
-                    auto [q, pkey] = split_node(depth - 1, p);
-                    
-                    size_t pindex = -1;
-                    if (p->get_parent())
-                    {
-                        fixed_vector< node*, internal_children > pchildren(p->get_parent());
-                        pindex = find_node_index(pchildren, p);
-                    }
-
-                    assert(depth > 1);
-                    rebalance_insert(depth - 1, p, pindex, q, pkey);
-
-                    // TODO: This just retries the call after making space.
-                    fixed_vector< node*, internal_children > pchildren(l->get_parent());
-                    rebalance_insert(depth, l, find_node_index(pchildren, l), r, key);
-                }
-            }
-            else
-            {
-                assert(depth == 1);
-
-                auto root = allocate_node< internal_node >();
-                fixed_vector< node*, internal_children > children(root);
-
-                children.push_back(l);
-                l->set_parent(root);
-
-                children.push_back(r);
-                r->set_parent(root);
-
-                root->get_keys().push_back(key);
-
-                root_ = root;
-                ++depth_;
-            }
-        }
-
         void free_node(size_t depth, node* n)
         {
             if (depth != depth_)
@@ -873,7 +801,7 @@ namespace btree
             return false;
         }
 
-        template < typename Node > std::tuple< Node*, size_t > rebalance_ins(size_t depth, Node* n, const Key& key)
+        template < typename Node > std::tuple< Node*, size_t > rebalance_insert(size_t depth, Node* n, const Key& key)
         {
             auto nkeys = n->get_keys();
             if (nkeys.size() == nkeys.capacity())
@@ -897,7 +825,7 @@ namespace btree
 
                     assert(depth > 1);
                     size_t x = depth_;
-                    rebalance_ins(depth - 1, n->get_parent(), split_key(n->get_parent()));
+                    rebalance_insert(depth - 1, n->get_parent(), split_key(n->get_parent()));
                     if (x != depth_)
                     {
                         // FIX: root was split

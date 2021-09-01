@@ -444,7 +444,6 @@ namespace btree
         {
             assert(it != end());
 
-        #if defined(PREERASE_BALANCE)
             auto nkeys = it.node_->get_keys();
             if (nkeys.size() > nkeys.capacity() / 2)
             {
@@ -453,16 +452,10 @@ namespace btree
             else
             {
                 auto key = it.node_->get_keys()[it.i_];
-                auto [n, nindex] = rebalance_era(depth_, it.node_);
+                auto [n, nindex] = rebalance_erase(depth_, it.node_);
                 auto nkeys = n->get_keys();
                 nkeys.erase(find_key_index(nkeys, key));
             }
-        #else
-            auto nkeys = it.node_->get_keys();
-            nkeys.erase(nkeys.begin() + it.i_);
-
-            rebalance_erase(depth_, it.node_, it.nindex_);
-        #endif
         }
 
         size_t size() const { return size_; }
@@ -571,13 +564,6 @@ namespace btree
             auto pkeys = parent->get_keys();
             pkeys.erase(pkeys.begin() + key_index);
 
-        #if !defined(PREERASE_BALANCE)
-            if (pkeys.size() < N - 1)
-            {
-                assert(depth > 1);
-                rebalance_erase(depth - 1, parent);
-            }
-        #else
             if (pkeys.empty())
             {
                 auto root = root_;
@@ -589,7 +575,6 @@ namespace btree
 
                 deallocate_node(reinterpret_cast< internal_node* >(root));
             }
-        #endif
         }
 
         template < typename Node > Node* allocate_node()
@@ -704,85 +689,6 @@ namespace btree
 
                 root_ = root;
                 ++depth_;
-            }
-        }
-
-        void rebalance_erase(size_t depth, value_node* n, size_t nindex)
-        {
-            if (n->get_keys().size() < N)
-            {
-                if (n->get_parent())
-                {
-                    auto left = n->get_left(nindex);
-                    auto right = n->get_right(nindex);
-
-                    if (share_keys(depth, n, nindex, left, nindex - 1) ||
-                        share_keys(depth, n, nindex, right, nindex + 1))
-                    {
-                        return;
-                    }
-
-                    if (merge_keys(depth, left, nindex - 1, n, nindex))
-                    {
-                        remove_node(depth, n->get_parent(), n, nindex, nindex - 1);
-                        deallocate_node(n);
-                        return;
-                    }
-
-                    if(merge_keys(depth, right, nindex + 1, n, nindex))
-                    {
-                        remove_node(depth, n->get_parent(), n, nindex, nindex);
-                        deallocate_node(n);
-                        return;
-                    }
-                }
-            }
-        }
-
-        void rebalance_erase(size_t depth, internal_node* n)
-        {
-            auto nkeys = n->get_keys();
-            if (nkeys.size() < N - 1)
-            {
-                if (n->get_parent())
-                {
-                    fixed_vector< node*, internal_children > pchildren(n->get_parent());
-                    size_t nindex = find_node_index(pchildren, n);
-
-                    auto left = n->get_left(nindex);
-                    auto right = n->get_right(nindex);
-
-                    if (share_keys(depth, n, nindex, left, nindex - 1) ||
-                        share_keys(depth, n, nindex, right, nindex + 1))
-                    {
-                        return;
-                    }
-
-                    if (merge_keys(depth, left, nindex - 1, n, nindex))
-                    {
-                        remove_node(depth, n->get_parent(), n, nindex, nindex - 1);
-                        deallocate_node(n);
-                        return;
-                    }
-
-                    if (merge_keys(depth, right, nindex + 1, n, nindex))
-                    {
-                        remove_node(depth, n->get_parent(), n, nindex, nindex);
-                        deallocate_node(n);
-                        return;
-                    }
-
-                    assert(false);
-                }
-                else if(nkeys.empty())
-                {
-                    fixed_vector< node*, internal_children > nchildren(n, 1); // override the size to 1
-                    root_ = nchildren[0];
-                    --depth_;
-                    assert(depth_ >= 1);
-                    root_->set_parent(depth_ == 1, nullptr);
-                    deallocate_node(n);
-                }
             }
         }
 
@@ -1036,7 +942,7 @@ namespace btree
             }
         }
 
-        template < typename Node > std::tuple< Node*, size_t > rebalance_era(size_t depth, Node* n)
+        template < typename Node > std::tuple< Node*, size_t > rebalance_erase(size_t depth, Node* n)
         {
             auto nkeys = n->get_keys();
             if (nkeys.size() <= nkeys.capacity() / 2)
@@ -1058,8 +964,7 @@ namespace btree
                         }
                     }
 
-                    // merge nodes
-                    rebalance_era(depth - 1, n->get_parent());
+                    rebalance_erase(depth - 1, n->get_parent());
 
                     fixed_vector< node*, internal_children > pchildren(n->get_parent());
                     size_t nindex = find_node_index(pchildren, n);
@@ -1080,19 +985,7 @@ namespace btree
                         return { right, nindex + 1 };
                     }
                 }
-                /*
-                else if (nkeys.size() == 1)
-                {
-                    fixed_vector< node*, internal_children > nchildren(n, 1); // override the size to 1
-                    root_ = nchildren[0];
-                    --depth_;
-                    assert(depth_ >= 1);
-                    root_->set_parent(depth_ == 1, nullptr);
-                    deallocate_node(n);
-
-                    return
-                }*/
-                else //if(nkeys.size() == 1)
+                else
                 {
                     return { n, 0 };
                 }

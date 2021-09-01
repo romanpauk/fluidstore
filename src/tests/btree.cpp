@@ -31,6 +31,11 @@ BOOST_AUTO_TEST_CASE(btree_range_for)
     btree::set< int > c;
     for (int i = 0; i < 30; ++i)
     {
+        if (i == 16)
+        {
+            int a(1);
+        }
+
         c.insert(i);
     }
 
@@ -48,6 +53,10 @@ BOOST_AUTO_TEST_CASE(btree_insert_loop)
     btree::set< int > c;
     for (int i = 0; i < 1000; ++i)
     {
+        if (i == 512)
+        {
+            int a(1);
+        }
         c.insert(i);
         BOOST_REQUIRE(*c.find(i) == i);
 
@@ -101,7 +110,14 @@ BOOST_AUTO_TEST_CASE(btree_erase)
 
         for (int j = i - 1; j > 0; --j)
         {
+            if (j == 63 && i == 97)
+            {
+                int a(1);
+            }
+            c.find(39);
             c.erase(j);
+            c.find(39);
+
             BOOST_REQUIRE((c.find(j) == c.end()));
 
             for (int k = j - 1; k > 0; --k)

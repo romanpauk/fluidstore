@@ -34,12 +34,12 @@ namespace btree
             checkvec();
         }
 
-        void erase(T* index)
+        void erase(const T* index)
         {
             assert(begin() <= index && index < end());
             
             // TODO:
-            std::memmove(index, index + 1, sizeof(T) * (end() - index));
+            std::memmove(const_cast<T*>(index), index + 1, sizeof(T) * (end() - index));
             desc_.set_size(size() - 1);
 
             checkvec();
@@ -68,12 +68,12 @@ namespace btree
 
         // TODO
         T* begin() { return reinterpret_cast< T* >(desc_.data()); }
-        T* begin() const { return reinterpret_cast< T* >(desc_.data()); }
+        const T* begin() const { return reinterpret_cast< const T* >(desc_.data()); }
 
         T* end() { return reinterpret_cast< T* >(desc_.data()) + desc_.size(); }
         const T* end() const { return reinterpret_cast< const T* >(desc_.data()) + desc_.size(); }
 
-        template < typename Ty > void insert(T* it, Ty&& value)
+        template < typename Ty > void insert(const T* it, Ty&& value)
         {
             assert(size() < capacity());
             assert(it >= begin());
@@ -84,10 +84,10 @@ namespace btree
             if (!empty())
             {
                 // TODO
-                std::memmove(it + 1, it, sizeof(T) * (desc_.size() - index));
+                std::memmove(const_cast<T*>(it) + 1, it, sizeof(T) * (desc_.size() - index));
             }
 
-            *it = std::forward< Ty >(value);
+            *const_cast<T*>(it) = std::forward< Ty >(value);
             desc_.set_size(desc_.size() + 1);
 
             checkvec();
@@ -330,7 +330,7 @@ namespace btree
             }
 
             Key* data() { return reinterpret_cast<Key*>(node_->keys); }
-            Key* data() const { return reinterpret_cast<Key*>(node_->keys); }
+            const Key* data() const { return reinterpret_cast<const Key*>(node_->keys); }
 
             Node* get_node() { return node_; }
 
@@ -373,23 +373,23 @@ namespace btree
         {
             friend class set< Key, Compare, Allocator >;
 
-            iterator(value_node* n, size_t nindex, size_t i)
+            iterator(value_node* n, size_t nindex, size_t kindex)
                 : node_(n)
                 , nindex_(nindex)
-                , i_(i)
+                , kindex_(kindex)
             {}
 
-            bool operator == (const iterator& rhs) const { return node_ == rhs.node_ && i_ == rhs.i_; }
+            bool operator == (const iterator& rhs) const { return node_ == rhs.node_ && kindex_ == rhs.kindex_; }
             bool operator != (const iterator& rhs) const { return !(*this == rhs); }
 
-            const Key& operator*() const { return node_->get_keys()[i_]; }
-            const Key* operator -> () const { return node_->get_keys()[_i]; }
+            const Key& operator*() const { return node_->get_keys()[kindex_]; }
+            const Key* operator -> () const { return node_->get_keys()[kindex_]; }
 
             iterator& operator ++ ()
             {
-                if (++i_ == node_->get_keys().size())
+                if (++kindex_ == node_->get_keys().size())
                 {
-                    i_ = 0;
+                    kindex_ = 0;
                     node_ = node_->get_right(nindex_);
                     ++nindex_;
                 }
@@ -400,14 +400,14 @@ namespace btree
             iterator operator++(int)
             {
                 iterator it = *this;
-                ++* this;
+                ++*this;
                 return it;
             }
 
         private:
             value_node* node_;
             size_t nindex_;
-            size_t i_;
+            size_t kindex_;
         };
 
         set()
@@ -481,11 +481,11 @@ namespace btree
             {
                 if (nkeys.size() > nkeys.capacity() / 2)
                 {
-                    nkeys.erase(nkeys.begin() + it.i_);
+                    nkeys.erase(nkeys.begin() + it.kindex_);
                 }
                 else
                 {
-                    auto key = it.node_->get_keys()[it.i_];
+                    auto key = it.node_->get_keys()[it.kindex_];
                     auto [n, nindex] = rebalance_erase(depth_, it.node_, it.nindex_);
                     auto nkeys = n->get_keys();
                     nkeys.erase(find_key_index(nkeys, key));
@@ -493,7 +493,7 @@ namespace btree
             }
             else
             {
-                nkeys.erase(nkeys.begin() + it.i_);
+                nkeys.erase(nkeys.begin() + it.kindex_);
             }
         }
 
@@ -566,7 +566,7 @@ namespace btree
         }
 
         // TODO: const
-        template < typename Descriptor > Key* find_key_index(const fixed_vector< Key, Descriptor >& keys, const Key& key)
+        template < typename Descriptor > const Key* find_key_index(const fixed_vector< Key, Descriptor >& keys, const Key& key)
         {
             // TODO: better search
             auto index = keys.begin();
@@ -617,23 +617,13 @@ namespace btree
 
         template < typename Node > Node* allocate_node()
         {
+            static_assert(!std::is_same_v<Node, node>);
             return new Node;
         }
 
-        /*
         template < typename Node > void deallocate_node(Node* n)
         {
-            delete n;
-        }
-        */
-
-        void deallocate_node(internal_node* n)
-        {
-            delete n;
-        }
-
-        void deallocate_node(value_node* n)
-        {
+            static_assert(!std::is_same_v<Node, node>);
             delete n;
         }
 
@@ -645,6 +635,7 @@ namespace btree
 
         std::tuple< internal_node*, Key > split_node(size_t depth, internal_node* lnode)
         {
+            assert(lnode->full());
             auto rnode = allocate_node< internal_node >();
 
             auto lchildren = lnode->get_children< node* >();
@@ -672,6 +663,7 @@ namespace btree
 
         std::tuple< value_node*, Key > split_node(size_t, value_node* lnode)
         {
+            assert(lnode->full());
             auto rnode = allocate_node< value_node >();
 
             auto lkeys = lnode->get_keys();
@@ -708,7 +700,7 @@ namespace btree
             }
         }
 
-        value_node* begin_node() const
+        value_node* begin_node() const // TODO: const
         {
             assert(root_);
 

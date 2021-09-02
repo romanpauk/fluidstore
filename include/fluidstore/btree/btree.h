@@ -293,6 +293,27 @@ namespace btree
             internal_node* parent;
         };
 
+        template < bool Inc > struct depth_check
+        {
+            depth_check(size_t& gdepth, size_t& ldepth)
+                : global_depth_(gdepth)
+                , local_depth_(ldepth)
+                , begin_depth_(gdepth)
+            {}
+
+            ~depth_check()
+            {
+                if (begin_depth_ != global_depth_)
+                {
+                    local_depth_ += Inc ? 1 : -1;
+                }
+            }
+
+            size_t& global_depth_;
+            size_t& local_depth_;
+            size_t begin_depth_;
+        };
+
         template < typename Node, size_t Capacity > struct keys_descriptor
         {
             keys_descriptor(Node* node)
@@ -599,7 +620,19 @@ namespace btree
             return new Node;
         }
 
+        /*
         template < typename Node > void deallocate_node(Node* n)
+        {
+            delete n;
+        }
+        */
+
+        void deallocate_node(internal_node* n)
+        {
+            delete n;
+        }
+
+        void deallocate_node(value_node* n)
         {
             delete n;
         }
@@ -883,23 +916,18 @@ namespace btree
                 }
             }
 
-            auto parent = n->get_parent()->full();
-            if(parent)
+            auto parent_rebalance = n->get_parent()->full();
+            if(parent_rebalance)
             {
                 assert(depth > 1);
-                size_t x = depth_;
+                depth_check< true > dc(depth_, depth);
                 rebalance_insert(depth - 1, n->get_parent(), split_key(n->get_parent()));
-                if (x != depth_)
-                {
-                    // FIX: root was split, tree has grown
-                    depth += 1;
-                }
             }
                     
             auto [p, splitkey] = split_node(depth, n);
                     
             auto pchildren = n->get_parent()->get_children< node* >();
-            if (parent)
+            if (parent_rebalance)
             {
                 nindex = find_node_index(pchildren, n);
             }
@@ -943,6 +971,7 @@ namespace btree
             auto pkeys = n->get_parent()->get_keys();
             if (pkeys.size() <= pkeys.capacity() / 2)
             {
+                depth_check< false > dc(depth_, depth);
                 rebalance_erase(depth - 1, n->get_parent());
                 nindex = find_node_index(n->get_parent()->get_children< node* >(), n);
             }                

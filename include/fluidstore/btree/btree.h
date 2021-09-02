@@ -62,13 +62,16 @@ namespace btree
             checkvec();
         }
 
-        auto size() { return desc_.size(); }
-        auto capacity() { return desc_.capacity(); }
-        auto empty() { return desc_.size() == 0; }
+        auto size() const { return desc_.size(); }
+        auto capacity() const { return desc_.capacity(); }
+        auto empty() const { return desc_.size() == 0; }
 
         // TODO
         T* begin() { return reinterpret_cast< T* >(desc_.data()); }
+        T* begin() const { return reinterpret_cast< T* >(desc_.data()); }
+
         T* end() { return reinterpret_cast< T* >(desc_.data()) + desc_.size(); }
+        const T* end() const { return reinterpret_cast< const T* >(desc_.data()) + desc_.size(); }
 
         template < typename Ty > void insert(T* it, Ty&& value)
         {
@@ -107,6 +110,12 @@ namespace btree
         }
 
         T& operator[](size_t index)
+        {
+            assert(index < size());
+            return *(begin() + index);
+        }
+
+        const T& operator[](size_t index) const 
         {
             assert(index < size());
             return *(begin() + index);
@@ -190,8 +199,7 @@ namespace btree
             {
                 if (parent && index > 0)
                 {
-                    fixed_vector< Node*, internal_children > pchildren(parent);
-                    return pchildren[index - 1];
+                    return parent->get_children< Node* >()[index - 1];
                 }
 
                 return nullptr;
@@ -203,8 +211,7 @@ namespace btree
                 {
                     if (index + 1 <= parent->get_keys().size())
                     {
-                        fixed_vector< Node*, internal_children > pchildren(parent);
-                        return pchildren[index + 1];
+                        return parent->get_children< Node* >()[index + 1];
                     }
                 }
 
@@ -240,12 +247,14 @@ namespace btree
             internal_node* get_left(size_t index) { return node::get_left< internal_node >(parent, index); }
             internal_node* get_right(size_t index) { return node::get_right< internal_node >(parent, index); }
             auto get_keys() { return fixed_vector< Key, internal_keys >(this); }
+            //const auto get_keys() const { return fixed_vector< Key, internal_keys >(this); }
+
             template < typename Node > auto get_children() { return fixed_vector< Node, internal_children >(this); }
 
             internal_node* get_parent() { return parent; }
             void set_parent(internal_node* n) { parent = n; }
             
-            bool full()
+            bool full() //const
             {
                 auto keys = get_keys();
                 return keys.size() == keys.capacity();
@@ -267,11 +276,12 @@ namespace btree
             value_node* get_left(size_t index) { return node::get_left< value_node >(parent, index); }
             value_node* get_right(size_t index) { return node::get_right< value_node >(parent, index); }
             auto get_keys() { return fixed_vector< Key, value_keys >(this); }
-            
+            //auto get_keys() const { return fixed_vector< Key, value_keys >(this); }
+
             internal_node* get_parent() { return parent; }
             void set_parent(internal_node* n) { parent = n; }
             
-            bool full()
+            bool full() //const
             {
                 auto keys = get_keys();
                 return keys.size() == keys.capacity();
@@ -297,8 +307,10 @@ namespace btree
                 assert(size <= capacity());
                 node_->size = size;
             }
-           
+
             Key* data() { return reinterpret_cast<Key*>(node_->keys); }
+            Key* data() const { return reinterpret_cast<Key*>(node_->keys); }
+
             Node* get_node() { return node_; }
 
         private:
@@ -323,15 +335,12 @@ namespace btree
 
             internal_children(const internal_children& other) = default;
 
-            size_t size() { return size_; }
+            size_t size() const { return size_; }
             void set_size(size_t size) { size_ = size; }
             size_t capacity() const { return 2 * N; }
 
-            node** data()
-            {
-                auto data = node_->children;
-                return reinterpret_cast<node**>(data);
-            }
+            node** data() { return reinterpret_cast<node**>(node_->children); }
+            node** data() const { return reinterpret_cast<node**>(node_->children); }
 
         private:
             internal_node* node_;
@@ -536,7 +545,7 @@ namespace btree
         }
 
         // TODO: const
-        template < typename Descriptor > Key* find_key_index(/*const */fixed_vector< Key, Descriptor >& keys, const Key& key)
+        template < typename Descriptor > Key* find_key_index(const fixed_vector< Key, Descriptor >& keys, const Key& key)
         {
             // TODO: better search
             auto index = keys.begin();
@@ -551,7 +560,7 @@ namespace btree
             return index;
         }
 
-        template < typename Node > size_t find_node_index(/*const */fixed_vector< Node*, internal_children >& nodes, const node* n)
+        template < typename Node > size_t find_node_index(const fixed_vector< Node*, internal_children >& nodes, const node* n)
         {
             for (size_t i = 0; i < nodes.size(); ++i)
             {
@@ -564,7 +573,7 @@ namespace btree
             return nodes.size();
         }
 
-        template< typename Node > void remove_node(size_t depth, internal_node* parent, Node* n, size_t nindex, size_t key_index)
+        template< typename Node > void remove_node(size_t depth, internal_node* parent, const Node* n, size_t nindex, size_t key_index)
         {
             auto pchildren = parent->get_children< node* >();
             pchildren.erase(pchildren.begin() + nindex);
@@ -595,7 +604,7 @@ namespace btree
             delete n;
         }
 
-        template < typename Node > const Key& split_key(Node* n)
+        template < typename Node > const Key& split_key(/*const*/ Node* n)
         {
             assert(n->full());
             return *(n->get_keys().begin() + N);
@@ -651,8 +660,6 @@ namespace btree
             if (depth != depth_)
             {
                 auto in = reinterpret_cast<internal_node*>(n);
-
-                auto nkeys = in->get_keys();
                 auto nchildren = in->get_children< node* >();
 
                 for (auto child: nchildren)

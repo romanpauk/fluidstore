@@ -240,10 +240,11 @@ namespace btree
             internal_node* get_left(size_t index) { return node::get_left< internal_node >(parent, index); }
             internal_node* get_right(size_t index) { return node::get_right< internal_node >(parent, index); }
             auto get_keys() { return fixed_vector< Key, internal_keys >(this); }
+            template < typename Node > auto get_children() { return fixed_vector< Node, internal_children >(this); }
+
             internal_node* get_parent() { return parent; }
             void set_parent(internal_node* n) { parent = n; }
-            // template < typename Node > auto get_children() { return fixed_vector< Node, internal_children >(this); }
-
+            
             bool full()
             {
                 auto keys = get_keys();
@@ -266,6 +267,7 @@ namespace btree
             value_node* get_left(size_t index) { return node::get_left< value_node >(parent, index); }
             value_node* get_right(size_t index) { return node::get_right< value_node >(parent, index); }
             auto get_keys() { return fixed_vector< Key, value_keys >(this); }
+            
             internal_node* get_parent() { return parent; }
             void set_parent(internal_node* n) { parent = n; }
             
@@ -491,8 +493,7 @@ namespace btree
                     nindex = nkeys.size();
                 }
 
-                fixed_vector< node*, internal_children > nchildren(in);
-                n = nchildren[nindex];
+                n = in->get_children< node* >()[nindex];
             }
 
             return { reinterpret_cast<value_node*>(n), nindex };
@@ -565,7 +566,7 @@ namespace btree
 
         template< typename Node > void remove_node(size_t depth, internal_node* parent, Node* n, size_t nindex, size_t key_index)
         {
-            fixed_vector< node*, internal_children > pchildren(parent);
+            auto pchildren = parent->get_children< node* >();
             pchildren.erase(pchildren.begin() + nindex);
             
             auto pkeys = parent->get_keys();
@@ -604,9 +605,8 @@ namespace btree
         {
             auto rnode = allocate_node< internal_node >();
 
-            // Split children
-            fixed_vector< node*, internal_children > lchildren(lnode);
-            fixed_vector< node*, internal_children > rchildren(rnode);
+            auto lchildren = lnode->get_children< node* >();
+            auto rchildren = rnode->get_children< node* >();
             
             assert(depth_ >= depth + 1);
             rchildren.insert(rchildren.begin(), lchildren.begin() + N, lchildren.end());
@@ -653,7 +653,7 @@ namespace btree
                 auto in = reinterpret_cast<internal_node*>(n);
 
                 auto nkeys = in->get_keys();
-                fixed_vector< node*, internal_children > nchildren(in);
+                auto nchildren = in->get_children< node* >();
 
                 for (auto child: nchildren)
                 {
@@ -676,8 +676,7 @@ namespace btree
             node* n = root_;
             while (--depth)
             {
-                fixed_vector< node*, internal_children > children(reinterpret_cast<internal_node*>(n));
-                n = children[0];
+                n = reinterpret_cast<internal_node*>(n)->get_children< node* >()[0];
             }
 
             return reinterpret_cast<value_node*>(n);
@@ -692,7 +691,7 @@ namespace btree
 
             auto skeys = source->get_keys();
             auto tkeys = target->get_keys();
-            fixed_vector< Key, internal_keys > pkeys(target->get_parent());
+            auto pkeys = target->get_parent()->get_keys();
 
             if (skeys.size() > N && tkeys.size() < 2*N)
             {
@@ -731,14 +730,14 @@ namespace btree
 
             auto skeys = source->get_keys(); 
             auto tkeys = target->get_keys();
-            fixed_vector< Key, internal_keys > pkeys(target->get_parent());
+            auto pkeys = target->get_parent()->get_keys();
 
             assert(depth_ >= depth + 1);
 
             if (skeys.size() > N - 1 && tkeys.size() < 2*N - 1)
             {
-                fixed_vector< node*, internal_children > schildren(source);
-                fixed_vector< node*, internal_children > tchildren(target);
+                auto schildren = source->get_children< node* >();
+                auto tchildren = target->get_children< node* >();
 
                 if (tindex > sindex)
                 {
@@ -803,8 +802,9 @@ namespace btree
             {
                 assert(depth_ >= depth + 1);
 
-                fixed_vector< node*, internal_children > schildren(source);
-                fixed_vector< node*, internal_children > tchildren(target);
+                auto schildren = source->get_children< node* >();
+                auto tchildren = target->get_children< node* >();
+                
                 if (tindex < sindex)
                 {
                     tchildren.insert(tchildren.end(), schildren.begin(), schildren.end());
@@ -833,8 +833,7 @@ namespace btree
             assert(n->full());
             if(n->get_parent())
             {
-                fixed_vector< node*, internal_children > pchildren(n->get_parent());
-                size_t nindex = find_node_index(pchildren, n);
+                size_t nindex = find_node_index(n->get_parent()->get_children< node* >(), n);
                 return rebalance_insert(depth, n, nindex, key);
             }
             else
@@ -842,7 +841,7 @@ namespace btree
                 auto root = allocate_node< internal_node >();
                 auto [p, splitkey] = split_node(depth, n);
 
-                fixed_vector< node*, internal_children > children(root);
+                auto children = root->get_children< node* >();
                 children.push_back(n);
                 n->set_parent(root);
                 children.push_back(p);
@@ -864,8 +863,7 @@ namespace btree
             assert(n->get_parent());
             
             {
-                fixed_vector< node*, internal_children > pchildren(n->get_parent());
-                size_t nindex = find_node_index(pchildren, n);
+                size_t nindex = find_node_index(n->get_parent()->get_children< node* >(), n);
 
                 auto left = n->get_left(nindex);
                 auto right = n->get_right(nindex);
@@ -893,7 +891,7 @@ namespace btree
                     
             auto [p, splitkey] = split_node(depth, n);
                     
-            fixed_vector< node*, internal_children > pchildren(n->get_parent());
+            auto pchildren = n->get_parent()->get_children< node* >();
             if (parent)
             {
                 nindex = find_node_index(pchildren, n);
@@ -913,8 +911,7 @@ namespace btree
         {
             if (n->get_parent())
             {
-                fixed_vector< node*, internal_children > pchildren(n->get_parent());
-                auto nindex = find_node_index(pchildren, n);
+                auto nindex = find_node_index(n->get_parent()->get_children< node* >(), n);
                 rebalance_erase(depth, n, nindex);
             }
         }
@@ -940,8 +937,7 @@ namespace btree
             if (pkeys.size() <= pkeys.capacity() / 2)
             {
                 rebalance_erase(depth - 1, n->get_parent());
-                fixed_vector< node*, internal_children > pchildren(n->get_parent());
-                nindex = find_node_index(pchildren, n);
+                nindex = find_node_index(n->get_parent()->get_children< node* >(), n);
             }                
                 
             {

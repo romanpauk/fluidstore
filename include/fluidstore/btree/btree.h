@@ -418,8 +418,16 @@ namespace btree
             }
             else
             {
-                std::tie(n, nindex) = rebalance_insert(depth_, n, nindex, key);
-                return insert(n, nindex, std::forward< KeyT >(key));
+                if (n->get_parent())
+                {
+                    std::tie(n, nindex) = rebalance_insert(depth_, n, nindex, key);
+                    return insert(n, nindex, std::forward< KeyT >(key));
+                }
+                else
+                {
+                    std::tie(n, nindex) = rebalance_insert(depth_, n, key);
+                    return insert(n, nindex, std::forward< KeyT >(key));
+                }
             }
         }
 
@@ -820,59 +828,14 @@ namespace btree
             return false;
         }
 
-        template < typename Node > std::tuple< Node*, size_t > rebalance_insert(size_t depth, Node* n, size_t aa, const Key& key)
+        template < typename Node > std::tuple< Node*, size_t > rebalance_insert(size_t depth, Node* n, const Key& key)
         {
             assert(n->full());
-            if (n->get_parent())
+            if(n->get_parent())
             {
-                //assert(aa != -1);
-
-                {
-                    fixed_vector< node*, internal_children > pchildren(n->get_parent());
-                    size_t nindex = find_node_index(pchildren, n);
-
-                    auto left = n->get_left(nindex);
-                    auto right = n->get_right(nindex);
-
-                    if (left && share_keys(depth, left, nindex - 1, n, nindex) ||
-                        right && share_keys(depth, right, nindex + 1, n, nindex))
-                    {
-                        assert(!n->full());
-                        return { n, nindex };
-                    }
-                }
-
-                if(n->get_parent()->full())
-                {
-                    assert(depth > 1);
-                    size_t x = depth_;
-                    rebalance_insert(depth - 1, n->get_parent(), -1, split_key(n->get_parent()));
-                    if (x != depth_)
-                    {
-                        // FIX: root was split
-                        depth += 1;
-                    }
-                    assert(!n->get_parent()->full());
-                }
-                    
-                auto [p, splitkey] = split_node(depth, n);
-                    
                 fixed_vector< node*, internal_children > pchildren(n->get_parent());
-                //if (parentneedsrebalance)
-                //{
                 size_t nindex = find_node_index(pchildren, n);
-                //}
-
-                assert(pchildren.size() < pchildren.capacity());
-
-                pchildren.insert(pchildren.begin() + nindex + 1, p);
-                p->set_parent(n->get_parent());
-
-                fixed_vector< Key, internal_keys > pkeys(n->get_parent());
-                pkeys.insert(pkeys.begin() + nindex, splitkey);
-
-                auto cmp = !compare_(key, splitkey);
-                return { cmp ? p : n, nindex + cmp };
+                return rebalance_insert(depth, n, nindex, key);
             }
             else
             {
@@ -893,6 +856,57 @@ namespace btree
                 auto cmp = !compare_(key, splitkey);
                 return { cmp ? p : n, cmp };
             }
+        }
+
+        template < typename Node > std::tuple< Node*, size_t > rebalance_insert(size_t depth, Node* n, size_t nindex, const Key& key)
+        {
+            assert(n->full());
+            assert(n->get_parent());
+            
+            {
+                fixed_vector< node*, internal_children > pchildren(n->get_parent());
+                size_t nindex = find_node_index(pchildren, n);
+
+                auto left = n->get_left(nindex);
+                auto right = n->get_right(nindex);
+
+                if (left && share_keys(depth, left, nindex - 1, n, nindex) ||
+                    right && share_keys(depth, right, nindex + 1, n, nindex))
+                {
+                    assert(!n->full());
+                    return { n, nindex };
+                }
+            }
+
+            auto parent = n->get_parent()->full();
+            if(parent)
+            {
+                assert(depth > 1);
+                size_t x = depth_;
+                rebalance_insert(depth - 1, n->get_parent(), split_key(n->get_parent()));
+                if (x != depth_)
+                {
+                    // FIX: root was split, tree has grown
+                    depth += 1;
+                }
+            }
+                    
+            auto [p, splitkey] = split_node(depth, n);
+                    
+            fixed_vector< node*, internal_children > pchildren(n->get_parent());
+            if (parent)
+            {
+                nindex = find_node_index(pchildren, n);
+            }
+
+            pchildren.insert(pchildren.begin() + nindex + 1, p);
+            p->set_parent(n->get_parent());
+
+            auto pkeys = n->get_parent()->get_keys();
+            pkeys.insert(pkeys.begin() + nindex, splitkey);
+
+            auto cmp = !compare_(key, splitkey);
+            return { cmp ? p : n, nindex + cmp };
         }
 
         template < typename Node > void rebalance_erase(size_t depth, Node* n)

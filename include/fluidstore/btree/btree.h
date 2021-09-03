@@ -23,15 +23,9 @@ namespace btree
             checkvec();
         }
 
-        void push_back(T value)
+        template < typename Ty > void emplace_back(Ty&& value)
         {
-            assert(size() < capacity());
-
-            auto index = size();
-            new(desc_.data() + index) T(value);
-            desc_.set_size(index + 1);
-
-            checkvec();
+            emplace(end(), std::forward< Ty >(value));
         }
 
         void erase(const T* index)
@@ -73,7 +67,7 @@ namespace btree
         T* end() { return reinterpret_cast< T* >(desc_.data()) + desc_.size(); }
         const T* end() const { return reinterpret_cast< const T* >(desc_.data()) + desc_.size(); }
 
-        template < typename Ty > void insert(const T* it, Ty&& value)
+        template < typename Ty > void emplace(const T* it, Ty&& value)
         {
             assert(size() < capacity());
             assert(it >= begin());
@@ -81,7 +75,7 @@ namespace btree
 
             auto index = it - desc_.data();
             
-            if (!empty())
+            if (size() - index > 0)
             {
                 // TODO
                 std::memmove(const_cast<T*>(it) + 1, it, sizeof(T) * (desc_.size() - index));
@@ -564,7 +558,7 @@ namespace btree
             }
             else
             {
-                nkeys.insert(index, std::forward< KeyT >(key));
+                nkeys.emplace(index, std::forward< KeyT >(key));
                 ++size_;
 
                 return { iterator(n, nindex, index - nkeys.begin()), true };
@@ -737,7 +731,7 @@ namespace btree
                 {
                     // Right-most key from the left node
                     auto key = skeys.end() - 1;
-                    tkeys.insert(tkeys.begin(), *key);
+                    tkeys.emplace(tkeys.begin(), *key);
                     skeys.erase(key);
 
                     assert(tindex > 0);
@@ -747,7 +741,7 @@ namespace btree
                 {
                     // Left-most key from the right node
                     auto key = skeys.begin();
-                    tkeys.insert(tkeys.end(), *key);
+                    tkeys.emplace(tkeys.end(), *key);
                     skeys.erase(key);
 
                     pkeys[tindex] = *skeys.begin();
@@ -779,23 +773,23 @@ namespace btree
 
                 if (tindex > sindex)
                 {
-                    tchildren.insert(tchildren.begin(), schildren[skeys.size()]);
+                    tchildren.emplace(tchildren.begin(), schildren[skeys.size()]);
                     schildren[skeys.size()]->set_parent(depth_ == depth + 1, target);
 
-                    tkeys.insert(tkeys.begin(), pkeys[sindex]);    
+                    tkeys.emplace(tkeys.begin(), pkeys[sindex]);    
 
                     pkeys[sindex] = *(skeys.end() - 1);
                     skeys.erase(skeys.end() - 1);
                 }
                 else
                 {
-                    tkeys.insert(tkeys.end(), pkeys[tindex]);
+                    tkeys.emplace(tkeys.end(), pkeys[tindex]);
                     
                     auto ch = schildren[0];
                     ch->set_parent(depth_ == depth + 1, target);
 
                     schildren.erase(schildren.begin());
-                    tchildren.insert(tchildren.end(), ch);
+                    tchildren.emplace(tchildren.end(), ch);
                     
                     pkeys[tindex] = *skeys.begin();
                     skeys.erase(skeys.begin());
@@ -848,7 +842,7 @@ namespace btree
                     tchildren.insert(tchildren.end(), schildren.begin(), schildren.end());
                     std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { n->set_parent(depth_ == depth + 1, target); });
 
-                    tkeys.insert(tkeys.end(), pkeys[sindex - 1]);
+                    tkeys.emplace(tkeys.end(), pkeys[sindex - 1]);
                     tkeys.insert(tkeys.end(), skeys.begin(), skeys.end());
                 }
                 else
@@ -856,7 +850,7 @@ namespace btree
                     tchildren.insert(tchildren.begin(), schildren.begin(), schildren.end());
                     std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { n->set_parent(depth_ == depth + 1, target); });
 
-                    tkeys.insert(tkeys.begin(), pkeys[sindex]);
+                    tkeys.emplace(tkeys.begin(), pkeys[sindex]);
                     tkeys.insert(tkeys.begin(), skeys.begin(), skeys.end());
                 }
 
@@ -880,12 +874,12 @@ namespace btree
                 auto [p, splitkey] = split_node(depth, n);
 
                 auto children = root->get_children< node* >();
-                children.push_back(n);
+                children.emplace_back(n);
                 n->set_parent(root);
-                children.push_back(p);
+                children.emplace_back(p);
                 p->set_parent(root);
 
-                root->get_keys().push_back(splitkey);
+                root->get_keys().emplace_back(splitkey);
 
                 root_ = root;
                 ++depth_;
@@ -930,11 +924,11 @@ namespace btree
                 nindex = find_node_index(pchildren, n);
             }
 
-            pchildren.insert(pchildren.begin() + nindex + 1, p);
+            pchildren.emplace(pchildren.begin() + nindex + 1, p);
             p->set_parent(n->get_parent());
 
             auto pkeys = n->get_parent()->get_keys();
-            pkeys.insert(pkeys.begin() + nindex, splitkey);
+            pkeys.emplace(pkeys.begin() + nindex, splitkey);
 
             auto cmp = !compare_(key, splitkey);
             return { cmp ? p : n, nindex + cmp };

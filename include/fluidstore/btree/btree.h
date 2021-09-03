@@ -1,9 +1,34 @@
 #pragma once
 
 #include <set>
+#include <memory>
+#include <type_traits>
+#include <algorithm>
 
 namespace btree
 {
+    namespace memory
+    {
+        template < typename Allocator, typename T, typename SizeType > void destroy(Allocator& allocator, T* source, SizeType count)
+        {
+            if constexpr (!std::is_trivially_destructible_v< T >)
+            {
+                for (SizeType i = 0; i < count; ++i)
+                {
+                    std::allocator_traits< Allocator >::destroy(allocator, &source[i]);
+                }
+            }
+        }
+
+        template < typename T, typename SizeType > void initialized_move(T* target, const T* source, SizeType count)
+        {
+            if constexpr (std::is_trivially_copyable_v< T > || std::is_trivially_move_constructible_v< T >)
+            {
+                std::memmove(target, source, sizeof(T) * count);
+            }
+        }
+    }
+
     template < typename T, typename Descriptor > struct fixed_vector
     {
     public:
@@ -32,8 +57,12 @@ namespace btree
         {
             assert(begin() <= index && index < end());
             
-            // TODO:
-            std::memmove(const_cast<T*>(index), index + 1, sizeof(T) * (end() - index));
+            if (index < end())
+            {
+                std::move(const_cast<T*>(index) + 1, end(), const_cast<T*>(index));
+                //std::allocator_traits< Allocator >::destroy(allocator, dest);
+            }
+
             desc_.set_size(size() - 1);
 
             checkvec();
@@ -77,8 +106,7 @@ namespace btree
             
             if (size() - index > 0)
             {
-                // TODO
-                std::memmove(const_cast<T*>(it) + 1, it, sizeof(T) * (desc_.size() - index));
+                std::move_backward(const_cast<T*>(it), end(), end() + 1);
             }
 
             *const_cast<T*>(it) = std::forward< Ty >(value);
@@ -94,10 +122,12 @@ namespace btree
             
             if (it < end())
             {
-                std::memmove(it + (to - from), it, sizeof(T) * (end() - it));
+                std::move_backward(const_cast<T*>(it), end(), end() + (to - from));
             }
             
-            std::memmove(it, from, sizeof(T) * (to - from));
+            // TODO: how to detect that this should be move?
+            std::copy(from, to, it);
+
             desc_.set_size(size() + to - from);
 
             checkvec();

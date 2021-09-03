@@ -4,6 +4,11 @@
 
 BOOST_AUTO_TEST_CASE(btree_insert)
 {
+    std::vector< std::string > a;
+    a.push_back("1");
+    a.push_back("2");
+    a.erase(a.begin());
+
     btree::set< int > c;
     BOOST_TEST(c.size() == 0);
     BOOST_TEST(c.empty());

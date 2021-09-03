@@ -357,7 +357,13 @@ namespace btree
             internal_children(const internal_children& other) = default;
 
             size_t size() const { return size_; }
-            void set_size(size_t size) { size_ = size; }
+            
+            void set_size(size_t size) 
+            { 
+                assert(size <= capacity());
+                size_ = size; 
+            }
+
             size_t capacity() const { return 2 * N; }
 
             node** data() { return reinterpret_cast<node**>(node_->children); }

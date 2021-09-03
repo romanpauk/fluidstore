@@ -7,28 +7,6 @@
 
 namespace btree
 {
-    namespace memory
-    {
-        template < typename Allocator, typename T, typename SizeType > void destroy(Allocator& allocator, T* source, SizeType count)
-        {
-            if constexpr (!std::is_trivially_destructible_v< T >)
-            {
-                for (SizeType i = 0; i < count; ++i)
-                {
-                    std::allocator_traits< Allocator >::destroy(allocator, &source[i]);
-                }
-            }
-        }
-
-        template < typename T, typename SizeType > void initialized_move(T* target, const T* source, SizeType count)
-        {
-            if constexpr (std::is_trivially_copyable_v< T > || std::is_trivially_move_constructible_v< T >)
-            {
-                std::memmove(target, source, sizeof(T) * count);
-            }
-        }
-    }
-
     template < typename T, typename Descriptor > struct fixed_vector
     {
     public:
@@ -48,33 +26,31 @@ namespace btree
             checkvec();
         }
 
-        template < typename Ty > void emplace_back(Ty&& value)
+        template < typename Allocator, typename Ty > void emplace_back(Allocator& alloc, Ty&& value)
         {
-            emplace(end(), std::forward< Ty >(value));
+            emplace(alloc, end(), std::forward< Ty >(value));
         }
 
-        void erase(const T* index)
+        template < typename Allocator > void erase(Allocator& alloc, const T* index)
         {
             assert(begin() <= index && index < end());
             
-            if (index < end())
-            {
-                std::move(const_cast<T*>(index) + 1, end(), const_cast<T*>(index));
-                //std::allocator_traits< Allocator >::destroy(allocator, dest);
-            }
-
+            auto dest = std::move(const_cast<T*>(index) + 1, end(), const_cast<T*>(index));
+            destroy(alloc, end()-1, end());
+            
             desc_.set_size(size() - 1);
 
             checkvec();
         }
 
-        void erase(T* from, T* to)
+        template < typename Allocator > void erase(Allocator& alloc , T* from, T* to)
         {
             assert(begin() <= from && from <= to);
             assert(from <= to && to <= end());
 
             if (to == end())
             {
+                destroy(alloc, from, to);
                 desc_.set_size(size() - (to - from));
             }
             else
@@ -89,14 +65,19 @@ namespace btree
         auto capacity() const { return desc_.capacity(); }
         auto empty() const { return desc_.size() == 0; }
 
-        // TODO
+        template < typename Allocator > void clear(Allocator& alloc)
+        {
+            destroy(alloc, begin(), end());
+            desc_.set_size(0);
+        }
+
         T* begin() { return reinterpret_cast< T* >(desc_.data()); }
         const T* begin() const { return reinterpret_cast< const T* >(desc_.data()); }
 
         T* end() { return reinterpret_cast< T* >(desc_.data()) + desc_.size(); }
         const T* end() const { return reinterpret_cast< const T* >(desc_.data()) + desc_.size(); }
 
-        template < typename Ty > void emplace(const T* it, Ty&& value)
+        template < typename Allocator, typename Ty > void emplace(Allocator& alloc, const T* it, Ty&& value)
         {
             assert(size() < capacity());
             assert(it >= begin());
@@ -106,28 +87,30 @@ namespace btree
             
             if (size() - index > 0)
             {
-                std::move_backward(const_cast<T*>(it), end(), end() + 1);
+                move_backward(alloc, const_cast<T*>(it), end(), end() + 1);
+                const_cast< T& >(*it) = T(std::forward< Ty >(value));
+            }
+            else
+            {
+                std::allocator_traits< Allocator >::construct(alloc, const_cast<T*>(it), std::forward< Ty >(value));
             }
 
-            *const_cast<T*>(it) = std::forward< Ty >(value);
             desc_.set_size(desc_.size() + 1);
 
             checkvec();
         }
         
-        void insert(T* it, T* from, T* to)
+        template < typename Allocator > void insert(Allocator& alloc, T* it, T* from, T* to)
         {
             assert(begin() <= it && it <= end());
             assert((uintptr_t)(to - from + it - begin()) <= capacity());
             
             if (it < end())
             {
-                std::move_backward(const_cast<T*>(it), end(), end() + (to - from));
+                move_backward(alloc, const_cast<T*>(it), end(), end() + (to - from));
             }
             
-            // TODO: how to detect that this should be move?
-            std::copy(from, to, it);
-
+            copy(alloc, from, to, it);
             desc_.set_size(size() + to - from);
 
             checkvec();
@@ -146,6 +129,48 @@ namespace btree
         }
 
     private:
+        template < typename Allocator > void destroy(Allocator& alloc, T* first, T* last)
+        {
+            //if constexpr (!std::is_trivially_destructible_v< T >)
+            //{
+                while (first != last)
+                {
+                    std::allocator_traits< Allocator >::destroy(alloc, first++);
+                }
+            //}
+        }
+        
+        template < typename Allocator > void move_backward(Allocator& alloc, T* first, T* last, T* dest)
+        {
+            assert(last > first);
+            assert(dest > last);
+
+            if (dest > end())
+            {
+                size_t uninitialized_count = std::min(last - first, dest - end());
+                while (uninitialized_count--)
+                {
+                    std::allocator_traits< Allocator >::construct(alloc, --dest, std::move(*--last));
+                }
+            }
+
+            std::move_backward(first, last, dest);
+        }
+
+        template < typename Allocator > void copy(Allocator& alloc, T* first, T* last, T* dest)
+        {
+            assert(last > first);
+
+            size_t cnt = 0;
+            if (dest < end())
+            {
+                cnt = std::min(last - first, end() - dest);
+                std::copy(first, first + cnt, dest);
+            }
+
+            std::uninitialized_copy(first + cnt, last, dest + cnt);
+        }
+
         void checkvec()
         {
         #if defined(_DEBUG)
@@ -511,19 +536,19 @@ namespace btree
             {
                 if (nkeys.size() > nkeys.capacity() / 2)
                 {
-                    nkeys.erase(nkeys.begin() + it.kindex_);
+                    nkeys.erase(allocator_, nkeys.begin() + it.kindex_);
                 }
                 else
                 {
                     auto key = it.node_->get_keys()[it.kindex_];
                     auto [n, nindex] = rebalance_erase(depth_, it.node_, it.nindex_);
                     auto nkeys = n->get_keys();
-                    nkeys.erase(find_key_index(nkeys, key));
+                    nkeys.erase(allocator_, find_key_index(nkeys, key));
                 }
             }
             else
             {
-                nkeys.erase(nkeys.begin() + it.kindex_);
+                nkeys.erase(allocator_, nkeys.begin() + it.kindex_);
             }
         }
 
@@ -588,7 +613,7 @@ namespace btree
             }
             else
             {
-                nkeys.emplace(index, std::forward< KeyT >(key));
+                nkeys.emplace(allocator_, index, std::forward< KeyT >(key));
                 ++size_;
 
                 return { iterator(n, nindex, index - nkeys.begin()), true };
@@ -627,10 +652,10 @@ namespace btree
         template< typename Node > void remove_node(size_t depth, internal_node* parent, const Node* n, size_t nindex, size_t key_index)
         {
             auto pchildren = parent->get_children< node* >();
-            pchildren.erase(pchildren.begin() + nindex);
+            pchildren.erase(allocator_, pchildren.begin() + nindex);
             
             auto pkeys = parent->get_keys();
-            pkeys.erase(pkeys.begin() + key_index);
+            pkeys.erase(allocator_, pkeys.begin() + key_index);
 
             if (pkeys.empty())
             {
@@ -651,9 +676,25 @@ namespace btree
             return new Node;
         }
 
+        /*
         template < typename Node > void deallocate_node(Node* n)
         {
             static_assert(!std::is_same_v<Node, node>);
+            delete n;
+        }
+        */
+
+        void deallocate_node(internal_node* n)
+        {
+            n->get_keys().clear(allocator_);
+
+            delete n;
+        }
+
+        void deallocate_node(value_node* n)
+        {
+            n->get_keys().clear(allocator_);
+            // There will be values
             delete n;
         }
 
@@ -672,19 +713,20 @@ namespace btree
             auto rchildren = rnode->get_children< node* >();
             
             assert(depth_ >= depth + 1);
-            rchildren.insert(rchildren.begin(), lchildren.begin() + N, lchildren.end());
+            rchildren.insert(allocator_, rchildren.begin(), lchildren.begin() + N, lchildren.end());
             std::for_each(lchildren.begin() + N, lchildren.end(), [&](auto& n) { n->set_parent(depth_ == depth + 1, rnode); });
 
             auto lkeys = lnode->get_keys();
             auto rkeys = rnode->get_keys();
 
+            // TODO: std::make_move_iterator
             auto begin = lkeys.begin() + N;
-            rkeys.insert(rkeys.end(), begin, lkeys.end());
+            rkeys.insert(allocator_, rkeys.end(), begin, lkeys.end());
 
             Key splitkey = *(begin - 1);
 
             // Remove splitkey, too (begin - 1). Each node should end up with N-1 keys as split key will be propagated to parent node.
-            lkeys.erase(begin - 1, lkeys.end());
+            lkeys.erase(allocator_, begin - 1, lkeys.end());
             assert(lkeys.size() == N - 1);
             assert(rkeys.size() == N - 1);
        
@@ -699,11 +741,12 @@ namespace btree
             auto lkeys = lnode->get_keys();
             auto rkeys = rnode->get_keys();
 
+            // TODO: std::make_move_iterator
             auto begin = lkeys.begin() + N;
-            rkeys.insert(rkeys.end(), begin, lkeys.end());
+            rkeys.insert(allocator_, rkeys.end(), begin, lkeys.end());
 
             // Keep splitkey.
-            lkeys.erase(begin, lkeys.end());
+            lkeys.erase(allocator_, begin, lkeys.end());
             assert(lkeys.size() == N);
             assert(rkeys.size() == N);
 
@@ -761,8 +804,8 @@ namespace btree
                 {
                     // Right-most key from the left node
                     auto key = skeys.end() - 1;
-                    tkeys.emplace(tkeys.begin(), *key);
-                    skeys.erase(key);
+                    tkeys.emplace(allocator_, tkeys.begin(), *key);
+                    skeys.erase(allocator_, key);
 
                     assert(tindex > 0);
                     pkeys[tindex - 1] = *tkeys.begin();
@@ -771,8 +814,8 @@ namespace btree
                 {
                     // Left-most key from the right node
                     auto key = skeys.begin();
-                    tkeys.emplace(tkeys.end(), *key);
-                    skeys.erase(key);
+                    tkeys.emplace(allocator_, tkeys.end(), *key);
+                    skeys.erase(allocator_, key);
 
                     pkeys[tindex] = *skeys.begin();
                 }
@@ -803,26 +846,26 @@ namespace btree
 
                 if (tindex > sindex)
                 {
-                    tchildren.emplace(tchildren.begin(), schildren[skeys.size()]);
+                    tchildren.emplace(allocator_, tchildren.begin(), schildren[skeys.size()]);
                     schildren[skeys.size()]->set_parent(depth_ == depth + 1, target);
 
-                    tkeys.emplace(tkeys.begin(), pkeys[sindex]);    
+                    tkeys.emplace(allocator_, tkeys.begin(), pkeys[sindex]);    
 
                     pkeys[sindex] = *(skeys.end() - 1);
-                    skeys.erase(skeys.end() - 1);
+                    skeys.erase(allocator_, skeys.end() - 1);
                 }
                 else
                 {
-                    tkeys.emplace(tkeys.end(), pkeys[tindex]);
+                    tkeys.emplace(allocator_, tkeys.end(), pkeys[tindex]);
                     
                     auto ch = schildren[0];
                     ch->set_parent(depth_ == depth + 1, target);
 
-                    schildren.erase(schildren.begin());
-                    tchildren.emplace(tchildren.end(), ch);
+                    schildren.erase(allocator_, schildren.begin());
+                    tchildren.emplace(allocator_, tchildren.end(), ch);
                     
                     pkeys[tindex] = *skeys.begin();
-                    skeys.erase(skeys.begin());
+                    skeys.erase(allocator_, skeys.begin());
                 }
 
                 return true;
@@ -842,7 +885,7 @@ namespace btree
             if (tkeys.size() == N)
             {
                 auto skeys = source->get_keys();
-                tkeys.insert(tindex < sindex ? tkeys.end() : tkeys.begin(), skeys.begin(), skeys.end());
+                tkeys.insert(allocator_, tindex < sindex ? tkeys.end() : tkeys.begin(), skeys.begin(), skeys.end());
                 return true;
             }
 
@@ -869,19 +912,19 @@ namespace btree
                 
                 if (tindex < sindex)
                 {
-                    tchildren.insert(tchildren.end(), schildren.begin(), schildren.end());
+                    tchildren.insert(allocator_, tchildren.end(), schildren.begin(), schildren.end());
                     std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { n->set_parent(depth_ == depth + 1, target); });
 
-                    tkeys.emplace(tkeys.end(), pkeys[sindex - 1]);
-                    tkeys.insert(tkeys.end(), skeys.begin(), skeys.end());
+                    tkeys.emplace(allocator_, tkeys.end(), pkeys[sindex - 1]);
+                    tkeys.insert(allocator_, tkeys.end(), skeys.begin(), skeys.end());
                 }
                 else
                 {
-                    tchildren.insert(tchildren.begin(), schildren.begin(), schildren.end());
+                    tchildren.insert(allocator_, tchildren.begin(), schildren.begin(), schildren.end());
                     std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { n->set_parent(depth_ == depth + 1, target); });
 
-                    tkeys.emplace(tkeys.begin(), pkeys[sindex]);
-                    tkeys.insert(tkeys.begin(), skeys.begin(), skeys.end());
+                    tkeys.emplace(allocator_, tkeys.begin(), pkeys[sindex]);
+                    tkeys.insert(allocator_, tkeys.begin(), skeys.begin(), skeys.end());
                 }
 
                 return true;
@@ -904,12 +947,12 @@ namespace btree
                 auto [p, splitkey] = split_node(depth, n);
 
                 auto children = root->get_children< node* >();
-                children.emplace_back(n);
+                children.emplace_back(allocator_, n);
                 n->set_parent(root);
-                children.emplace_back(p);
+                children.emplace_back(allocator_, p);
                 p->set_parent(root);
 
-                root->get_keys().emplace_back(splitkey);
+                root->get_keys().emplace_back(allocator_, splitkey);
 
                 root_ = root;
                 ++depth_;
@@ -954,11 +997,11 @@ namespace btree
                 nindex = find_node_index(pchildren, n);
             }
 
-            pchildren.emplace(pchildren.begin() + nindex + 1, p);
+            pchildren.emplace(allocator_, pchildren.begin() + nindex + 1, p);
             p->set_parent(n->get_parent());
 
             auto pkeys = n->get_parent()->get_keys();
-            pkeys.emplace(pkeys.begin() + nindex, splitkey);
+            pkeys.emplace(allocator_, pkeys.begin() + nindex, splitkey);
 
             auto cmp = !compare_(key, splitkey);
             return { cmp ? p : n, nindex + cmp };

@@ -2,13 +2,41 @@
 
 #include <boost/test/unit_test.hpp>
 
+template < typename T, size_t N > struct descriptor
+{
+    descriptor()
+        : size_()
+    {}
+
+    size_t size() const { return size_; }
+    size_t capacity() const { return N; }
+
+    void set_size(size_t size)
+    {
+        assert(size <= capacity());
+        size_ = size;
+    }
+
+    T* data() { return reinterpret_cast<T*>(data_); }
+    const T* data() const { return reinterpret_cast<const T*>(data_); }
+
+private:
+    uint8_t data_[sizeof(T) * N];
+    size_t size_;
+};
+
+BOOST_AUTO_TEST_CASE(btree_fixed_vector)
+{
+    std::allocator< char > a;
+    btree::fixed_vector < std::string, descriptor < std::string, 8 > > c((descriptor < std::string, 8 >()));
+    c.emplace_back(a, "2");
+    c.emplace_back(a, "3");
+    c.emplace(a, c.begin(), "1");
+    c.clear(a);
+}
+
 BOOST_AUTO_TEST_CASE(btree_insert)
 {
-    std::vector< std::string > a;
-    a.push_back("1");
-    a.push_back("2");
-    a.erase(a.begin());
-
     btree::set< int > c;
     BOOST_TEST(c.size() == 0);
     BOOST_TEST(c.empty());
@@ -31,16 +59,27 @@ BOOST_AUTO_TEST_CASE(btree_insert)
     BOOST_TEST((c.find(1) != c.end()));
 }
 
+/*
+BOOST_AUTO_TEST_CASE(btree_insert_string)
+{
+    btree::set < std::string > c;
+    for (size_t i = 0; i < 1000; ++i)
+    {
+        if (i == 8)
+        {
+            int a(1);
+        }
+        c.insert(std::to_string(i));
+        //c.insert(i);
+    }
+}
+*/
+
 BOOST_AUTO_TEST_CASE(btree_range_for)
 {
     btree::set< int > c;
     for (int i = 0; i < 30; ++i)
     {
-        if (i == 16)
-        {
-            int a(1);
-        }
-
         c.insert(i);
     }
 
@@ -58,10 +97,6 @@ BOOST_AUTO_TEST_CASE(btree_insert_loop)
     btree::set< int > c;
     for (int i = 0; i < 1000; ++i)
     {
-        if (i == 512)
-        {
-            int a(1);
-        }
         c.insert(i);
         BOOST_REQUIRE(*c.find(i) == i);
 

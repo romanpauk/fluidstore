@@ -10,6 +10,8 @@ namespace btree
     template < typename T, typename Descriptor > struct fixed_vector
     {
     public:
+        using size_type = size_t;
+
         //fixed_vector(const fixed_vector< T, Descriptor >&) = delete;
         //fixed_vector(fixed_vector< T, Descriptor >&&) = delete;
 
@@ -19,7 +21,7 @@ namespace btree
             checkvec();
         }
 
-        fixed_vector(Descriptor desc, size_t size)
+        fixed_vector(Descriptor desc, size_type size)
             : desc_(desc)
         {
             desc_.set_size(size);
@@ -61,9 +63,9 @@ namespace btree
             checkvec();
         }
 
-        auto size() const { return desc_.size(); }
-        auto capacity() const { return desc_.capacity(); }
-        auto empty() const { return desc_.size() == 0; }
+        size_type size() const { return desc_.size(); }
+        size_type capacity() const { return desc_.capacity(); }
+        bool empty() const { return desc_.size() == 0; }
 
         template < typename Allocator > void clear(Allocator& alloc)
         {
@@ -116,13 +118,13 @@ namespace btree
             checkvec();
         }
 
-        T& operator[](size_t index)
+        T& operator[](size_type index)
         {
             assert(index < size());
             return *(begin() + index);
         }
 
-        const T& operator[](size_t index) const 
+        const T& operator[](size_type index) const 
         {
             assert(index < size());
             return *(begin() + index);
@@ -232,107 +234,14 @@ namespace btree
         //      int32   16
         //      int64   8
 
-        struct internal_node;
-
-        // In the end, this class will have no data and just provide casting capability.
+        // This class will not have any data, it is there just to have common pointer to both node types.
         struct node
         {
         protected:
             node() {}
-
         #if defined(_DEBUG)
             virtual ~node() {}
         #endif
-
-            template< typename Node > static std::tuple< Node*, size_t > get_right(internal_node* n, size_t index, bool recursive)
-            {
-                size_t depth = 1;
-                while (n)
-                {
-                    auto children = n->get_children< Node* >();
-                    if (index + 1 < children.size())
-                    {
-                        if (depth == 1)
-                        {
-                            return { children[index + 1], index + 1 };
-                        }
-                        else
-                        {
-                            return { begin_node< Node >(children[index + 1], depth), 0 };
-                        }
-                    }
-                    else if(recursive)
-                    {
-                        if (n->get_parent())
-                        {
-                            index = find_node_index(n->get_parent()->get_children< internal_node* >(), n);
-                            ++depth;
-                        }
-
-                        n = n->get_parent();
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-            
-                return { nullptr, 0 };
-            }
-
-            template< typename Node > static std::tuple< Node*, size_t > get_left(internal_node* n, size_t index, bool recursive)
-            {
-                size_t depth = 1;
-                while (n)
-                {
-                    auto children = n->get_children< Node* >();
-                    if (index > 0)
-                    {
-                        if (depth == 1)
-                        {
-                            return { children[index - 1], index - 1 };
-                        }
-                        else
-                        {
-                            return { end_node< Node >(children[index - 1], depth), 0 };
-                        }
-                    }
-                    else if(recursive)
-                    {
-                        if (n->get_parent())
-                        {
-                            index = find_node_index(n->get_parent()->get_children< internal_node* >(), n);
-                            ++depth;
-                        }
-
-                        n = n->get_parent();
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-
-                return { nullptr, 0 };
-            }
-
-        public:
-            void set_parent(bool valuenode, internal_node* n)
-            {
-            #if defined(_DEBUG)
-                bool isvaluenode = dynamic_cast<value_node*>(this);
-                assert(valuenode == isvaluenode);
-            #endif
-
-                if (valuenode)
-                {
-                    reinterpret_cast<value_node*>(this)->set_parent(n);
-                }
-                else
-                {
-                    reinterpret_cast<internal_node*>(this)->set_parent(n);
-                } 
-            }
         };
 
         struct internal_node : node
@@ -342,8 +251,15 @@ namespace btree
                 , parent()
             {}
 
-            std::tuple< internal_node*, size_t > get_left(size_t index, bool recursive = false) { return node::get_left< internal_node >(parent, index, recursive); }
-            std::tuple< internal_node*, size_t > get_right(size_t index, bool recursive = false) { return node::get_right< internal_node >(parent, index, recursive); }
+            std::tuple< internal_node*, size_t > get_left(size_t index, bool recursive = false) 
+            { 
+                return set< Key, Compare, Allocator >::get_left< internal_node >(parent, index, recursive); 
+            }
+
+            std::tuple< internal_node*, size_t > get_right(size_t index, bool recursive = false) 
+            { 
+                return set< Key, Compare, Allocator >::get_right< internal_node >(parent, index, recursive); 
+            }
 
             auto get_keys() { return fixed_vector< Key, internal_keys >(this); }
             //const auto get_keys() const { return fixed_vector< Key, internal_keys >(this); }
@@ -372,8 +288,15 @@ namespace btree
                 , parent()
             {}
 
-            std::tuple< value_node*, size_t > get_left(size_t index, bool recursive = false) { return node::get_left< value_node >(parent, index, recursive); }
-            std::tuple< value_node*, size_t > get_right(size_t index, bool recursive = false) { return node::get_right< value_node >(parent, index, recursive); }
+            std::tuple< value_node*, size_t > get_left(size_t index, bool recursive = false) 
+            { 
+                return set< Key, Compare, Allocator >::get_left< value_node >(parent, index, recursive); 
+            }
+            
+            std::tuple< value_node*, size_t > get_right(size_t index, bool recursive = false) 
+            { 
+                return set< Key, Compare, Allocator >::get_right< value_node >(parent, index, recursive); 
+            }
             
             auto get_keys() { return fixed_vector< Key, value_keys >(this); }
             //auto get_keys() const { return fixed_vector< Key, value_keys >(this); }
@@ -718,7 +641,7 @@ namespace btree
                 root_ = pchildren[0];
                 --depth_;
                 assert(depth_ >= 1);
-                root_->set_parent(depth_ == 1, nullptr);
+                set_parent(depth_ == 1, root_, nullptr);
 
                 deallocate_node(reinterpret_cast< internal_node* >(root));
             }
@@ -768,7 +691,7 @@ namespace btree
             
             assert(depth_ >= depth + 1);
             rchildren.insert(allocator_, rchildren.begin(), lchildren.begin() + N, lchildren.end());
-            std::for_each(lchildren.begin() + N, lchildren.end(), [&](auto& n) { n->set_parent(depth_ == depth + 1, rnode); });
+            std::for_each(lchildren.begin() + N, lchildren.end(), [&](auto& n) { set_parent(depth_ == depth + 1, n, rnode); });
 
             auto lkeys = lnode->get_keys();
             auto rkeys = rnode->get_keys();
@@ -910,7 +833,7 @@ namespace btree
                 if (tindex > sindex)
                 {
                     tchildren.emplace(allocator_, tchildren.begin(), schildren[skeys.size()]);
-                    schildren[skeys.size()]->set_parent(depth_ == depth + 1, target);
+                    set_parent(depth_ == depth + 1, schildren[skeys.size()], target);
 
                     tkeys.emplace(allocator_, tkeys.begin(), pkeys[sindex]);    
 
@@ -922,7 +845,7 @@ namespace btree
                     tkeys.emplace(allocator_, tkeys.end(), pkeys[tindex]);
                     
                     auto ch = schildren[0];
-                    ch->set_parent(depth_ == depth + 1, target);
+                    set_parent(depth_ == depth + 1, ch, target);
 
                     schildren.erase(allocator_, schildren.begin());
                     tchildren.emplace(allocator_, tchildren.end(), ch);
@@ -976,7 +899,7 @@ namespace btree
                 if (tindex < sindex)
                 {
                     tchildren.insert(allocator_, tchildren.end(), schildren.begin(), schildren.end());
-                    std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { n->set_parent(depth_ == depth + 1, target); });
+                    std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { set_parent(depth_ == depth + 1, n, target); });
 
                     tkeys.emplace(allocator_, tkeys.end(), pkeys[sindex - 1]);
                     tkeys.insert(allocator_, tkeys.end(), std::make_move_iterator(skeys.begin()), std::make_move_iterator(skeys.end()));
@@ -984,7 +907,7 @@ namespace btree
                 else
                 {
                     tchildren.insert(allocator_, tchildren.begin(), schildren.begin(), schildren.end());
-                    std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { n->set_parent(depth_ == depth + 1, target); });
+                    std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { set_parent(depth_ == depth + 1, n, target); });
 
                     tkeys.emplace(allocator_, tkeys.begin(), pkeys[sindex]);
                     tkeys.insert(allocator_, tkeys.begin(), std::make_move_iterator(skeys.begin()), std::make_move_iterator(skeys.end()));
@@ -1111,6 +1034,95 @@ namespace btree
                 assert(false);
                 std::abort();
                 //return { n, nindex };
+            }
+        }
+
+        template< typename Node > static std::tuple< Node*, size_t > get_right(internal_node* n, size_t index, bool recursive)
+        {
+            size_t depth = 1;
+            while (n)
+            {
+                auto children = n->get_children< Node* >();
+                if (index + 1 < children.size())
+                {
+                    if (depth == 1)
+                    {
+                        return { children[index + 1], index + 1 };
+                    }
+                    else
+                    {
+                        return { begin_node< Node >(children[index + 1], depth), 0 };
+                    }
+                }
+                else if (recursive)
+                {
+                    if (n->get_parent())
+                    {
+                        index = find_node_index(n->get_parent()->get_children< internal_node* >(), n);
+                        ++depth;
+                    }
+
+                    n = n->get_parent();
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            return { nullptr, 0 };
+        }
+
+        template< typename Node > static std::tuple< Node*, size_t > get_left(internal_node* n, size_t index, bool recursive)
+        {
+            size_t depth = 1;
+            while (n)
+            {
+                auto children = n->get_children< Node* >();
+                if (index > 0)
+                {
+                    if (depth == 1)
+                    {
+                        return { children[index - 1], index - 1 };
+                    }
+                    else
+                    {
+                        return { end_node< Node >(children[index - 1], depth), 0 };
+                    }
+                }
+                else if (recursive)
+                {
+                    if (n->get_parent())
+                    {
+                        index = find_node_index(n->get_parent()->get_children< internal_node* >(), n);
+                        ++depth;
+                    }
+
+                    n = n->get_parent();
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            return { nullptr, 0 };
+        }
+
+        static void set_parent(bool valuenode, node* n, internal_node* parent)
+        {
+        #if defined(_DEBUG)
+            bool isvaluenode = dynamic_cast<value_node*>(n);
+            assert(valuenode == isvaluenode);
+        #endif
+
+            if (valuenode)
+            {
+                reinterpret_cast<value_node*>(n)->set_parent(parent);
+            }
+            else
+            {
+                reinterpret_cast<internal_node*>(n)->set_parent(parent);
             }
         }
 

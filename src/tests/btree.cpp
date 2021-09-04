@@ -164,6 +164,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_erase_loop, T, test_types)
     }
 }
 
+#if !defined(_DEBUG)
 
 const int Loops = 100000;
 const int Elements = 100;
@@ -231,3 +232,5 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_perf_iteration, T, test_types)
         std::cerr << "btree::set " << typeid(T).name() << " iteration " << t1 << std::endl;
     }
 }
+
+#endif

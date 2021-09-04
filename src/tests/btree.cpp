@@ -40,10 +40,12 @@ BOOST_AUTO_TEST_CASE(btree_fixed_vector)
 }
 
 template < typename T > T value(size_t);
-template <> size_t value<size_t>(size_t i) { return i; }
+
+template <> uint32_t value<uint32_t>(size_t i) { return i; }
+template <> uint64_t value<uint64_t>(size_t i) { return i; }
 template <> std::string value<std::string>(size_t i) { return std::to_string(i); }
 
-typedef boost::mpl::list<size_t, std::string > test_types;
+typedef boost::mpl::list<uint32_t, uint64_t, std::string > test_types;
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_insert, T, test_types)
 {
@@ -159,5 +161,73 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_erase_loop, T, test_types)
                 BOOST_REQUIRE(c.find(value<T>(k)) != c.end());
             }
         }
+    }
+}
+
+
+const int Loops = 100000;
+const int Elements = 100;
+
+template < typename Fn > double measure(size_t loops, Fn fn)
+{
+    using namespace std::chrono;
+
+    auto begin = high_resolution_clock::now();
+    for (size_t i = 0; i < loops; ++i)
+    {
+        fn();
+    }
+    auto end = high_resolution_clock::now();
+    return duration_cast<duration<double>>(end - begin).count();
+}
+
+template < typename Container, typename T > void insertion_test(size_t count)
+{
+    Container c;
+    for (size_t i = 0; i < count; ++i)
+    {
+        c.insert(value<T>(i));
+    }
+}
+
+BOOST_AUTO_TEST_CASE_TEMPLATE(btree_perf_insert, T, test_types)
+{
+    auto t1 = measure(Loops, [&] { insertion_test< std::set< T >, T >(Elements); });
+    std::cerr << "std::set " << typeid(T).name() << " insertion " << t1 << std::endl;
+
+    auto t2 = measure(Loops, [&] { insertion_test< btree::set< T >, T >(Elements); });
+    std::cerr << "btree::set " << typeid(T).name() << " insertion " << t2 << std::endl;
+}
+
+template < typename T, typename Container > void iteration_test(Container& c)
+{
+    for (auto& v : c)
+    {
+        volatile auto p = &v;
+    }
+}
+
+BOOST_AUTO_TEST_CASE_TEMPLATE(btree_perf_iteration, T, test_types)
+{
+    {
+        std::set< T > set;
+        for (size_t i = 0; i < Elements; ++i)
+        {
+            set.insert(value<T>(i));
+        }
+
+        auto t1 = measure(Loops, [&] { iteration_test<T>(set); });
+        std::cerr << "std::set " << typeid(T).name() << " iteration " << t1 << std::endl;
+    }
+
+    {
+        btree::set< T > set;
+        for (size_t i = 0; i < Elements; ++i)
+        {
+            set.insert(value<T>(i));
+        }
+
+        auto t1 = measure(Loops, [&] { iteration_test<T>(set); });
+        std::cerr << "btree::set " << typeid(T).name() << " iteration " << t1 << std::endl;
     }
 }

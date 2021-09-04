@@ -100,7 +100,7 @@ namespace btree
             checkvec();
         }
         
-        template < typename Allocator > void insert(Allocator& alloc, T* it, T* from, T* to)
+        template < typename Allocator, typename U > void insert(Allocator& alloc, T* it, U from, U to)
         {
             assert(begin() <= it && it <= end());
             assert((uintptr_t)(to - from + it - begin()) <= capacity());
@@ -157,7 +157,7 @@ namespace btree
             std::move_backward(first, last, dest);
         }
 
-        template < typename Allocator > void copy(Allocator& alloc, T* first, T* last, T* dest)
+        template < typename Allocator, typename U > void copy(Allocator& alloc, U first, U last, T* dest)
         {
             assert(last > first);
 
@@ -775,7 +775,7 @@ namespace btree
 
             // TODO: std::make_move_iterator
             auto begin = lkeys.begin() + N;
-            rkeys.insert(allocator_, rkeys.end(), begin, lkeys.end());
+            rkeys.insert(allocator_, rkeys.end(), std::make_move_iterator(begin), std::make_move_iterator(lkeys.end()));
 
             Key splitkey = *(begin - 1);
 
@@ -797,7 +797,7 @@ namespace btree
 
             // TODO: std::make_move_iterator
             auto begin = lkeys.begin() + N;
-            rkeys.insert(allocator_, rkeys.end(), begin, lkeys.end());
+            rkeys.insert(allocator_, rkeys.end(), std::make_move_iterator(begin), std::make_move_iterator(lkeys.end()));
 
             // Keep splitkey.
             lkeys.erase(allocator_, begin, lkeys.end());
@@ -948,7 +948,7 @@ namespace btree
             if (tkeys.size() == N)
             {
                 auto skeys = source->get_keys();
-                tkeys.insert(allocator_, tindex < sindex ? tkeys.end() : tkeys.begin(), skeys.begin(), skeys.end());
+                tkeys.insert(allocator_, tindex < sindex ? tkeys.end() : tkeys.begin(), std::make_move_iterator(skeys.begin()), std::make_move_iterator(skeys.end()));
                 return true;
             }
 
@@ -979,7 +979,7 @@ namespace btree
                     std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { n->set_parent(depth_ == depth + 1, target); });
 
                     tkeys.emplace(allocator_, tkeys.end(), pkeys[sindex - 1]);
-                    tkeys.insert(allocator_, tkeys.end(), skeys.begin(), skeys.end());
+                    tkeys.insert(allocator_, tkeys.end(), std::make_move_iterator(skeys.begin()), std::make_move_iterator(skeys.end()));
                 }
                 else
                 {
@@ -987,7 +987,7 @@ namespace btree
                     std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { n->set_parent(depth_ == depth + 1, target); });
 
                     tkeys.emplace(allocator_, tkeys.begin(), pkeys[sindex]);
-                    tkeys.insert(allocator_, tkeys.begin(), skeys.begin(), skeys.end());
+                    tkeys.insert(allocator_, tkeys.begin(), std::make_move_iterator(skeys.begin()), std::make_move_iterator(skeys.end()));
                 }
 
                 return true;
@@ -1029,28 +1029,13 @@ namespace btree
         {
             assert(n->full());
             assert(n->get_parent());
-            
-            /*
-            {
-                auto [left, lindex] = n->get_left(nindex);
-                auto [right, rindex] = n->get_right(nindex);
 
-                if (left && share_keys(depth, left, nindex - 1, n, nindex) ||
-                    right && share_keys(depth, right, nindex + 1, n, nindex))
-                {
-                    assert(!n->full());
-                    return { n, nindex };
-                }
-            }
-            */
-
-            auto parent = n->get_parent();
-            auto parent_rebalance = parent->full();
+            auto parent_rebalance = n->get_parent()->full();
             if(parent_rebalance)
             {
                 assert(depth > 1);
                 depth_check< true > dc(depth_, depth);
-                auto [x, xindex] = rebalance_insert(depth - 1, n->get_parent(), split_key(n->get_parent()));
+                rebalance_insert(depth - 1, n->get_parent(), split_key(n->get_parent()));
                 assert(!n->get_parent()->full());
             }
                     

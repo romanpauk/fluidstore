@@ -179,7 +179,7 @@ namespace btree
             assert(end() - begin() == size());
             assert(size() <= capacity());
 
-            vec_.assign(begin(), end());
+            // vec_.assign(begin(), end());
         /*
             if (vec_.size() > 1)
             {
@@ -510,6 +510,7 @@ namespace btree
                 if (nkeys.size() > nkeys.capacity() / 2)
                 {
                     nkeys.erase(allocator_, nkeys.begin() + it.kindex_);
+                    --size_;
                 }
                 else
                 {
@@ -517,11 +518,13 @@ namespace btree
                     auto [n, nindex] = rebalance_erase(depth_, it.node_, it.nindex_);
                     auto nkeys = n->get_keys();
                     nkeys.erase(allocator_, find_key_index(nkeys, key));
+                    --size_;
                 }
             }
             else
             {
                 nkeys.erase(allocator_, nkeys.begin() + it.kindex_);
+                --size_;
             }
         }
 
@@ -653,14 +656,6 @@ namespace btree
             return new Node;
         }
 
-        /*
-        template < typename Node > void deallocate_node(Node* n)
-        {
-            static_assert(!std::is_same_v<Node, node>);
-            delete n;
-        }
-        */
-
         void deallocate_node(internal_node* n)
         {
             n->get_keys().clear(allocator_);
@@ -700,7 +695,7 @@ namespace btree
             auto begin = lkeys.begin() + N;
             rkeys.insert(allocator_, rkeys.end(), std::make_move_iterator(begin), std::make_move_iterator(lkeys.end()));
 
-            Key splitkey = *(begin - 1);
+            Key splitkey = std::move(*(begin - 1));
 
             // Remove splitkey, too (begin - 1). Each node should end up with N-1 keys as split key will be propagated to parent node.
             lkeys.erase(allocator_, begin - 1, lkeys.end());
@@ -998,8 +993,8 @@ namespace btree
                 auto [left, lindex] = n->get_left(nindex);
                 auto [right, rindex] = n->get_right(nindex);
 
-                if (left && share_keys(depth, n, nindex, left, nindex - 1) ||
-                    right && share_keys(depth, n, nindex, right, nindex + 1))
+                if (left && share_keys(depth, n, nindex, left, lindex) ||
+                    right && share_keys(depth, n, nindex, right, rindex))
                 {
                     assert(n->get_keys().size() > n->get_keys().capacity() / 2);
                     return { n, nindex };
@@ -1018,13 +1013,13 @@ namespace btree
                 auto [left, lindex] = n->get_left(nindex);
                 auto [right, rindex] = n->get_right(nindex);
 
-                if (merge_keys(depth, left, nindex - 1, n, nindex))
+                if (merge_keys(depth, left, lindex, n, nindex))
                 {
                     remove_node(depth, n->get_parent(), n, nindex, nindex - 1);
                     deallocate_node(n);
                     return { left, nindex - 1 };
                 }
-                else if (merge_keys(depth, right, nindex + 1, n, nindex))
+                else if (merge_keys(depth, right, rindex, n, nindex))
                 {
                     remove_node(depth, n->get_parent(), n, nindex, nindex);
                     deallocate_node(n);

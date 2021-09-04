@@ -1,6 +1,10 @@
 #include <fluidstore/btree/btree.h>
 
 #include <boost/test/unit_test.hpp>
+#include <boost/mpl/list.hpp>
+
+//_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF | _CRTDBG_CHECK_ALWAYS_DF);
+//_CrtSetBreakAlloc(6668782);
 
 template < typename T, size_t N > struct descriptor
 {
@@ -35,127 +39,124 @@ BOOST_AUTO_TEST_CASE(btree_fixed_vector)
     c.clear(a);
 }
 
-BOOST_AUTO_TEST_CASE(btree_insert)
+template < typename T > T value(size_t);
+template <> size_t value<size_t>(size_t i) { return i; }
+template <> std::string value<std::string>(size_t i) { return std::to_string(i); }
+
+typedef boost::mpl::list<size_t, std::string > test_types;
+
+BOOST_AUTO_TEST_CASE_TEMPLATE(btree_insert, T, test_types)
 {
-    btree::set< int > c;
+    btree::set< T > c;
     BOOST_TEST(c.size() == 0);
     BOOST_TEST(c.empty());
-    BOOST_TEST((c.find(0) == c.end()));
+    BOOST_TEST((c.find(value<T>(0)) == c.end()));
 
     {
-        auto pairb = c.insert(2);
+        auto pairb = c.insert(value<T>(2));
         BOOST_TEST(pairb.second == true);
-        BOOST_TEST(*pairb.first == 2);
-        BOOST_TEST((c.find(2) == pairb.first));
-        BOOST_TEST((c.find(2) != c.end()));
+        BOOST_TEST(*pairb.first == value<T>(2));
+        BOOST_TEST((c.find(value<T>(2)) == pairb.first));
+        BOOST_TEST((c.find(value<T>(2)) != c.end()));
 
         BOOST_TEST(c.size() == 1);
-        BOOST_TEST(c.insert(2).second == false);
+        BOOST_TEST(c.insert(value<T>(2)).second == false);
         BOOST_TEST(c.size() == 1);
     }
 
-    c.insert(1);
+    c.insert(value<T>(1));
     BOOST_TEST(c.size() == 2);
-    BOOST_TEST((c.find(1) != c.end()));
+    BOOST_TEST((c.find(value<T>(1)) != c.end()));
 }
 
-/*
-BOOST_AUTO_TEST_CASE(btree_insert_string)
+typedef boost::mpl::list<size_t> btree_range_for_types;
+BOOST_AUTO_TEST_CASE_TEMPLATE(btree_range_for, T, btree_range_for_types)
 {
-    btree::set < std::string > c;
-    for (size_t i = 0; i < 1000; ++i)
+    for (int i = 0; i < 50; ++i)
     {
-        if (i == 8)
+        btree::set< T > c;
+
+        for (int j = 0; j < i; ++j)
         {
-            int a(1);
+            c.insert(value<T>(j));
         }
-        c.insert(std::to_string(i));
-        //c.insert(i);
+
+        int k = 0;
+        for (auto& v : c)
+        {
+            BOOST_REQUIRE(v == value<T>(k++));
+        }
+
+        BOOST_TEST(k == c.size());
     }
 }
-*/
 
-BOOST_AUTO_TEST_CASE(btree_range_for)
+BOOST_AUTO_TEST_CASE_TEMPLATE(btree_insert_loop, T, test_types)
 {
-    btree::set< int > c;
-    for (int i = 0; i < 30; ++i)
-    {
-        c.insert(i);
-    }
-
-    int i = 0;
-    for (auto& value : c)
-    {
-        BOOST_REQUIRE(value == i++);
-    }
-
-    BOOST_REQUIRE(i == c.size());
-}
-
-BOOST_AUTO_TEST_CASE(btree_insert_loop)
-{
-    btree::set< int > c;
+    btree::set< T > c;
     for (int i = 0; i < 1000; ++i)
     {
-        c.insert(i);
-        BOOST_REQUIRE(*c.find(i) == i);
+        auto iv = value<T>(i);
+        BOOST_REQUIRE(c.insert(iv).second);
+        BOOST_REQUIRE((c.find(iv) != c.end()));
+        BOOST_REQUIRE(*c.find(iv) == iv);
 
         // Check that the tree was not damaged by insertion
         for (int j = 0; j < i; ++j)
         {
-            BOOST_REQUIRE(*c.find(j) == j);
+            auto jv = value<T>(j);
+            BOOST_REQUIRE((c.find(jv) != c.end()));
+            BOOST_REQUIRE(*c.find(jv) == jv);
         }
     }
 }
 
-
-BOOST_AUTO_TEST_CASE(btree_erase)
+BOOST_AUTO_TEST_CASE_TEMPLATE(btree_erase_loop, T, test_types)
 {
-#if defined(_DEBUG)
+//#if defined(_DEBUG)
     const int N = 100;
-#else
-    const int N = 1000;
-#endif
+//#else
+//    const int N = 1000;
+//#endif
 
     for (int i = 0; i < N; ++i)
     {
-        btree::set< int > c;
+        btree::set< T > c;
         for (int j = 0; j < i; ++j)
         {
-            c.insert(j);
+            c.insert(value<T>(j));
         }
 
         for (int j = 0; j < i; ++j)
         {
-            c.erase(j);
-            BOOST_REQUIRE((c.find(j) == c.end()));
+            auto jv = value<T>(j);
+            c.erase(jv);
+            BOOST_REQUIRE((c.find(jv) == c.end()));
 
             for (int k = j + 1; k < i; ++k)
             {
-                BOOST_REQUIRE(c.find(k) != c.end());
+                BOOST_REQUIRE(c.find(value<T>(k)) != c.end());
             }
         }
     }
 
-    //_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF | _CRTDBG_CHECK_ALWAYS_DF);
-    //_CrtSetBreakAlloc(6668782);
-
     for (int i = 0; i < N; ++i)
     {
-        btree::set< int > c;
+        btree::set< T > c;
         for (int j = 0; j < i; ++j)
         {
-            c.insert(j);
+            c.insert(value<T>(j));
         }
 
         for (int j = i - 1; j > 0; --j)
         {
-            c.erase(j);
-            BOOST_REQUIRE((c.find(j) == c.end()));
+            auto jv = value<T>(j);
+            c.erase(jv);
+            BOOST_REQUIRE((c.find(jv) == c.end()));
 
             for (int k = j - 1; k > 0; --k)
             {
-                BOOST_REQUIRE(c.find(k) != c.end());
+                BOOST_REQUIRE(c.find(value<T>(k)) != c.end());
             }
         }
     }

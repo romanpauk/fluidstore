@@ -698,7 +698,7 @@ namespace btree
             delete n;
         }
 
-        template < typename Node > const Key& split_key(/*const*/ Node* n)
+        template < typename Node > const Key split_key(/*const*/ Node* n)
         {
             assert(n->full());
             return *(n->get_keys().begin() + N);
@@ -967,9 +967,8 @@ namespace btree
             assert(n->full());
             assert(n->get_parent());
             
+            /*
             {
-                size_t nindex = find_node_index(n->get_parent()->get_children< node* >(), n);
-
                 auto left = n->get_left(nindex);
                 auto right = n->get_right(nindex);
 
@@ -980,13 +979,16 @@ namespace btree
                     return { n, nindex };
                 }
             }
+            */
 
-            auto parent_rebalance = n->get_parent()->full();
+            auto parent = n->get_parent();
+            auto parent_rebalance = parent->full();
             if(parent_rebalance)
             {
                 assert(depth > 1);
                 depth_check< true > dc(depth_, depth);
-                rebalance_insert(depth - 1, n->get_parent(), split_key(n->get_parent()));
+                auto [x, xindex] = rebalance_insert(depth - 1, n->get_parent(), split_key(n->get_parent()));
+                assert(!n->get_parent()->full());
             }
                     
             auto [p, splitkey] = split_node(depth, n);

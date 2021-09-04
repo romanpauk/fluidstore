@@ -254,17 +254,49 @@ namespace btree
                 return nullptr;
             }
 
-            template< typename Node > static Node* get_right(internal_node* parent, size_t index)
+            template< typename Node > static Node* get_right(internal_node* n, size_t index)
             {
-                if (parent)
+                if (n)
                 {
-                    if (index + 1 <= parent->get_keys().size())
+                    if (index + 1 < n->get_children< Node* >().size())
                     {
-                        return parent->get_children< Node* >()[index + 1];
+                        return n->get_children< Node* >()[index + 1];
                     }
                 }
 
                 return nullptr;
+            }
+
+            template< typename Node > static std::tuple< Node*, size_t > get_right_new(internal_node* n, size_t index)
+            {
+                size_t depth = 1;
+                while (n)
+                {
+                    auto children = n->get_children< Node* >();
+                    if (index + 1 < children.size())
+                    {
+                        if (depth == 1)
+                        {
+                            return { children[index + 1], index + 1 };
+                        }
+                        else
+                        {
+                            return { begin_node< Node >(children[index + 1], depth), 0 };
+                        }
+                    }
+                    else
+                    {
+                        if (n->get_parent())
+                        {
+                            index = find_node_index(n->get_parent()->get_children< internal_node* >(), n);
+                            ++depth;
+                        }
+
+                        n = n->get_parent();
+                    }
+                }
+            
+                return { nullptr, 0 };
             }
 
         public:
@@ -294,6 +326,7 @@ namespace btree
             {}
 
             internal_node* get_left(size_t index) { return node::get_left< internal_node >(parent, index); }
+            std::tuple< internal_node*, size_t > get_right_new(size_t index) { return node::get_right_new< internal_node >(parent, index); }
             internal_node* get_right(size_t index) { return node::get_right< internal_node >(parent, index); }
             auto get_keys() { return fixed_vector< Key, internal_keys >(this); }
             //const auto get_keys() const { return fixed_vector< Key, internal_keys >(this); }
@@ -323,7 +356,9 @@ namespace btree
             {}
 
             value_node* get_left(size_t index) { return node::get_left< value_node >(parent, index); }
+            std::tuple< value_node*, size_t > get_right_new(size_t index) { return node::get_right_new< value_node >(parent, index); }
             value_node* get_right(size_t index) { return node::get_right< value_node >(parent, index); }
+
             auto get_keys() { return fixed_vector< Key, value_keys >(this); }
             //auto get_keys() const { return fixed_vector< Key, value_keys >(this); }
 
@@ -445,8 +480,7 @@ namespace btree
                 if (++kindex_ == node_->get_keys().size())
                 {
                     kindex_ = 0;
-                    node_ = node_->get_right(nindex_);
-                    ++nindex_;
+                    std::tie(node_, nindex_) = node_->get_right_new(nindex_);
                 }
 
                 return *this;
@@ -555,7 +589,11 @@ namespace btree
         size_t size() const { return size_; }
         bool empty() const { return size_ == 0; }
 
-        iterator begin() { return iterator(empty() ? nullptr : begin_node(), 0, 0); }
+        iterator begin() 
+        {
+            return iterator(empty() ? nullptr : begin_node<value_node>(root_, depth_), 0, 0); 
+        }
+
         iterator end() { return iterator(nullptr, 0, 0); }
 
     private:
@@ -636,7 +674,7 @@ namespace btree
             return index;
         }
 
-        template < typename Node > size_t find_node_index(const fixed_vector< Node*, internal_children >& nodes, const node* n)
+        template < typename Node > static size_t find_node_index(const fixed_vector< Node*, internal_children >& nodes, const node* n)
         {
             for (size_t i = 0; i < nodes.size(); ++i)
             {
@@ -773,18 +811,15 @@ namespace btree
             }
         }
 
-        value_node* begin_node() const // TODO: const
+        template < typename Node > static Node* begin_node(node* n, size_t depth)
         {
-            assert(root_);
-
-            size_t depth = depth_;
-            node* n = root_;
+            assert(n);
             while (--depth)
             {
                 n = reinterpret_cast<internal_node*>(n)->get_children< node* >()[0];
             }
 
-            return reinterpret_cast<value_node*>(n);
+            return reinterpret_cast<Node*>(n);
         }
 
         bool share_keys(size_t, value_node* target, size_t tindex, value_node* source, size_t sindex)

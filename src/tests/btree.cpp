@@ -72,7 +72,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_insert, T, test_types)
 typedef boost::mpl::list<size_t> btree_range_for_types;
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_range_for, T, btree_range_for_types)
 {
-    for (int i = 0; i < 50; ++i)
+    for (int i = 0; i < 1000; ++i)
     {
         btree::set< T > c;
 
@@ -84,6 +84,10 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_range_for, T, btree_range_for_types)
         int k = 0;
         for (auto& v : c)
         {
+            if (k == 39 && i == 65)
+            {
+                int a(1);
+            }
             BOOST_REQUIRE(v == value<T>(k++));
         }
 

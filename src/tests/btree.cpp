@@ -84,10 +84,6 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_range_for, T, btree_range_for_types)
         int k = 0;
         for (auto& v : c)
         {
-            if (k == 39 && i == 65)
-            {
-                int a(1);
-            }
             BOOST_REQUIRE(v == value<T>(k++));
         }
 

@@ -244,30 +244,7 @@ namespace btree
             virtual ~node() {}
         #endif
 
-            template< typename Node > static Node* get_left(internal_node* parent, size_t index)
-            {
-                if (parent && index > 0)
-                {
-                    return parent->get_children< Node* >()[index - 1];
-                }
-
-                return nullptr;
-            }
-
-            template< typename Node > static Node* get_right(internal_node* n, size_t index)
-            {
-                if (n)
-                {
-                    if (index + 1 < n->get_children< Node* >().size())
-                    {
-                        return n->get_children< Node* >()[index + 1];
-                    }
-                }
-
-                return nullptr;
-            }
-
-            template< typename Node > static std::tuple< Node*, size_t > get_right_new(internal_node* n, size_t index)
+            template< typename Node > static std::tuple< Node*, size_t > get_right(internal_node* n, size_t index, bool recursive)
             {
                 size_t depth = 1;
                 while (n)
@@ -284,7 +261,7 @@ namespace btree
                             return { begin_node< Node >(children[index + 1], depth), 0 };
                         }
                     }
-                    else
+                    else if(recursive)
                     {
                         if (n->get_parent())
                         {
@@ -294,8 +271,48 @@ namespace btree
 
                         n = n->get_parent();
                     }
+                    else
+                    {
+                        break;
+                    }
                 }
             
+                return { nullptr, 0 };
+            }
+
+            template< typename Node > static std::tuple< Node*, size_t > get_left(internal_node* n, size_t index, bool recursive)
+            {
+                size_t depth = 1;
+                while (n)
+                {
+                    auto children = n->get_children< Node* >();
+                    if (index > 0)
+                    {
+                        if (depth == 1)
+                        {
+                            return { children[index - 1], index - 1 };
+                        }
+                        else
+                        {
+                            return { end_node< Node >(children[index - 1], depth), 0 };
+                        }
+                    }
+                    else if(recursive)
+                    {
+                        if (n->get_parent())
+                        {
+                            index = find_node_index(n->get_parent()->get_children< internal_node* >(), n);
+                            ++depth;
+                        }
+
+                        n = n->get_parent();
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
                 return { nullptr, 0 };
             }
 
@@ -325,9 +342,9 @@ namespace btree
                 , parent()
             {}
 
-            internal_node* get_left(size_t index) { return node::get_left< internal_node >(parent, index); }
-            std::tuple< internal_node*, size_t > get_right_new(size_t index) { return node::get_right_new< internal_node >(parent, index); }
-            internal_node* get_right(size_t index) { return node::get_right< internal_node >(parent, index); }
+            std::tuple< internal_node*, size_t > get_left(size_t index, bool recursive = false) { return node::get_left< internal_node >(parent, index, recursive); }
+            std::tuple< internal_node*, size_t > get_right(size_t index, bool recursive = false) { return node::get_right< internal_node >(parent, index, recursive); }
+
             auto get_keys() { return fixed_vector< Key, internal_keys >(this); }
             //const auto get_keys() const { return fixed_vector< Key, internal_keys >(this); }
 
@@ -355,10 +372,9 @@ namespace btree
                 , parent()
             {}
 
-            value_node* get_left(size_t index) { return node::get_left< value_node >(parent, index); }
-            std::tuple< value_node*, size_t > get_right_new(size_t index) { return node::get_right_new< value_node >(parent, index); }
-            value_node* get_right(size_t index) { return node::get_right< value_node >(parent, index); }
-
+            std::tuple< value_node*, size_t > get_left(size_t index, bool recursive = false) { return node::get_left< value_node >(parent, index, recursive); }
+            std::tuple< value_node*, size_t > get_right(size_t index, bool recursive = false) { return node::get_right< value_node >(parent, index, recursive); }
+            
             auto get_keys() { return fixed_vector< Key, value_keys >(this); }
             //auto get_keys() const { return fixed_vector< Key, value_keys >(this); }
 
@@ -480,7 +496,7 @@ namespace btree
                 if (++kindex_ == node_->get_keys().size())
                 {
                     kindex_ = 0;
-                    std::tie(node_, nindex_) = node_->get_right_new(nindex_);
+                    std::tie(node_, nindex_) = node_->get_right(nindex_, true);
                 }
 
                 return *this;
@@ -822,6 +838,18 @@ namespace btree
             return reinterpret_cast<Node*>(n);
         }
 
+        template < typename Node > static Node* end_node(node* n, size_t depth)
+        {
+            assert(n);
+            while (--depth)
+            {
+                auto children = reinterpret_cast<internal_node*>(n)->get_children< node* >();
+                n = children[children.size() - 1];
+            }
+
+            return reinterpret_cast<Node*>(n);
+        }
+
         bool share_keys(size_t, value_node* target, size_t tindex, value_node* source, size_t sindex)
         {
             if (!source)
@@ -1004,8 +1032,8 @@ namespace btree
             
             /*
             {
-                auto left = n->get_left(nindex);
-                auto right = n->get_right(nindex);
+                auto [left, lindex] = n->get_left(nindex);
+                auto [right, rindex] = n->get_right(nindex);
 
                 if (left && share_keys(depth, left, nindex - 1, n, nindex) ||
                     right && share_keys(depth, right, nindex + 1, n, nindex))
@@ -1059,8 +1087,8 @@ namespace btree
             assert(n->get_keys().size() <= n->get_keys().capacity() / 2);
 
             {
-                auto left = n->get_left(nindex);
-                auto right = n->get_right(nindex);
+                auto [left, lindex] = n->get_left(nindex);
+                auto [right, rindex] = n->get_right(nindex);
 
                 if (left && share_keys(depth, n, nindex, left, nindex - 1) ||
                     right && share_keys(depth, n, nindex, right, nindex + 1))
@@ -1079,8 +1107,8 @@ namespace btree
             }                
                 
             {
-                auto left = n->get_left(nindex);
-                auto right = n->get_right(nindex);
+                auto [left, lindex] = n->get_left(nindex);
+                auto [right, rindex] = n->get_right(nindex);
 
                 if (merge_keys(depth, left, nindex - 1, n, nindex))
                 {

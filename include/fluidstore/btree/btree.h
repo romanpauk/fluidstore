@@ -737,7 +737,6 @@ namespace btree
             auto lkeys = lnode->get_keys();
             auto rkeys = rnode->get_keys();
 
-            // TODO: std::make_move_iterator
             auto begin = lkeys.begin() + N;
             rkeys.insert(allocator_, rkeys.end(), std::make_move_iterator(begin), std::make_move_iterator(lkeys.end()));
 
@@ -759,7 +758,6 @@ namespace btree
             auto lkeys = lnode->get_keys();
             auto rkeys = rnode->get_keys();
 
-            // TODO: std::make_move_iterator
             auto begin = lkeys.begin() + N;
             rkeys.insert(allocator_, rkeys.end(), std::make_move_iterator(begin), std::make_move_iterator(lkeys.end()));
 

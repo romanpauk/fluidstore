@@ -134,7 +134,7 @@ namespace btree
     private:
         template < typename Allocator > void destroy(Allocator& alloc, T* first, T* last)
         {
-            assert(last > first);
+            assert(last >= first);
             if constexpr (!std::is_trivially_destructible_v< T >)
             {
                 while (first != last)
@@ -574,7 +574,7 @@ namespace btree
 
         iterator begin() 
         {
-            return iterator(empty() ? nullptr : begin_node<value_node>(root_, depth_), 0, 0); 
+            return iterator(empty() ? nullptr : first_node<value_node>(root_, depth_), 0, 0); 
         }
 
         iterator end() { return iterator(nullptr, 0, 0); }
@@ -716,7 +716,7 @@ namespace btree
             std::allocator_traits< decltype(allocator) >::deallocate(allocator, n, 1);
         }
 
-        template < typename Node > const Key split_key(/*const*/ Node* n)
+        template < typename Node > const Key& split_key(/*const*/ Node* n)
         {
             assert(n->full());
             return *(n->get_keys().begin() + N);
@@ -791,7 +791,7 @@ namespace btree
             }
         }
 
-        template < typename Node > static Node* begin_node(node* n, size_type depth)
+        template < typename Node > static Node* first_node(node* n, size_type depth)
         {
             assert(n);
             while (--depth)
@@ -802,7 +802,7 @@ namespace btree
             return reinterpret_cast<Node*>(n);
         }
 
-        template < typename Node > static Node* end_node(node* n, size_type depth)
+        template < typename Node > static Node* last_node(node* n, size_type depth)
         {
             assert(n);
             while (--depth)
@@ -831,7 +831,7 @@ namespace btree
                 {
                     // Right-most key from the left node
                     auto key = skeys.end() - 1;
-                    tkeys.emplace(allocator_, tkeys.begin(), *key);
+                    tkeys.emplace(allocator_, tkeys.begin(), std::move(*key));
                     skeys.erase(allocator_, key);
 
                     assert(tindex > 0);
@@ -841,7 +841,7 @@ namespace btree
                 {
                     // Left-most key from the right node
                     auto key = skeys.begin();
-                    tkeys.emplace(allocator_, tkeys.end(), *key);
+                    tkeys.emplace(allocator_, tkeys.end(), std::move(*key));
                     skeys.erase(allocator_, key);
 
                     pkeys[tindex] = *skeys.begin();
@@ -876,14 +876,14 @@ namespace btree
                     tchildren.emplace(allocator_, tchildren.begin(), schildren[skeys.size()]);
                     set_parent(depth_ == depth + 1, schildren[skeys.size()], target);
 
-                    tkeys.emplace(allocator_, tkeys.begin(), pkeys[sindex]);    
+                    tkeys.emplace(allocator_, tkeys.begin(), std::move(pkeys[sindex]));    
 
-                    pkeys[sindex] = *(skeys.end() - 1);
+                    pkeys[sindex] = std::move(*(skeys.end() - 1));
                     skeys.erase(allocator_, skeys.end() - 1);
                 }
                 else
                 {
-                    tkeys.emplace(allocator_, tkeys.end(), pkeys[tindex]);
+                    tkeys.emplace(allocator_, tkeys.end(), std::move(pkeys[tindex]));
                     
                     auto ch = schildren[0];
                     set_parent(depth_ == depth + 1, ch, target);
@@ -891,7 +891,7 @@ namespace btree
                     schildren.erase(allocator_, schildren.begin());
                     tchildren.emplace(allocator_, tchildren.end(), ch);
                     
-                    pkeys[tindex] = *skeys.begin();
+                    pkeys[tindex] = std::move(*skeys.begin());
                     skeys.erase(allocator_, skeys.begin());
                 }
 
@@ -979,12 +979,12 @@ namespace btree
                 children.emplace_back(allocator_, p);
                 p->set_parent(root);
 
-                root->get_keys().emplace_back(allocator_, splitkey);
+                auto cmp = !compare_(key, splitkey);
+                root->get_keys().emplace_back(allocator_, std::move(splitkey));
 
                 root_ = root;
                 ++depth_;
 
-                auto cmp = !compare_(key, splitkey);
                 return { cmp ? p : n, cmp };
             }
         }
@@ -1092,7 +1092,7 @@ namespace btree
                     }
                     else
                     {
-                        return { begin_node< Node >(children[index + 1], depth), 0 };
+                        return { first_node< Node >(children[index + 1], depth), 0 };
                     }
                 }
                 else if (recursive)
@@ -1128,7 +1128,7 @@ namespace btree
                     }
                     else
                     {
-                        return { end_node< Node >(children[index - 1], depth), 0 };
+                        return { last_node< Node >(children[index - 1], depth), 0 };
                     }
                 }
                 else if (recursive)

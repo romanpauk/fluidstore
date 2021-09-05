@@ -53,6 +53,8 @@ typedef boost::mpl::list<uint16_t, uint32_t, uint64_t, std::string > test_types;
 
 BOOST_AUTO_TEST_CASE(btree_node_capacity)
 {
+    // Note: number of elements is N * 2
+
     typedef btree::set< uint16_t > set_uint16_t;
     BOOST_TEST(set_uint16_t::N == 16);
 
@@ -186,7 +188,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_erase_loop, T, test_types)
 #if !defined(_DEBUG)
 
 const int Loops = 10000;
-const int Elements = 4;
+const int Elements = 2;
 
 template < typename Fn > double measure(size_t loops, Fn fn)
 {

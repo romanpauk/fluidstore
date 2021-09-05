@@ -1,4 +1,5 @@
 #include <fluidstore/btree/btree.h>
+#include <fluidstore/flat/set.h>
 
 #include <boost/test/unit_test.hpp>
 #include <boost/mpl/list.hpp>
@@ -53,16 +54,16 @@ typedef boost::mpl::list<uint16_t, uint32_t, uint64_t, std::string > test_types;
 BOOST_AUTO_TEST_CASE(btree_node_capacity)
 {
     typedef btree::set< uint16_t > set_uint16_t;
-    BOOST_TEST(set_uint16_t::value_node_capacity == 32);
+    BOOST_TEST(set_uint16_t::N == 16);
 
     typedef btree::set< uint32_t > set_uint32_t;
-    BOOST_TEST(set_uint32_t::value_node_capacity == 16);
+    BOOST_TEST(set_uint32_t::N == 8);
 
     typedef btree::set< uint64_t > set_uint64_t;
-    BOOST_TEST(set_uint64_t::value_node_capacity == 8);
+    BOOST_TEST(set_uint64_t::N == 4);
 
     typedef btree::set< std::string > set_string;
-    BOOST_TEST(set_uint64_t::value_node_capacity == 8);
+    BOOST_TEST(set_string::N == 4);
 }
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_insert, T, test_types)
@@ -184,8 +185,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_erase_loop, T, test_types)
 
 #if !defined(_DEBUG)
 
-const int Loops = 100000;
-const int Elements = 8;
+const int Loops = 10000;
+const int Elements = 4;
 
 template < typename Fn > double measure(size_t loops, Fn fn)
 {
@@ -200,25 +201,27 @@ template < typename Fn > double measure(size_t loops, Fn fn)
     return duration_cast<duration<double>>(end - begin).count();
 }
 
-template < typename Container, typename T > void insertion_test(size_t count)
+template < typename Container > void insertion_test(Container& c, size_t count)
 {
-    Container c;
     for (size_t i = 0; i < count; ++i)
     {
-        c.insert(value<T>(i));
+        c.insert(value< typename Container::value_type >(i));
     }
 }
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_perf_insert, T, test_types)
 {
-    auto t1 = measure(Loops, [&] { insertion_test< std::set< T >, T >(Elements); });
+    auto t1 = measure(Loops, [&] { std::set< T > c; insertion_test(c, Elements); });
     //std::cerr << "std::set " << typeid(T).name() << " insertion " << t1 << std::endl;
 
-    auto t2 = measure(Loops, [&] { insertion_test< btree::set< T >, T >(Elements); });
+    auto t2 = measure(Loops, [&] { btree::set< T > c; insertion_test(c, Elements); });
     std::cerr << "btree::set " << typeid(T).name() << " insertion " << t2/t1 << std::endl;
+
+    auto t3 = measure(Loops, [&] { std::allocator< T > allocator;  crdt::flat::set< T, std::allocator< T > > c(allocator); insertion_test(c, Elements); });
+    std::cerr << "flat::set " << typeid(T).name() << " insertion " << t3 / t1 << std::endl;
 }
 
-template < typename T, typename Container > void iteration_test(Container& c)
+template < typename Container > void iteration_test(Container& c)
 {
     volatile size_t x = 0;
     for (auto& v : c)
@@ -228,29 +231,39 @@ template < typename T, typename Container > void iteration_test(Container& c)
     }
 }
 
+template < typename Container > void fill_container(Container& c)
+{
+    for (size_t i = 0; i < Elements; ++i)
+    {
+        c.insert(value< typename Container::value_type >(i));
+    }
+}
+
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_perf_iteration, T, test_types)
 {
     double t1 = 0;
     {
         std::set< T > set;
-        for (size_t i = 0; i < Elements; ++i)
-        {
-            set.insert(value<T>(i));
-        }
-
-        t1 = measure(Loops, [&] { iteration_test<T>(set); });
+        fill_container(set);
+        t1 = measure(Loops, [&] { iteration_test(set); });
         //std::cerr << "std::set " << typeid(T).name() << " iteration " << t1 << std::endl;
     }
 
     {
         btree::set< T > set;
-        for (size_t i = 0; i < Elements; ++i)
-        {
-            set.insert(value<T>(i));
-        }
+        fill_container(set);
 
-        auto t2 = measure(Loops, [&] { iteration_test<T>(set); });
+        auto t2 = measure(Loops, [&] { iteration_test(set); });
         std::cerr << "btree::set " << typeid(T).name() << " iteration " << t2/t1 << std::endl;
+    }
+
+    {
+        std::allocator< T > allocator;
+        crdt::flat::set< T, std::allocator< T > > set(allocator);
+        fill_container(set);
+
+        auto t2 = measure(Loops, [&] { iteration_test(set); });
+        std::cerr << "flat::set " << typeid(T).name() << " iteration " << t2 / t1 << std::endl;
     }
 }
 

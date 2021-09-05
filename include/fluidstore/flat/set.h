@@ -192,12 +192,12 @@ namespace crdt::flat
 
         template < typename Ty > auto insert(Ty&& value)
         {
-            return set_base_type::insert(allocator_, end(), std::forward< Ty >(value));
+            return set_base_type::insert_impl(allocator_, end(), std::forward< Ty >(value));
         }
 
         template < typename It, typename Ty > auto insert(It hint, Ty&& value)
         {
-            return set_base_type::insert(allocator_, hint, std::forward< Ty >(value));
+            return set_base_type::insert_impl(allocator_, hint, std::forward< Ty >(value));
         }
 
         void erase(const T& value) 

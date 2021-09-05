@@ -256,6 +256,15 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_perf_insert, T, test_types)
         insertion_test(c, Elements); 
     });
     std::cerr << "flat::set " << typeid(T).name() << " insertion " << t3 / t1 << std::endl;
+
+    auto t5 = measure(Loops, [&]
+    {
+        crdt::arena< 65536 > arena;
+        crdt::arena_allocator< void > arenaallocator(arena);
+        crdt::flat::set< T, decltype(arenaallocator) > c(arenaallocator);
+        insertion_test(c, Elements);
+    });
+    std::cerr << "fat::set static " << typeid(T).name() << " insertion " << t5 / t1 << std::endl;
 }
 
 template < typename Container > void iteration_test(Container& c)

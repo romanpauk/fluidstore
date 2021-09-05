@@ -348,7 +348,7 @@ namespace btree
 
             uint8_t keys[2 * N * sizeof(Key)];
             // uint8_t values[2 * N * sizeof(Value)];
-            node_size_type size; // TODO: this needs to be smaller, and elsewhere.
+            node_size_type size;
             internal_node* parent;
         };
 
@@ -641,7 +641,6 @@ namespace btree
             }
         }
 
-        // TODO: const
         template < typename Descriptor > const Key* find_key_index(const fixed_vector< Key, Descriptor >& keys, const Key& key)
         {
             // TODO: better search

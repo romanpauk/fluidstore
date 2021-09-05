@@ -1,5 +1,6 @@
 #include <fluidstore/btree/btree.h>
 #include <fluidstore/flat/set.h>
+#include <fluidstore/allocators/arena_allocator.h>
 
 #include <boost/test/unit_test.hpp>
 #include <boost/mpl/list.hpp>
@@ -213,13 +214,32 @@ template < typename Container > void insertion_test(Container& c, size_t count)
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_perf_insert, T, test_types)
 {
-    auto t1 = measure(Loops, [&] { std::set< T > c; insertion_test(c, Elements); });
+    auto t1 = measure(Loops, [&] { 
+        std::set< T > c; 
+        insertion_test(c, Elements); 
+    });
     //std::cerr << "std::set " << typeid(T).name() << " insertion " << t1 << std::endl;
 
-    auto t2 = measure(Loops, [&] { btree::set< T > c; insertion_test(c, Elements); });
+    auto t2 = measure(Loops, [&] { 
+        btree::set< T > c; 
+        insertion_test(c, Elements); 
+    });
     std::cerr << "btree::set " << typeid(T).name() << " insertion " << t2/t1 << std::endl;
 
-    auto t3 = measure(Loops, [&] { std::allocator< T > allocator;  crdt::flat::set< T, std::allocator< T > > c(allocator); insertion_test(c, Elements); });
+    auto t4 = measure(Loops, [&]
+    {
+        crdt::arena< 65536 > arena;
+        crdt::arena_allocator< void > arenaallocator(arena);
+        btree::set< T, std::less< T >, decltype(arenaallocator) > c(arenaallocator);
+        insertion_test(c, Elements);
+    });
+    std::cerr << "btree::set static " << typeid(T).name() << " insertion " << t4 / t1 << std::endl;
+
+    auto t3 = measure(Loops, [&] { 
+        std::allocator< T > allocator;  
+        crdt::flat::set< T, std::allocator< T > > c(allocator); 
+        insertion_test(c, Elements); 
+    });
     std::cerr << "flat::set " << typeid(T).name() << " insertion " << t3 / t1 << std::endl;
 }
 

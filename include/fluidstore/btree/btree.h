@@ -476,10 +476,11 @@ namespace btree
             node_size_type kindex_;
         };
 
-        set()
+        set(Allocator& allocator = Allocator())
             : root_()
             , size_()
             , depth_()
+            , allocator_(allocator)
         {
         #if defined(_DEBUG)
             // Make sure the objects alias.

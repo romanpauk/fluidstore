@@ -586,7 +586,7 @@ namespace btree
             node_size_type nindex = 0;
             while (--depth)
             {
-                auto in = reinterpret_cast<internal_node*>(n);
+                auto in = node_cast<internal_node*>(n);
 
                 auto nkeys = in->get_keys();
                 auto kindex = find_key_index(nkeys, key);
@@ -602,7 +602,7 @@ namespace btree
                 n = in->get_children< node* >()[nindex];
             }
 
-            return { reinterpret_cast<value_node*>(n), nindex };
+            return { node_cast<value_node*>(n), nindex };
         }
 
         iterator find(node* n, const Key& key)
@@ -687,7 +687,7 @@ namespace btree
                 assert(depth_ >= 1);
                 set_parent(depth_ == 1, root_, nullptr);
 
-                deallocate_node(reinterpret_cast< internal_node* >(root));
+                deallocate_node(node_cast< internal_node* >(root));
             }
         }
 
@@ -773,7 +773,7 @@ namespace btree
         {
             if (depth != depth_)
             {
-                auto in = reinterpret_cast<internal_node*>(n);
+                auto in = node_cast<internal_node*>(n);
                 auto nchildren = in->get_children< node* >();
 
                 for (auto child: nchildren)
@@ -785,7 +785,7 @@ namespace btree
             }
             else
             {
-                deallocate_node(reinterpret_cast< value_node* >(n));
+                deallocate_node(node_cast< value_node* >(n));
             }
         }
 
@@ -794,10 +794,10 @@ namespace btree
             assert(n);
             while (--depth)
             {
-                n = reinterpret_cast<internal_node*>(n)->get_children< node* >()[0];
+                n = node_cast<internal_node*>(n)->get_children< node* >()[0];
             }
 
-            return reinterpret_cast<Node*>(n);
+            return node_cast<Node*>(n);
         }
 
         template < typename Node > static Node* last_node(node* n, size_type depth)
@@ -805,11 +805,11 @@ namespace btree
             assert(n);
             while (--depth)
             {
-                auto children = reinterpret_cast<internal_node*>(n)->get_children< node* >();
+                auto children = node_cast<internal_node*>(n)->get_children< node* >();
                 n = children[children.size() - 1];
             }
 
-            return reinterpret_cast<Node*>(n);
+            return node_cast<Node*>(n);
         }
 
         bool share_keys(size_t, value_node* target, node_size_type tindex, value_node* source, node_size_type sindex)
@@ -1150,19 +1150,24 @@ namespace btree
 
         static void set_parent(bool valuenode, node* n, internal_node* parent)
         {
-        #if defined(_DEBUG)
-            bool isvaluenode = dynamic_cast<value_node*>(n);
-            assert(valuenode == isvaluenode);
-        #endif
-
             if (valuenode)
             {
-                reinterpret_cast<value_node*>(n)->set_parent(parent);
+                node_cast<value_node*>(n)->set_parent(parent);
             }
             else
             {
-                reinterpret_cast<internal_node*>(n)->set_parent(parent);
+                node_cast<internal_node*>(n)->set_parent(parent);
             }
+        }
+
+        template < typename Node > static Node node_cast(node* n)
+        {
+        #if defined(_DEBUG)
+            auto ptr = dynamic_cast<Node>(n);
+            assert(ptr != nullptr);
+            assert(ptr == n);
+        #endif
+            return reinterpret_cast< Node >(n);
         }
 
         node* root_;

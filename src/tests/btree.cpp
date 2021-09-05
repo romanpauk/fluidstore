@@ -45,9 +45,9 @@ BOOST_AUTO_TEST_CASE(btree_fixed_vector)
 
 template < typename T > T value(size_t);
 
-template <> uint16_t value<uint16_t>(size_t i) { return i; }
-template <> uint32_t value<uint32_t>(size_t i) { return i; }
-template <> uint64_t value<uint64_t>(size_t i) { return i; }
+template <> uint16_t value<uint16_t>(size_t i) { return static_cast<uint16_t>(i); }
+template <> uint32_t value<uint32_t>(size_t i) { return static_cast<uint32_t>(i);; }
+template <> uint64_t value<uint64_t>(size_t i) { return static_cast<uint64_t>(i);; }
 template <> std::string value<std::string>(size_t i) { return std::to_string(i); }
 
 typedef boost::mpl::list<uint16_t, uint32_t, uint64_t, std::string > test_types;

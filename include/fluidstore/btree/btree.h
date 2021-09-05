@@ -53,7 +53,7 @@ namespace btree
             if (to == end())
             {
                 destroy(alloc, from, to);
-                desc_.set_size(size() - (to - from));
+                desc_.set_size(size() - static_cast< size_type >(to - from));
             }
             else
             {
@@ -114,7 +114,7 @@ namespace btree
             }
             
             copy(alloc, from, to, it);
-            desc_.set_size(size() + to - from);
+            desc_.set_size(size() + static_cast< size_type >(to - from));
 
             checkvec();
         }
@@ -157,7 +157,7 @@ namespace btree
             {
                 if (dest > end())
                 {
-                    size_type uninitialized_count = std::min(last - first, dest - end());
+                    size_type uninitialized_count = static_cast< size_type >(std::min(last - first, dest - end()));
                     while (uninitialized_count--)
                     {
                         std::allocator_traits< Allocator >::construct(alloc, --dest, std::move(*--last));
@@ -181,7 +181,7 @@ namespace btree
                 size_type cnt = 0;
                 if (dest < end())
                 {
-                    cnt = std::min(last - first, end() - dest);
+                    cnt = static_cast< size_type >(std::min(last - first, end() - dest));
                     std::copy(first, first + cnt, dest);
                 }
 
@@ -592,7 +592,7 @@ namespace btree
                 auto kindex = find_key_index(nkeys, key);
                 if (kindex != nkeys.end())
                 {
-                    nindex = kindex - nkeys.begin() + !compare_(key, *kindex);
+                    nindex = static_cast< node_size_type >(kindex - nkeys.begin() + !compare_(key, *kindex));
                 }
                 else
                 {
@@ -614,7 +614,7 @@ namespace btree
             auto index = find_key_index(nkeys, key);
             if (index < nkeys.end() && key == *index)
             {
-                return iterator(vn, vnindex, index - nkeys.begin());
+                return iterator(vn, vnindex, static_cast< node_size_type >(index - nkeys.begin()));
             }
             else
             {
@@ -630,14 +630,14 @@ namespace btree
             auto index = find_key_index(nkeys, key);
             if (index < nkeys.end() && *index == key)
             {
-                return { iterator(n, nindex, index - nkeys.begin()), false };
+                return { iterator(n, nindex, static_cast< node_size_type >(index - nkeys.begin())), false };
             }
             else
             {
                 nkeys.emplace(allocator_, index, std::forward< KeyT >(key));
                 ++size_;
 
-                return { iterator(n, nindex, index - nkeys.begin()), true };
+                return { iterator(n, nindex, static_cast< node_size_type >(index - nkeys.begin())), true };
             }
         }
 

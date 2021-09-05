@@ -10,7 +10,7 @@ namespace btree
     template < typename T, typename Descriptor > struct fixed_vector
     {
     public:
-        using size_type = size_t;
+        using size_type = typename Descriptor::size_type;
 
         //fixed_vector(const fixed_vector< T, Descriptor >&) = delete;
         //fixed_vector(fixed_vector< T, Descriptor >&&) = delete;
@@ -133,13 +133,10 @@ namespace btree
     private:
         template < typename Allocator > void destroy(Allocator& alloc, T* first, T* last)
         {
-            //if constexpr (!std::is_trivially_destructible_v< T >)
-            //{
-                while (first != last)
-                {
-                    std::allocator_traits< Allocator >::destroy(alloc, first++);
-                }
-            //}
+            while (first != last)
+            {
+                std::allocator_traits< Allocator >::destroy(alloc, first++);
+            }
         }
         
         template < typename Allocator > void move_backward(Allocator& alloc, T* first, T* last, T* dest)
@@ -147,30 +144,44 @@ namespace btree
             assert(last > first);
             assert(dest > last);
 
-            if (dest > end())
+            if constexpr (std::is_trivially_copyable_v< T >)
             {
-                size_t uninitialized_count = std::min(last - first, dest - end());
-                while (uninitialized_count--)
-                {
-                    std::allocator_traits< Allocator >::construct(alloc, --dest, std::move(*--last));
-                }
+                std::move_backward(first, last, dest);
             }
+            else
+            {
+                if (dest > end())
+                {
+                    size_type uninitialized_count = std::min(last - first, dest - end());
+                    while (uninitialized_count--)
+                    {
+                        std::allocator_traits< Allocator >::construct(alloc, --dest, std::move(*--last));
+                    }
+                }
 
-            std::move_backward(first, last, dest);
+                std::move_backward(first, last, dest);
+            }
         }
 
         template < typename Allocator, typename U > void copy(Allocator& alloc, U first, U last, T* dest)
         {
             assert(last > first);
 
-            size_t cnt = 0;
-            if (dest < end())
+            if constexpr (std::is_trivially_copyable_v< T >)
             {
-                cnt = std::min(last - first, end() - dest);
-                std::copy(first, first + cnt, dest);
+                std::copy(first, last, dest);
             }
+            else
+            {
+                size_type cnt = 0;
+                if (dest < end())
+                {
+                    cnt = std::min(last - first, end() - dest);
+                    std::copy(first, first + cnt, dest);
+                }
 
-            std::uninitialized_copy(first + cnt, last, dest + cnt);
+                std::uninitialized_copy(first + cnt, last, dest + cnt);
+            }
         }
 
         void checkvec()
@@ -183,7 +194,7 @@ namespace btree
         /*
             if (vec_.size() > 1)
             {
-                for (size_t i = 0; i < size() - 1; ++i)
+                for (size_type i = 0; i < size() - 1; ++i)
                 {
                     if (vec_[i] >= vec_[i + 1])
                     {
@@ -203,7 +214,7 @@ namespace btree
     };
     template < typename Key, typename Compare = std::less< Key >, typename Allocator = std::allocator< Key > > class set
     {
-        static const size_t N = 4;
+        static const auto N = 8; //std::max(std::size_t(8), std::size_t(64/sizeof(Key)/2));
 
         // Some ideas about the layout:
         // 
@@ -339,14 +350,16 @@ namespace btree
 
         template < typename Node, size_t Capacity > struct keys_descriptor
         {
+            using size_type = size_t;
+
             keys_descriptor(Node* node)
                 : node_(node)
             {}
 
-            size_t size() const { return node_->size; }
-            size_t capacity() const { return Capacity; }
+            size_type size() const { return node_->size; }
+            size_type capacity() const { return Capacity; }
 
-            void set_size(size_t size)
+            void set_size(size_type size)
             {
                 assert(size <= capacity());
                 node_->size = size;
@@ -354,8 +367,6 @@ namespace btree
 
             Key* data() { return reinterpret_cast<Key*>(node_->keys); }
             const Key* data() const { return reinterpret_cast<const Key*>(node_->keys); }
-
-            Node* get_node() { return node_; }
 
         private:
             Node* node_;
@@ -366,6 +377,8 @@ namespace btree
 
         struct internal_children
         {
+            using size_type = size_t;
+
             internal_children(internal_node* node)
                 : node_(node)
                 , size_()
@@ -379,22 +392,22 @@ namespace btree
 
             internal_children(const internal_children& other) = default;
 
-            size_t size() const { return size_; }
+            size_type size() const { return size_; }
             
-            void set_size(size_t size) 
+            void set_size(size_type size) 
             { 
                 assert(size <= capacity());
                 size_ = size; 
             }
 
-            size_t capacity() const { return 2 * N; }
+            size_type capacity() const { return 2 * N; }
 
             node** data() { return reinterpret_cast<node**>(node_->children); }
             node** data() const { return reinterpret_cast<node**>(node_->children); }
 
         private:
             internal_node* node_;
-            size_t size_;
+            size_type size_;
         };
 
     public:
@@ -443,11 +456,13 @@ namespace btree
             , size_()
             , depth_()
         {
+        #if defined(_DEBUG)
             // Make sure the objects alias.
             value_node v;
             assert(&v == (node*)&v);
             internal_node n;
             assert(&n == (node*)&n);
+        #endif
         }
 
         ~set()

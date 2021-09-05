@@ -8,14 +8,16 @@
 
 template < typename T, size_t N > struct descriptor
 {
+    using size_type = size_t;
+
     descriptor()
         : size_()
     {}
 
-    size_t size() const { return size_; }
-    size_t capacity() const { return N; }
+    size_type size() const { return size_; }
+    size_type capacity() const { return N; }
 
-    void set_size(size_t size)
+    void set_size(size_type size)
     {
         assert(size <= capacity());
         size_ = size;
@@ -26,7 +28,7 @@ template < typename T, size_t N > struct descriptor
 
 private:
     uint8_t data_[sizeof(T) * N];
-    size_t size_;
+    size_type size_;
 };
 
 BOOST_AUTO_TEST_CASE(btree_fixed_vector)
@@ -167,7 +169,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_erase_loop, T, test_types)
 #if !defined(_DEBUG)
 
 const int Loops = 100000;
-const int Elements = 100;
+const int Elements = 8;
 
 template < typename Fn > double measure(size_t loops, Fn fn)
 {
@@ -194,22 +196,25 @@ template < typename Container, typename T > void insertion_test(size_t count)
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_perf_insert, T, test_types)
 {
     auto t1 = measure(Loops, [&] { insertion_test< std::set< T >, T >(Elements); });
-    std::cerr << "std::set " << typeid(T).name() << " insertion " << t1 << std::endl;
+    //std::cerr << "std::set " << typeid(T).name() << " insertion " << t1 << std::endl;
 
     auto t2 = measure(Loops, [&] { insertion_test< btree::set< T >, T >(Elements); });
-    std::cerr << "btree::set " << typeid(T).name() << " insertion " << t2 << std::endl;
+    std::cerr << "btree::set " << typeid(T).name() << " insertion " << t2/t1 << std::endl;
 }
 
 template < typename T, typename Container > void iteration_test(Container& c)
 {
+    volatile size_t x = 0;
     for (auto& v : c)
     {
         volatile auto p = &v;
+        ++x;
     }
 }
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_perf_iteration, T, test_types)
 {
+    double t1 = 0;
     {
         std::set< T > set;
         for (size_t i = 0; i < Elements; ++i)
@@ -217,8 +222,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_perf_iteration, T, test_types)
             set.insert(value<T>(i));
         }
 
-        auto t1 = measure(Loops, [&] { iteration_test<T>(set); });
-        std::cerr << "std::set " << typeid(T).name() << " iteration " << t1 << std::endl;
+        t1 = measure(Loops, [&] { iteration_test<T>(set); });
+        //std::cerr << "std::set " << typeid(T).name() << " iteration " << t1 << std::endl;
     }
 
     {
@@ -228,8 +233,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_perf_iteration, T, test_types)
             set.insert(value<T>(i));
         }
 
-        auto t1 = measure(Loops, [&] { iteration_test<T>(set); });
-        std::cerr << "btree::set " << typeid(T).name() << " iteration " << t1 << std::endl;
+        auto t2 = measure(Loops, [&] { iteration_test<T>(set); });
+        std::cerr << "btree::set " << typeid(T).name() << " iteration " << t2/t1 << std::endl;
     }
 }
 

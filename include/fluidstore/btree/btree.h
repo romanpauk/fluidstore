@@ -212,9 +212,13 @@ namespace btree
         std::vector< T > vec_;
     #endif
     };
+
     template < typename Key, typename Compare = std::less< Key >, typename Allocator = std::allocator< Key > > class set
     {
-        static const auto N = 8; //std::max(std::size_t(8), std::size_t(64/sizeof(Key)/2));
+        static const auto N = std::max(std::size_t(8), std::size_t(64 / sizeof(Key))) / 2;
+
+    public:
+        static const auto value_node_capacity = 2 * N;
 
         // Some ideas about the layout:
         // 

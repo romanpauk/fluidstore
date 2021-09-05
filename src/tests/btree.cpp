@@ -43,11 +43,27 @@ BOOST_AUTO_TEST_CASE(btree_fixed_vector)
 
 template < typename T > T value(size_t);
 
+template <> uint16_t value<uint16_t>(size_t i) { return i; }
 template <> uint32_t value<uint32_t>(size_t i) { return i; }
 template <> uint64_t value<uint64_t>(size_t i) { return i; }
 template <> std::string value<std::string>(size_t i) { return std::to_string(i); }
 
-typedef boost::mpl::list<uint32_t, uint64_t, std::string > test_types;
+typedef boost::mpl::list<uint16_t, uint32_t, uint64_t, std::string > test_types;
+
+BOOST_AUTO_TEST_CASE(btree_node_capacity)
+{
+    typedef btree::set< uint16_t > set_uint16_t;
+    BOOST_TEST(set_uint16_t::value_node_capacity == 32);
+
+    typedef btree::set< uint32_t > set_uint32_t;
+    BOOST_TEST(set_uint32_t::value_node_capacity == 16);
+
+    typedef btree::set< uint64_t > set_uint64_t;
+    BOOST_TEST(set_uint64_t::value_node_capacity == 8);
+
+    typedef btree::set< std::string > set_string;
+    BOOST_TEST(set_uint64_t::value_node_capacity == 8);
+}
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_insert, T, test_types)
 {

@@ -45,16 +45,20 @@ BOOST_AUTO_TEST_CASE(btree_fixed_vector)
 
 template < typename T > T value(size_t);
 
+template <> uint8_t value<uint8_t>(size_t i) { return static_cast<uint8_t>(i); }
 template <> uint16_t value<uint16_t>(size_t i) { return static_cast<uint16_t>(i); }
 template <> uint32_t value<uint32_t>(size_t i) { return static_cast<uint32_t>(i);; }
 template <> uint64_t value<uint64_t>(size_t i) { return static_cast<uint64_t>(i);; }
 template <> std::string value<std::string>(size_t i) { return std::to_string(i); }
 
-typedef boost::mpl::list<uint16_t, uint32_t, uint64_t, std::string > test_types;
+typedef boost::mpl::list < uint8_t, uint16_t, uint32_t, uint64_t, std::string > test_types;
 
 BOOST_AUTO_TEST_CASE(btree_node_capacity)
 {
-    // Note: number of elements is N * 2
+    // Note: Total number of elements in node is N * 2
+
+    typedef btree::set< uint8_t > set_uint8_t;
+    BOOST_TEST(set_uint8_t::N == 32);
 
     typedef btree::set< uint16_t > set_uint16_t;
     BOOST_TEST(set_uint16_t::N == 16);
@@ -117,8 +121,14 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_range_for, T, btree_range_for_types)
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_insert_loop, T, test_types)
 {
+    const int N = 1000;
+    if ((1ull << sizeof(T)) < N)
+    {
+        return;
+    }
+
     btree::set< T > c;
-    for (int i = 0; i < 1000; ++i)
+    for (int i = 0; i < N; ++i)
     {
         auto iv = value<T>(i);
         BOOST_REQUIRE(c.insert(iv).second);
@@ -142,6 +152,11 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_erase_loop, T, test_types)
 //#else
 //    const int N = 1000;
 //#endif
+
+    if ((1ull << sizeof(T)) < N)
+    {
+        return;
+    }
 
     for (int i = 0; i < N; ++i)
     {
@@ -188,7 +203,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_erase_loop, T, test_types)
 
 #if !defined(_DEBUG)
 
-const int Loops = 100000;
+const int Loops = 1000000;
 const int Elements = 4;
 
 template < typename Fn > double measure(size_t loops, Fn fn)

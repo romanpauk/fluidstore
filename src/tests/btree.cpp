@@ -188,7 +188,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_erase_loop, T, test_types)
 #if !defined(_DEBUG)
 
 const int Loops = 10000;
-const int Elements = 2;
+const int Elements = 8;
 
 template < typename Fn > double measure(size_t loops, Fn fn)
 {

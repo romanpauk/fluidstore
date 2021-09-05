@@ -277,6 +277,11 @@ namespace btree
                 , parent()
             {}
 
+            template < typename Allocator > void cleanup(Allocator& allocator)
+            {
+                get_keys().clear(allocator);
+            }
+
             std::tuple< internal_node*, node_size_type > get_left(node_size_type index, bool recursive = false) 
             { 
                 return set< Key, Compare, Allocator >::get_left< internal_node >(parent, index, recursive); 
@@ -313,6 +318,11 @@ namespace btree
                 : size()
                 , parent()
             {}
+
+            template < typename Allocator > void cleanup(Allocator& allocator)
+            {
+                get_keys().clear(allocator);
+            }
 
             std::tuple< value_node*, node_size_type > get_left(node_size_type index, bool recursive = false) 
             { 
@@ -680,24 +690,29 @@ namespace btree
             }
         }
 
+        template < typename Node > auto get_node_allocator()
+        {
+            return std::allocator_traits< Allocator >::rebind_alloc< Node >(allocator_);
+        }
+
         template < typename Node > Node* allocate_node()
         {
             static_assert(!std::is_same_v<Node, node>);
-            return new Node;
+            
+            auto allocator = get_node_allocator< Node >();
+            auto ptr = std::allocator_traits< decltype(allocator) >::allocate(allocator, 1);
+            std::allocator_traits< decltype(allocator) >::construct(allocator, ptr);
+            return ptr;
         }
 
-        void deallocate_node(internal_node* n)
+        template < typename Node > void deallocate_node(Node* n)
         {
-            n->get_keys().clear(allocator_);
+            static_assert(!std::is_same_v<Node, node>);
+            n->cleanup(allocator_);
 
-            delete n;
-        }
-
-        void deallocate_node(value_node* n)
-        {
-            n->get_keys().clear(allocator_);
-            // There will be values
-            delete n;
+            auto allocator = get_node_allocator< Node >();
+            std::allocator_traits< decltype(allocator) >::destroy(allocator, n);
+            std::allocator_traits< decltype(allocator) >::deallocate(allocator, n, 1);
         }
 
         template < typename Node > const Key split_key(/*const*/ Node* n)

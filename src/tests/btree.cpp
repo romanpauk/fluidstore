@@ -4,6 +4,8 @@
 
 #include <boost/test/unit_test.hpp>
 #include <boost/mpl/list.hpp>
+#include <boost/container/flat_set.hpp>
+#include <iomanip>
 
 //_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF | _CRTDBG_CHECK_ALWAYS_DF);
 //_CrtSetBreakAlloc(6668782);
@@ -203,7 +205,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_erase_loop, T, test_types)
 
 #if !defined(_DEBUG)
 
-const int Loops = 1000000;
+const int Loops = 1000;
 const int Elements = 4;
 
 template < typename Fn > double measure(size_t loops, Fn fn)
@@ -223,48 +225,117 @@ template < typename Container > void insertion_test(Container& c, size_t count)
 {
     for (size_t i = 0; i < count; ++i)
     {
-        c.insert(value< typename Container::value_type >(i));
+        c.insert(value< typename Container::value_type >(~i));
     }
 }
 
+template< typename T > const char* get_type_name() { return typeid(T).name(); }
+template<> const char* get_type_name<std::string>() { return "std::string"; }
+
+void print_results(const std::map< int, double >& results, const std::map< int, double >& base)
+{
+    for (auto& [i, t] : results)
+    {
+        std::cout << "\t" << i;
+    }
+    std::cout << std::endl;
+    for (auto& [i, t] : results)
+    {
+        std::cout << "\t" << std::setprecision(3) << t/base.at(i);
+    }
+    std::cout << std::endl;
+}
+
+static int Max = 12000;
+static const int ArenaSize = 65536 * 2;
+
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_perf_insert, T, test_types)
 {
-    auto t1 = measure(Loops, [&] { 
-        std::set< T > c; 
-        insertion_test(c, Elements); 
-    });
-    //std::cerr << "std::set " << typeid(T).name() << " insertion " << t1 << std::endl;
-
-    auto t2 = measure(Loops, [&] { 
-        btree::set< T > c; 
-        insertion_test(c, Elements); 
-    });
-    std::cerr << "btree::set " << typeid(T).name() << " insertion " << t2/t1 << std::endl;
-
-    auto t4 = measure(Loops, [&]
+    std::map< int, double > base;
+    for (size_t i = 1; i < Max; i *= 2)
     {
-        crdt::arena< 65536 > arena;
-        crdt::arena_allocator< void > arenaallocator(arena);
-        btree::set< T, std::less< T >, decltype(arenaallocator) > c(arenaallocator);
-        insertion_test(c, Elements);
-    });
-    std::cerr << "btree::set static " << typeid(T).name() << " insertion " << t4 / t1 << std::endl;
-
-    auto t3 = measure(Loops, [&] { 
-        std::allocator< T > allocator;  
-        crdt::flat::set< T, std::allocator< T > > c(allocator); 
-        insertion_test(c, Elements); 
-    });
-    std::cerr << "flat::set " << typeid(T).name() << " insertion " << t3 / t1 << std::endl;
-
-    auto t5 = measure(Loops, [&]
+        base[i] = measure(Loops, [&]
+        {
+            std::set< T > c;
+            insertion_test(c, i);
+        });
+    }
+    
     {
-        crdt::arena< 65536 > arena;
-        crdt::arena_allocator< void > arenaallocator(arena);
-        crdt::flat::set< T, decltype(arenaallocator) > c(arenaallocator);
-        insertion_test(c, Elements);
-    });
-    std::cerr << "fat::set static " << typeid(T).name() << " insertion " << t5 / t1 << std::endl;
+        std::cout << "btree::set " << get_type_name<T>() << " insertion " << std::endl;
+        std::map< int, double > results;
+        for (size_t i = 1; i < Max; i *= 2)
+        {
+            results[i] = measure(Loops, [&]
+            {
+                btree::set< T > c;
+                insertion_test(c, i);
+            });
+        }
+        print_results(results, base);
+    }
+    
+    {
+        std::cout<< "boost::container::flat_set " << get_type_name<T>() << " insertion " << std::endl;
+        std::map<int, double > results;
+        for (size_t i = 1; i < Max; i *= 2)
+        {
+            results[i] = measure(Loops, [&]
+            {
+                boost::container::flat_set< T > c;
+                insertion_test(c, i);
+            });
+        }
+        print_results(results, base);
+    }
+}
+
+
+BOOST_AUTO_TEST_CASE_TEMPLATE(btree_perf_insert_arena, T, test_types)
+{
+    std::map< int, double > base;
+    for (size_t i = 1; i < Max; i *= 2)
+    {
+        base[i] = measure(Loops, [&]
+        {
+            crdt::arena< ArenaSize > arena;
+            crdt::arena_allocator< T > arenaallocator(arena);
+            std::set< T, std::less< T >, decltype(arenaallocator) > c(arenaallocator);
+            insertion_test(c, i);
+        });
+    }
+
+    {
+        std::cout << "btree::set (arena) " << get_type_name<T>() << " insertion " << std::endl;
+        std::map< int, double > results;
+        for (size_t i = 1; i < Max; i *= 2)
+        {
+            results[i] = measure(Loops, [&]
+            {
+                crdt::arena< ArenaSize > arena;
+                crdt::arena_allocator< void > arenaallocator(arena);
+                btree::set< T, std::less< T >, decltype(arenaallocator) > c(arenaallocator);
+                insertion_test(c, i);
+            });
+        }
+        print_results(results, base);
+    }
+
+    {
+        std::cout << "boost::container::flat_set (arena) " << get_type_name<T>() << " insertion " << std::endl;
+        std::map< int, double> results;
+        for (size_t i = 1; i < Max; i *= 2)
+        {
+            results[i] = measure(Loops, [&]
+            {
+                crdt::arena< ArenaSize > arena;
+                crdt::arena_allocator< T > arenaallocator(arena);
+                boost::container::flat_set< T, std::less< T >, decltype(arenaallocator) > c(arenaallocator);
+                insertion_test(c, i);
+            });
+        }
+        print_results(results, base);
+    }
 }
 
 template < typename Container > void iteration_test(Container& c)
@@ -300,16 +371,16 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_perf_iteration, T, test_types)
         fill_container(set);
 
         auto t2 = measure(Loops, [&] { iteration_test(set); });
-        std::cerr << "btree::set " << typeid(T).name() << " iteration " << t2/t1 << std::endl;
+        std::cerr << "btree::set " << get_type_name<T>() << " iteration " << t2/t1 << std::endl;
     }
 
     {
         std::allocator< T > allocator;
-        crdt::flat::set< T, std::allocator< T > > set(allocator);
+        boost::container::flat_set< T > set;
         fill_container(set);
 
         auto t2 = measure(Loops, [&] { iteration_test(set); });
-        std::cerr << "flat::set " << typeid(T).name() << " iteration " << t2 / t1 << std::endl;
+        std::cerr << "boost::container::flat_set " << get_type_name<T>() << " iteration " << t2 / t1 << std::endl;
     }
 }
 

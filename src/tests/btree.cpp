@@ -225,7 +225,7 @@ template < typename Container > void insertion_test(Container& c, size_t count)
 {
     for (size_t i = 0; i < count; ++i)
     {
-        c.insert(value< typename Container::value_type >(~i));
+        c.insert(c.end(), value< typename Container::value_type >(i));
     }
 }
 
@@ -249,7 +249,9 @@ void print_results(const std::map< int, double >& results, const std::map< int, 
 static int Max = 12000;
 static const int ArenaSize = 65536 * 2;
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(btree_perf_insert, T, test_types)
+
+typedef boost::mpl::list<uint64_t> btree_perf_insert_types;
+BOOST_AUTO_TEST_CASE_TEMPLATE(btree_perf_insert, T, btree_perf_insert_types)
 {
     std::map< int, double > base;
     for (size_t i = 1; i < Max; i *= 2)
@@ -291,7 +293,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_perf_insert, T, test_types)
 }
 
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(btree_perf_insert_arena, T, test_types)
+BOOST_AUTO_TEST_CASE_TEMPLATE(btree_perf_insert_arena, T, btree_perf_insert_types)
 {
     std::map< int, double > base;
     for (size_t i = 1; i < Max; i *= 2)

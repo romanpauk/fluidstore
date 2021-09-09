@@ -504,7 +504,7 @@ namespace btree
             return root_ ? find(root_, key) : end();
         }
 
-        template < typename KeyT > std::pair< iterator, bool > insert(KeyT&& key)
+        template < typename KeyT > std::pair< iterator, bool > insert(iterator hint, KeyT&& key)
         {
             if (!root_)
             {
@@ -512,7 +512,7 @@ namespace btree
                 depth_ = 1;
             }
 
-            auto [n, nindex] = find_value_node(root_, key);
+            auto [n, nindex] = find_value_node(root_, hint == end() ? last_node< value_node >(root_, depth_) : hint.node_, key);
             if (!n->full())
             {
                 return insert(n, nindex, std::forward< KeyT >(key));
@@ -530,6 +530,11 @@ namespace btree
                     return insert(n, nindex, std::forward< KeyT >(key));
                 }
             }
+        }
+
+        template < typename KeyT > std::pair< iterator, bool > insert(KeyT&& key)
+        {
+            return insert(end(), std::forward< KeyT >(key));
         }
 
         void erase(const Key& key)
@@ -580,8 +585,26 @@ namespace btree
         iterator end() { return iterator(nullptr, 0, 0); }
 
     private:
-        std::tuple< value_node*, node_size_type > find_value_node(node* n, const Key& key)
+        std::tuple< value_node*, node_size_type > find_value_node(node* n, value_node* hint, const Key& key)
         {
+            if (hint)
+            {
+                if (hint->get_parent())
+                {
+                    auto hkeys = hint->get_keys();
+                    if (!hkeys.empty() && compare_lte(hkeys[0], key))
+                    {
+                        auto children = hint->get_parent()->get_children< node* >();
+                        return { hint, find_node_index(children, hint) };
+                    }
+                }
+                else
+                {
+                    assert(hint == root_);
+                    return { hint, 0 };
+                }
+            }
+
             size_type depth = depth_;
             node_size_type nindex = 0;
             while (--depth)
@@ -607,7 +630,7 @@ namespace btree
 
         iterator find(node* n, const Key& key)
         {
-            auto [vn, vnindex] = find_value_node(n, key);
+            auto [vn, vnindex] = find_value_node(n, nullptr, key);
             assert(vn);
 
             auto nkeys = vn->get_keys();

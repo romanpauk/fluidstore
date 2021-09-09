@@ -592,7 +592,7 @@ namespace btree
                 auto kindex = find_key_index(nkeys, key);
                 if (kindex != nkeys.end())
                 {
-                    nindex = static_cast< node_size_type >(kindex - nkeys.begin() + !compare_(key, *kindex));
+                    nindex = static_cast< node_size_type >(kindex - nkeys.begin() + !compare_lte(key, *kindex));
                 }
                 else
                 {
@@ -715,7 +715,7 @@ namespace btree
             std::allocator_traits< decltype(allocator) >::deallocate(allocator, n, 1);
         }
 
-        template < typename Node > const Key& split_key(/*const*/ Node* n)
+        const Key& split_key(/*const*/ internal_node* n)
         {
             assert(n->full());
             return *(n->get_keys().begin() + N);
@@ -765,7 +765,7 @@ namespace btree
             assert(lkeys.size() == N);
             assert(rkeys.size() == N);
 
-            return { rnode, *rkeys.begin() };
+            return { rnode, *(lkeys.end() - 1) };
         }
 
         void free_node(node* n, size_type depth)
@@ -832,7 +832,7 @@ namespace btree
                     skeys.erase(allocator_, key);
 
                     assert(tindex > 0);
-                    pkeys[tindex - 1] = *tkeys.begin();
+                    pkeys[tindex - 1] = *(skeys.end() - 1);
                 }
                 else
                 {
@@ -841,7 +841,7 @@ namespace btree
                     tkeys.emplace(allocator_, tkeys.end(), std::move(*key));
                     skeys.erase(allocator_, key);
 
-                    pkeys[tindex] = *skeys.begin();
+                    pkeys[tindex] = *(tkeys.end() - 1);
                 }
 
                 return true;
@@ -976,7 +976,7 @@ namespace btree
                 children.emplace_back(allocator_, p);
                 p->set_parent(root);
 
-                auto cmp = !compare_(key, splitkey);
+                auto cmp = !(compare_lte(key, splitkey));
                 root->get_keys().emplace_back(allocator_, std::move(splitkey));
 
                 root_ = root;
@@ -1014,7 +1014,7 @@ namespace btree
             auto pkeys = n->get_parent()->get_keys();
             pkeys.emplace(allocator_, pkeys.begin() + nindex, splitkey);
 
-            auto cmp = !compare_(key, splitkey);
+            auto cmp = !(compare_lte(key, splitkey));
             return { cmp ? p : n, nindex + cmp };
         }
 
@@ -1167,6 +1167,11 @@ namespace btree
             assert(ptr == n);
         #endif
             return reinterpret_cast< Node >(n);
+        }
+
+        bool compare_lte(const Key& lhs, const Key& rhs)
+        {
+            return compare_(lhs, rhs) || !compare_(rhs, lhs);
         }
 
         node* root_;

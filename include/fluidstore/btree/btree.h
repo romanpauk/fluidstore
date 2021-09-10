@@ -850,8 +850,14 @@ namespace btree
         #endif
 
         #if defined(VALUE_NODE_LR)
+            auto znode = lnode->right;
             lnode->right = rnode;
+            rnode->right = znode;
             rnode->left = lnode;
+            if (znode)
+            {
+                znode->left = rnode;
+            }
         #endif
 
             return { rnode, *(lkeys.end() - 1) };

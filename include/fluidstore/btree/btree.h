@@ -268,7 +268,8 @@ namespace btree
         struct node
         {
         protected:
-            node() {}
+            node() = default;
+
         #if defined(_DEBUG)
             virtual ~node() {}
         #endif
@@ -276,11 +277,8 @@ namespace btree
 
         struct internal_node : node
         {
-            internal_node()
-                : size()
-                , parent()
-            {}
-
+            internal_node() = default;
+           
             template < typename Allocator > void cleanup(Allocator& allocator)
             {
                 get_keys().clear(allocator);
@@ -318,14 +316,7 @@ namespace btree
 
         struct value_node : node
         {
-            value_node()
-                : size()
-                , parent()
-            #if defined(VALUE_NODE_LR)
-                , left()
-                , right()
-            #endif
-            {}
+            value_node() = default;
 
             template < typename Allocator > void cleanup(Allocator& allocator)
             {

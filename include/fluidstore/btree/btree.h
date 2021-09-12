@@ -625,13 +625,13 @@ namespace btree
         #else
             auto [n, nindex] = find_value_node(root_, nullptr, key);
         #endif
-            if (!desc(n).full())
+            if (!n.full())
             {
                 return insert(n, nindex, std::forward< KeyT >(key));
             }
             else
             {
-                if (n->get_parent())
+                if (n.get_parent())
                 {
                     std::tie(n, nindex) = rebalance_insert(depth_, n, nindex, key);
                     return insert(n, nindex, std::forward< KeyT >(key));
@@ -711,7 +711,7 @@ namespace btree
         iterator end() { return iterator(nullptr, 0, 0); }
 
     private:
-        std::tuple< value_node*, node_size_type > find_value_node(node* n, value_node* hint, const Key& key)
+        std::tuple< node_descriptor< value_node* >, node_size_type > find_value_node(node* n, value_node* hint, const Key& key)
         {
         #if defined(VALUE_NODE_HINT)
             if (hint)
@@ -761,7 +761,7 @@ namespace btree
             auto [vn, vnindex] = find_value_node(n, nullptr, key);
             assert(vn);
 
-            auto nkeys = vn->get_keys();
+            auto nkeys = vn.get_keys();
             auto index = find_key_index(nkeys, key);
             if (index < nkeys.end() && key == *index)
             {
@@ -873,20 +873,20 @@ namespace btree
             return *(n.get_keys().begin() + N);
         }
 
-        std::tuple< internal_node*, Key > split_node(size_type depth, internal_node* lnode, node_size_type lindex, const Key&)
+        std::tuple< node_descriptor< internal_node* >, Key > split_node(size_type depth, node_descriptor< internal_node* > lnode, node_size_type lindex, const Key&)
         {
-            assert(lnode->full());
-            auto rnode = allocate_node< internal_node >();
+            assert(lnode.full());
+            auto rnode = desc(allocate_node< internal_node >());
 
-            auto lchildren = lnode->get_children< node* >();
-            auto rchildren = rnode->get_children< node* >();
+            auto lchildren = lnode.get_children< node* >();
+            auto rchildren = rnode.get_children< node* >();
             
             assert(depth_ >= depth + 1);
             rchildren.insert(allocator_, rchildren.begin(), lchildren.begin() + N, lchildren.end());
             std::for_each(lchildren.begin() + N, lchildren.end(), [&](auto& n) { set_parent(depth_ == depth + 1, n, rnode); });
 
-            auto lkeys = lnode->get_keys();
-            auto rkeys = rnode->get_keys();
+            auto lkeys = lnode.get_keys();
+            auto rkeys = rnode.get_keys();
 
             auto begin = lkeys.begin() + N;
             rkeys.insert(allocator_, rkeys.end(), std::make_move_iterator(begin), std::make_move_iterator(lkeys.end()));
@@ -901,18 +901,18 @@ namespace btree
             return { rnode, splitkey };
         }
 
-        std::tuple< value_node*, Key > split_node(size_type, value_node* lnode, node_size_type lindex, const Key& key)
+        std::tuple< node_descriptor< value_node* >, Key > split_node(size_type, node_descriptor< value_node* > lnode, node_size_type lindex, const Key& key)
         {
-            assert(lnode->full());
-            auto rnode = allocate_node< value_node >();
-            auto lkeys = lnode->get_keys();
+            assert(lnode.full());
+            auto rnode = desc(allocate_node< value_node >());
+            auto lkeys = lnode.get_keys();
 
         #if defined(VALUE_NODE_APPEND)
-            auto [right, rindex] = lnode->get_right(lindex);
+            auto [right, rindex] = lnode.get_right(lindex);
             if (right || compare_lte(key, *(lkeys.end() - 1)))
             {
         #endif
-            auto rkeys = rnode->get_keys();
+            auto rkeys = rnode.get_keys();
 
             auto begin = lkeys.begin() + N;
             rkeys.insert(allocator_, rkeys.end(), std::make_move_iterator(begin), std::make_move_iterator(lkeys.end()));
@@ -1161,12 +1161,12 @@ namespace btree
             return false;
         }
 
-        template < typename Node > std::tuple< Node*, node_size_type > rebalance_insert(size_type depth, Node* n, const Key& key)
+        template < typename Node > std::tuple< Node*, node_size_type > rebalance_insert(size_type depth, node_descriptor< Node* > n, const Key& key)
         {
-            assert(n->full());
-            if(n->get_parent())
+            assert(n.full());
+            if(n.get_parent())
             {
-                auto nindex = find_node_index(n->get_parent()->get_children< node* >(), n);
+                auto nindex = find_node_index(n.get_parent().get_children< node* >(), n);
                 return rebalance_insert(depth, n, nindex, key);
             }
             else
@@ -1176,9 +1176,9 @@ namespace btree
 
                 auto children = root->get_children< node* >();
                 children.emplace_back(allocator_, n);
-                n->set_parent(root);
+                n.set_parent(root);
                 children.emplace_back(allocator_, p);
-                p->set_parent(root);
+                p.set_parent(root);
 
                 auto cmp = !(compare_lte(key, splitkey));
                 root->get_keys().emplace_back(allocator_, std::move(splitkey));
@@ -1190,32 +1190,32 @@ namespace btree
             }
         }
 
-        template < typename Node > std::tuple< Node*, node_size_type > rebalance_insert(size_type depth, Node* n, node_size_type nindex, const Key& key)
+        template < typename Node > std::tuple< Node*, node_size_type > rebalance_insert(size_type depth, node_descriptor< Node* > n, node_size_type nindex, const Key& key)
         {
-            assert(n->full());
-            assert(n->get_parent());
+            assert(n.full());
+            assert(n.get_parent());
 
-            auto parent_rebalance = desc(n).get_parent().full();
+            auto parent_rebalance = n.get_parent().full();
             if(parent_rebalance)
             {
                 assert(depth > 1);
                 depth_check< true > dc(depth_, depth);
-                rebalance_insert(depth - 1, n->get_parent(), split_key(n->get_parent()));
-                assert(!n->get_parent()->full());
+                rebalance_insert(depth - 1, n.get_parent(), split_key(n.get_parent()));
+                assert(!n.get_parent().full());
             }
                     
             auto [p, splitkey] = split_node(depth, n, nindex, key);
                     
-            auto pchildren = n->get_parent()->get_children< node* >();
+            auto pchildren = n.get_parent().get_children< node* >();
             if (parent_rebalance)
             {
-                nindex = find_node_index(pchildren, n);
+                nindex = find_node_index(pchildren, (Node*)n);
             }
 
             pchildren.emplace(allocator_, pchildren.begin() + nindex + 1, p);
-            p->set_parent(n->get_parent());
+            p.set_parent(n.get_parent());
 
-            auto pkeys = n->get_parent()->get_keys();
+            auto pkeys = n.get_parent().get_keys();
             pkeys.emplace(allocator_, pkeys.begin() + nindex, splitkey);
 
             auto cmp = !(compare_lte(key, splitkey));

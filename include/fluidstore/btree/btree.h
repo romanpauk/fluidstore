@@ -354,6 +354,7 @@ namespace btree
         }
 
         auto get_keys() { return fixed_vector< typename Container::value_type, keys_descriptor< Container, internal_node*, 2 * N - 1 > >(node_); }
+        template < typename Node > auto get_children() { return fixed_vector< Node, children_descriptor< Container, internal_node* > >(node_); }
 
         internal_node* get_parent() { return node_->parent; }
         void set_parent(internal_node* p) { node_->parent = p; }
@@ -363,6 +364,8 @@ namespace btree
             auto keys = node_->get_keys();
             return keys.size() == keys.capacity();
         }
+
+        operator internal_node* () { return node_; }
 
     private:
         internal_node* node_;
@@ -812,18 +815,18 @@ namespace btree
             return nodes.size();
         }
 
-        template< typename Node > void remove_node(size_type depth, internal_node* parent, const Node* n, node_size_type nindex, node_size_type kindex)
+        template< typename Node > void remove_node(size_type depth, node_descriptor< internal_node* > parent, const Node* n, node_size_type nindex, node_size_type kindex)
         {
-            auto pchildren = parent->get_children< node* >();
+            auto pchildren = parent.get_children< node* >();
             pchildren.erase(allocator_, pchildren.begin() + nindex);
             
-            auto pkeys = parent->get_keys();
+            auto pkeys = parent.get_keys();
             pkeys.erase(allocator_, pkeys.begin() + kindex);
 
             if (pkeys.empty())
             {
                 auto root = root_;
-                fixed_vector< node*, children_descriptor< set< Key, Compare, Allocator >, internal_node* > > pchildren(parent, 1); // override the size to 1
+                fixed_vector< node*, children_descriptor< set< Key, Compare, Allocator >, internal_node* > > pchildren((internal_node*)parent, 1); // override the size to 1
                 root_ = pchildren[0];
                 --depth_;
                 assert(depth_ >= 1);
@@ -859,10 +862,10 @@ namespace btree
             std::allocator_traits< decltype(allocator) >::deallocate(allocator, n, 1);
         }
 
-        const Key& split_key(/*const*/ internal_node* n)
+        const Key& split_key(/*const*/ node_descriptor< internal_node* > n)
         {
-            assert(n->full());
-            return *(n->get_keys().begin() + N);
+            assert(n.full());
+            return *(n.get_keys().begin() + N);
         }
 
         std::tuple< internal_node*, Key > split_node(size_type depth, internal_node* lnode, node_size_type lindex, const Key&)

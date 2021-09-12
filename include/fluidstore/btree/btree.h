@@ -233,11 +233,36 @@ namespace btree
     #endif
     };
 
-    template < typename Node, typename SizeType > struct internal_children
+    template < typename Container, typename Node, size_t Capacity > struct keys_descriptor
     {
-        using size_type = SizeType;
+        using size_type = typename Container::node_size_type;
+        using value_type = typename Container::value_type;
 
-        internal_children(Node node)
+        keys_descriptor(Node node)
+            : node_(node)
+        {}
+
+        size_type size() const { return node_->size; }
+        size_type capacity() const { return Capacity; }
+
+        void set_size(size_type size)
+        {
+            assert(size <= capacity());
+            node_->size = size;
+        }
+
+        value_type* data() { return reinterpret_cast<value_type*>(node_->keys); }
+        const value_type* data() const { return reinterpret_cast<const value_type*>(node_->keys); }
+
+    private:
+        Node node_;
+    };
+
+    template < typename Container, typename Node > struct children_descriptor
+    {
+        using size_type = typename Container::node_size_type;
+
+        children_descriptor(Node node)
             : node_(node)
             , size_()
         {
@@ -248,7 +273,7 @@ namespace btree
             }
         }
 
-        internal_children(const internal_children< Node, SizeType >& other) = default;
+        children_descriptor(const children_descriptor< Container, Node >& other) = default;
 
         size_type size() const { return size_; }
 
@@ -266,30 +291,6 @@ namespace btree
     private:
         Node node_;
         size_type size_;
-    };
-
-    template < typename Node, typename Key, typename SizeType, SizeType Capacity > struct keys_descriptor
-    {
-        using size_type = SizeType;
-
-        keys_descriptor(Node node)
-            : node_(node)
-        {}
-
-        size_type size() const { return node_->size; }
-        size_type capacity() const { return Capacity; }
-
-        void set_size(size_type size)
-        {
-            assert(size <= capacity());
-            node_->size = size;
-        }
-
-        Key* data() { return reinterpret_cast<Key*>(node_->keys); }
-        const Key* data() const { return reinterpret_cast<const Key*>(node_->keys); }
-
-    private:
-        Node node_;
     };
 
     template < typename Container > struct internal_node_base : node
@@ -316,10 +317,10 @@ namespace btree
             return Container::get_right< internal_node* >(parent, index, recursive);
         }
 
-        auto get_keys() { return fixed_vector< Key, keys_descriptor< internal_node*, Key, node_size_type, 2*N-1 > >(this); }
+        auto get_keys() { return fixed_vector< Key, keys_descriptor< Container, internal_node*, 2*N-1 > >(this); }
         //const auto get_keys() const { return fixed_vector< Key, internal_keys >(this); }
 
-        template < typename Node > auto get_children() { return fixed_vector< Node, internal_children< internal_node*, node_size_type > >(this); }
+        template < typename Node > auto get_children() { return fixed_vector< Node, children_descriptor< Container, internal_node* > >(this); }
 
         internal_node* get_parent() { return parent; }
         void set_parent(internal_node* n) { parent = n; }
@@ -363,7 +364,7 @@ namespace btree
             //return { right, index + 1 };
         }
 
-        auto get_keys() { return fixed_vector< Key, keys_descriptor< value_node*, Key, node_size_type, 2*N > >(this); }
+        auto get_keys() { return fixed_vector< Key, keys_descriptor< Container, value_node*, 2*N > >(this); }
         // auto get_keys() const { return fixed_vector< Key, value_keys >(this); }
 
         internal_node* get_parent() { return parent; }
@@ -759,7 +760,7 @@ namespace btree
             if (pkeys.empty())
             {
                 auto root = root_;
-                fixed_vector< node*, internal_children< internal_node*, node_size_type > > pchildren(parent, 1); // override the size to 1
+                fixed_vector< node*, children_descriptor< set< Key, Compare, Allocator >, internal_node* > > pchildren(parent, 1); // override the size to 1
                 root_ = pchildren[0];
                 --depth_;
                 assert(depth_ >= 1);

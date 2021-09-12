@@ -447,6 +447,16 @@ namespace btree
             return keys.size() == keys.capacity();
         }
 
+        bool operator == (const node_descriptor< value_node* >& other) const
+        {
+            return node_ == other.node_;
+        }
+
+        operator value_node* ()
+        {
+            return node_;
+        }
+
     private:
         value_node* node_;
     };
@@ -535,18 +545,18 @@ namespace btree
             bool operator == (const iterator& rhs) const { return node_ == rhs.node_ && kindex_ == rhs.kindex_; }
             bool operator != (const iterator& rhs) const { return !(*this == rhs); }
 
-            const Key& operator*() const { return node_->get_keys()[kindex_]; }
-            const Key* operator -> () const { return node_->get_keys()[kindex_]; }
+            const Key& operator*() const { return node_.get_keys()[kindex_]; }
+            const Key* operator -> () const { return node_.get_keys()[kindex_]; }
 
             iterator& operator ++ ()
             {
-                if (++kindex_ == node_->get_keys().size())
+                if (++kindex_ == node_.get_keys().size())
                 {
                     kindex_ = 0;
                 #if defined(VALUE_NODE_LR)
                     node_ = node_->right;
                 #else
-                    std::tie(node_, nindex_) = node_->get_right(nindex_, true);
+                    std::tie(node_, nindex_) = node_.get_right(nindex_, true);
                 #endif
                 }
 
@@ -561,7 +571,7 @@ namespace btree
             }
 
         private:
-            value_node* node_;
+            mutable node_descriptor< value_node* > node_;
             node_size_type nindex_;
             node_size_type kindex_;
         };
@@ -670,8 +680,8 @@ namespace btree
         {
             assert(it != end());
 
-            auto nkeys = it.node_->get_keys();
-            if (it.node_->get_parent())
+            auto nkeys = it.node_.get_keys();
+            if (it.node_.get_parent())
             {
                 if (nkeys.size() > nkeys.capacity() / 2)
                 {
@@ -680,8 +690,8 @@ namespace btree
                 }
                 else
                 {
-                    auto key = it.node_->get_keys()[it.kindex_];
-                    auto [n, nindex] = rebalance_erase(depth_, it.node_, it.nindex_);
+                    auto key = it.node_.get_keys()[it.kindex_];
+                    auto [n, nindex] = rebalance_erase(depth_, (value_node*)it.node_, it.nindex_);
                     auto nkeys = n->get_keys();
                     nkeys.erase(allocator_, find_key_index(nkeys, key));
                     --size_;

@@ -233,6 +233,8 @@ namespace btree
     #endif
     };
 
+    template < typename Node > struct node_traits;
+
     template < typename Container, typename Node, size_t Capacity > struct keys_descriptor
     {
         using size_type = typename Container::node_size_type;
@@ -302,11 +304,6 @@ namespace btree
 
         internal_node_base() = default;
 
-        template < typename Allocator > void cleanup(Allocator& allocator)
-        {
-            get_keys().clear(allocator);
-        }
-
         std::tuple< internal_node*, node_size_type > get_left(node_size_type index, bool recursive = false)
         {
             return Container::get_left< internal_node* >(parent, index, recursive);
@@ -337,6 +334,39 @@ namespace btree
         internal_node* parent;
     };
 
+    template < typename Container > struct node_traits< internal_node_base< Container >* >
+    {
+        using internal_node = internal_node_base< Container >;
+
+        using node_size_type = typename Container::node_size_type;
+        static const auto N = Container::N;
+
+        template < typename Allocator > static void cleanup(internal_node* n, Allocator& allocator) { get_keys(n).clear(allocator); }
+
+        static std::tuple< internal_node*, node_size_type > get_left(internal_node* n, node_size_type index, bool recursive = false)
+        {
+            return Container::get_left< internal_node* >(n->parent, index, recursive);
+            //return { left, index - 1};
+        }
+
+        static std::tuple< internal_node*, node_size_type > get_right(internal_node* n, node_size_type index, bool recursive = false)
+        {
+            return Container::get_right< internal_node* >(parent, index, recursive);
+            //return { right, index + 1 };
+        }
+
+        static auto get_keys(internal_node* n) { return fixed_vector< typename Container::value_type, keys_descriptor< Container, internal_node*, 2 * N - 1 > >(n); }
+
+        static internal_node* get_parent(internal_node* n) { return n->parent; }
+        static void set_parent(internal_node* n, internal_node* p) { n->parent = p; }
+
+        static bool full(internal_node* n) //const
+        {
+            auto keys = get_keys(n);
+            return keys.size() == keys.capacity();
+        }
+    };
+
     template < typename Container > struct value_node_base : node
     {
         using node_size_type = typename Container::node_size_type;
@@ -346,11 +376,6 @@ namespace btree
         static const node_size_type N = Container::N;
 
         value_node_base() = default;
-
-        template < typename Allocator > void cleanup(Allocator& allocator)
-        {
-            get_keys().clear(allocator);
-        }
 
         std::tuple< value_node*, node_size_type > get_left(node_size_type index, bool recursive = false)
         {
@@ -385,6 +410,40 @@ namespace btree
         value_node* left;
         value_node* right;
     #endif
+    };
+
+    template < typename Container > struct node_traits< value_node_base< Container >* >
+    {
+        using value_node = value_node_base< Container >;
+        using internal_node = internal_node_base< Container >;
+
+        using node_size_type = typename Container::node_size_type;
+        static const auto N = Container::N;
+
+        template < typename Allocator > static void cleanup(value_node* n, Allocator& allocator) { get_keys(n).clear(allocator); }
+
+        static std::tuple< value_node*, node_size_type > get_left(value_node* n, node_size_type index, bool recursive = false)
+        {
+            return Container::get_left< value_node* >(n->parent, index, recursive);
+            //return { left, index - 1};
+        }
+
+        static std::tuple< value_node*, node_size_type > get_right(value_node* n, node_size_type index, bool recursive = false)
+        {
+            return Container::get_right< value_node* >(parent, index, recursive);
+            //return { right, index + 1 };
+        }
+
+        static auto get_keys(value_node* n) { return fixed_vector< typename Container::value_type, keys_descriptor< Container, value_node*, 2 * N > >(n); }
+    
+        static internal_node* get_parent(value_node* n) { return n->parent; }
+        static void set_parent(value_node* n, internal_node* p) { n->parent = p; }
+
+        static bool full(value_node* n) //const
+        {
+            auto keys = get_keys(n);
+            return keys.size() == keys.capacity();
+        }
     };
 
     template < typename Key, typename Compare = std::less< Key >, typename Allocator = std::allocator< Key > > class set
@@ -706,7 +765,7 @@ namespace btree
         {
             assert(!n->full());
 
-            auto nkeys = n->get_keys();
+            auto nkeys = node_traits< value_node* >::get_keys(n);// ->get_keys();
             auto index = find_key_index(nkeys, key);
             if (index < nkeys.end() && *index == key)
             {
@@ -788,7 +847,8 @@ namespace btree
         template < typename Node > void deallocate_node(Node* n)
         {
             static_assert(!std::is_same_v<Node, node>);
-            n->cleanup(allocator_);
+            
+            node_traits< Node* >::template cleanup(n, allocator_);
 
             auto allocator = get_node_allocator< Node >();
             std::allocator_traits< decltype(allocator) >::destroy(allocator, n);

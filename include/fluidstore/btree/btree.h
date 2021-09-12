@@ -263,6 +263,7 @@ namespace btree
     template < typename Container, typename Node > struct children_descriptor
     {
         using size_type = typename Container::node_size_type;
+        static const auto N = Container::N;
 
         children_descriptor(Node node)
             : node_(node)
@@ -323,13 +324,13 @@ namespace btree
 
         template < typename Allocator > void cleanup(Allocator& allocator) { get_keys().clear(allocator); }
 
-        std::tuple< internal_node*, node_size_type > get_left(node_size_type index, bool recursive = false)
+        std::tuple< node_descriptor< internal_node* >, node_size_type > get_left(node_size_type index, bool recursive = false)
         {
             return Container::get_left< internal_node* >(node_->parent, index, recursive);
             //return { left, index - 1};
         }
 
-        std::tuple< internal_node*, node_size_type > get_right(node_size_type index, bool recursive = false)
+        std::tuple< node_descriptor< internal_node* >, node_size_type > get_right(node_size_type index, bool recursive = false)
         {
             return Container::get_right< internal_node* >(node_->parent, index, recursive);
             //return { right, index + 1 };
@@ -389,13 +390,13 @@ namespace btree
 
         template < typename Allocator > void cleanup(Allocator& allocator) { get_keys().clear(allocator); }
 
-        std::tuple< value_node*, node_size_type > get_left(node_size_type index, bool recursive = false)
+        std::tuple< node_descriptor< value_node* >, node_size_type > get_left(node_size_type index, bool recursive = false)
         {
             return Container::get_left< value_node* >(node_->parent, index, recursive);
             //return { left, index - 1};
         }
 
-        std::tuple< value_node*, node_size_type > get_right(node_size_type index, bool recursive = false)
+        std::tuple< node_descriptor< value_node* >, node_size_type > get_right(node_size_type index, bool recursive = false)
         {
             return Container::get_right< value_node* >(node_->parent, index, recursive);
             //return { right, index + 1 };
@@ -737,11 +738,11 @@ namespace btree
             }
         }
 
-        template < typename KeyT > std::pair< iterator, bool > insert(value_node* n, node_size_type nindex, KeyT&& key)
+        template < typename KeyT > std::pair< iterator, bool > insert(node_descriptor< value_node* > n, node_size_type nindex, KeyT&& key)
         {
-            assert(!n->full());
+            assert(!n.full());
 
-            auto nkeys = desc(n).get_keys(); 
+            auto nkeys = n.get_keys(); 
             auto index = find_key_index(nkeys, key);
             if (index < nkeys.end() && *index == key)
             {
@@ -784,7 +785,7 @@ namespace btree
             return nodes.size();
         }
 
-        template< typename Node > void remove_node(size_type depth, node_descriptor< internal_node* > parent, const Node* n, node_size_type nindex, node_size_type kindex)
+        template< typename Node > void remove_node(size_type depth, node_descriptor< internal_node* > parent, const node_descriptor< Node* > n, node_size_type nindex, node_size_type kindex)
         {
             auto pchildren = parent.get_children< node* >();
             pchildren.erase(allocator_, pchildren.begin() + nindex);
@@ -1007,7 +1008,7 @@ namespace btree
                 if (tindex > sindex)
                 {
                     tchildren.emplace(allocator_, tchildren.begin(), schildren[skeys.size()]);
-                    set_parent(depth_ == depth + 1, schildren[skeys.size()], target.node());
+                    set_parent(depth_ == depth + 1, schildren[skeys.size()], target);
 
                     tkeys.emplace(allocator_, tkeys.begin(), std::move(pkeys[sindex]));    
 
@@ -1019,7 +1020,7 @@ namespace btree
                     tkeys.emplace(allocator_, tkeys.end(), std::move(pkeys[tindex]));
                     
                     auto ch = schildren[0];
-                    set_parent(depth_ == depth + 1, ch, target.node());
+                    set_parent(depth_ == depth + 1, ch, target);
 
                     schildren.erase(allocator_, schildren.begin());
                     tchildren.emplace(allocator_, tchildren.end(), ch);
@@ -1105,7 +1106,7 @@ namespace btree
                 if (tindex < sindex)
                 {
                     tchildren.insert(allocator_, tchildren.end(), schildren.begin(), schildren.end());
-                    std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { set_parent(depth_ == depth + 1, n, target.node()); });
+                    std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { set_parent(depth_ == depth + 1, n, target); });
 
                     tkeys.emplace(allocator_, tkeys.end(), pkeys[sindex - 1]);
                     tkeys.insert(allocator_, tkeys.end(), std::make_move_iterator(skeys.begin()), std::make_move_iterator(skeys.end()));
@@ -1113,7 +1114,7 @@ namespace btree
                 else
                 {
                     tchildren.insert(allocator_, tchildren.begin(), schildren.begin(), schildren.end());
-                    std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { set_parent(depth_ == depth + 1, n, target.node()); });
+                    std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { set_parent(depth_ == depth + 1, n, target); });
 
                     tkeys.emplace(allocator_, tkeys.begin(), pkeys[sindex]);
                     tkeys.insert(allocator_, tkeys.begin(), std::make_move_iterator(skeys.begin()), std::make_move_iterator(skeys.end()));
@@ -1173,7 +1174,7 @@ namespace btree
             auto pchildren = n.get_parent().get_children< node* >();
             if (parent_rebalance)
             {
-                nindex = find_node_index(pchildren, (Node*)n);
+                nindex = find_node_index(pchildren, n);
             }
 
             pchildren.emplace(allocator_, pchildren.begin() + nindex + 1, p);
@@ -1204,8 +1205,8 @@ namespace btree
                 auto [left, lindex] = n.get_left(nindex);
                 auto [right, rindex] = n.get_right(nindex);
 
-                if (left && share_keys(depth, (Node*)n, nindex, left, lindex) ||
-                    right && share_keys(depth, (Node*)n, nindex, right, rindex))
+                if (left && share_keys(depth, n, nindex, left, lindex) ||
+                    right && share_keys(depth, n, nindex, right, rindex))
                 {
                 #if defined(VALUE_NODE_APPEND)
                     // TODO: investigate - right was 0, so possibly rigthtmost node append optimization?
@@ -1228,15 +1229,15 @@ namespace btree
                 auto [left, lindex] = n.get_left(nindex);
                 auto [right, rindex] = n.get_right(nindex);
 
-                if (merge_keys(depth, left, lindex, (Node*)n, nindex))
+                if (merge_keys(depth, left, lindex, n, nindex))
                 {
-                    remove_node(depth, n.get_parent(), (Node*)n, nindex, nindex - 1);
+                    remove_node(depth, n.get_parent(), n, nindex, nindex - 1);
                     deallocate_node(n);
                     return { left, nindex - 1 };
                 }
-                else if (merge_keys(depth, right, rindex, (Node*)n, nindex))
+                else if (merge_keys(depth, right, rindex, n, nindex))
                 {
-                    remove_node(depth, n.get_parent(), (Node*)n, nindex, nindex);
+                    remove_node(depth, n.get_parent(), n, nindex, nindex);
                     deallocate_node(n);
                     return { right, nindex + 1 };
                 }
@@ -1250,7 +1251,7 @@ namespace btree
         }
 
     public:
-        template< typename Node > static std::tuple< Node, node_size_type > get_right(node_descriptor< internal_node* > n, node_size_type index, bool recursive)
+        template< typename Node > static std::tuple< node_descriptor< Node >, node_size_type > get_right(node_descriptor< internal_node* > n, node_size_type index, bool recursive)
         {
             size_type depth = 1;
             while (n)
@@ -1286,7 +1287,7 @@ namespace btree
             return { nullptr, 0 };
         }
 
-        template< typename Node > static std::tuple< Node, node_size_type > get_left(node_descriptor< internal_node* > n, node_size_type index, bool recursive)
+        template< typename Node > static std::tuple< node_descriptor< Node >, node_size_type > get_left(node_descriptor< internal_node* > n, node_size_type index, bool recursive)
         {
             size_type depth = 1;
             while (n)

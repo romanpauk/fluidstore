@@ -233,6 +233,8 @@ namespace btree
     #endif
     };
 
+    template < typename Node > struct node_descriptor;
+
     template < typename Container, typename Node, size_t Capacity > struct keys_descriptor
     {
         using size_type = typename Container::node_size_type;
@@ -293,8 +295,6 @@ namespace btree
         size_type size_;
     };
 
-    template < typename Node > struct node_descriptor;
-
     template < typename Container > struct internal_node_base : node
     {
         using node_size_type = typename Container::node_size_type;
@@ -303,24 +303,6 @@ namespace btree
         static const node_size_type N = Container::N;
 
         internal_node_base() = default;
-
-        std::tuple< internal_node*, node_size_type > get_left(node_size_type index, bool recursive = false)
-        {
-            return Container::get_left< internal_node* >(parent, index, recursive);
-        }
-
-        std::tuple< internal_node*, node_size_type > get_right(node_size_type index, bool recursive = false)
-        {
-            return Container::get_right< internal_node* >(parent, index, recursive);
-        }
-
-        //auto get_keys() { return fixed_vector< Key, keys_descriptor< Container, internal_node*, 2*N-1 > >(this); }
-        //const auto get_keys() const { return fixed_vector< Key, internal_keys >(this); }
-
-        template < typename Node > auto get_children() { return fixed_vector< Node, children_descriptor< Container, internal_node* > >(this); }
-
-        internal_node* get_parent() { return parent; }
-        void set_parent(internal_node* n) { parent = n; }
 
         uint8_t keys[(2 * N - 1) * sizeof(Key)];
         uint8_t children[2 * N * sizeof(node*)];
@@ -381,24 +363,6 @@ namespace btree
         static const node_size_type N = Container::N;
 
         value_node_base() = default;
-
-        std::tuple< value_node*, node_size_type > get_left(node_size_type index, bool recursive = false)
-        {
-            return Container::get_left< value_node* >(parent, index, recursive);
-            //return { left, index - 1};
-        }
-
-        std::tuple< value_node*, node_size_type > get_right(node_size_type index, bool recursive = false)
-        {
-            return Container::get_right< value_node* >(parent, index, recursive);
-            //return { right, index + 1 };
-        }
-
-        //auto get_keys() { return fixed_vector< Key, keys_descriptor< Container, value_node*, 2*N > >(this); }
-        // auto get_keys() const { return fixed_vector< Key, value_keys >(this); }
-
-        internal_node* get_parent() { return parent; }
-        void set_parent(internal_node* n) { parent = n; }
 
         uint8_t keys[2 * N * sizeof(Key)];
         // uint8_t values[2 * N * sizeof(Value)];
@@ -524,7 +488,7 @@ namespace btree
             size_type begin_depth_;
         };
 
-        template < typename Node > auto desc(Node n) { return node_descriptor< Node >(n); }
+        template < typename Node > static auto desc(Node n) { return node_descriptor< Node >(n); }
 
     public:
         struct iterator
@@ -944,15 +908,15 @@ namespace btree
         {
             if (depth != depth_)
             {
-                auto in = node_cast<internal_node*>(n);
-                auto nchildren = in->get_children< node* >();
+                auto in = desc(node_cast<internal_node*>(n));
+                auto nchildren = in.get_children< node* >();
 
                 for (auto child: nchildren)
                 {
                     free_node(child, depth + 1);
                 }
 
-                deallocate_node(desc(in));
+                deallocate_node(in);
             }
             else
             {
@@ -965,7 +929,7 @@ namespace btree
             assert(n);
             while (--depth)
             {
-                n = node_cast<internal_node*>(n)->get_children< node* >()[0];
+                n = desc(node_cast<internal_node*>(n)).get_children< node* >()[0];
             }
 
             return node_cast<Node>(n);
@@ -976,7 +940,7 @@ namespace btree
             assert(n);
             while (--depth)
             {
-                auto children = node_cast<internal_node*>(n)->get_children< node* >();
+                auto children = desc(node_cast<internal_node*>(n)).get_children< node* >();
                 n = children[children.size() - 1];
             }
 
@@ -1286,12 +1250,12 @@ namespace btree
         }
 
     public:
-        template< typename Node > static std::tuple< Node, node_size_type > get_right(internal_node* n, node_size_type index, bool recursive)
+        template< typename Node > static std::tuple< Node, node_size_type > get_right(node_descriptor< internal_node* > n, node_size_type index, bool recursive)
         {
             size_type depth = 1;
             while (n)
             {
-                auto children = n->get_children< Node >();
+                auto children = n.get_children< Node >();
                 if (index + 1 < children.size())
                 {
                     if (depth == 1)
@@ -1305,13 +1269,13 @@ namespace btree
                 }
                 else if (recursive)
                 {
-                    if (n->get_parent())
+                    if (n.get_parent())
                     {
-                        index = find_node_index(n->get_parent()->get_children< internal_node* >(), n);
+                        index = find_node_index(n.get_parent().get_children< internal_node* >(), n);
                         ++depth;
                     }
 
-                    n = n->get_parent();
+                    n = n.get_parent();
                 }
                 else
                 {
@@ -1322,12 +1286,12 @@ namespace btree
             return { nullptr, 0 };
         }
 
-        template< typename Node > static std::tuple< Node, node_size_type > get_left(internal_node* n, node_size_type index, bool recursive)
+        template< typename Node > static std::tuple< Node, node_size_type > get_left(node_descriptor< internal_node* > n, node_size_type index, bool recursive)
         {
             size_type depth = 1;
             while (n)
             {
-                auto children = n->get_children< Node >();
+                auto children = n.get_children< Node >();
                 if (index > 0)
                 {
                     if (depth == 1)
@@ -1341,13 +1305,13 @@ namespace btree
                 }
                 else if (recursive)
                 {
-                    if (n->get_parent())
+                    if (n.get_parent())
                     {
-                        index = find_node_index(n->get_parent()->get_children< internal_node* >(), n);
+                        index = find_node_index(n.get_parent().get_children< internal_node* >(), n);
                         ++depth;
                     }
 
-                    n = n->get_parent();
+                    n = n.get_parent();
                 }
                 else
                 {
@@ -1363,11 +1327,11 @@ namespace btree
         {
             if (valuenode)
             {
-                node_cast<value_node*>(n)->set_parent(parent);
+                desc(node_cast<value_node*>(n)).set_parent(parent);
             }
             else
             {
-                node_cast<internal_node*>(n)->set_parent(parent);
+                desc(node_cast<internal_node*>(n)).set_parent(parent);
             }
         }
 

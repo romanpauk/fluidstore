@@ -337,19 +337,18 @@ namespace btree
         }
 
         auto get_keys() { return fixed_vector< typename Container::value_type, keys_descriptor< Container, internal_node*, 2 * N - 1 > >(node_); }
+        auto get_keys() const { return fixed_vector< typename Container::value_type, keys_descriptor< Container, internal_node*, 2 * N - 1 > >(node_); }
+
         template < typename Node > auto get_children() { return fixed_vector< Node, children_descriptor< Container, internal_node* > >(node_); }
 
         node_descriptor< internal_node* > get_parent() { return node_->parent; }
         void set_parent(internal_node* p) { node_->parent = p; }
 
-        bool full() //const
-        {
-            auto keys = get_keys();
-            return keys.size() == keys.capacity();
-        }
+        bool full() const { auto keys = get_keys(); return keys.size() == keys.capacity(); }
 
         operator internal_node* () { return node_; }
         internal_node* node() { return node_; }
+        internal_node* operator -> () { return node_; }
 
     private:
         internal_node* node_;
@@ -403,19 +402,17 @@ namespace btree
         }
 
         auto get_keys() { return fixed_vector< typename Container::value_type, keys_descriptor< Container, value_node*, 2 * N > >(node_); }
-    
+        auto get_keys() const { return fixed_vector< typename Container::value_type, keys_descriptor< Container, value_node*, 2 * N > >(node_); }
+
         node_descriptor< internal_node* > get_parent() { return node_->parent; }
         void set_parent(internal_node* p) { node_->parent = p; }
 
-        bool full() //const
-        {
-            auto keys = get_keys();
-            return keys.size() == keys.capacity();
-        }
+        bool full() const { auto keys = get_keys(); return keys.size() == keys.capacity(); }
 
         bool operator == (const node_descriptor< value_node* >& other) const { return node_ == other.node_; }
         operator value_node* () { return node_; }
         value_node* node() { return node_; }
+        value_node* operator -> () { return node_; }
 
     private:
         value_node* node_;
@@ -531,7 +528,7 @@ namespace btree
             }
 
         private:
-            mutable node_descriptor< value_node* > node_;
+            node_descriptor< value_node* > node_;
             node_size_type nindex_;
             node_size_type kindex_;
         };
@@ -580,8 +577,8 @@ namespace btree
         {
             if (!root_)
             {
-                root_ = allocate_node< value_node >();
-                first_node_ = last_node_ = node_cast< value_node* >(root_);
+                auto root = allocate_node< value_node >();
+                root_ = first_node_ = last_node_ = root;
                 depth_ = 1;
             }
 
@@ -1360,5 +1357,16 @@ namespace btree
         
         Allocator allocator_;
         Compare compare_;
+    };
+
+    template < typename Key, typename Compare = std::less< Key >, typename Allocator = std::allocator< Key >, 
+        template < typename > typename INode = internal_node_base, 
+        template < typename > typename VNode = value_node_base 
+    > class setX
+        : public set< Key, Compare, Allocator >
+    {
+        using container_type = setX< Key, Compare, Allocator, INode, VNode >;
+        using internal_node = INode< container_type >;
+        using value_node = VNode< container_type >;
     };
 }

@@ -438,57 +438,15 @@ namespace btree
             return root_ ? find(root_, key) : end();
         }
 
-        value_node* hint_node(iterator* it)
+        
+        std::pair< iterator, bool > insert(const Key& key)
         {
-            if (it)
-            {
-                return *it == end() ? last_node_ : it->node_;
-            }
-
-            return nullptr;
+            return insert(nullptr, key);
         }
 
-        template < typename KeyT > std::pair< iterator, bool > insert(iterator* hint, KeyT&& key)
+        std::pair< iterator, bool > insert(iterator hint, const Key& key)
         {
-            if (!root_)
-            {
-                auto root = allocate_node< value_node >();
-                root_ = first_node_ = last_node_ = root;
-                depth_ = 1;
-            }
-
-        #if defined(VALUE_NODE_HINT)
-            auto [n, nindex] = find_value_node(root_, hint_node(hint), key);
-        #else
-            auto [n, nindex] = find_value_node(root_, nullptr, key);
-        #endif
-            if (!full(n))
-            {
-                return insert(n, nindex, std::forward< KeyT >(key));
-            }
-            else
-            {
-                if (n.get_parent())
-                {
-                    std::tie(n, nindex) = rebalance_insert(depth_, n, nindex, key);
-                    return insert(n, nindex, std::forward< KeyT >(key));
-                }
-                else
-                {
-                    std::tie(n, nindex) = rebalance_insert(depth_, n, key);
-                    return insert(n, nindex, std::forward< KeyT >(key));
-                }
-            }
-        }
-
-        template < typename KeyT > std::pair< iterator, bool > insert(KeyT&& key)
-        {
-            return insert(nullptr, std::forward< KeyT >(key));
-        }
-
-        template < typename KeyT > std::pair< iterator, bool > insert(iterator hint, KeyT&& key)
-        {
-            return insert(&hint, std::forward< KeyT >(key));
+            return insert(&hint, key);
         }
 
         template < typename It > void insert(It begin, It end)
@@ -543,6 +501,49 @@ namespace btree
         iterator end() { return iterator(nullptr, 0, 0); }
 
     private:
+        value_node* hint_node(iterator* it)
+        {
+            if (it)
+            {
+                return *it == end() ? last_node_ : it->node_;
+            }
+
+            return nullptr;
+        }
+
+        std::pair< iterator, bool > insert(iterator* hint, const Key& key)
+        {
+            if (!root_)
+            {
+                auto root = allocate_node< value_node >();
+                root_ = first_node_ = last_node_ = root;
+                depth_ = 1;
+            }
+
+        #if defined(VALUE_NODE_HINT)
+            auto [n, nindex] = find_value_node(root_, hint_node(hint), key);
+        #else
+            auto [n, nindex] = find_value_node(root_, nullptr, key);
+        #endif
+            if (!full(n))
+            {
+                return insert(n, nindex, key);
+            }
+            else
+            {
+                if (n.get_parent())
+                {
+                    std::tie(n, nindex) = rebalance_insert(depth_, n, nindex, key);
+                    return insert(n, nindex, key);
+                }
+                else
+                {
+                    std::tie(n, nindex) = rebalance_insert(depth_, n, key);
+                    return insert(n, nindex, key);
+                }
+            }
+        }
+
         std::tuple< node_descriptor< value_node* >, node_size_type > find_value_node(node* n, value_node* hint, const Key& key)
         {
         #if defined(VALUE_NODE_HINT)

@@ -32,9 +32,9 @@ namespace btree
             checkvec();
         }
 
-        template < typename Allocator, typename Ty > void emplace_back(Allocator& alloc, Ty&& value)
+        template < typename Allocator, typename... Args > void emplace_back(Allocator& alloc, Args&&... args)
         {
-            emplace(alloc, end(), std::forward< Ty >(value));
+            emplace(alloc, end(), std::forward< Args >(args)...);
         }
 
         template < typename Allocator > void erase(Allocator& alloc, const T* index)
@@ -83,7 +83,7 @@ namespace btree
         T* end() { return reinterpret_cast< T* >(desc_.data()) + desc_.size(); }
         const T* end() const { return reinterpret_cast< const T* >(desc_.data()) + desc_.size(); }
 
-        template < typename Allocator, typename Ty > void emplace(Allocator& alloc, const T* it, Ty&& value)
+        template < typename Allocator, typename... Args > void emplace(Allocator& alloc, const T* it, Args&&... args)
         {
             assert(size() < capacity());
             assert(it >= begin());
@@ -95,11 +95,11 @@ namespace btree
              
                 //const_cast< T& >(*it) = T(std::forward< Ty >(value));
                 std::allocator_traits< Allocator >::destroy(alloc, const_cast<T*>(it));
-                std::allocator_traits< Allocator >::construct(alloc, const_cast<T*>(it), std::forward< Ty >(value));
+                std::allocator_traits< Allocator >::construct(alloc, const_cast<T*>(it), std::forward< Args >(args)...);
             }
             else
             {
-                std::allocator_traits< Allocator >::construct(alloc, const_cast<T*>(it), std::forward< Ty >(value));
+                std::allocator_traits< Allocator >::construct(alloc, const_cast<T*>(it), std::forward< Args >(args)...);
             }
 
             desc_.set_size(desc_.size() + 1);

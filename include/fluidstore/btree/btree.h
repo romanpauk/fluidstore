@@ -200,18 +200,7 @@ namespace btree
             assert(size() <= capacity());
 
             // vec_.assign(begin(), end());
-        /*
-            if (vec_.size() > 1)
-            {
-                for (size_type i = 0; i < size() - 1; ++i)
-                {
-                    if (vec_[i] >= vec_[i + 1])
-                    {
-                        assert(false);
-                    }
-                }
-            }
-        */
+            assert(std::is_sorted(vec_.begin(), vec_.end()));
         #endif
         }
 
@@ -235,10 +224,10 @@ namespace btree
 
     template < typename Node > struct node_descriptor;
 
-    template < typename Container, typename Node, size_t Capacity > struct keys_descriptor
+    template < typename Key, typename Node, typename SizeType, SizeType Capacity > struct keys_descriptor
     {
-        using size_type = typename Container::node_size_type;
-        using value_type = typename Container::value_type;
+        using size_type = SizeType;
+        using value_type = Key;
 
         keys_descriptor(Node node)
             : node_(node)
@@ -260,11 +249,10 @@ namespace btree
         Node node_;
     };
 
-    template < typename Container, typename Node > struct children_descriptor
+    template < typename Node, typename SizeType, SizeType Capacity > struct children_descriptor
     {
-        using size_type = typename Container::node_size_type;
-        static const auto N = Container::N;
-
+        using size_type = SizeType;
+        
         children_descriptor(Node node)
             : node_(node)
             , size_()
@@ -276,7 +264,7 @@ namespace btree
             }
         }
 
-        children_descriptor(const children_descriptor< Container, Node >& other) = default;
+        children_descriptor(const children_descriptor< Node, SizeType, Capacity >& other) = default;
 
         size_type size() const { return size_; }
 
@@ -286,7 +274,7 @@ namespace btree
             size_ = size;
         }
 
-        size_type capacity() const { return 2 * N; }
+        size_type capacity() const { return Capacity; }
 
         node** data() { return reinterpret_cast<node**>(node_->children); }
         node** data() const { return reinterpret_cast<node**>(node_->children); }
@@ -296,27 +284,23 @@ namespace btree
         size_type size_;
     };
 
-    template < typename Container > struct internal_node_base : node
+    template < typename Key, typename SizeType, SizeType N > struct internal_node_base : node
     {
-        using node_size_type = typename Container::node_size_type;
-        using internal_node = internal_node_base< Container >;
-        using Key = typename Container::value_type;
-        static const node_size_type N = Container::N;
-
+        using size_type = SizeType;
+        using internal_node = internal_node_base< Key, SizeType, N >;
+        
         internal_node_base() = default;
 
         uint8_t keys[(2 * N - 1) * sizeof(Key)];
         uint8_t children[2 * N * sizeof(node*)];
-        node_size_type size;
+        size_type size;
         internal_node* parent;
     };
 
-    template < typename Container > struct node_descriptor< internal_node_base< Container >* >
+    template < typename Key, typename SizeType, SizeType N > struct node_descriptor< internal_node_base< Key, SizeType, N >* >
     {
-        using internal_node = internal_node_base< Container >;
-
-        using node_size_type = typename Container::node_size_type;
-        static const auto N = Container::N;
+        using internal_node = internal_node_base< Key, SizeType, N >;
+        using size_type = typename internal_node::size_type;
 
         node_descriptor(internal_node* n)
             : node_(n)
@@ -324,22 +308,22 @@ namespace btree
 
         template < typename Allocator > void cleanup(Allocator& allocator) { get_keys().clear(allocator); }
 
-        std::tuple< node_descriptor< internal_node* >, node_size_type > get_left(node_size_type index, bool recursive = false)
+        template < typename Container > std::tuple< node_descriptor< internal_node* >, size_type > get_left(size_type index, bool recursive = false)
         {
             return Container::get_left< internal_node* >(node_->parent, index, recursive);
             //return { left, index - 1};
         }
 
-        std::tuple< node_descriptor< internal_node* >, node_size_type > get_right(node_size_type index, bool recursive = false)
+        template < typename Container > std::tuple< node_descriptor< internal_node* >, size_type > get_right(size_type index, bool recursive = false)
         {
             return Container::get_right< internal_node* >(node_->parent, index, recursive);
             //return { right, index + 1 };
         }
 
-        auto get_keys() { return fixed_vector< typename Container::value_type, keys_descriptor< Container, internal_node*, 2 * N - 1 > >(node_); }
-        auto get_keys() const { return fixed_vector< typename Container::value_type, keys_descriptor< Container, internal_node*, 2 * N - 1 > >(node_); }
+        auto get_keys() { return fixed_vector< Key, keys_descriptor< Key, internal_node*, size_type, 2 * N - 1 > >(node_); }
+        auto get_keys() const { return fixed_vector< Key, keys_descriptor< Key, internal_node*, size_type, 2 * N - 1 > >(node_); }
 
-        template < typename Node > auto get_children() { return fixed_vector< Node, children_descriptor< Container, internal_node* > >(node_); }
+        template < typename Node > auto get_children() { return fixed_vector< Node, children_descriptor< internal_node*, size_type, 2 * N > >(node_); }
 
         node_descriptor< internal_node* > get_parent() { return node_->parent; }
         void set_parent(internal_node* p) { node_->parent = p; }
@@ -354,19 +338,17 @@ namespace btree
         internal_node* node_;
     };
 
-    template < typename Container > struct value_node_base : node
+    template < typename Key, typename SizeType, SizeType N, typename InternalNodeType > struct value_node_base : node
     {
-        using node_size_type = typename Container::node_size_type;
-        using value_node = value_node_base< Container >;
-        using internal_node = internal_node_base< Container >;
-        using Key = typename Container::value_type;
-        static const node_size_type N = Container::N;
-
+        using size_type = SizeType;
+        using value_node = value_node_base< Key, SizeType, N, InternalNodeType >;
+        using internal_node = InternalNodeType;
+        
         value_node_base() = default;
 
         uint8_t keys[2 * N * sizeof(Key)];
         // uint8_t values[2 * N * sizeof(Value)];
-        node_size_type size;
+        size_type size;
         internal_node* parent;
 
     #if defined(VALUE_NODE_LR)
@@ -375,13 +357,11 @@ namespace btree
     #endif
     };
 
-    template < typename Container > struct node_descriptor< value_node_base< Container >* >
+    template < typename Key, typename SizeType, SizeType N, typename InternalNodeType > struct node_descriptor< value_node_base< Key, SizeType, N, InternalNodeType >* >
     {
-        using value_node = value_node_base< Container >;
-        using internal_node = internal_node_base< Container >;
-
-        using node_size_type = typename Container::node_size_type;
-        static const auto N = Container::N;
+        using value_node = value_node_base< Key, SizeType, N, InternalNodeType >;
+        using internal_node = InternalNodeType;
+        using size_type = SizeType;
 
         node_descriptor(value_node* n)
             : node_(n)
@@ -389,20 +369,26 @@ namespace btree
 
         template < typename Allocator > void cleanup(Allocator& allocator) { get_keys().clear(allocator); }
 
-        std::tuple< node_descriptor< value_node* >, node_size_type > get_left(node_size_type index, bool recursive = false)
+        template< typename Container > std::tuple< node_descriptor< value_node* >, size_type > get_left(size_type index, bool recursive = false)
         {
+        #if defined(VALUE_NODE_LR)
+            return { node_->left, index - 1 };
+        #else
             return Container::get_left< value_node* >(node_->parent, index, recursive);
-            //return { left, index - 1};
+        #endif
         }
 
-        std::tuple< node_descriptor< value_node* >, node_size_type > get_right(node_size_type index, bool recursive = false)
+        template < typename Container > std::tuple< node_descriptor< value_node* >, size_type > get_right(size_type index, bool recursive = false)
         {
+        #if defined(VALUE_NODE_LR)
+            return { node_->right, index + 1 };
+        #else
             return Container::get_right< value_node* >(node_->parent, index, recursive);
-            //return { right, index + 1 };
+        #endif
         }
 
-        auto get_keys() { return fixed_vector< typename Container::value_type, keys_descriptor< Container, value_node*, 2 * N > >(node_); }
-        auto get_keys() const { return fixed_vector< typename Container::value_type, keys_descriptor< Container, value_node*, 2 * N > >(node_); }
+        auto get_keys() { return fixed_vector< Key, keys_descriptor< Key, value_node*, size_type, 2 * N > >(node_); }
+        auto get_keys() const { return fixed_vector< Key, keys_descriptor< Key, value_node*, size_type, 2 * N > >(node_); }
 
         node_descriptor< internal_node* > get_parent() { return node_->parent; }
         void set_parent(internal_node* p) { node_->parent = p; }
@@ -432,6 +418,7 @@ namespace btree
         using size_type = size_t;
         using value_type = Key;
         using allocator_type = Allocator;
+        using container_type = set< Key, Compare, Allocator >;
 
         // Some ideas about the layout:
         // 
@@ -462,8 +449,8 @@ namespace btree
         //      int32   16
         //      int64   8
 
-        using internal_node = internal_node_base< set< Key, Compare, Allocator > >;
-        using value_node = value_node_base< set< Key, Compare, Allocator > >;
+        using internal_node = internal_node_base< Key, node_size_type, N >;
+        using value_node = value_node_base< Key, node_size_type, N, internal_node >;
 
         template < bool Inc > struct depth_check
         {
@@ -513,7 +500,7 @@ namespace btree
                 #if defined(VALUE_NODE_LR)
                     node_ = node_->right;
                 #else
-                    std::tie(node_, nindex_) = node_.get_right(nindex_, true);
+                    std::tie(node_, nindex_) = node_.get_right< container_type >(nindex_, true);
                 #endif
                 }
 
@@ -793,7 +780,7 @@ namespace btree
             if (pkeys.empty())
             {
                 auto root = root_;
-                fixed_vector< node*, children_descriptor< set< Key, Compare, Allocator >, internal_node* > > pchildren((internal_node*)parent, 1); // override the size to 1
+                fixed_vector< node*, children_descriptor< internal_node*, size_type, 2 * N > > pchildren((internal_node*)parent, 1); // override the size to 1
                 root_ = pchildren[0];
                 --depth_;
                 assert(depth_ >= 1);
@@ -1199,8 +1186,8 @@ namespace btree
             assert(n.get_keys().size() <= n.get_keys().capacity() / 2);
 
             {
-                auto [left, lindex] = n.get_left(nindex);
-                auto [right, rindex] = n.get_right(nindex);
+                auto [left, lindex] = n.get_left< container_type >(nindex);
+                auto [right, rindex] = n.get_right< container_type >(nindex);
 
                 if (left && share_keys(depth, n, nindex, left, lindex) ||
                     right && share_keys(depth, n, nindex, right, rindex))
@@ -1223,8 +1210,8 @@ namespace btree
             }                
                 
             {
-                auto [left, lindex] = n.get_left(nindex);
-                auto [right, rindex] = n.get_right(nindex);
+                auto [left, lindex] = n.get_left< container_type >(nindex);
+                auto [right, rindex] = n.get_right< container_type >(nindex);
 
                 if (merge_keys(depth, left, lindex, n, nindex))
                 {
@@ -1359,14 +1346,14 @@ namespace btree
         Compare compare_;
     };
 
-    template < typename Key, typename Compare = std::less< Key >, typename Allocator = std::allocator< Key >, 
-        template < typename > typename INode = internal_node_base, 
-        template < typename > typename VNode = value_node_base 
+    template < typename Key, typename Compare = std::less< Key >, typename Allocator = std::allocator< Key > 
+        // template < typename Key, typename SizeType, SizeType N > typename INode = internal_node_base, 
+        // template < typename > typename VNode = value_node_base 
     > class setX
         : public set< Key, Compare, Allocator >
     {
-        using container_type = setX< Key, Compare, Allocator, INode, VNode >;
-        using internal_node = INode< container_type >;
-        using value_node = VNode< container_type >;
+        //using container_type = setX< Key, Compare, Allocator, INode, VNode >;
+        //using internal_node = INode< container_type >;
+        //using value_node = VNode< container_type >;
     };
 }

@@ -482,7 +482,12 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_perf_iteration, T, btree_perf_insert_types)
         }
         print_results(results, base);
     }
+}
 
+BOOST_AUTO_TEST_CASE_TEMPLATE(btree_container, T, btree_perf_insert_types)
+{
+    btree::setX< T > a;
+    a.begin();
 }
 
 #endif

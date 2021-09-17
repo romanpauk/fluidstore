@@ -284,90 +284,6 @@ namespace btree
         size_type size_;
     };
 
-    template < typename Key, typename SizeType, SizeType N > struct internal_node_base : node
-    {
-        using size_type = SizeType;
-        using internal_node = internal_node_base< Key, SizeType, N >;
-        
-        internal_node_base() = default;
-
-        uint8_t keys[(2 * N - 1) * sizeof(Key)];
-        uint8_t children[2 * N * sizeof(node*)];
-        size_type size;
-        internal_node* parent;
-    };
-
-    template < typename Key, typename SizeType, SizeType N > struct node_descriptor< internal_node_base< Key, SizeType, N >* >
-    {
-        using internal_node = internal_node_base< Key, SizeType, N >;
-        using size_type = typename internal_node::size_type;
-
-        node_descriptor(internal_node* n)
-            : node_(n)
-        {}
-
-        template < typename Allocator > void cleanup(Allocator& allocator) { get_keys().clear(allocator); }
-
-        auto get_keys() { return fixed_vector< Key, keys_descriptor< Key, internal_node*, size_type, 2 * N - 1 > >(node_); }
-        auto get_keys() const { return fixed_vector< Key, keys_descriptor< Key, internal_node*, size_type, 2 * N - 1 > >(node_); }
-
-        template < typename Node > auto get_children() { return fixed_vector< Node, children_descriptor< internal_node*, size_type, 2 * N > >(node_); }
-
-        node_descriptor< internal_node* > get_parent() { return node_->parent; }
-        void set_parent(internal_node* p) { node_->parent = p; }
-
-        operator internal_node* () { return node_; }
-        internal_node* node() { return node_; }
-        
-    private:
-        internal_node* node_;
-    };
-
-    template < typename Key, typename SizeType, SizeType N, typename InternalNodeType > struct value_node_base : node
-    {
-        using size_type = SizeType;
-        using value_node = value_node_base< Key, SizeType, N, InternalNodeType >;
-        using internal_node = InternalNodeType;
-        
-        value_node_base() = default;
-
-        uint8_t keys[2 * N * sizeof(Key)];
-        // uint8_t values[2 * N * sizeof(Value)];
-        size_type size;
-        internal_node* parent;
-
-    #if defined(VALUE_NODE_LR)
-        value_node* left;
-        value_node* right;
-    #endif
-    };
-
-    template < typename Key, typename SizeType, SizeType N, typename InternalNodeType > struct node_descriptor< value_node_base< Key, SizeType, N, InternalNodeType >* >
-    {
-        using value_node = value_node_base< Key, SizeType, N, InternalNodeType >;
-        using internal_node = InternalNodeType;
-        using size_type = SizeType;
-
-        node_descriptor(value_node* n)
-            : node_(n)
-        {}
-
-        template < typename Allocator > void cleanup(Allocator& allocator) { get_keys().clear(allocator); }
-
-        auto get_keys() { return fixed_vector< Key, keys_descriptor< Key, value_node*, size_type, 2 * N > >(node_); }
-        auto get_keys() const { return fixed_vector< Key, keys_descriptor< Key, value_node*, size_type, 2 * N > >(node_); }
-
-        node_descriptor< internal_node* > get_parent() { return node_->parent; }
-        void set_parent(internal_node* p) { node_->parent = p; }
-
-        bool operator == (const node_descriptor< value_node* >& other) const { return node_ == other.node_; }
-        operator value_node* () { return node_; }
-        value_node* node() { return node_; }
-        
-    private:
-        value_node* node_;
-    };
-
     template< typename SizeType, typename Key > struct node_dimension
     {
         static const auto value = std::max(std::size_t(8), std::size_t(64 / sizeof(Key))) / 2;
@@ -376,12 +292,12 @@ namespace btree
 
     template < 
         typename Key, 
-        typename Compare = std::less< Key >, 
-        typename Allocator = std::allocator< Key >, 
-        typename NodeSizeType = uint8_t, 
-        NodeSizeType N = node_dimension< NodeSizeType, Key >::value,
-        typename InternalNode = internal_node_base< Key, NodeSizeType, N >,
-        typename ValueNode = value_node_base< Key, NodeSizeType, N, InternalNode >
+        typename Compare, 
+        typename Allocator, 
+        typename NodeSizeType, 
+        NodeSizeType N,
+        typename InternalNode,
+        typename ValueNode
     > class container
     {
     public:
@@ -1320,10 +1236,100 @@ namespace btree
         Compare compare_;
     };
 
-    template < typename Key, typename Compare = std::less< Key >, typename Allocator = std::allocator< Key > > class set
-        : public container< Key, Compare, Allocator >
+    template < typename Key, typename SizeType, SizeType N > struct internal_node : node
     {
-        using base_type = container< Key, Compare, Allocator >;
+        using size_type = SizeType;
+
+        internal_node() = default;
+
+        uint8_t keys[(2 * N - 1) * sizeof(Key)];
+        uint8_t children[2 * N * sizeof(node*)];
+        size_type size;
+        internal_node< Key, SizeType, N >* parent;
+    };
+
+    template < typename Key, typename SizeType, SizeType N > struct node_descriptor< internal_node< Key, SizeType, N >* >
+    {
+        using internal_node_type = internal_node< Key, SizeType, N >;
+        using size_type = SizeType;
+
+        node_descriptor(internal_node_type* n)
+            : node_(n)
+        {}
+
+        template < typename Allocator > void cleanup(Allocator& allocator) { get_keys().clear(allocator); }
+
+        auto get_keys() { return fixed_vector< Key, keys_descriptor< Key, internal_node_type*, size_type, 2 * N - 1 > >(node_); }
+        auto get_keys() const { return fixed_vector< Key, keys_descriptor< Key, internal_node_type*, size_type, 2 * N - 1 > >(node_); }
+
+        template < typename Node > auto get_children() { return fixed_vector< Node, children_descriptor< internal_node_type*, size_type, 2 * N > >(node_); }
+
+        node_descriptor< internal_node_type* > get_parent() { return node_->parent; }
+        void set_parent(internal_node_type* p) { node_->parent = p; }
+
+        operator internal_node_type* () { return node_; }
+        internal_node_type* node() { return node_; }
+
+    private:
+        internal_node_type* node_;
+    };
+
+    template < typename Key, typename SizeType, SizeType N, typename InternalNodeType > struct value_node_set : node
+    {
+        using size_type = SizeType;
+        using value_node_type = value_node_set< Key, SizeType, N, InternalNodeType >;
+        using internal_node_type = InternalNodeType;
+
+        value_node_set() = default;
+
+        uint8_t keys[2 * N * sizeof(Key)];
+        size_type size;
+        internal_node_type* parent;
+
+    #if defined(VALUE_NODE_LR)
+        value_node* left;
+        value_node* right;
+    #endif
+    };
+
+    template < typename Key, typename SizeType, SizeType N, typename InternalNodeType > struct node_descriptor< value_node_set< Key, SizeType, N, InternalNodeType >* >
+    {
+        using value_node_type = value_node_set< Key, SizeType, N, InternalNodeType >;
+        using internal_node_type = InternalNodeType;
+        using size_type = SizeType;
+
+        node_descriptor(value_node_type* n)
+            : node_(n)
+        {}
+
+        template < typename Allocator > void cleanup(Allocator& allocator) { get_keys().clear(allocator); }
+
+        auto get_keys() { return fixed_vector< Key, keys_descriptor< Key, value_node_type*, size_type, 2 * N > >(node_); }
+        auto get_keys() const { return fixed_vector< Key, keys_descriptor< Key, value_node_type*, size_type, 2 * N > >(node_); }
+
+        node_descriptor< internal_node_type* > get_parent() { return node_->parent; }
+        void set_parent(internal_node_type* p) { node_->parent = p; }
+
+        bool operator == (const node_descriptor< value_node_type* >& other) const { return node_ == other.node_; }
+        operator value_node_type* () { return node_; }
+        value_node_type* node() { return node_; }
+
+    private:
+        value_node_type* node_;
+    };
+
+    template < 
+        typename Key, 
+        typename Compare = std::less< Key >, 
+        typename Allocator = std::allocator< Key >,
+        typename NodeSizeType = uint8_t,
+        NodeSizeType N = node_dimension< uint8_t, Key >::value,
+        typename InternalNodeType = internal_node< Key, NodeSizeType, N >,
+        typename ValueNodeType = value_node_set< Key, NodeSizeType, N, InternalNodeType >
+    > class set
+        : public container< Key, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >
+    {
+        using base_type = container< Key, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >;
 
     public:
         using allocator_type = Allocator;
@@ -1332,8 +1338,71 @@ namespace btree
             : base_type(allocator)
         {}
     };
+    
+    template < typename Key, typename Value, typename SizeType, SizeType N, typename InternalNodeType > struct value_node_map : node
+    {
+        using size_type = SizeType;
+        using value_node_type = value_node_map< Key, Value, SizeType, N, InternalNodeType >;
+        using internal_node_type = InternalNodeType;
 
-    template < typename Key, typename Value, typename Compare = std::less< Key >, typename Allocator = std::allocator< std::pair< Key, Value > > > class map
-        : public container< Key, Compare, Allocator >
-    {};
+        value_node_map() = default;
+
+        uint8_t keys[2 * N * sizeof(Key)];
+        uint8_t values[2 * N * sizeof(Value)];
+        size_type size;
+        internal_node_type* parent;
+
+    #if defined(VALUE_NODE_LR)
+        value_node* left;
+        value_node* right;
+    #endif
+    };
+
+    template < typename Key, typename Value, typename SizeType, SizeType N, typename InternalNodeType > struct node_descriptor< value_node_map< Key, Value, SizeType, N, InternalNodeType >* >
+    {
+        using value_node_type = value_node_map< Key, Value, SizeType, N, InternalNodeType >;
+        using internal_node_type = InternalNodeType;
+        using size_type = SizeType;
+
+        node_descriptor(value_node_type* n)
+            : node_(n)
+        {}
+
+        template < typename Allocator > void cleanup(Allocator& allocator) { get_keys().clear(allocator); }
+
+        auto get_keys() { return fixed_vector< Key, keys_descriptor< Key, value_node_type*, size_type, 2 * N > >(node_); }
+        auto get_keys() const { return fixed_vector< Key, keys_descriptor< Key, value_node_type*, size_type, 2 * N > >(node_); }
+
+        node_descriptor< internal_node_type* > get_parent() { return node_->parent; }
+        void set_parent(internal_node_type* p) { node_->parent = p; }
+
+        bool operator == (const node_descriptor< value_node_type* >& other) const { return node_ == other.node_; }
+        operator value_node_type* () { return node_; }
+        value_node_type* node() { return node_; }
+
+    private:
+        value_node_type* node_;
+    };
+
+    template <
+        typename Key, 
+        typename Value, 
+        typename Compare = std::less< Key >, 
+        typename Allocator = std::allocator< std::pair< Key, Value > >,
+        typename NodeSizeType = uint8_t,
+        NodeSizeType N = node_dimension< uint8_t, Key >::value,
+        typename InternalNodeType = internal_node< Key, NodeSizeType, N >,
+        typename ValueNodeType = value_node_map< Key, Value, NodeSizeType, N, InternalNodeType >
+    > class map
+        : public container< Key, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >
+    {
+        using base_type = container< Key, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >;
+
+    public:
+        using allocator_type = Allocator;
+
+        map(Allocator& allocator = Allocator())
+            : base_type(allocator)
+        {}
+    };
 }

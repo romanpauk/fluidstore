@@ -109,6 +109,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_insert, T, test_types)
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_insert, T, test_types)
 {
     btree::map< int, T > c;
+    c.insert(std::make_pair(1, value<T>(10)));
+    BOOST_TEST((*c.find(1)).second == value<T>(10));
 }
 
 typedef boost::mpl::list<size_t> btree_range_for_types;

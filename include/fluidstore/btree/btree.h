@@ -322,7 +322,7 @@ namespace btree
     template < typename Key, typename Value > struct value_type_traits
     {
         typedef std::pair< Key, Value > value_type;
-        typedef std::pair< const Key&, Value& > value_type_reference;
+        typedef std::pair< const Key&, Value& > reference;
 
         static const Key& get_key(const std::pair< Key, Value >& p) { return p.first; }
         static const Value& get_value(const std::pair< Key, Value >& p) { return p.second; }
@@ -331,7 +331,7 @@ namespace btree
     template < typename Key > struct value_type_traits< Key, void >
     {
         typedef Key value_type;
-        typedef Key& value_type_reference;
+        typedef Key& reference;
 
         static const Key& get_key(const Key& p) { return p; }
         static const Key& get_value(const Key& p) { return p; }
@@ -351,8 +351,9 @@ namespace btree
     public:
         using node_size_type = NodeSizeType;
         using size_type = size_t;
+        using key_type = Key;
         using value_type = typename value_type_traits< Key, Value >::value_type;
-        using value_type_reference = typename value_type_traits< Key, Value >::value_type_reference;
+        using reference = typename value_type_traits< Key, Value >::reference;
         using allocator_type = Allocator;
         using container_type = container< Key, Value, Compare, Allocator, NodeSizeType, N, InternalNode, ValueNode >;
         using internal_node = InternalNode;
@@ -426,8 +427,8 @@ namespace btree
             bool operator == (const iterator& rhs) const { return node_ == rhs.node_ && kindex_ == rhs.kindex_; }
             bool operator != (const iterator& rhs) const { return !(*this == rhs); }
 
-            const value_type_reference operator*() const { return node_.get_value(kindex_); }
-                  value_type_reference operator*()       { return node_.get_value(kindex_); }
+            const reference operator*() const { return node_.get_value(kindex_); }
+                  reference operator*()       { return node_.get_value(kindex_); }
 
             //const value_type* operator->() const { return &node_.get_value(kindex_); }
 
@@ -484,31 +485,32 @@ namespace btree
             }
         }
 
-        iterator find(const Key& key)
+        iterator find(const key_type& key)
         {
             return root_ ? find(root_, key) : end();
         }
 
         
-        std::pair< iterator, bool > insert(const value_type& key)
+        std::pair< iterator, bool > insert(const value_type& value)
         {
-            return emplace(nullptr, key);
+            return emplace(nullptr, value);
         }
 
-        std::pair< iterator, bool > insert(iterator hint, const value_type& key)
+        std::pair< iterator, bool > insert(iterator hint, const value_type& value)
         {
-            return emplace(&hint, key);
+            return emplace(&hint, value);
         }
 
         template < typename It > void insert(It begin, It end)
         {
+            // TODO: hint, assume sorted range.
             while (begin != end)
             {
                 insert(*begin++);
             }
         }
 
-        void erase(const Key& key)
+        void erase(const key_type& key)
         {
             auto it = find(key);
             if (it != end())
@@ -562,7 +564,7 @@ namespace btree
             return nullptr;
         }
 
-        template < typename KeyT > std::pair< iterator, bool > emplace(iterator* hint, KeyT&& key)
+        template < typename T > std::pair< iterator, bool > emplace(iterator* hint, T&& value)
         {
             if (!root_)
             {
@@ -572,30 +574,30 @@ namespace btree
             }
 
         #if defined(VALUE_NODE_HINT)
-            auto [n, nindex] = find_value_node(root_, hint_node(hint), key);
+            auto [n, nindex] = find_value_node(root_, hint_node(hint), get_key(value));
         #else
-            auto [n, nindex] = find_value_node(root_, nullptr, get_key(key));
+            auto [n, nindex] = find_value_node(root_, nullptr, get_key(value));
         #endif
             if (!full(n))
             {
-                return insert(n, nindex, std::forward< KeyT >(key));
+                return insert(n, nindex, std::forward< T >(value));
             }
             else
             {
                 if (n.get_parent())
                 {
-                    std::tie(n, nindex) = rebalance_insert(depth_, n, nindex, get_key(key));
-                    return insert(n, nindex, std::forward< KeyT >(key));
+                    std::tie(n, nindex) = rebalance_insert(depth_, n, nindex, get_key(value));
+                    return insert(n, nindex, std::forward< T >(value));
                 }
                 else
                 {
-                    std::tie(n, nindex) = rebalance_insert(depth_, n, get_key(key));
-                    return insert(n, nindex, std::forward< KeyT >(key));
+                    std::tie(n, nindex) = rebalance_insert(depth_, n, get_key(value));
+                    return insert(n, nindex, std::forward< T >(value));
                 }
             }
         }
 
-        std::tuple< node_descriptor< value_node* >, node_size_type > find_value_node(node* n, value_node* hint, const Key& key)
+        std::tuple< node_descriptor< value_node* >, node_size_type > find_value_node(node* n, value_node* hint, const key_type& key)
         {
         #if defined(VALUE_NODE_HINT)
             if (hint)
@@ -640,7 +642,7 @@ namespace btree
             return { node_cast<value_node*>(n), nindex };
         }
 
-        iterator find(node* n, const Key& key)
+        iterator find(node* n, const key_type& key)
         {
             auto [vn, vnindex] = find_value_node(n, nullptr, key);
             assert(vn);
@@ -676,7 +678,7 @@ namespace btree
             }
         }
 
-        template < typename Descriptor > const Key* find_key_index(const fixed_vector< Key, Descriptor >& keys, const Key& key)
+        template < typename Descriptor > const Key* find_key_index(const fixed_vector< Key, Descriptor >& keys, const key_type& key)
         {
             // TODO: better search
             auto index = keys.begin();
@@ -757,7 +759,7 @@ namespace btree
             return *(n.get_keys().begin() + N);
         }
 
-        std::tuple< node_descriptor< internal_node* >, Key > split_node(size_type depth, node_descriptor< internal_node* > lnode, node_size_type lindex, const Key&)
+        std::tuple< node_descriptor< internal_node* >, key_type > split_node(size_type depth, node_descriptor< internal_node* > lnode, node_size_type lindex, const key_type&)
         {
             assert(full(lnode));
             auto rnode = desc(allocate_node< internal_node >());
@@ -785,7 +787,7 @@ namespace btree
             return { rnode, splitkey };
         }
 
-        std::tuple< node_descriptor< value_node* >, Key > split_node(size_type, node_descriptor< value_node* > lnode, node_size_type lindex, const Key& key)
+        std::tuple< node_descriptor< value_node* >, key_type > split_node(size_type, node_descriptor< value_node* > lnode, node_size_type lindex, const key_type& key)
         {
             assert(full(lnode));
             auto rnode = desc(allocate_node< value_node >());
@@ -1267,7 +1269,7 @@ namespace btree
             return reinterpret_cast< Node >(n);
         }
 
-        bool compare_lte(const Key& lhs, const Key& rhs)
+        bool compare_lte(const key_type& lhs, const key_type& rhs)
         {
             return compare_(lhs, rhs) || !compare_(rhs, lhs);
         }
@@ -1277,7 +1279,7 @@ namespace btree
             return n.get_keys().size() == n.get_keys().capacity();
         }
 
-        const Key& get_key(const value_type& p) 
+        const key_type& get_key(const value_type& p) 
         { 
             return value_type_traits< Key, Value >::get_key(p); 
         }

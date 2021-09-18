@@ -16,9 +16,6 @@ namespace btree
     public:
         using size_type = typename Descriptor::size_type;
 
-        //fixed_vector(const fixed_vector< T, Descriptor >&) = delete;
-        //fixed_vector(fixed_vector< T, Descriptor >&&) = delete;
-
         fixed_vector(Descriptor desc) 
             : desc_(desc)
         {
@@ -224,10 +221,9 @@ namespace btree
 
     template < typename Node > struct node_descriptor;
 
-    template < typename Key, typename Node, typename SizeType, SizeType Capacity > struct keys_descriptor
+    template < typename Node, typename SizeType, SizeType Capacity > struct keys_descriptor
     {
         using size_type = SizeType;
-        using value_type = Key;
 
         keys_descriptor(Node node)
             : node_(node)
@@ -242,8 +238,8 @@ namespace btree
             node_->size = size;
         }
 
-        value_type* data() { return reinterpret_cast<value_type*>(node_->keys); }
-        const value_type* data() const { return reinterpret_cast<const value_type*>(node_->keys); }
+        void* data() { return reinterpret_cast<void*>(node_->keys); }
+        const void* data() const { return reinterpret_cast<const void*>(node_->keys); }
 
     private:
         Node node_;
@@ -276,15 +272,15 @@ namespace btree
 
         size_type capacity() const { return Capacity; }
 
-        node** data() { return reinterpret_cast<node**>(node_->children); }
-        node** data() const { return reinterpret_cast<node**>(node_->children); }
+        void* data() { return reinterpret_cast<void*>(node_->children); }
+        const void* data() const { return reinterpret_cast<void*>(node_->children); }
 
     private:
         Node node_;
         size_type size_;
     };
 
-    template < typename Value, typename Node, typename SizeType, SizeType Capacity > struct values_descriptor
+    template < typename Node, typename SizeType, SizeType Capacity > struct values_descriptor
     {
         using size_type = SizeType;
 
@@ -293,7 +289,7 @@ namespace btree
             , size_(node_descriptor< Node >(node_).get_keys().size())
         {}
 
-        values_descriptor(const values_descriptor< Value, Node, SizeType, Capacity >& other) = default;
+        values_descriptor(const values_descriptor< Node, SizeType, Capacity >& other) = default;
 
         size_type size() const { return size_; }
 
@@ -305,8 +301,8 @@ namespace btree
 
         size_type capacity() const { return Capacity; }
 
-        Value* data() { return reinterpret_cast<Value*>(node_->values); }
-        const Value* data() const { return reinterpret_cast<const Value*>(node_->values); }
+        void* data() { return reinterpret_cast<void*>(node_->values); }
+        const void* data() const { return reinterpret_cast<const void*>(node_->values); }
 
     private:
         Node node_;
@@ -969,6 +965,15 @@ namespace btree
                 auto skeys = source.get_keys();
                 tkeys.insert(allocator_, tindex < sindex ? tkeys.end() : tkeys.begin(), std::make_move_iterator(skeys.begin()), std::make_move_iterator(skeys.end()));
                 
+                if constexpr (!std::is_same_v< Value, void >)
+                {
+                    // TODO: how to update both arrays? This is messy as we need to update values first.
+                    
+                    // auto svalues = source.get_values();
+                    // auto tvalues = target.get_values();
+                    // tvalues.insert(allocator_, tindex < sindex ? tvalues.end() : tvalues.begin(), std::make_move_iterator(svalues.begin()), std::make_move_iterator(svalues.end()));
+                }
+
                 if (tindex < sindex)
                 {
                 #if defined(VALUE_NODE_LR)
@@ -1316,8 +1321,8 @@ namespace btree
 
         template < typename Allocator > void cleanup(Allocator& allocator) { get_keys().clear(allocator); }
 
-        auto get_keys() { return fixed_vector< Key, keys_descriptor< Key, internal_node_type*, size_type, 2 * N - 1 > >(node_); }
-        auto get_keys() const { return fixed_vector< Key, keys_descriptor< Key, internal_node_type*, size_type, 2 * N - 1 > >(node_); }
+        auto get_keys() { return fixed_vector< Key, keys_descriptor< internal_node_type*, size_type, 2 * N - 1 > >(node_); }
+        auto get_keys() const { return fixed_vector< Key, keys_descriptor< internal_node_type*, size_type, 2 * N - 1 > >(node_); }
 
         template < typename Node > auto get_children() { return fixed_vector< Node, children_descriptor< internal_node_type*, size_type, 2 * N > >(node_); }
 
@@ -1362,11 +1367,11 @@ namespace btree
             get_values().clear(allocator);
         }
 
-        auto get_keys() { return fixed_vector< Key, keys_descriptor< Key, value_node_type*, size_type, 2 * N > >(node_); }
-        auto get_keys() const { return fixed_vector< Key, keys_descriptor< Key, value_node_type*, size_type, 2 * N > >(node_); }
+        auto get_keys() { return fixed_vector< Key, keys_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
+        auto get_keys() const { return fixed_vector< Key, keys_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
 
-        auto get_values() { return fixed_vector< Value, values_descriptor< Value, value_node_type*, size_type, 2 * N > >(node_); }
-        auto get_values() const { return fixed_vector< Value, values_descriptor< Value, value_node_type*, size_type, 2 * N > >(node_); }
+        auto get_values() { return fixed_vector< Value, values_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
+        auto get_values() const { return fixed_vector< Value, values_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
 
         // TODO: const method
         const std::pair< const Key&, const Value& > get_value(size_type index) const { return { get_keys()[index], get_values()[index] }; }
@@ -1415,8 +1420,8 @@ namespace btree
 
         template < typename Allocator > void cleanup(Allocator& allocator) { get_keys().clear(allocator); }
 
-        auto get_keys() { return fixed_vector< Key, keys_descriptor< Key, value_node_type*, size_type, 2 * N > >(node_); }
-        auto get_keys() const { return fixed_vector< Key, keys_descriptor< Key, value_node_type*, size_type, 2 * N > >(node_); }
+        auto get_keys() { return fixed_vector< Key, keys_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
+        auto get_keys() const { return fixed_vector< Key, keys_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
 
         const Key& get_value(size_type index) const { return get_keys()[index]; }
         Key& get_value(size_type index) { return get_keys()[index]; }

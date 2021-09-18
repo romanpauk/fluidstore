@@ -284,6 +284,35 @@ namespace btree
         size_type size_;
     };
 
+    template < typename Value, typename Node, typename SizeType, SizeType Capacity > struct values_descriptor
+    {
+        using size_type = SizeType;
+
+        values_descriptor(Node node)
+            : node_(node)
+            , size_(node_descriptor< Node >(node_).get_keys().size())
+        {}
+
+        values_descriptor(const values_descriptor< Value, Node, SizeType, Capacity >& other) = default;
+
+        size_type size() const { return size_; }
+
+        void set_size(size_type size)
+        {
+            assert(size <= capacity());
+            size_ = size;
+        }
+
+        size_type capacity() const { return Capacity; }
+
+        Value* data() { return reinterpret_cast<Value*>(node_->values); }
+        const Value* data() const { return reinterpret_cast<const Value*>(node_->values); }
+
+    private:
+        Node node_;
+        size_type size_;
+    };
+
     template< typename SizeType, typename Key > struct node_dimension
     {
         static const auto value = std::max(std::size_t(8), std::size_t(64 / sizeof(Key))) / 2;
@@ -606,7 +635,7 @@ namespace btree
             }
         }
 
-        template < typename KeyT > std::pair< iterator, bool > insert(node_descriptor< value_node* > n, node_size_type nindex, KeyT&& key)
+        std::pair< iterator, bool > insert(node_descriptor< value_node* > n, node_size_type nindex, const Key& key)
         {
             assert(!n.full());
 
@@ -618,7 +647,7 @@ namespace btree
             }
             else
             {
-                nkeys.emplace(allocator_, index, std::forward< KeyT >(key));
+                n.set_value(allocator_, static_cast<node_size_type>(index - nkeys.begin()), key);
                 ++size_;
 
                 return { iterator(n, nindex, static_cast< node_size_type >(index - nkeys.begin())), true };
@@ -1237,15 +1266,31 @@ namespace btree
         Compare compare_;
     };
 
+    /*
+    template < typename Key, typename Value, size_t N > struct node_data
+    {
+        uint8_t keys[2 * N * sizeof(Key)];
+        uint8_t values[2 * N * sizeof(Value)];
+    };
+
+    template < typename Key, size_t N > struct node_data< Key, void, N >
+    {
+        uint8_t keys[2 * N * sizeof(Key)];
+    };
+
+    template < typename Key, typename Value, size_t N > struct node_data_descriptor {};
+
+    //template < typename Key, size_t N > struct node_data_descriptor< node_data< Key, void, N > > {};
+    //template < typename Key, typename Value, size_t N > struct node_data_descriptor< node_data< Key, Value, N > > {};
+    */
+
     template < typename Key, typename SizeType, SizeType N > struct internal_node : node
     {
-        using size_type = SizeType;
-
         internal_node() = default;
 
         uint8_t keys[(2 * N - 1) * sizeof(Key)];
         uint8_t children[2 * N * sizeof(node*)];
-        size_type size;
+        SizeType size;
         internal_node< Key, SizeType, N >* parent;
     };
 
@@ -1275,17 +1320,14 @@ namespace btree
         internal_node_type* node_;
     };
 
-    template < typename Key, typename SizeType, SizeType N, typename InternalNodeType > struct value_node_set : node
+    template < typename Key, typename Value, typename SizeType, SizeType N, typename InternalNodeType > struct value_node : node
     {
-        using size_type = SizeType;
-        using value_node_type = value_node_set< Key, SizeType, N, InternalNodeType >;
-        using internal_node_type = InternalNodeType;
-
-        value_node_set() = default;
+        value_node() = default;
 
         uint8_t keys[2 * N * sizeof(Key)];
-        size_type size;
-        internal_node_type* parent;
+        uint8_t values[2 * N * sizeof(Value)];
+        SizeType size;
+        InternalNodeType* parent;
 
     #if defined(VALUE_NODE_LR)
         value_node* left;
@@ -1293,9 +1335,60 @@ namespace btree
     #endif
     };
 
-    template < typename Key, typename SizeType, SizeType N, typename InternalNodeType > struct node_descriptor< value_node_set< Key, SizeType, N, InternalNodeType >* >
+    template < typename Key, typename Value, typename SizeType, SizeType N, typename InternalNodeType > struct node_descriptor< value_node< Key, Value, SizeType, N, InternalNodeType >* >
     {
-        using value_node_type = value_node_set< Key, SizeType, N, InternalNodeType >;
+        using value_node_type = value_node< Key, Value, SizeType, N, InternalNodeType >;
+        using internal_node_type = InternalNodeType;
+        using size_type = SizeType;
+
+        node_descriptor(value_node_type* n)
+            : node_(n)
+        {}
+
+        template < typename Allocator > void cleanup(Allocator& allocator) 
+        { 
+            get_keys().clear(allocator); 
+            get_values().clear(allocator);
+        }
+
+        auto get_keys() { return fixed_vector< Key, keys_descriptor< Key, value_node_type*, size_type, 2 * N > >(node_); }
+        auto get_keys() const { return fixed_vector< Key, keys_descriptor< Key, value_node_type*, size_type, 2 * N > >(node_); }
+
+        auto get_values() { return fixed_vector< Key, values_descriptor< Key, value_node_type*, size_type, 2 * N > >(node_); }
+
+        template < typename Allocator > void set_value(Allocator& allocator, size_type index, const std::pair< Key, Value >& value)
+        {
+            get_keys().emplace(allocator, get_keys().begin() + index, value.first);
+            get_values().emplace(allocator, get_values().begin() + index, value.second);
+        }
+
+        node_descriptor< internal_node_type* > get_parent() { return node_->parent; }
+        void set_parent(internal_node_type* p) { node_->parent = p; }
+
+        bool operator == (const node_descriptor< value_node_type* >& other) const { return node_ == other.node_; }
+        operator value_node_type* () { return node_; }
+        value_node_type* node() { return node_; }
+
+    private:
+        value_node_type* node_;
+    };
+
+    template < typename Key, typename SizeType, SizeType N, typename InternalNodeType > struct value_node< Key, void, SizeType, N, InternalNodeType > : node
+    {
+        value_node() = default;
+
+        uint8_t keys[2 * N * sizeof(Key)];
+        SizeType size;
+        InternalNodeType* parent;
+    #if defined(VALUE_NODE_LR)
+        value_node* left;
+        value_node* right;
+    #endif
+    };
+
+    template < typename Key, typename SizeType, SizeType N, typename InternalNodeType > struct node_descriptor< value_node< Key, void, SizeType, N, InternalNodeType >* >
+    {
+        using value_node_type = value_node< Key, void, SizeType, N, InternalNodeType >;
         using internal_node_type = InternalNodeType;
         using size_type = SizeType;
 
@@ -1307,6 +1400,11 @@ namespace btree
 
         auto get_keys() { return fixed_vector< Key, keys_descriptor< Key, value_node_type*, size_type, 2 * N > >(node_); }
         auto get_keys() const { return fixed_vector< Key, keys_descriptor< Key, value_node_type*, size_type, 2 * N > >(node_); }
+
+        template < typename Allocator > void set_value(Allocator& allocator, size_type index, const Key& value)
+        {
+            get_keys().emplace(allocator, get_keys().begin() + index, value);
+        }
 
         node_descriptor< internal_node_type* > get_parent() { return node_->parent; }
         void set_parent(internal_node_type* p) { node_->parent = p; }
@@ -1326,7 +1424,7 @@ namespace btree
         typename NodeSizeType = uint8_t,
         NodeSizeType N = node_dimension< uint8_t, Key >::value,
         typename InternalNodeType = internal_node< Key, NodeSizeType, N >,
-        typename ValueNodeType = value_node_set< Key, NodeSizeType, N, InternalNodeType >
+        typename ValueNodeType = value_node< Key, void, NodeSizeType, N, InternalNodeType >
     > class set
         : public container< Key, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >
     {
@@ -1340,50 +1438,6 @@ namespace btree
         {}
     };
     
-    template < typename Key, typename Value, typename SizeType, SizeType N, typename InternalNodeType > struct value_node_map : node
-    {
-        using size_type = SizeType;
-        using value_node_type = value_node_map< Key, Value, SizeType, N, InternalNodeType >;
-        using internal_node_type = InternalNodeType;
-
-        value_node_map() = default;
-
-        uint8_t keys[2 * N * sizeof(Key)];
-        uint8_t values[2 * N * sizeof(Value)];
-        size_type size;
-        internal_node_type* parent;
-
-    #if defined(VALUE_NODE_LR)
-        value_node* left;
-        value_node* right;
-    #endif
-    };
-
-    template < typename Key, typename Value, typename SizeType, SizeType N, typename InternalNodeType > struct node_descriptor< value_node_map< Key, Value, SizeType, N, InternalNodeType >* >
-    {
-        using value_node_type = value_node_map< Key, Value, SizeType, N, InternalNodeType >;
-        using internal_node_type = InternalNodeType;
-        using size_type = SizeType;
-
-        node_descriptor(value_node_type* n)
-            : node_(n)
-        {}
-
-        template < typename Allocator > void cleanup(Allocator& allocator) { get_keys().clear(allocator); }
-
-        auto get_keys() { return fixed_vector< Key, keys_descriptor< Key, value_node_type*, size_type, 2 * N > >(node_); }
-        auto get_keys() const { return fixed_vector< Key, keys_descriptor< Key, value_node_type*, size_type, 2 * N > >(node_); }
-
-        node_descriptor< internal_node_type* > get_parent() { return node_->parent; }
-        void set_parent(internal_node_type* p) { node_->parent = p; }
-
-        bool operator == (const node_descriptor< value_node_type* >& other) const { return node_ == other.node_; }
-        operator value_node_type* () { return node_; }
-        value_node_type* node() { return node_; }
-
-    private:
-        value_node_type* node_;
-    };
 
     template <
         typename Key, 
@@ -1393,7 +1447,7 @@ namespace btree
         typename NodeSizeType = uint8_t,
         NodeSizeType N = node_dimension< uint8_t, Key >::value,
         typename InternalNodeType = internal_node< Key, NodeSizeType, N >,
-        typename ValueNodeType = value_node_map< Key, Value, NodeSizeType, N, InternalNodeType >
+        typename ValueNodeType = value_node< Key, Value, NodeSizeType, N, InternalNodeType >
     > class map
         : public container< Key, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >
     {

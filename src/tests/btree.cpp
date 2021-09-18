@@ -62,7 +62,7 @@ template <> std::string value<std::string>(size_t i) { return std::to_string(i);
 
 typedef boost::mpl::list < uint8_t, uint16_t, uint32_t, uint64_t, std::string > test_types;
 
-BOOST_AUTO_TEST_CASE(btree_node_capacity)
+BOOST_AUTO_TEST_CASE(btree_set_node_dimension)
 {
     // Note: Total number of elements in node is N * 2
 
@@ -82,7 +82,7 @@ BOOST_AUTO_TEST_CASE(btree_node_capacity)
     BOOST_TEST(set_string::dimension == 4);
 }
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(btree_insert, T, test_types)
+BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_insert, T, test_types)
 {
     btree::set< T > c;
     BOOST_TEST(c.size() == 0);
@@ -106,8 +106,13 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_insert, T, test_types)
     BOOST_TEST((c.find(value<T>(1)) != c.end()));
 }
 
+BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_insert, T, test_types)
+{
+    btree::map< int, T > c;
+}
+
 typedef boost::mpl::list<size_t> btree_range_for_types;
-BOOST_AUTO_TEST_CASE_TEMPLATE(btree_range_for, T, btree_range_for_types)
+BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_range_for, T, btree_range_for_types)
 {
     for (int i = 0; i < 1000; ++i)
     {
@@ -128,7 +133,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_range_for, T, btree_range_for_types)
     }
 }
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(btree_insert_loop, T, test_types)
+BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_insert_loop, T, test_types)
 {
     const int N = 1000;
     if ((1ull << sizeof(T)) < N)
@@ -154,7 +159,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_insert_loop, T, test_types)
     }
 }
 
-BOOST_AUTO_TEST_CASE_TEMPLATE(btree_erase_loop, T, test_types)
+BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_erase_loop, T, test_types)
 {
 //#if defined(_DEBUG)
     const int N = 100;

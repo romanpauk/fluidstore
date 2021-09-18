@@ -406,8 +406,8 @@ namespace btree
             bool operator == (const iterator& rhs) const { return node_ == rhs.node_ && kindex_ == rhs.kindex_; }
             bool operator != (const iterator& rhs) const { return !(*this == rhs); }
 
-            const Key& operator*() const { return node_.get_keys()[kindex_]; }
-            const Key* operator -> () const { return node_.get_keys()[kindex_]; }
+            const Key& operator*() const { return node_.get_value(kindex_); }
+            const Key* operator -> () const { return &node_.get_value(kindex_); }
 
             iterator& operator ++ ()
             {
@@ -1266,24 +1266,6 @@ namespace btree
         Compare compare_;
     };
 
-    /*
-    template < typename Key, typename Value, size_t N > struct node_data
-    {
-        uint8_t keys[2 * N * sizeof(Key)];
-        uint8_t values[2 * N * sizeof(Value)];
-    };
-
-    template < typename Key, size_t N > struct node_data< Key, void, N >
-    {
-        uint8_t keys[2 * N * sizeof(Key)];
-    };
-
-    template < typename Key, typename Value, size_t N > struct node_data_descriptor {};
-
-    //template < typename Key, size_t N > struct node_data_descriptor< node_data< Key, void, N > > {};
-    //template < typename Key, typename Value, size_t N > struct node_data_descriptor< node_data< Key, Value, N > > {};
-    */
-
     template < typename Key, typename SizeType, SizeType N > struct internal_node : node
     {
         internal_node() = default;
@@ -1355,9 +1337,14 @@ namespace btree
         auto get_keys() const { return fixed_vector< Key, keys_descriptor< Key, value_node_type*, size_type, 2 * N > >(node_); }
 
         auto get_values() { return fixed_vector< Key, values_descriptor< Key, value_node_type*, size_type, 2 * N > >(node_); }
+        auto get_values() const { return fixed_vector< Key, values_descriptor< Key, value_node_type*, size_type, 2 * N > >(node_); }
+
+        // TODO: const method
+        std::pair< const Key&, Value& > get_value(size_type index) { return { get_keys()[index], get_values()[index] }; }
 
         template < typename Allocator > void set_value(Allocator& allocator, size_type index, const std::pair< Key, Value >& value)
         {
+            // TODO: exceptions
             get_keys().emplace(allocator, get_keys().begin() + index, value.first);
             get_values().emplace(allocator, get_values().begin() + index, value.second);
         }
@@ -1400,6 +1387,9 @@ namespace btree
 
         auto get_keys() { return fixed_vector< Key, keys_descriptor< Key, value_node_type*, size_type, 2 * N > >(node_); }
         auto get_keys() const { return fixed_vector< Key, keys_descriptor< Key, value_node_type*, size_type, 2 * N > >(node_); }
+
+        const Key& get_value(size_type index) const { return get_keys()[index]; }
+        Key& get_value(size_type index) { return get_keys()[index]; }
 
         template < typename Allocator > void set_value(Allocator& allocator, size_type index, const Key& value)
         {

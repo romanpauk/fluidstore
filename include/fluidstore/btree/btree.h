@@ -388,16 +388,16 @@ namespace btree
         size_type size_;
     };
 
-    template < typename Node, typename SizeType, SizeType Capacity > struct values_descriptor
+    template < typename Node, typename SizeType, SizeType Capacity > struct values2_descriptor
     {
         using size_type = SizeType;
 
-        values_descriptor(Node node)
+        values2_descriptor(Node node)
             : node_(node)
             , size_(node_descriptor< Node >(node_).get_keys().size())
         {}
 
-        values_descriptor(const values_descriptor< Node, SizeType, Capacity >& other) = default;
+        values2_descriptor(const values2_descriptor< Node, SizeType, Capacity >& other) = default;
 
         size_type size() const { return size_; }
 
@@ -409,8 +409,8 @@ namespace btree
 
         size_type capacity() const { return Capacity; }
 
-        void* data() { return reinterpret_cast<void*>(node_->values); }
-        const void* data() const { return reinterpret_cast<const void*>(node_->values); }
+        void* data() { return reinterpret_cast<void*>(node_->values2); }
+        const void* data() const { return reinterpret_cast<const void*>(node_->values2); }
 
     private:
         Node node_;
@@ -1448,7 +1448,7 @@ namespace btree
         value_node() = default;
 
         uint8_t keys[2 * N * sizeof(Key)];
-        uint8_t values[2 * N * sizeof(Value)];
+        uint8_t values2[2 * N * sizeof(Value)];
         SizeType size;
         InternalNodeType* parent;
 
@@ -1471,24 +1471,24 @@ namespace btree
         template < typename Allocator > void cleanup(Allocator& allocator) 
         { 
             get_keys().clear(allocator); 
-            get_values().clear(allocator);
+            get_values2().clear(allocator);
         }
 
         auto get_keys() { return fixed_vector< Key, keys_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
         auto get_keys() const { return fixed_vector< Key, keys_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
 
-        auto get_values() { return fixed_vector< Value, values_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
-        auto get_values() const { return fixed_vector< Value, values_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
+        auto get_values2() { return fixed_vector< Value, values2_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
+        auto get_values2() const { return fixed_vector< Value, values2_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
 
         // TODO: const method
         const std::pair< const Key&, const Value& > get_value(size_type index) const { return { get_keys()[index], get_values()[index] }; }
-        std::pair< const Key&, Value& > get_value(size_type index) { return { get_keys()[index], get_values()[index] }; }
+        std::pair< const Key&, Value& > get_value(size_type index) { return { get_keys()[index], get_values2()[index] }; }
 
         template < typename Allocator > void set_value(Allocator& allocator, size_type index, const std::pair< Key, Value >& value)
         {
             // TODO: exceptions
             get_keys().emplace(allocator, get_keys().begin() + index, value.first);
-            get_values().emplace(allocator, get_values().begin() + index, value.second);
+            get_values2().emplace(allocator, get_values2().begin() + index, value.second);
         }
 
         node_descriptor< internal_node_type* > get_parent() { return node_->parent; }

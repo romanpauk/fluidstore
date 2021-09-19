@@ -4,6 +4,7 @@
 #include <memory>
 #include <type_traits>
 #include <algorithm>
+#include <iterator>
 
 //#define VALUE_NODE_LR
 //#define VALUE_NODE_APPEND
@@ -82,7 +83,7 @@ namespace btree
         T* end() { return reinterpret_cast< T* >(desc_.data()) + desc_.size(); }
         const T* end() const { return reinterpret_cast< const T* >(desc_.data()) + desc_.size(); }
 
-        template < typename Allocator, typename... Args > void emplace(Allocator& alloc, const T* it, Args&&... args)
+        template < typename Allocator, typename... Args > void emplace(Allocator& alloc, T* it, Args&&... args)
         {
             assert(size() < capacity());
             assert(it >= begin());
@@ -215,8 +216,43 @@ namespace btree
     {
     public:
         using value_type = std::tuple< typename Args::value_type&... >;
-        using iterator = typename std::tuple_element_t< 0, std::tuple< Args... > >::iterator;
+        using base_iterator = typename std::tuple_element_t< 0, std::tuple< Args... > >::iterator;
         using size_type = typename std::tuple_element_t< 0, std::tuple< Args... > >::size_type;
+        using container_type = fixed_split_vector< Args... >;
+
+        struct iterator
+        {
+            using difference_type = std::ptrdiff_t;
+            using value_type = value_type;
+            using pointer = value_type*;
+            using reference = value_type;
+            using iterator_category = std::bidirectional_iterator_tag;
+
+            iterator(container_type& container, base_iterator it)
+                : container_(container)
+                , it_(it)
+            {}
+
+            value_type operator *()
+            {
+                return container_[*this - container_.begin()];
+            }
+
+            // TODO: how should those +/- methods be implemented?
+            difference_type operator - (iterator it)
+            {
+                return it_ - it.it_;
+            }
+            
+            iterator operator + (size_t n)
+            {
+                return { container_, it_ + n };
+            }
+            
+        private:
+            container_type& container_;
+            base_iterator it_;
+        };
 
         fixed_split_vector(Args... args)
             : std::tuple< Args... >(args...)
@@ -241,8 +277,8 @@ namespace btree
         size_type capacity() const { return base().capacity(); }
         bool empty() const { return base().size() == 0; }
 
-        iterator begin() { return base().begin(); }
-        iterator end() { return base().end(); }
+        iterator begin() { return { *this, base().begin() }; }
+        iterator end() { return { *this, base().end() }; }
 
         template < typename Allocator > void clear(Allocator& alloc)
         {
@@ -299,20 +335,26 @@ namespace btree
             (std::get< Ids >(*this).emplace(alloc, std::get< Ids >(*this).begin() + offset, std::get< Ids >(value)), ...);
         }
 
-        template < typename Allocator, typename U, size_t... Ids > void insert_impl(Allocator& alloc, iterator it, U from, U to, std::integer_sequence< size_t, Ids... >)
+        template < typename Allocator, typename U, size_t... Ids > void insert_impl(Allocator& alloc, iterator index, U from, U to, std::integer_sequence< size_t, Ids... >)
         {
             auto offset = index - begin();
-            (std::get< Ids >(*this).insert(alloc, std::get< Ids >(*this).begin() + offset, std::get< Ids >(from), std::get< Ids >(to)), ...);
+            (std::get< Ids >(*this).insert(
+                alloc,
+                std::get< Ids >(*this).begin() + offset,
+                &std::get< Ids >(*from),
+                &std::get< Ids >(*to)
+            ), ...);
         }
 
-        template < size_t... Ids > auto at_impl(size_type index, std::integer_sequence< size_t, Ids... >)
+        template < size_t... Ids > value_type at_impl(size_type index, std::integer_sequence< size_t, Ids... >)
         {
-            return std::make_tuple(std::get< Ids >(*this).operator [](index)...);
+            // TODO: this dereferences end().
+            return { *(std::get< Ids >(*this).begin() + index)... };
         }
 
-        template < size_t... Ids > auto at_impl(size_type index, std::integer_sequence< size_t, Ids... >) const
+        template < size_t... Ids > value_type at_impl(size_type index, std::integer_sequence< size_t, Ids... >) const
         {
-            return std::make_tuple(std::get< Ids >(*this).operator [](index)...);
+            return { *(std::get< Ids >(*this).begin() + index)... };
         }
     };
 
@@ -388,16 +430,16 @@ namespace btree
         size_type size_;
     };
 
-    template < typename Node, typename SizeType, SizeType Capacity > struct values2_descriptor
+    template < typename Node, typename SizeType, SizeType Capacity > struct values_descriptor
     {
         using size_type = SizeType;
 
-        values2_descriptor(Node node)
+        values_descriptor(Node node)
             : node_(node)
             , size_(node_descriptor< Node >(node_).get_keys().size())
         {}
 
-        values2_descriptor(const values2_descriptor< Node, SizeType, Capacity >& other) = default;
+        values_descriptor(const values_descriptor< Node, SizeType, Capacity >& other) = default;
 
         size_type size() const { return size_; }
 
@@ -409,8 +451,8 @@ namespace btree
 
         size_type capacity() const { return Capacity; }
 
-        void* data() { return reinterpret_cast<void*>(node_->values2); }
-        const void* data() const { return reinterpret_cast<const void*>(node_->values2); }
+        void* data() { return reinterpret_cast<void*>(node_->values); }
+        const void* data() const { return reinterpret_cast<const void*>(node_->values); }
 
     private:
         Node node_;
@@ -430,6 +472,9 @@ namespace btree
 
         static const Key& get_key(const std::pair< Key, Value >& p) { return p.first; }
         static const Value& get_value(const std::pair< Key, Value >& p) { return p.second; }
+
+        template < typename Tuple > static reference convert(Tuple&& p) { return { std::get< 0 >(p), std::get< 1 >(p) }; }
+        template < typename Pair > static std::tuple< Key, Value > deconvert(Pair&& p) { return { p.first, p.second }; }
     };
 
     template < typename Key > struct value_type_traits< Key, void >
@@ -439,6 +484,9 @@ namespace btree
 
         static const Key& get_key(const Key& p) { return p; }
         static const Key& get_value(const Key& p) { return p; }
+
+        template < typename T > static auto&& convert(T&& p) { return p; }
+        template < typename T > static auto&& deconvert(T&& p) { return p; }
     };
 
     template < 
@@ -531,8 +579,8 @@ namespace btree
             bool operator == (const iterator& rhs) const { return node_ == rhs.node_ && kindex_ == rhs.kindex_; }
             bool operator != (const iterator& rhs) const { return !(*this == rhs); }
 
-            const reference operator*() const { return node_.get_value(kindex_); }
-                  reference operator*()       { return node_.get_value(kindex_); }
+            const reference operator*() const { return value_type_traits< Key, Value >::convert(node_.get_data()[kindex_]); }
+                  reference operator*()       { return value_type_traits< Key, Value >::convert(node_.get_data()[kindex_]); }
 
             //const value_type* operator->() const { return &node_.get_value(kindex_); }
 
@@ -774,14 +822,18 @@ namespace btree
             }
             else
             {
-                n.set_value(allocator_, static_cast<node_size_type>(index - nkeys.begin()), value);
+                n.get_data().emplace(allocator_, 
+                    n.get_data().begin() + static_cast<node_size_type>(index - nkeys.begin())/*const_cast< Key* >(index)*/, 
+                    value_type_traits< Key, Value >::deconvert(value)
+                );
+
                 ++size_;
 
                 return { iterator(n, nindex, static_cast< node_size_type >(index - nkeys.begin())), true };
             }
         }
 
-        template < typename Descriptor > const Key* find_key_index(const fixed_vector< Key, Descriptor >& keys, const key_type& key)
+        template < typename Descriptor > auto find_key_index(const fixed_vector< Key, Descriptor >& keys, const key_type& key)
         {
             // TODO: better search
             auto index = keys.begin();
@@ -895,21 +947,22 @@ namespace btree
             assert(full(lnode));
             auto rnode = desc(allocate_node< value_node >());
             auto lkeys = lnode.get_keys();
+            auto ldata = lnode.get_keys();
 
         #if defined(VALUE_NODE_APPEND)
             auto [right, rindex] = lnode.get_right(lindex);
             if (right || compare_lte(key, *(lkeys.end() - 1)))
             {
         #endif
-            auto rkeys = rnode.get_keys();
+            auto rdata = rnode.get_keys();
 
-            auto begin = lkeys.begin() + N;
-            rkeys.insert(allocator_, rkeys.end(), std::make_move_iterator(begin), std::make_move_iterator(lkeys.end()));
+            auto begin = ldata.begin() + N;
+            rdata.insert(allocator_, rdata.end(), std::make_move_iterator(begin), std::make_move_iterator(ldata.end()));
 
             // Keep splitkey.
-            lkeys.erase(allocator_, begin, lkeys.end());
-            assert(lkeys.size() == N);
-            assert(rkeys.size() == N);
+            ldata.erase(allocator_, begin, ldata.end());
+            assert(ldata.size() == N);
+            assert(rdata.size() == N);
 
         #if defined(VALUE_NODE_APPEND)
             }
@@ -1066,20 +1119,11 @@ namespace btree
                 return false;
             }
 
-            auto tkeys = target.get_keys();
-            if (tkeys.size() == N)
+            auto tdata = target.get_data();
+            if (tdata.size() == N)
             {
-                auto skeys = source.get_keys();
-                tkeys.insert(allocator_, tindex < sindex ? tkeys.end() : tkeys.begin(), std::make_move_iterator(skeys.begin()), std::make_move_iterator(skeys.end()));
-                
-                if constexpr (!std::is_same_v< Value, void >)
-                {
-                    // TODO: how to update both arrays? This is messy as we need to update values first.
-                    
-                    // auto svalues = source.get_values();
-                    // auto tvalues = target.get_values();
-                    // tvalues.insert(allocator_, tindex < sindex ? tvalues.end() : tvalues.begin(), std::make_move_iterator(svalues.begin()), std::make_move_iterator(svalues.end()));
-                }
+                auto sdata = source.get_data();
+                tdata.insert(allocator_, tindex < sindex ? tdata.end() : tdata.begin(), std::make_move_iterator(sdata.begin()), std::make_move_iterator(sdata.end()));
 
                 if (tindex < sindex)
                 {
@@ -1448,7 +1492,7 @@ namespace btree
         value_node() = default;
 
         uint8_t keys[2 * N * sizeof(Key)];
-        uint8_t values2[2 * N * sizeof(Value)];
+        uint8_t values[2 * N * sizeof(Value)];
         SizeType size;
         InternalNodeType* parent;
 
@@ -1464,32 +1508,22 @@ namespace btree
         using internal_node_type = InternalNodeType;
         using size_type = SizeType;
 
+        using values_type = fixed_split_vector<
+            fixed_vector< Key, keys_descriptor< value_node_type*, size_type, 2 * N > >,
+            fixed_vector< Value, values_descriptor< value_node_type*, size_type, 2 * N > >
+        >;
+
         node_descriptor(value_node_type* n)
             : node_(n)
         {}
 
-        template < typename Allocator > void cleanup(Allocator& allocator) 
-        { 
-            get_keys().clear(allocator); 
-            get_values2().clear(allocator);
-        }
+        template < typename Allocator > void cleanup(Allocator& allocator) { get_data().clear(allocator); }
 
         auto get_keys() { return fixed_vector< Key, keys_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
         auto get_keys() const { return fixed_vector< Key, keys_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
 
-        auto get_values2() { return fixed_vector< Value, values2_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
-        auto get_values2() const { return fixed_vector< Value, values2_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
-
-        // TODO: const method
-        const std::pair< const Key&, const Value& > get_value(size_type index) const { return { get_keys()[index], get_values()[index] }; }
-        std::pair< const Key&, Value& > get_value(size_type index) { return { get_keys()[index], get_values2()[index] }; }
-
-        template < typename Allocator > void set_value(Allocator& allocator, size_type index, const std::pair< Key, Value >& value)
-        {
-            // TODO: exceptions
-            get_keys().emplace(allocator, get_keys().begin() + index, value.first);
-            get_values2().emplace(allocator, get_values2().begin() + index, value.second);
-        }
+        auto get_data() { return values_type(get_keys(), get_values()); }
+        auto get_data() const { return values_type(get_keys(), get_values()); }
 
         node_descriptor< internal_node_type* > get_parent() { return node_->parent; }
         void set_parent(internal_node_type* p) { node_->parent = p; }
@@ -1499,6 +1533,9 @@ namespace btree
         value_node_type* node() { return node_; }
 
     private:
+        auto get_values() { return fixed_vector< Value, values_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
+        auto get_values() const { return fixed_vector< Value, values_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
+
         value_node_type* node_;
     };
 
@@ -1530,9 +1567,8 @@ namespace btree
         auto get_keys() { return fixed_vector< Key, keys_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
         auto get_keys() const { return fixed_vector< Key, keys_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
 
-        const Key& get_value(size_type index) const { return get_keys()[index]; }
-        Key& get_value(size_type index) { return get_keys()[index]; }
-        template < typename Allocator > void set_value(Allocator& allocator, size_type index, const Key& value) { get_keys().emplace(allocator, get_keys().begin() + index, value); }
+        auto get_data() { return get_keys(); }
+        auto get_data() const { return get_keys(); }
 
         node_descriptor< internal_node_type* > get_parent() { return node_->parent; }
         void set_parent(internal_node_type* p) { node_->parent = p; }

@@ -78,13 +78,13 @@ BOOST_AUTO_TEST_CASE(btree_fixed_split_vector)
     c.clear(a);
     c.begin();
     //c.erase(a, c.begin());
-    c.emplace_back(a, std::make_tuple("a", "b"));
+    c.emplace_back(a, std::make_tuple(std::string("a"), std::string("b")));
     auto x = c[0];
 
     c2.emplace_back(a, std::make_tuple("c", "d"));
 
-    c.insert(a, c.begin(), c2.begin(), c2.end());
-    auto y = c[0];
+    //c.insert(a, c.begin(), c2.begin(), c2.end());
+    //auto y = c[0];
 
     c.clear(a);
     c2.clear(a);
@@ -486,12 +486,17 @@ void print_results(const std::map< int, double >& results, const std::map< int, 
     std::cout << std::endl;
 }
 
+template < typename T > T tr(T value)
+{
+    return ~value;
+}
+
 template < typename T > std::vector< T > get_vector_data(size_t count)
 {
     std::vector< T > data(count);
     for (size_t i = 0; i < count; ++i)
     {
-        data[i] = value<T>(~i);
+        data[i] = value<T>(tr(i));
     }
 
     return data;
@@ -502,13 +507,13 @@ template < typename T > std::vector< std::pair< T, T > > get_vector_data_pair(si
     std::vector< std::pair< T, T > > data(count);
     for (size_t i = 0; i < count; ++i)
     {
-        data[i] = { value<T>(~i), value<T>(~i) };
+        data[i] = { value<T>(tr(i)), value<T>(tr(i)) };
     }
 
     return data;
 }
 
-typedef boost::mpl::list<uint32_t> btree_perf_insert_types;
+typedef boost::mpl::list < uint32_t > btree_perf_insert_types;
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_perf_insert, T, btree_perf_insert_types)
 {
     std::map< int, double > base; 
@@ -813,6 +818,49 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_perf_iteration, T, btree_perf_insert_typ
         {
             boost::container::flat_map< T, T > set(data.begin(), data.begin() + i);
             results[i] = measure([&] { iteration_test(set); });
+        }
+        print_results(results, base);
+    }
+}
+
+template < typename Container, typename TestData > void find_test(Container& c, const TestData& data, size_t count)
+{
+    for (size_t i = 0; i < count; ++i)
+    {
+        volatile bool x = c.find(data[i]) == c.end();
+    }
+}
+
+BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_set_find, T, btree_perf_insert_types)
+{
+    std::map< int, double > base;
+    auto data = get_vector_data< T >(Max);
+
+    for (size_t i = 1; i < Max; i *= 2)
+    {
+        std::set< T > set(data.begin(), data.begin() + i);
+        base[i] = measure([&] { find_test(set, data, i); });
+    }
+
+    {
+        std::cout << "btree::set " << get_type_name<T>() << " find " << std::endl;
+        std::map< int, double > results;
+        for (size_t i = 1; i < Max; i *= 2)
+        {
+            btree::set< T > set;
+            set.insert(data.begin(), data.begin() + i);
+            results[i] = measure([&] { find_test(set, data, i); });
+        }
+        print_results(results, base);
+    }
+
+    {
+        std::cout << "boost::flat_set " << get_type_name<T>() << " find " << std::endl;
+        std::map< int, double > results;
+        for (size_t i = 1; i < Max; i *= 2)
+        {
+            boost::container::flat_set< T > set(data.begin(), data.begin() + i);
+            results[i] = measure([&] { find_test(set, data, i); });
         }
         print_results(results, base);
     }

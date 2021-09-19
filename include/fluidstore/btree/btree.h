@@ -37,11 +37,11 @@ namespace btree
             emplace(alloc, end(), std::forward< Args >(args)...);
         }
 
-        template < typename Allocator > void erase(Allocator& alloc, const T* index)
+        template < typename Allocator > void erase(Allocator& alloc, iterator index)
         {
             assert(begin() <= index && index < end());
             
-            auto dest = std::move(const_cast<T*>(index) + 1, end(), const_cast<T*>(index));
+            auto dest = std::move(index + 1, end(), index);
             destroy(alloc, end()-1, end());
             
             desc_.set_size(size() - 1);
@@ -49,7 +49,7 @@ namespace btree
             checkvec();
         }
 
-        template < typename Allocator > void erase(Allocator& alloc , T* from, T* to)
+        template < typename Allocator > void erase(Allocator& alloc , iterator from, iterator to)
         {
             assert(begin() <= from && from <= to);
             assert(from <= to && to <= end());
@@ -83,7 +83,7 @@ namespace btree
         T* end() { return reinterpret_cast< T* >(desc_.data()) + desc_.size(); }
         const T* end() const { return reinterpret_cast< const T* >(desc_.data()) + desc_.size(); }
 
-        template < typename Allocator, typename... Args > void emplace(Allocator& alloc, T* it, Args&&... args)
+        template < typename Allocator, typename... Args > void emplace(Allocator& alloc, iterator it, Args&&... args)
         {
             assert(size() < capacity());
             assert(it >= begin());
@@ -91,15 +91,15 @@ namespace btree
 
             if (it < end())
             {
-                move_backward(alloc, const_cast<T*>(it), end(), end() + 1);
+                move_backward(alloc, it, end(), end() + 1);
              
                 //const_cast< T& >(*it) = T(std::forward< Ty >(value));
-                std::allocator_traits< Allocator >::destroy(alloc, const_cast<T*>(it));
-                std::allocator_traits< Allocator >::construct(alloc, const_cast<T*>(it), std::forward< Args >(args)...);
+                std::allocator_traits< Allocator >::destroy(alloc, it);
+                std::allocator_traits< Allocator >::construct(alloc, it, std::forward< Args >(args)...);
             }
             else
             {
-                std::allocator_traits< Allocator >::construct(alloc, const_cast<T*>(it), std::forward< Args >(args)...);
+                std::allocator_traits< Allocator >::construct(alloc, it, std::forward< Args >(args)...);
             }
 
             desc_.set_size(desc_.size() + 1);
@@ -107,14 +107,14 @@ namespace btree
             checkvec();
         }
         
-        template < typename Allocator, typename U > void insert(Allocator& alloc, T* it, U from, U to)
+        template < typename Allocator, typename U > void insert(Allocator& alloc, iterator it, U from, U to)
         {
             assert(begin() <= it && it <= end());
             assert((uintptr_t)(to - from + it - begin()) <= capacity());
             
             if (it < end())
             {
-                move_backward(alloc, const_cast<T*>(it), end(), end() + (to - from));
+                move_backward(alloc, it, end(), end() + (to - from));
             }
             
             copy(alloc, from, to, it);
@@ -136,7 +136,7 @@ namespace btree
         }
 
     private:
-        template < typename Allocator > void destroy(Allocator& alloc, T* first, T* last)
+        template < typename Allocator > void destroy(Allocator& alloc, iterator first, iterator last)
         {
             assert(last >= first);
             if constexpr (!std::is_trivially_destructible_v< T >)
@@ -148,7 +148,7 @@ namespace btree
             }
         }
         
-        template < typename Allocator > void move_backward(Allocator& alloc, T* first, T* last, T* dest)
+        template < typename Allocator > void move_backward(Allocator& alloc, iterator first, iterator last, iterator dest)
         {
             assert(last > first);
             assert(dest > last);
@@ -172,7 +172,7 @@ namespace btree
             }
         }
 
-        template < typename Allocator, typename U > void copy(Allocator& alloc, U first, U last, T* dest)
+        template < typename Allocator, typename U > void copy(Allocator& alloc, U first, U last, iterator dest)
         {
             assert(last > first);
 
@@ -227,7 +227,7 @@ namespace btree
             using value_type = value_type;
             using pointer = value_type*;
             using reference = value_type;
-            using iterator_category = std::bidirectional_iterator_tag;
+            using iterator_category = std::random_access_iterator_tag;
 
             iterator(container_type& container, base_iterator it)
                 : container_(container)
@@ -236,22 +236,19 @@ namespace btree
 
             reference operator *()
             {
-                return container_[static_cast< size_type >(*this - container_.begin())];
+                return container_[static_cast< size_type >(it_ - container_.base().begin())];
             }
 
             reference operator *() const
             {
-                return container_[static_cast< size_type >(*this - container_.begin())];
+                return container_[static_cast< size_type >(it_ - container_.base().begin())];
             }
 
             // TODO: how should those +/- methods be implemented?
-            difference_type operator - (iterator it) const
-            {
-                return it_ - it.it_;
-            }
+            difference_type operator - (iterator it) const { return it_ - it.it_; }
             
-            iterator operator + (size_t n) const { return { container_, it_ + n }; }
-            iterator operator - (size_t n) const { return { container_, it_ - n }; }
+            iterator operator + (size_type n) const { return { container_, it_ + n }; }
+            iterator operator - (size_type n) const { return { container_, it_ - n }; }
 
         private:
             container_type& container_;
@@ -336,29 +333,29 @@ namespace btree
         template < typename Allocator, typename Ty, size_t... Ids > void emplace_impl(Allocator& alloc, iterator index, Ty&& value, std::integer_sequence< size_t, Ids... >)
         {
             auto offset = index - begin();
-            (std::get< Ids >(*this).emplace(alloc, std::get< Ids >(*this).begin() + offset, std::get< Ids >(value)), ...);
+            (std::get< Ids >(*this).emplace(alloc, std::get< Ids >(*this).begin() + offset, std::get< Ids >(std::forward< Ty >(value))), ...);
         }
 
-        template < typename Allocator, typename U, size_t... Ids > void insert_impl(Allocator& alloc, iterator index, U from, U to, std::integer_sequence< size_t, Ids... >)
+        template < typename Allocator, typename U, size_t... Ids > void insert_impl(Allocator& alloc, iterator index, std::move_iterator<U> from, std::move_iterator<U> to, std::integer_sequence< size_t, Ids... >)
         {
             auto offset = index - begin();
             (std::get< Ids >(*this).insert(
                 alloc, std::get< Ids >(*this).begin() + offset,
                 // TODO: this quite crudely expects continuous storage
-                &std::get< Ids >(*from),
-                &std::get< Ids >(*to)
+                std::make_move_iterator(&std::get< Ids >(*from)),
+                std::make_move_iterator(&std::get< Ids >(*to))
             ), ...);
         }
 
-        template < size_t... Ids > value_type at_impl(size_type index, std::integer_sequence< size_t, Ids... >)
+        template < size_t... Ids > auto at_impl(size_type index, std::integer_sequence< size_t, Ids... >)
         {
             // TODO: this dereferences end().
-            return { *(std::get< Ids >(*this).begin() + index)... };
+            return value_type(*(std::get< Ids >(*this).begin() + index)...);
         }
 
-        template < size_t... Ids > value_type at_impl(size_type index, std::integer_sequence< size_t, Ids... >) const
+        template < size_t... Ids > auto at_impl(size_type index, std::integer_sequence< size_t, Ids... >) const
         {
-            return { *(std::get< Ids >(*this).begin() + index)... };
+            return value_type(*(std::get< Ids >(*this).begin() + index)...);
         }
     };
 
@@ -465,7 +462,7 @@ namespace btree
 
     template< typename SizeType, typename Key > struct node_dimension
     {
-        static const auto value = std::max(std::size_t(8), std::size_t(64 / sizeof(Key))) / 2;
+        static constexpr const auto value = std::max(std::size_t(8), std::size_t(64 / sizeof(Key))) / 2;
         static_assert((1ull << sizeof(SizeType) * 8) > 2 * value);
     };
 
@@ -475,20 +472,19 @@ namespace btree
         typedef std::pair< const Key&, Value& > reference;
 
         template < typename Pair > static const Key& get_key(Pair&& p) { return p.first; }
-        template < typename Pair > static const Value& get_value(Pair&& p) { return p.second; }
-
-        template < typename Tuple > static reference to_pair(Tuple&& p) { return { std::get< 0 >(p), std::get< 1 >(p) }; }
-        template < typename Pair > static std::tuple< Key, Value > to_tuple(Pair&& p) { return { p.first, p.second }; }
+        
+        template < typename Tuple > static auto to_pair(Tuple&& p) { return reference(std::get< 0 >(std::forward< Tuple >(p)), std::get< 1 >(std::forward< Tuple >(p))); }
+        static auto to_tuple(std::pair< Key, Value >&& p) { return std::tuple< Key, Value >(std::move(p.first), std::move(p.second)); }
+        static auto to_tuple(const std::pair< Key, Value >& p) { return std::tuple< Key, Value >(p.first, p.second); }
     };
 
     template < typename Key > struct value_type_traits< Key, void >
     {
         typedef Key value_type;
-        typedef Key& reference;
+        typedef const Key& reference;
 
         static const Key& get_key(const Key& p) { return p; }
-        static const Key& get_value(const Key& p) { return p; }
-
+        
         template < typename T > static auto&& to_pair(T&& p) { return p; }
         template < typename T > static auto&& to_tuple(T&& p) { return p; }
     };
@@ -565,7 +561,7 @@ namespace btree
                 {
                     kindex_ = 0;
                 #if defined(VALUE_NODE_LR)
-                    node_ = node_->right;
+                    node_ = node_.node()->right;
                 #else
                     std::tie(node_, nindex_) = get_right(node_, nindex_, true);
                 #endif
@@ -930,7 +926,7 @@ namespace btree
             auto ldata = lnode.get_data();
 
         #if defined(VALUE_NODE_APPEND)
-            auto [right, rindex] = lnode.get_right(lindex);
+            auto [right, rindex] = get_right(lnode, lindex);
             if (right || compare_lte(key, *(lkeys.end() - 1)))
             {
         #endif
@@ -949,10 +945,10 @@ namespace btree
         #endif
 
         #if defined(VALUE_NODE_LR)
-            auto znode = lnode->right;
-            lnode->right = rnode;
-            rnode->right = znode;
-            rnode->left = lnode;
+            auto znode = lnode.node()->right;
+            lnode.node()->right = rnode;
+            rnode.node()->right = znode;
+            rnode.node()->left = lnode;
             if (znode)
             {
                 znode->left = rnode;
@@ -1110,10 +1106,10 @@ namespace btree
                 if (tindex < sindex)
                 {
                 #if defined(VALUE_NODE_LR)
-                    target->right = source->right;
-                    if (source->right)
+                    target.node()->right = source.node()->right;
+                    if (source.node()->right)
                     {
-                        source->right->left = target;
+                        source.node()->right->left = target;
                     }
                 #endif
 
@@ -1125,10 +1121,10 @@ namespace btree
                 else
                 {
                 #if defined(VALUE_NODE_LR)
-                    target->left = source->left;
-                    if (source->left)
+                    target.node()->left = source.node()->left;
+                    if (source.node()->left)
                     {
-                        source->left->right = target;
+                        source.node()->left->right = target;
                     }
                 #endif
 
@@ -1439,8 +1435,8 @@ namespace btree
 
         uint8_t keys[(2 * N - 1) * sizeof(Key)];
         uint8_t children[2 * N * sizeof(node*)];
-        SizeType size;
         internal_node< Key, SizeType, N >* parent;
+        SizeType size;
     };
 
     template < typename Key, typename SizeType, SizeType N > struct node_descriptor< internal_node< Key, SizeType, N >* >
@@ -1475,13 +1471,13 @@ namespace btree
 
         uint8_t keys[2 * N * sizeof(Key)];
         uint8_t values[2 * N * sizeof(Value)];
-        SizeType size;
         InternalNodeType* parent;
 
     #if defined(VALUE_NODE_LR)
         value_node* left;
         value_node* right;
     #endif
+        SizeType size;
     };
 
     template < typename Key, typename Value, typename SizeType, SizeType N, typename InternalNodeType > struct node_descriptor< value_node< Key, Value, SizeType, N, InternalNodeType >* >
@@ -1526,12 +1522,12 @@ namespace btree
         value_node() = default;
 
         uint8_t keys[2 * N * sizeof(Key)];
-        SizeType size;
         InternalNodeType* parent;
     #if defined(VALUE_NODE_LR)
         value_node* left;
         value_node* right;
     #endif
+        SizeType size;
     };
 
     template < typename Key, typename SizeType, SizeType N, typename InternalNodeType > struct node_descriptor< value_node< Key, void, SizeType, N, InternalNodeType >* >

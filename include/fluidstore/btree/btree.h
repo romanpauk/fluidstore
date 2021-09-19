@@ -519,35 +519,6 @@ namespace btree
 
         static const auto dimension = N;
 
-        // Some ideas about the layout:
-        // 
-        // Memory and file-mapped cases are effectively the same, with the difference that file mapped needs to use offsets instead of pointers
-        // and that it cannot store anything into pointers.
-        // 
-        // On a way down because of searching, just key and child pointers (and values at the end) are accessed.
-        //      = align keys, child pointers and values on cache line
-        // On a way down because if insert/erase, it is possible that we will need to go back up to rebalance.
-        //      = the parent pointer is on another cache line and might not be loaded
-        // 
-        // File-mapped case:
-        //
-        // Memory case:
-        //      value_node
-        //          N keys
-        //         (N values)
-        //          parent, count
-        //          
-        //      internal_node
-        //          N-1 keys (actually N, but there will be 1 unused - and that should be used for count)
-        //          N pointers
-        //          parent
-        //
-        // - ideally, both keys and pointers will be cache-aligned
-        //      int8    64
-        //      int16   32
-        //      int32   16
-        //      int64   8
-
         template < bool Inc > struct depth_check
         {
             depth_check(size_type& gdepth, size_type& ldepth)
@@ -693,9 +664,11 @@ namespace btree
                 {
                     auto key = it.node_.get_keys()[it.kindex_];
                     auto [n, nindex] = rebalance_erase(depth_, it.node_, it.nindex_);
-                    auto nkeys = n.get_keys();
+                    
+                    assert(find_key_index(n.get_keys(), key) < n.get_keys().size());
+
                     auto ndata = n.get_data();
-                    ndata.erase(allocator_, ndata.begin() + (find_key_index(nkeys, key) - nkeys.begin()));
+                    ndata.erase(allocator_, ndata.begin() + find_key_index(n.get_keys(), key));
                     --size_;
                 }
             }
@@ -788,9 +761,9 @@ namespace btree
 
                 auto nkeys = in.get_keys();
                 auto kindex = find_key_index(nkeys, key);
-                if (kindex != nkeys.end())
+                if (kindex != nkeys.size())
                 {
-                    nindex = static_cast< node_size_type >(kindex - nkeys.begin() + !compare_lte(key, *kindex));
+                    nindex = static_cast< node_size_type >(kindex + !compare_lte(key, nkeys[kindex]));
                 }
                 else
                 {
@@ -809,10 +782,10 @@ namespace btree
             assert(vn);
 
             auto nkeys = vn.get_keys();
-            auto index = find_key_index(nkeys, key);
-            if (index < nkeys.end() && key == *index)
+            auto kindex = find_key_index(nkeys, key);
+            if (kindex < nkeys.size() && key == nkeys[kindex])
             {
-                return iterator(vn, vnindex, static_cast< node_size_type >(index - nkeys.begin()));
+                return iterator(vn, vnindex, kindex);
             }
             else
             {
@@ -827,22 +800,18 @@ namespace btree
             const auto& key = get_key(value);
 
             auto nkeys = n.get_keys(); 
-            auto index = find_key_index(nkeys, key);
-            if (index < nkeys.end() && *index == key)
+            auto kindex = find_key_index(nkeys, key);
+            if (kindex < nkeys.size() && key == nkeys[kindex])
             {
-                return { iterator(n, nindex, static_cast< node_size_type >(index - nkeys.begin())), false };
+                return { iterator(n, nindex, kindex), false };
             }
             else
             {
                 // TODO: move
-                n.get_data().emplace(allocator_, 
-                    n.get_data().begin() + static_cast<node_size_type>(index - nkeys.begin()), 
-                    value_type_traits< Key, Value >::to_tuple(value)
-                );
-
+                n.get_data().emplace(allocator_, n.get_data().begin() + kindex, value_type_traits< Key, Value >::to_tuple(value));
                 ++size_;
 
-                return { iterator(n, nindex, static_cast< node_size_type >(index - nkeys.begin())), true };
+                return { iterator(n, nindex, kindex), true };
             }
         }
 
@@ -858,7 +827,7 @@ namespace btree
                 }
             }
 
-            return index;
+            return static_cast< node_size_type >(index - keys.begin());
         }
 
         template < typename Node, typename Descriptor > static auto find_node_index(const fixed_vector< Node*, Descriptor >& nodes, const node* n)

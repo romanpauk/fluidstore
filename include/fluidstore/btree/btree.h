@@ -220,6 +220,7 @@ namespace btree
         using size_type = typename std::tuple_element_t< 0, std::tuple< Args... > >::size_type;
         using container_type = fixed_split_vector< Args... >;
 
+        // TODO: to avoid end dereference, this should be a tuple of iterators
         struct iterator
         {
             using difference_type = std::ptrdiff_t;
@@ -344,8 +345,8 @@ namespace btree
         {
             auto offset = index - begin();
             (std::get< Ids >(*this).insert(
-                alloc,
-                std::get< Ids >(*this).begin() + offset,
+                alloc, std::get< Ids >(*this).begin() + offset,
+                // TODO: this quite crudely expects continuous storage
                 &std::get< Ids >(*from),
                 &std::get< Ids >(*to)
             ), ...);
@@ -475,8 +476,8 @@ namespace btree
         typedef std::pair< Key, Value > value_type;
         typedef std::pair< const Key&, Value& > reference;
 
-        static const Key& get_key(const std::pair< Key, Value >& p) { return p.first; }
-        static const Value& get_value(const std::pair< Key, Value >& p) { return p.second; }
+        template < typename Pair > static const Key& get_key(Pair&& p) { return p.first; }
+        template < typename Pair > static const Value& get_value(Pair&& p) { return p.second; }
 
         template < typename Tuple > static reference to_pair(Tuple&& p) { return { std::get< 0 >(p), std::get< 1 >(p) }; }
         template < typename Pair > static std::tuple< Key, Value > to_tuple(Pair&& p) { return { p.first, p.second }; }
@@ -731,10 +732,12 @@ namespace btree
                 depth_ = 1;
             }
 
+            const auto& key = get_key(value);
+
         #if defined(VALUE_NODE_HINT)
-            auto [n, nindex] = find_value_node(root_, hint_node(hint), get_key(value));
+            auto [n, nindex] = find_value_node(root_, hint_node(hint), key);
         #else
-            auto [n, nindex] = find_value_node(root_, nullptr, get_key(value));
+            auto [n, nindex] = find_value_node(root_, nullptr, key);
         #endif
             if (!full(n))
             {
@@ -744,12 +747,12 @@ namespace btree
             {
                 if (n.get_parent())
                 {
-                    std::tie(n, nindex) = rebalance_insert(depth_, n, nindex, get_key(value));
+                    std::tie(n, nindex) = rebalance_insert(depth_, n, nindex, key);
                     return insert(n, nindex, std::forward< T >(value));
                 }
                 else
                 {
-                    std::tie(n, nindex) = rebalance_insert(depth_, n, get_key(value));
+                    std::tie(n, nindex) = rebalance_insert(depth_, n, key);
                     return insert(n, nindex, std::forward< T >(value));
                 }
             }
@@ -821,14 +824,17 @@ namespace btree
         {
             assert(!full(n));
 
+            const auto& key = get_key(value);
+
             auto nkeys = n.get_keys(); 
-            auto index = find_key_index(nkeys, get_key(value));
-            if (index < nkeys.end() && *index == get_key(value))
+            auto index = find_key_index(nkeys, key);
+            if (index < nkeys.end() && *index == key)
             {
                 return { iterator(n, nindex, static_cast< node_size_type >(index - nkeys.begin())), false };
             }
             else
             {
+                // TODO: move
                 n.get_data().emplace(allocator_, 
                     n.get_data().begin() + static_cast<node_size_type>(index - nkeys.begin()), 
                     value_type_traits< Key, Value >::to_tuple(value)
@@ -1039,30 +1045,31 @@ namespace btree
                 return false;
             }
 
-            auto skeys = source.get_keys();
-            auto tkeys = target.get_keys();
-            auto pkeys = target.get_parent().get_keys();
-
-            if (skeys.size() > N && tkeys.size() < 2*N)
+            auto sdata = source.get_data();
+            auto tdata = target.get_data();
+            
+            if (sdata.size() > N && tdata.size() < 2*N)
             {
+                auto pkeys = target.get_parent().get_keys();
+
                 if (tindex > sindex)
                 {
                     // Right-most key from the left node
-                    auto key = skeys.end() - 1;
-                    tkeys.emplace(allocator_, tkeys.begin(), std::move(*key));
-                    skeys.erase(allocator_, key);
+                    auto key = sdata.end() - 1;
+                    tdata.emplace(allocator_, tdata.begin(), std::move(*key));
+                    sdata.erase(allocator_, key);
 
                     assert(tindex > 0);
-                    pkeys[tindex - 1] = *(skeys.end() - 1);
+                    pkeys[tindex - 1] = *(source.get_keys().end() - 1);
                 }
                 else
                 {
                     // Left-most key from the right node
-                    auto key = skeys.begin();
-                    tkeys.emplace(allocator_, tkeys.end(), std::move(*key));
-                    skeys.erase(allocator_, key);
+                    auto key = sdata.begin();
+                    tdata.emplace(allocator_, tdata.end(), std::move(*key));
+                    sdata.erase(allocator_, key);
 
-                    pkeys[tindex] = *(tkeys.end() - 1);
+                    pkeys[tindex] = *(target.get_keys().end() - 1);
                 }
 
                 return true;
@@ -1080,12 +1087,13 @@ namespace btree
 
             auto skeys = source.get_keys(); 
             auto tkeys = target.get_keys();
-            auto pkeys = target.get_parent().get_keys();
-
+            
             assert(depth_ >= depth + 1);
 
             if (skeys.size() > N - 1 && tkeys.size() < 2*N - 1)
             {
+                auto pkeys = target.get_parent().get_keys();
+
                 auto schildren = source.get_children< node* >();
                 auto tchildren = target.get_children< node* >();
 
@@ -1178,10 +1186,11 @@ namespace btree
 
             auto skeys = source.get_keys();
             auto tkeys = target.get_keys();
-            auto pkeys = target.get_parent().get_keys();
-
+            
             if (tkeys.size() == N - 1)
             {
+                auto pkeys = target.get_parent().get_keys();
+
                 assert(depth_ >= depth + 1);
 
                 auto schildren = source.get_children< node* >();
@@ -1424,10 +1433,9 @@ namespace btree
 
         template < typename Node > static Node node_cast(node* n)
         {
+            assert(n);
         #if defined(_DEBUG)
-            auto ptr = dynamic_cast<Node>(n);
-            assert(ptr != nullptr);
-            assert(ptr == n);
+            assert(dynamic_cast<Node>(n) == n);
         #endif
             return reinterpret_cast< Node >(n);
         }
@@ -1442,9 +1450,9 @@ namespace btree
             return n.get_keys().size() == n.get_keys().capacity();
         }
 
-        const key_type& get_key(const value_type& p) 
+        template < typename T > auto&& get_key(T&& value) 
         { 
-            return value_type_traits< Key, Value >::get_key(p); 
+            return value_type_traits< Key, Value >::get_key(value); 
         }
 
         node* root_;

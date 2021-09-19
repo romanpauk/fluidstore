@@ -250,11 +250,9 @@ namespace btree
                 return it_ - it.it_;
             }
             
-            iterator operator + (size_t n) const
-            {
-                return { container_, it_ + n };
-            }
-            
+            iterator operator + (size_t n) const { return { container_, it_ + n }; }
+            iterator operator - (size_t n) const { return { container_, it_ - n }; }
+
         private:
             container_type& container_;
             base_iterator it_;

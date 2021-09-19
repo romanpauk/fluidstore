@@ -52,6 +52,26 @@ BOOST_AUTO_TEST_CASE(btree_fixed_vector)
     c.clear(a);
 }
 
+BOOST_AUTO_TEST_CASE(btree_fixed_split_vector)
+{
+    std::allocator< char > a;
+    
+    btree::fixed_vector < std::string, descriptor < std::string, 8 > > v1((descriptor < std::string, 8 >()));
+    btree::fixed_vector < std::string, descriptor < std::string, 8 > > v2((descriptor < std::string, 8 >()));
+
+    btree::fixed_split_vector < 
+        btree::fixed_vector < std::string, descriptor < std::string, 8 > >,
+        btree::fixed_vector < std::string, descriptor < std::string, 8 > >
+    > c(v1, v2);
+
+    c.size();
+    c.clear(a);
+    c.begin();
+    //c.erase(a, c.begin());
+    c.emplace_back(a, std::make_tuple("a", "b"));
+    auto x = c[0];
+}
+
 template < typename T > T value(size_t);
 
 template <> uint8_t value<uint8_t>(size_t i) { return static_cast<uint8_t>(i); }

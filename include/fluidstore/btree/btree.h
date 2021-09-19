@@ -15,6 +15,8 @@ namespace btree
     {
     public:
         using size_type = typename Descriptor::size_type;
+        using value_type = T;
+        using iterator = value_type*;
 
         fixed_vector(Descriptor desc) 
             : desc_(desc)
@@ -120,13 +122,13 @@ namespace btree
             checkvec();
         }
 
-        T& operator[](size_type index)
+        value_type& operator[](size_type index)
         {
             assert(index < size());
             return *(begin() + index);
         }
 
-        const T& operator[](size_type index) const 
+        const value_type& operator[](size_type index) const 
         {
             assert(index < size());
             return *(begin() + index);
@@ -206,6 +208,112 @@ namespace btree
     #if defined(_DEBUG)
         std::vector< T > vec_;
     #endif
+    };
+
+    template < typename... Args > struct fixed_split_vector
+        : std::tuple< Args... >
+    {
+    public:
+        using value_type = std::tuple< typename Args::value_type&... >;
+        using iterator = typename std::tuple_element_t< 0, std::tuple< Args... > >::iterator;
+        using size_type = typename std::tuple_element_t< 0, std::tuple< Args... > >::size_type;
+
+        fixed_split_vector(Args... args)
+            : std::tuple< Args... >(args...)
+        {}
+
+        template < typename Allocator, typename Ty > void emplace_back(Allocator& alloc, Ty&& value)
+        {
+            emplace(alloc, end(), std::forward< Ty >(value));
+        }
+
+        template < typename Allocator > void erase(Allocator& alloc, iterator index)
+        {
+            erase_impl(alloc, index, sequence());
+        }
+
+        template < typename Allocator > void erase(Allocator& alloc, iterator from, iterator to)
+        {
+            erase_impl(alloc, from, to, sequence());
+        }
+
+        size_type size() const { return base().size(); }
+        size_type capacity() const { return base().capacity(); }
+        bool empty() const { return base().size() == 0; }
+
+        iterator begin() { return base().begin(); }
+        iterator end() { return base().end(); }
+
+        template < typename Allocator > void clear(Allocator& alloc)
+        {
+            clear_impl(alloc, sequence());
+        }
+
+        template < typename Allocator, typename Ty > void emplace(Allocator& alloc, iterator it, Ty&& value)
+        {
+            emplace_impl(alloc, it, std::forward< Ty >(value), sequence());
+        }
+
+        template < typename Allocator, typename U > void insert(Allocator& alloc, iterator it, U from, U to)
+        {
+            insert_impl(alloc, it, from, to, sequence());
+        }
+
+        auto operator[](size_type index)
+        {
+            return at_impl(index, sequence());
+        }
+
+        const auto operator[](size_type index) const
+        {
+            return at_impl(index, sequence());
+        }
+
+    private:
+        static constexpr auto sequence() { return std::make_integer_sequence< size_t, sizeof...(Args) >(); }
+
+        auto& base() { return std::get< 0 >(*this); }
+        const auto& base() const { return std::get< 0 >(*this); }
+
+        template < typename Allocator, size_t... Ids > void clear_impl(Allocator& alloc, std::integer_sequence< size_t, Ids... >)
+        {
+            (std::get< Ids >(*this).clear(alloc), ...);
+        }
+
+        template < typename Allocator, size_t... Ids > void erase_impl(Allocator& alloc, iterator index, std::integer_sequence< size_t, Ids... >)
+        {
+            auto offset = index - begin();
+            (std::get< Ids >(*this).erase(alloc, std::get< Ids >(*this).begin() + offset), ...);
+        }
+
+        template < typename Allocator, size_t... Ids > void erase_impl(Allocator& alloc, iterator from, iterator to, std::integer_sequence< size_t, Ids... >)
+        {
+            auto first = from - begin();
+            auto last = to - begin();
+            (std::get< Ids >(*this).erase(alloc, std::get< Ids >(*this).begin() + first, std::get< Ids >(*this).begin() + last), ...);
+        }
+        
+        template < typename Allocator, typename Ty, size_t... Ids > void emplace_impl(Allocator& alloc, iterator index, Ty&& value, std::integer_sequence< size_t, Ids... >)
+        {
+            auto offset = index - begin();
+            (std::get< Ids >(*this).emplace(alloc, std::get< Ids >(*this).begin() + offset, std::get< Ids >(value)), ...);
+        }
+
+        template < typename Allocator, typename U, size_t... Ids > void insert_impl(Allocator& alloc, iterator it, U from, U to, std::integer_sequence< size_t, Ids... >)
+        {
+            auto offset = index - begin();
+            (std::get< Ids >(*this).insert(alloc, std::get< Ids >(*this).begin() + offset, std::get< Ids >(from), std::get< Ids >(to)), ...);
+        }
+
+        template < size_t... Ids > auto at_impl(size_type index, std::integer_sequence< size_t, Ids... >)
+        {
+            return std::make_tuple(std::get< Ids >(*this).operator [](index)...);
+        }
+
+        template < size_t... Ids > auto at_impl(size_type index, std::integer_sequence< size_t, Ids... >) const
+        {
+            return std::make_tuple(std::get< Ids >(*this).operator [](index)...);
+        }
     };
 
     // This class will not have any data, it is there just to have common pointer to both node types.
@@ -485,7 +593,6 @@ namespace btree
         {
             return root_ ? find(root_, key) : end();
         }
-
         
         std::pair< iterator, bool > insert(const value_type& value)
         {

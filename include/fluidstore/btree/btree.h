@@ -83,6 +83,12 @@ namespace btree
         T* end() { return reinterpret_cast< T* >(desc_.data()) + desc_.size(); }
         const T* end() const { return reinterpret_cast< const T* >(desc_.data()) + desc_.size(); }
 
+        T& front() { return *begin(); }
+        const T& front() const { return *begin(); }
+
+        T& back() { return *(end() - 1); }
+        const T& back() const { return *(end() - 1); }
+
         template < typename Allocator, typename... Args > void emplace(Allocator& alloc, iterator it, Args&&... args)
         {
             assert(size() < capacity());
@@ -927,7 +933,7 @@ namespace btree
 
         #if defined(VALUE_NODE_APPEND)
             auto [right, rindex] = get_right(lnode, lindex);
-            if (right || compare_lte(key, *(lkeys.end() - 1)))
+            if (right || compare_lte(key, lkeys.back()))
             {
         #endif
             auto rdata = rnode.get_data();
@@ -955,7 +961,7 @@ namespace btree
             }
         #endif
 
-            return { rnode, *(lkeys.end() - 1) };
+            return { rnode, lkeys.back() };
         }
 
         void free_node(node* n, size_type depth)
@@ -1023,7 +1029,7 @@ namespace btree
                     sdata.erase(allocator_, key);
 
                     assert(tindex > 0);
-                    pkeys[tindex - 1] = *(source.get_keys().end() - 1);
+                    pkeys[tindex - 1] = source.get_keys().back();
                 }
                 else
                 {
@@ -1032,7 +1038,7 @@ namespace btree
                     tdata.emplace(allocator_, tdata.end(), std::move(*key));
                     sdata.erase(allocator_, key);
 
-                    pkeys[tindex] = *(target.get_keys().end() - 1);
+                    pkeys[tindex] = target.get_keys().back();
                 }
 
                 return true;
@@ -1067,7 +1073,7 @@ namespace btree
 
                     tkeys.emplace(allocator_, tkeys.begin(), std::move(pkeys[sindex]));    
 
-                    pkeys[sindex] = std::move(*(skeys.end() - 1));
+                    pkeys[sindex] = std::move(skeys.back());
                     skeys.erase(allocator_, skeys.end() - 1);
                 }
                 else

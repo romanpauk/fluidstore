@@ -1231,6 +1231,7 @@ namespace btree
                 assert(!full(n.get_parent()));
             }
                     
+            // TODO: check that the key is still value reference
             auto [p, splitkey] = split_node(depth, n, nindex, key);
                     
             auto pchildren = n.get_parent().get_children< node* >();

@@ -68,7 +68,7 @@ namespace btree
         }
 
         size_type size() const { return desc_.size(); }
-        size_type capacity() const { return desc_.capacity(); }
+        constexpr size_type capacity() const { return desc_.capacity(); }
         bool empty() const { return desc_.size() == 0; }
 
         template < typename Allocator > void clear(Allocator& alloc)
@@ -703,6 +703,8 @@ namespace btree
                 auto root = allocate_node< value_node >();
                 root_ = first_node_ = last_node_ = root;
                 depth_ = 1;
+
+                return insert(root, 0, std::forward< T >(value));
             }
 
             const auto& key = get_key(value);

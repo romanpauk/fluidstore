@@ -28,7 +28,7 @@ template < typename T, size_t N > struct descriptor
     {}
 
     size_type size() const { return size_; }
-    size_type capacity() const { return N; }
+    constexpr size_type capacity() const { return N; }
 
     void set_size(size_type size)
     {
@@ -43,6 +43,25 @@ private:
     uint8_t data_[sizeof(T) * N];
     size_type size_;
 };
+
+template < typename T, typename Descriptor > auto find_node_index(const btree::fixed_vector< T, Descriptor >& nodes, T n)
+{
+    for (decltype(nodes.capacity()) i = 0; i < nodes.capacity(); ++i)
+    {
+        if (*(nodes.begin() + i) == n)
+        {
+            return i;
+        }
+    }
+
+    return nodes.size();
+}
+
+BOOST_AUTO_TEST_CASE(btree_fixed_vector_find)
+{
+    btree::fixed_vector < int, descriptor < int, 7 > > c((descriptor < int, 7 >()));
+    volatile auto p = find_node_index(c, 1);
+}
 
 BOOST_AUTO_TEST_CASE(btree_fixed_vector)
 {

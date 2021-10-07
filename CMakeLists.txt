@@ -54,4 +54,12 @@ if(Boost_FOUND)
     add_test(fluidstoretest COMMAND fluidstoretest)
     target_link_libraries(fluidstoretest fluidstore Boost::boost)
     target_precompile_headers(fluidstoretest PRIVATE src/tests/pch.h)
+
+    add_executable(fluidstoreperf 
+        src/tests/perf.cpp
+        src/tests/testmodule.cpp
+    )
+    add_test(fluidstoreperf COMMAND fluidstoreperf)
+    target_link_libraries(fluidstoreperf fluidstore Boost::boost)
+    target_precompile_headers(fluidstoreperf PRIVATE src/tests/pch.h)
 endif()

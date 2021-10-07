@@ -387,7 +387,7 @@ namespace btree
         {}
 
         size_type size() const { return node_->size; }
-        size_type capacity() const { return Capacity; }
+        constexpr size_type capacity() const { return Capacity; }
 
         void set_size(size_type size)
         {
@@ -427,7 +427,7 @@ namespace btree
             size_ = size;
         }
 
-        size_type capacity() const { return Capacity; }
+        constexpr size_type capacity() const { return Capacity; }
 
         void* data() { return reinterpret_cast<void*>(node_->children); }
         const void* data() const { return reinterpret_cast<void*>(node_->children); }
@@ -456,7 +456,7 @@ namespace btree
             size_ = size;
         }
 
-        size_type capacity() const { return Capacity; }
+        constexpr size_type capacity() const { return Capacity; }
 
         void* data() { return reinterpret_cast<void*>(node_->values); }
         const void* data() const { return reinterpret_cast<const void*>(node_->values); }

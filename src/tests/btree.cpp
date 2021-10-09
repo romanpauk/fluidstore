@@ -14,7 +14,7 @@
 //_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF | _CRTDBG_CHECK_ALWAYS_DF);
 //_CrtSetBreakAlloc(6668782);
 
-static int Iters = 100;
+static int Iters = 500;
 static int Max = 32768;
 static const int ArenaSize = 65536 * 2;
 static const int N = 1000;

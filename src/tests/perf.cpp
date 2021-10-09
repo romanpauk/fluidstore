@@ -11,7 +11,7 @@ BOOST_AUTO_TEST_CASE(perf_test)
         crdt::arena_allocator< void > arenaallocator(arena);
         btree::set< int, std::less< int >, decltype(arenaallocator) > c(arenaallocator);
 
-        for (size_t j = 0; j < 100; ++j)
+        for (size_t j = 0; j < 1; ++j)
         {
             c.insert(~j);
         }

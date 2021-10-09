@@ -614,7 +614,7 @@ namespace btree
             }
         }
 
-        iterator find(const key_type& key)
+        iterator find(const key_type& key) const
         {
             return root_ ? find(root_, key) : end();
         }
@@ -682,11 +682,11 @@ namespace btree
         size_type size() const { return size_; }
         bool empty() const { return size_ == 0; }
 
-        iterator begin() { return iterator(first_node_, 0, 0); }
-        iterator end() { return iterator(nullptr, 0, 0); }
+        iterator begin() const { return iterator(first_node_, 0, 0); }
+        iterator end() const { return iterator(nullptr, 0, 0); }
 
     private:
-        value_node* hint_node(iterator* it)
+        value_node* hint_node(iterator* it) const
         {
             if (it)
             {
@@ -733,7 +733,7 @@ namespace btree
             }
         }
 
-        std::tuple< node_descriptor< value_node* >, node_size_type > find_value_node(node* n, value_node* hint, const key_type& key)
+        std::tuple< node_descriptor< value_node* >, node_size_type > find_value_node(node* n, value_node* hint, const key_type& key) const
         {
         #if defined(VALUE_NODE_HINT)
             if (hint)
@@ -778,7 +778,7 @@ namespace btree
             return { node_cast<value_node*>(n), nindex };
         }
 
-        iterator find(node* n, const key_type& key)
+        iterator find(node* n, const key_type& key) const
         {
             auto [vn, vnindex] = find_value_node(n, nullptr, key);
             assert(vn);
@@ -817,7 +817,7 @@ namespace btree
             }
         }
 
-        template < typename Descriptor > auto find_key_index(const fixed_vector< Key, Descriptor >& keys, const key_type& key)
+        template < typename Descriptor > auto find_key_index(const fixed_vector< Key, Descriptor >& keys, const key_type& key) const
         {
             // TODO: better search
             auto index = keys.begin();
@@ -892,7 +892,7 @@ namespace btree
             std::allocator_traits< decltype(allocator) >::deallocate(allocator, n.node(), 1);
         }
 
-        const Key& split_key(/*const*/ node_descriptor< internal_node* > n)
+        static const Key& split_key(/*const*/ node_descriptor< internal_node* > n)
         {
             assert(full(n));
             return *(n.get_keys().begin() + N);
@@ -1412,17 +1412,17 @@ namespace btree
             return reinterpret_cast< Node >(n);
         }
 
-        bool compare_lte(const key_type& lhs, const key_type& rhs)
+        bool compare_lte(const key_type& lhs, const key_type& rhs) const
         {
             return compare_(lhs, rhs) || !compare_(rhs, lhs);
         }
 
-        template < typename Node > bool full(node_descriptor< Node > n)
+        template < typename Node > bool full(const node_descriptor< Node > n) const
         {
             return n.get_keys().size() == n.get_keys().capacity();
         }
 
-        template < typename T > auto&& get_key(T&& value) 
+        template < typename T > static auto&& get_key(T&& value) 
         { 
             return value_type_traits< Key, Value >::get_key(value); 
         }

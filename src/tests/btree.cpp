@@ -14,10 +14,10 @@
 //_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF | _CRTDBG_CHECK_ALWAYS_DF);
 //_CrtSetBreakAlloc(6668782);
 
-static int Iters = 500;
+static int Iters = 200;
 static int Max = 32768;
 static const int ArenaSize = 65536 * 2;
-static const int N = 1000;
+static const int N = 10;
 
 template < typename T, size_t N > struct descriptor
 {
@@ -307,12 +307,6 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_insert_loop, T, test_types)
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_erase_loop, T, test_types)
 {
-//#if defined(_DEBUG)
-    const int N = 100;
-//#else
-//    const int N = 1000;
-//#endif
-
     if ((1ull << sizeof(T)) < N)
     {
         return;
@@ -363,12 +357,6 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_erase_loop, T, test_types)
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_erase_loop, T, test_types)
 {
-    //#if defined(_DEBUG)
-    const int N = 100;
-    //#else
-    //    const int N = 1000;
-    //#endif
-
     if ((1ull << sizeof(T)) < N)
     {
         return;
@@ -765,9 +753,9 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_perf_insert_arena, T, btree_perf_insert_
 template < typename Container > void iteration_test(Container& c)
 {
     volatile size_t x = 0;
-    for (auto& v : c)
+    for (auto&& v : c)
     {
-        volatile auto p = &v;
+        //volatile auto p = &v;
         ++x;
     }
 }

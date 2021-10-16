@@ -549,27 +549,28 @@ namespace btree
 
             iterator(value_node* n, node_size_type nindex, node_size_type kindex)
                 : node_(n)
-                , nindex_(nindex)
                 , kindex_(kindex)
+                , nindex_(nindex)
             {}
 
             bool operator == (const iterator& rhs) const { return node_ == rhs.node_ && kindex_ == rhs.kindex_; }
             bool operator != (const iterator& rhs) const { return !(*this == rhs); }
 
-            const reference operator*() const { return value_type_traits< Key, Value >::to_pair(node_.get_data()[kindex_]); }
-                  reference operator*()       { return value_type_traits< Key, Value >::to_pair(node_.get_data()[kindex_]); }
+            const reference operator*() const { return value_type_traits< Key, Value >::to_pair(node_descriptor< value_node* >(node_).get_data()[kindex_]); }
+                  reference operator*()       { return value_type_traits< Key, Value >::to_pair(node_descriptor< value_node* >(node_).get_data()[kindex_]); }
 
             //const value_type* operator->() const { return &node_.get_value(kindex_); }
 
             iterator& operator ++ ()
             {
-                if (++kindex_ == node_.get_keys().size())
+                auto node = node_descriptor< value_node* >(node_);
+                if (++kindex_ == node.get_keys().size())
                 {
                     kindex_ = 0;
                 #if defined(VALUE_NODE_LR)
-                    node_ = node_.node()->right;
+                    node_ = node_->right;
                 #else
-                    std::tie(node_, nindex_) = get_right(node_, nindex_, true);
+                    std::tie(node_, nindex_) = get_right(node, nindex_, true);
                 #endif
                 }
 
@@ -584,9 +585,9 @@ namespace btree
             }
 
         private:
-            node_descriptor< value_node* > node_;
-            node_size_type nindex_;
+            value_node* node_;
             node_size_type kindex_;
+            node_size_type nindex_;            
         };
 
         container(Allocator& allocator = Allocator())
@@ -650,10 +651,11 @@ namespace btree
         void erase(iterator it)
         {
             assert(it != end());
+            
+            auto node = desc(it.node_);
+            auto ndata = node.get_data();
 
-            auto ndata = it.node_.get_data();
-
-            if (it.node_.get_parent())
+            if (node.get_parent())
             {
                 if (ndata.size() > ndata.capacity() / 2)
                 {
@@ -662,8 +664,8 @@ namespace btree
                 }
                 else
                 {
-                    auto key = it.node_.get_keys()[it.kindex_];
-                    auto [n, nindex] = rebalance_erase(depth_, it.node_, it.nindex_);
+                    auto key = node.get_keys()[it.kindex_];
+                    auto [n, nindex] = rebalance_erase(depth_, node, it.nindex_);
                     
                     assert(find_key_index(n.get_keys(), key) < n.get_keys().size());
 

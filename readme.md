@@ -4,7 +4,7 @@ Conflict-free replicated data types are data structures that can be replicated o
 
 # Contents of the Repository
 
-Code in this repository implements stl-like set, map and multi-value register. The stl interface was chosen as a standard, yet the code definitely does not met all stl requirements for the containers. Merging algorithm is based on the article ("An Optimized Conflict-free Replicated Set")[https://pages.lip6.fr/Marek.Zawirski/papers/RR-8083.pdf] which is a breath-taking read.
+Code in this repository implements stl-like set, map and multi-value register as a header only library. The stl interface was chosen as a standard, yet the code definitely does not met all stl requirements for the containers. Merging algorithm is based on the article ["An Optimized Conflict-free Replicated Set"](https://pages.lip6.fr/Marek.Zawirski/papers/RR-8083.pdf) which is a breath-taking read.
 
 This algorithm was chosen for its elegance and optimization that means that the structure behaves naturally how one would expect - it keeps just minimal amount of metadata required and can shrink the space needed. The algorighm also looked super simple to implement.
 
@@ -20,26 +20,26 @@ Lets say we want to add an element E to the set S: we create an empty set D (del
 
 The code is using templates to keep core algorithm in one place yet detaches it from the actual storage - set S and set D can be implemented differently, each having different lifetime. D used in the above example can be fully stack-based without any heap usage, while S can be on the heap as it lives longer (this is currently used for all merging operations so they are cheaper). The general idea is that we will receive data from network, deserialize it into temporary D that lives on stack and merge it with S that lives in database. Or with cached S' that lives in RAM, that will be merged with database S later. All this through the same code, just by parametrizing the algorithm.
 
-Lets look at how crdt::set looks like with respect to inheritance / various map/sets usage:
+Lets look at how crdt::set looks like with respect to inheritance and map/sets usage:
 
-- (crdt::set)[include/fluidstore/crdts/set.h] - based on two different crdt::set_base classes, one for delta temporary for mutating operations and other for the data structure itself
-- (crtd::dot_kernel)[include/fluidstore/crdts/dot_kernel.h], the core of the containers, shared between map and set implementation
-    - map with keys/values and additional data
-        - (crdt::dot_context)[include/fluidstore/crdts/dot_context.h] is tracking dot data for each replica, for each value, for associative container version
-            - using map of (crdt::dot_counters_base)[include/fluidstore/crdts/dot_counters_base.h]
-    - map with per-replica data
-        - (crdt::dot_counters_base)[include/fluidstore/crdts/dot_counters_base.h]
-            - using set
-        - temporary sets for merge operations
+- [crdt::set](include/fluidstore/crdts/set.h) - based on two different crdt::set_base classes, one for delta temporary for mutating operations and other for the data structure itself
+    - [crtd::dot_kernel](include/fluidstore/crdts/dot_kernel.h), the core of the containers, shared between map and set implementation
+        - map with keys/values and additional data
+            - [crdt::dot_context](include/fluidstore/crdts/dot_context.h) is tracking dot data for each replica, for each value, for associative container version
+                - using map of [crdt::dot_counters_base](include/fluidstore/crdts/dot_counters_base.h)
+        - map with per-replica data
+            - [crdt::dot_counters_base](include/fluidstore/crdts/dot_counters_base.h)
+                - using set
+            - temporary sets for merge operations
 
-Sets and maps here correspond to 'normal', stl-like sets and maps, yet implemented in a flat memory buffer due to memory/performance issues. b+-tree implementation is comming to deal with performance issues with larger sets and to give the possibility to offload the data to persistent storage effectively (as we will be able to work with just portion of structure that is changing). There is not yet merged b+tree implementation here: (btree.h)[https://github.com/romanpauk/fluidstore/blob/feature/btree2/include/fluidstore/btree/btree.h]. The b+tree code avoids using virtual functions for internal/value nodes so those can be mapped from file.
+Sets and maps here correspond to 'normal', stl-like sets and maps, yet implemented in a flat memory buffer due to memory/performance issues. b+-tree implementation is comming to deal with performance issues with larger sets and to give the possibility to offload the data to persistent storage effectively (as we will be able to work with just portion of structure that is changing). There is not yet merged b+tree implementation here: [btree.h](https://github.com/romanpauk/fluidstore/blob/feature/btree2/include/fluidstore/btree/btree.h). The b+tree code avoids using virtual functions for internal/value nodes so those can be mapped from file.
 
 To add to the fun, the merge algorithm very slightly differs for delta/non-delta variants (D and S) in a most inner class, crdt::dot_counters_base. The whole thing is very nicely recursive - different parts of the code reuse itself differently with slight modifications on different places, for rather different cases, yet with the same code dealing with sorted set of integers in sort of similar way, yet different. In the beginning, my idea was to create something normal, not sure where it all went haywire.
 
-Different CRDT types implemented:
-    - (crdt::map)[include/fluidstore/crdts/map.h]
-    - (crdt::set)[include/fluidstore/crdts/set.h]
-    - (crdt::value_mv)[include/fluidstore/crdts/value_mv.h] - multivalue register, usually holding one value, but sometimes holding two values (in case of conflicting merge - here the conflict resolution means that we will not lose data, but propagate it to application layer). Based on crdt::set_base.
+Different CRDT types implemented:    
+    - [crdt::set](include/fluidstore/crdts/set.h)
+    - [crdt::map](include/fluidstore/crdts/map.h)
+    - [crdt::value_mv](include/fluidstore/crdts/value_mv.h) - multivalue register, usually holding one value, but sometimes holding two values (in case of conflicting merge - here the conflict resolution means that we will not lose data, but propagate it to application layer). Based on crdt::set_base.
 
 I've skipped counters as they are easy to implement.
 
@@ -49,11 +49,11 @@ The performance of current implementation of crdt::map/crdt::set is comparable t
 
 # Tests
 
-Sure, [here](tests) they go.
+Sure, [here](src/tests) they go.
 
 # The End
 
-Thank you, you interested reader. It had to be very painful to get here.
+Thank you, interested reader. It had to be very painful to get here.
 
 As the structures are recursive and the combination of CRDT structures is again a CRDT structure, graphs emerge naturally, or one can imagine json documents, all having the deterministic merging ability on all their fields, perhaps defined by user-selected merge strategy (observed remove, last write wins, etc).
 

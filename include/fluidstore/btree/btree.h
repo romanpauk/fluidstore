@@ -217,11 +217,15 @@ namespace btree
     #endif
     };
 
+    // TODO: exception safety
     template < typename... Args > struct fixed_split_vector
         : std::tuple< Args... >
     {
     public:
-        using value_type = std::tuple< typename Args::value_type&... >;
+        // TODO: extend to more than 2 fields
+        // using value_type = std::tuple< typename Args::value_type&... >;
+
+        using value_type = std::pair< typename Args::value_type&... >;
         using base_iterator = typename std::tuple_element_t< 0, std::tuple< Args... > >::iterator;
         using size_type = typename std::tuple_element_t< 0, std::tuple< Args... > >::size_type;
         using container_type = fixed_split_vector< Args... >;
@@ -242,17 +246,17 @@ namespace btree
 
             reference operator *()
             {
-                return container_[static_cast< size_type >(it_ - container_.base().begin())];
+                return container_[static_cast<size_type>(it_ - container_.base().begin())];
             }
 
             reference operator *() const
             {
-                return container_[static_cast< size_type >(it_ - container_.base().begin())];
+                return container_[static_cast<size_type>(it_ - container_.base().begin())];
             }
 
             // TODO: how should those +/- methods be implemented?
             difference_type operator - (iterator it) const { return it_ - it.it_; }
-            
+
             iterator operator + (size_type n) const { return { container_, it_ + n }; }
             iterator operator - (size_type n) const { return { container_, it_ - n }; }
 
@@ -335,7 +339,7 @@ namespace btree
             auto last = to - begin();
             (std::get< Ids >(*this).erase(alloc, std::get< Ids >(*this).begin() + first, std::get< Ids >(*this).begin() + last), ...);
         }
-        
+
         template < typename Allocator, typename Ty, size_t... Ids > void emplace_impl(Allocator& alloc, iterator index, Ty&& value, std::integer_sequence< size_t, Ids... >)
         {
             auto offset = index - begin();
@@ -479,9 +483,11 @@ namespace btree
 
         template < typename Pair > static const Key& get_key(Pair&& p) { return p.first; }
         
-        template < typename Tuple > static auto to_pair(Tuple&& p) { return reference(std::get< 0 >(std::forward< Tuple >(p)), std::get< 1 >(std::forward< Tuple >(p))); }
-        static auto to_tuple(std::pair< Key, Value >&& p) { return std::tuple< Key, Value >(std::move(p.first), std::move(p.second)); }
-        static auto to_tuple(const std::pair< Key, Value >& p) { return std::tuple< Key, Value >(p.first, p.second); }
+        //template < typename Tuple > static auto to_pair(Tuple&& p) { return reference(std::get< 0 >(std::forward< Tuple >(p)), std::get< 1 >(std::forward< Tuple >(p))); }
+        //static auto to_tuple(std::pair< Key, Value >&& p) { return std::tuple< Key, Value >(std::move(p.first), std::move(p.second)); }
+        //static auto to_tuple(const std::pair< Key, Value >& p) { return std::tuple< Key, Value >(p.first, p.second); }
+
+        template < typename Pair > static auto convert(Pair&& p) { return p; }
     };
 
     template < typename Key > struct value_type_traits< Key, void >
@@ -491,8 +497,8 @@ namespace btree
 
         static const Key& get_key(const Key& p) { return p; }
         
-        template < typename T > static auto&& to_pair(T&& p) { return p; }
-        template < typename T > static auto&& to_tuple(T&& p) { return p; }
+        template < typename T > static auto&& convert(T&& p) { return p; }
+        //template < typename T > static auto&& to_tuple(T&& p) { return p; }
     };
 
     template < 
@@ -516,6 +522,7 @@ namespace btree
         using container_type = container< Key, Value, Compare, Allocator, NodeSizeType, N, InternalNode, ValueNode >;
         using internal_node = InternalNode;
         using value_node = ValueNode;
+        using value_type_traits_type = value_type_traits< Key, Value >;
 
         static const auto dimension = N;
 
@@ -556,9 +563,10 @@ namespace btree
             bool operator == (const iterator& rhs) const { return node_ == rhs.node_ && kindex_ == rhs.kindex_; }
             bool operator != (const iterator& rhs) const { return !(*this == rhs); }
 
-            const reference operator*() const { return value_type_traits< Key, Value >::to_pair(node_descriptor< value_node* >(node_).get_data()[kindex_]); }
-                  reference operator*()       { return value_type_traits< Key, Value >::to_pair(node_descriptor< value_node* >(node_).get_data()[kindex_]); }
+            const reference operator*() const { return node_descriptor< value_node* >(node_).get_data()[kindex_]; }
+                  reference operator*()       { return node_descriptor< value_node* >(node_).get_data()[kindex_]; }
 
+            // TODO: this would need thread local static as we don't have anything to point to.
             //const value_type* operator->() const { return &node_.get_value(kindex_); }
 
             iterator& operator ++ ()
@@ -709,7 +717,7 @@ namespace btree
                 return insert(root, 0, std::forward< T >(value));
             }
 
-            const auto& key = get_key(value);
+            const auto& key = value_type_traits_type::get_key(value);
 
         #if defined(VALUE_NODE_HINT)
             auto [n, nindex] = find_value_node(root_, hint_node(hint), key);
@@ -801,7 +809,7 @@ namespace btree
         {
             assert(!full(n));
 
-            const auto& key = get_key(value);
+            const auto& key = value_type_traits_type::get_key(value);
 
             auto nkeys = n.get_keys(); 
             auto kindex = find_key_index(nkeys, key);
@@ -812,7 +820,7 @@ namespace btree
             else
             {
                 // TODO: move
-                n.get_data().emplace(allocator_, n.get_data().begin() + kindex, value_type_traits< Key, Value >::to_tuple(value));
+                n.get_data().emplace(allocator_, n.get_data().begin() + kindex, value_type_traits_type::convert(value));
                 ++size_;
 
                 return { iterator(n, nindex, kindex), true };
@@ -1422,11 +1430,6 @@ namespace btree
         template < typename Node > bool full(const node_descriptor< Node > n) const
         {
             return n.get_keys().size() == n.get_keys().capacity();
-        }
-
-        template < typename T > static auto&& get_key(T&& value) 
-        { 
-            return value_type_traits< Key, Value >::get_key(value); 
         }
 
         node* root_;

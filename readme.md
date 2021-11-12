@@ -4,11 +4,11 @@ Conflict-free replicated data types are data structures that can be replicated o
 
 # Contents of the Repository
 
-Code in this repository implements stl-like set, map and multi-value register as a header only library. The stl interface was chosen as a standard, yet the code definitely does not met all stl requirements for the containers. Merging algorithm is based on the article ["An Optimized Conflict-free Replicated Set"](https://pages.lip6.fr/Marek.Zawirski/papers/RR-8083.pdf) - a breath-taking read.
+Code in this repository implements stl-like set, map and multi-value register as a header only library. The stl interface was chosen as a standard, yet the code definitely does not met all stl requirements for the containers. Merging algorithm is based on the article ["An Optimized Conflict-free Replicated Set"](https://pages.lip6.fr/Marek.Zawirski/papers/RR-8083.pdf).
 
-This algorithm was chosen for its elegance and optimization that means that the structure behaves naturally how one would expect - it keeps just minimal amount of metadata and can shrink during erase operations. The algorighm also looked super simple to implement.
+This algorithm was chosen for its elegance and optimization that means that the structure behaves naturally how one would expect - it keeps just minimal amount of metadata and can shrink during erase operations. The algorithm also looked super simple to implement.
 
-In a nutshell, CRDT type needs to hold additional metadata related to operations that mutate the data structure so it can resolve the conflicts properly. The algorithm is able to drop metadata that was observed by other replicas and is no longer required to resolve the conflicts or the metadata thats effects were superseeded by other operations.
+In a nutshell, CRDT type needs to hold additional metadata related to operations that mutate the data structure so it can resolve the conflicts later when state between replicas is synchronzied. The algorithm is able to drop metadata that was observed by other replicas and is no longer required to resolve the conflicts or the metadata thats effects are no longer observable because of other operations.
 
 # The way CRDTs operate
 

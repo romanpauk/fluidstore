@@ -20,6 +20,7 @@ target_sources(fluidstore INTERFACE
     include/fluidstore/crdts/delta_replica.h  
     include/fluidstore/crdts/dot.h
     include/fluidstore/crdts/dot_context.h
+    include/fluidstore/crdts/dot_counters_base.h
     include/fluidstore/crdts/dot_kernel.h
     include/fluidstore/crdts/id_sequence.h
     include/fluidstore/crdts/set.h

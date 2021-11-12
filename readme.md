@@ -39,7 +39,7 @@ To add to the fun, the merge algorithm very slightly differs for delta/non-delta
 Different CRDT types implemented:    
 - [crdt::set](include/fluidstore/crdts/set.h)
 - [crdt::map](include/fluidstore/crdts/map.h)
-- [crdt::value_mv](include/fluidstore/crdts/value_mv.h) - multivalue register, usually holding one value, but sometimes holding two values (in case of conflicting merge - here the conflict resolution means that we will not lose data, but propagate it to application layer). Based on crdt::set_base.
+- [crdt::value_mv](include/fluidstore/crdts/value_mv.h) - multivalue register, usually holding one value, but sometimes holding more values (in case of conflicting merge - here the conflict resolution means that we will not lose data, but propagate it to application layer). Based on crdt::set.
 
 I've skipped counters as they are easy to implement.
 

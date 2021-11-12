@@ -37,9 +37,9 @@ Sets and maps here correspond to 'normal', stl-like sets and maps, yet implement
 To add to the fun, the merge algorithm very slightly differs for delta/non-delta variants (D and S) in a most inner class, crdt::dot_counters_base. The whole thing is very nicely recursive - different parts of the code reuse itself differently with slight modifications on different places, for rather different cases, yet with the same code dealing with sorted set of integers in sort of similar way, yet different. In the beginning, my idea was to create something normal, not sure where it all went haywire.
 
 Different CRDT types implemented:    
-    - [crdt::set](include/fluidstore/crdts/set.h)
-    - [crdt::map](include/fluidstore/crdts/map.h)
-    - [crdt::value_mv](include/fluidstore/crdts/value_mv.h) - multivalue register, usually holding one value, but sometimes holding two values (in case of conflicting merge - here the conflict resolution means that we will not lose data, but propagate it to application layer). Based on crdt::set_base.
+- [crdt::set](include/fluidstore/crdts/set.h)
+- [crdt::map](include/fluidstore/crdts/map.h)
+- [crdt::value_mv](include/fluidstore/crdts/value_mv.h) - multivalue register, usually holding one value, but sometimes holding two values (in case of conflicting merge - here the conflict resolution means that we will not lose data, but propagate it to application layer). Based on crdt::set_base.
 
 I've skipped counters as they are easy to implement.
 

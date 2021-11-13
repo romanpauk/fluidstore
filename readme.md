@@ -68,7 +68,7 @@ What is possible right now is something like this (more can be seen in tests):
     auto delta = data.extract_delta();
 
     // serialize delta, as the types look 'normal', using boost::serialization should work
-    // the extracted delta will contain what is required to add 33 to data[1][2].
+    // the extracted delta will contain metadata to add 33 to data[1][2].
 
     // send to PC 2
 }
@@ -79,10 +79,8 @@ What is possible right now is something like this (more can be seen in tests):
     crdt::map< int, crdt::map< int, crdt::set < int > > > data;
     
     // deserialize delta
-    
-    data2.merge(delta);
-    
-    // and there is now 33 in data2[1][2]
+    data.merge(delta);
+    // and there is now 33 in data[1][2], maps at 1, 2 were automatically created while inserting 33.
 }
 ```
 

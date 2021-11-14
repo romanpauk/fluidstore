@@ -1,7 +1,6 @@
 #include <fluidstore/crdts/value_mv.h>
-#include <fluidstore/crdts/replica.h>
+#include <fluidstore/crdts/hook_extract.h>
 #include <fluidstore/crdts/allocator.h>
-#include <fluidstore/crdts/delta_hook.h>
 
 #include <boost/test/unit_test.hpp>
 
@@ -11,7 +10,7 @@ BOOST_AUTO_TEST_CASE(value_mv_basic_operations)
     crdt::replica<> replica(0, sequence);
     crdt::allocator<> allocator(replica);
 
-    crdt::value_mv< int, decltype(allocator) > value(allocator);
+    crdt::value_mv< int, decltype(allocator), crdt::tag_state > value(allocator);
 
     BOOST_TEST((value == int()));
     BOOST_TEST(value.get_one() == int());
@@ -33,8 +32,8 @@ BOOST_AUTO_TEST_CASE(value_mv_merge)
     crdt::replica<> replica(1, sequence);
     crdt::allocator<> allocator(replica);
 
-    crdt::value_mv< int, decltype(allocator), crdt::delta_hook > value1(allocator);
-    crdt::value_mv< int, decltype(allocator), crdt::delta_hook > value2(allocator);
+    crdt::value_mv< int, decltype(allocator), crdt::tag_state, crdt::hook_extract > value1(allocator);
+    crdt::value_mv< int, decltype(allocator), crdt::tag_state, crdt::hook_extract > value2(allocator);
 
     value1.set(1);
     value2.merge(value1.extract_delta());
@@ -56,9 +55,9 @@ BOOST_AUTO_TEST_CASE(value_mv_sizeof)
 {
     crdt::id_sequence<> sequence;
     crdt::replica<> replica(0, sequence);
+    crdt::allocator<> allocator(replica);
 
-    {
-        crdt::allocator<> allocator(replica);
-        PRINT_SIZEOF(crdt::value_mv< int, decltype(allocator) >);
-    }
+    PRINT_SIZEOF(crdt::value_mv< int, decltype(allocator), crdt::tag_state >);
+    PRINT_SIZEOF(crdt::value_mv< int, decltype(allocator), crdt::tag_state, crdt::hook_extract >);
+    PRINT_SIZEOF(crdt::value_mv< int, decltype(allocator), crdt::tag_delta >);
 }

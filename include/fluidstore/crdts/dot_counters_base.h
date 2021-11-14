@@ -8,12 +8,17 @@ namespace crdt
     struct tag_delta {};
     struct tag_state {};
 
+    // TODO: the delta variant and state variant have different requirements for the types they keep:
+    //  delta variant keeps sorted set
+    //  state variant keeps just the latest. This is true after the merge, but not during the merge.
+
     template < typename CounterType, typename Tag, typename SizeType = uint32_t > class dot_counters_base
     {
         template < typename CounterType, typename Tag, typename SizeType > friend class dot_counters_base;
 
         using counter_type = CounterType;
         using size_type = SizeType;
+        using tag_type = Tag;
 
         struct default_context
         {
@@ -42,16 +47,38 @@ namespace crdt
 
         template < typename Allocator > void erase(Allocator& allocator, counter_type counter)
         {
+            if (std::is_same_v< tag_type, tag_state >)
+            {
+                // In dot_kernel, we first add, than clear valueless dots. So in the end, counters might hold just one value, but during the merge, it is not like that.
+                //assert(counters_.size() <= 1);
+            }
+            
             counters_.erase(allocator, counter);
         }
 
         template < typename Allocator > void emplace(Allocator& allocator, counter_type counter)
         {
+            if (std::is_same_v< tag_type, tag_state >)
+            {
+                assert(counters_.empty());
+            }
+            else
+            {
+                // This happens during clear, we remember cleared counters
+            }
+
             counters_.emplace(allocator, counter);
         }
 
         template < typename Allocator, typename Counters > void insert(Allocator& allocator, const Counters& counters)
         {
+            if (std::is_same_v< tag_type, tag_state >)
+            {
+                assert(counters_.empty());
+            }
+
+            // assert(counters.counters_.size() == 1);  // delta variant can have more than 1 element
+
             counters_.insert(allocator, counters.counters_);
         }
 
@@ -83,6 +110,17 @@ namespace crdt
         template < typename Allocator, typename ReplicaId, typename RCounters, typename Context >
         void update(Allocator& allocator, const ReplicaId& replica_id, RCounters& rcounters, Context& context)
         {
+            if (std::is_same_v< tag_type, tag_state >)
+            {
+                // TODO: investigate
+                // assert(counters_.size() <= 1);      // state variant should have 0 or 1 elements
+            }
+                        
+            // TODO: this assert should really by true. The issue is in map::insert with value_mv - it is not delta there.
+            // static_assert(std::is_same_v< RCounters::tag_type, tag_delta >);
+            // 
+            // assert(rcounters.size() == 1);   // delta variant can have N elements, and merging two state variants does not make sense
+
             if (counters_.size() == 0)
             {
                 // Trivial append

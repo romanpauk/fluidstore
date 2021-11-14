@@ -59,7 +59,7 @@ namespace crdt
     template < typename Key, typename Allocator, template <typename> typename Hook >
     class set2< Key, Allocator, tag_state, Hook >
         : public dot_kernel< Key, void, Allocator, set2< Key, Allocator, tag_state, Hook >, tag_state >
-        , public Hook< set2< Key, Allocator, tag_delta > >
+        , public Hook < set2 < Key, Allocator, tag_delta > >
     {
         using dot_kernel_type = dot_kernel< Key, void, Allocator, set2< Key, Allocator, tag_state, Hook >, tag_state >;
         using iterator = typename dot_kernel_type::iterator;
@@ -80,8 +80,7 @@ namespace crdt
             crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arenaallocator);
 
             set2< Key, decltype(deltaallocator), tag_delta > delta(deltaallocator);
-            
-            auto dot = delta.get_next_dot();
+            auto dot = get_next_dot();
             delta.add_counter_dot(dot);
             delta.add_value(key, dot);
 
@@ -93,18 +92,22 @@ namespace crdt
 
         iterator erase(iterator it)
         {
-            auto allocator = get_allocator();
-            arena< 8192 > arena;
-            arena_allocator< void > arenaallocator(arena);
-            crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arenaallocator);
-
-            set2< Key, decltype(deltaallocator), tag_delta > delta(deltaallocator);            
-            delta.add_counter_dots(it.it_->second.dots);
-            
             erase_context context;
-            merge(delta, context);
-            commit_delta(std::move(delta));
+            erase(it, context);
             return context.iterator;
+        }
+                
+        size_t erase(const Key& key)
+        {
+            auto it = find(key);
+            if (it != end())
+            {
+                erase_context context;
+                erase(it, context);
+                return context.count;
+            }
+
+            return 0;
         }
 
         void clear()
@@ -130,6 +133,20 @@ namespace crdt
         }
 
     private:
+        void erase(iterator it, typename dot_kernel_type::erase_context & context)
+        {
+            auto allocator = get_allocator();
+            arena< 8192 > arena;
+            arena_allocator< void > arenaallocator(arena);
+            crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arenaallocator);
+
+            set2< Key, decltype(deltaallocator), tag_delta > delta(deltaallocator);
+            delta.add_counter_dots(it.it_->second.dots);
+                        
+            merge(delta, context);
+            commit_delta(std::move(delta));
+        }
+
         allocator_type& allocator_;
     };
 }

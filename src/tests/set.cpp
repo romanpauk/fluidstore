@@ -13,7 +13,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_basic_operations, T, test_types)
     crdt::id_sequence<> sequence;
     crdt::replica<> replica(0, sequence);
     crdt::allocator<> allocator(replica);
-    crdt::set< T, decltype(allocator) > set(allocator);
+    crdt::set2< T, decltype(allocator), crdt::tag_state, crdt::hook_extract > set(allocator);
 
     auto value0 = boost::lexical_cast<T>(0);
     auto value1 = boost::lexical_cast<T>(1);
@@ -65,14 +65,29 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_basic_operations, T, test_types)
     BOOST_TEST(set.empty());
 }
 
+BOOST_AUTO_TEST_CASE(set_extract)
+{
+    crdt::id_sequence<> sequence;
+    crdt::replica<> replica(1, sequence);
+    crdt::allocator<> allocator(replica);
+
+    crdt::set2< int, decltype(allocator), crdt::tag_state, crdt::hook_extract > set(allocator);
+    set.insert(1);
+    set.insert(2);
+    BOOST_TEST(set.extract_delta().size() == 2);
+    BOOST_TEST(set.extract_delta().size() == 0);
+}
+
 BOOST_AUTO_TEST_CASE(set_merge)
 {
     crdt::id_sequence<> sequence;
     crdt::replica<> replica(1, sequence);
     crdt::allocator<> allocator(replica);
     
-    crdt::set< int, decltype(allocator), crdt::delta_hook > set1(allocator);
-    crdt::set< int, decltype(allocator), crdt::delta_hook > set2(allocator);
+    //crdt::set< int, decltype(allocator), crdt::delta_hook > set1(allocator);
+    //crdt::set< int, decltype(allocator), crdt::delta_hook > set2(allocator);
+    crdt::set2< int, decltype(allocator), crdt::tag_state, crdt::hook_extract > set1(allocator);
+    crdt::set2< int, decltype(allocator), crdt::tag_state, crdt::hook_extract > set2(allocator);
 
     set1.insert(1);
     set2.merge(set1.extract_delta());
@@ -88,32 +103,16 @@ BOOST_AUTO_TEST_CASE(set_merge)
     set2.insert(222);
     set1.merge(set2.extract_delta());
     BOOST_TEST(set1.size() == 2);
+    BOOST_TEST((set1.find(22) != set1.end()));
+    BOOST_TEST((set1.find(222) != set1.end()));
 
     set2.clear();
+    BOOST_TEST(set2.empty());
     set1.insert(11);
     set1.merge(set2.extract_delta());
     BOOST_TEST(set1.size() == 1);
     BOOST_TEST((set1.find(11) != set1.end()));
 }
-
-#if 0
-BOOST_AUTO_TEST_CASE(set_merge_replica)
-{
-    crdt::registry<> registry;
-    crdt::id_sequence<> sequence;
-    crdt::delta_replica< decltype(registry) > replica(1, sequence, registry);
-    crdt::allocator< decltype(replica) > allocator(replica);
-
-    crdt::set< int, decltype(allocator), crdt::registry_hook< decltype(registry), crdt::allocator<> > > set1(allocator);
-    set1.insert(1);
-
-    // Registered classes can be accesed through registry. Not sure about the delta accessing interface.
-    //registry.get_deltas([&](const auto& delta) {});
-    //registry.clear_deltas();
-
-    // TODO: unfinished
-}
-#endif
 
 #define PRINT_SIZEOF(...) std::cerr << "sizeof " << # __VA_ARGS__ << ": " << sizeof(__VA_ARGS__) << std::endl
 
@@ -123,36 +122,8 @@ BOOST_AUTO_TEST_CASE(set_sizeof)
 
     crdt::id_sequence<> sequence;
     crdt::replica<> replica(0, sequence);
-
-    {
-        crdt::allocator<> allocator(replica);
-        PRINT_SIZEOF(crdt::set< int, decltype(allocator) >);
-        PRINT_SIZEOF(crdt::set_base< int, decltype(allocator), crdt::tag_delta, crdt::default_delta_hook, void >);
-        PRINT_SIZEOF(crdt::set_base< int, decltype(allocator), crdt::tag_state, crdt::default_state_hook, 
-            crdt::set_base< int, decltype(allocator), crdt::tag_delta, crdt::default_delta_hook, void > >);
-
-        PRINT_SIZEOF(crdt::set2< int, decltype(allocator), crdt::tag_state >);
-        PRINT_SIZEOF(crdt::set2< int, decltype(allocator), crdt::tag_delta >);
-    }
-}
-
-BOOST_AUTO_TEST_CASE(set2)
-{
-    crdt::id_sequence<> sequence;
-    crdt::replica<> replica(1, sequence);
     crdt::allocator<> allocator(replica);
-
-    crdt::set2< int, decltype(allocator), crdt::tag_state, crdt::hook_extract > set(allocator);
-    auto pb = set.insert(1);
-
-    set.erase(pb.first);
-    BOOST_TEST(set.empty());
-
-    set.insert(2);
-    set.insert(3);
-    auto delta = set.extract_delta();
-    BOOST_TEST(delta.size() == 2);
-    BOOST_TEST(set.extract_delta().empty());
-
-    set.clear();
+    PRINT_SIZEOF(crdt::set2< int, decltype(allocator), crdt::tag_state, crdt::hook_none >);
+    PRINT_SIZEOF(crdt::set2< int, decltype(allocator), crdt::tag_state, crdt::hook_extract >);
+    PRINT_SIZEOF(crdt::set2< int, decltype(allocator), crdt::tag_delta, crdt::hook_none >);
 }

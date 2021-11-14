@@ -22,7 +22,7 @@ The code is using templates to keep core algorithm in one place yet detaches it 
 
 Lets look at how crdt::set looks like with respect to inheritance and map/sets usage:
 
-- [crdt::set](include/fluidstore/crdts/set.h) - based on two different crdt::set_base classes, one for delta temporary for mutating operations and other for the data structure itself
+- [crdt::set](include/fluidstore/crdts/set.h) - two specializations, delta one for gathering mutations and state one for preserving full state
     - [crtd::dot_kernel](include/fluidstore/crdts/dot_kernel.h), the core of the containers, shared between map and set implementation
         - map with keys/values and additional data
             - [crdt::dot_context](include/fluidstore/crdts/dot_context.h) is tracking dot data for each replica, for each value, for associative container version
@@ -34,12 +34,12 @@ Lets look at how crdt::set looks like with respect to inheritance and map/sets u
 
 Sets and maps here correspond to 'normal', stl-like sets and maps, yet implemented in a flat memory buffer due to memory/performance issues. b+-tree implementation is comming to deal with performance issues with larger sets and to give the possibility to offload the data to persistent storage effectively (as we will be able to work with just portion of structure that is changing). There is not yet merged b+tree implementation here: [btree.h](https://github.com/romanpauk/fluidstore/blob/feature/btree2/include/fluidstore/btree/btree.h). The b+tree code avoids using virtual functions for internal/value nodes so those can be mapped from file.
 
-To add to the fun, the merge algorithm very slightly differs for delta/non-delta variants (D and S) in a most inner class, crdt::dot_counters_base. The whole thing is very nicely recursive - different parts of the code reuse itself differently with slight modifications on different places, for rather different cases, yet with the same code dealing with sorted set of integers in sort of similar way, yet different. In the beginning, my idea was to create something normal, not sure where it all went haywire.
+To add to the fun, the merge algorithm very slightly differs for delta/non-delta variants (D and S) in a most inner class, crdt::dot_counters_base. 
 
-Different CRDT types implemented:    
+Different data types implemented:    
 - [crdt::set](include/fluidstore/crdts/set.h)
 - [crdt::map](include/fluidstore/crdts/map.h)
-- [crdt::value_mv](include/fluidstore/crdts/value_mv.h) - multivalue register, usually holding one value, but sometimes holding two values (in case of conflicting merge - here the conflict resolution means that we will not lose data, but propagate it to application layer). Based on crdt::set_base.
+- [crdt::value_mv](include/fluidstore/crdts/value_mv.h) - multivalue register, usually holding one value, but sometimes holding two values (in case of conflicting merge - here the conflict resolution means that we will not lose any data but propagate it to application layer). Based on crdt::set.
 
 I've skipped counters as they are easy to implement.
 
@@ -53,7 +53,7 @@ Sure, [here](src/tests) they go.
 
 # The End
 
-Thank you, interested reader. It had to be very painful to get here.
+Thank you, interested reader. 
 
 As the structures are recursive and the combination of CRDT structures is again a CRDT structure, graphs emerge naturally, or one can imagine json documents, all having the deterministic merging ability on all their fields, perhaps defined by user-selected merge strategy (observed remove, last write wins, etc).
 
@@ -67,9 +67,8 @@ What is possible right now is something like this (more can be seen in tests):
     data[1][2].insert(33);
     auto delta = data.extract_delta();
 
+    // the extracted delta will contain what is required to add 33 to data[1][2]
     // serialize delta, as the types look 'normal', using boost::serialization should work
-    // the extracted delta will contain what is required to add 33 to data[1][2].
-
     // send to PC 2
 }
 
@@ -79,10 +78,8 @@ What is possible right now is something like this (more can be seen in tests):
     crdt::map< int, crdt::map< int, crdt::set < int > > > data;
     
     // deserialize delta
-    
-    data2.merge(delta);
-    
-    // and there is now 33 in data2[1][2]
+    data.merge(delta);
+    // and there is now 33 in data[1][2]
 }
 ```
 

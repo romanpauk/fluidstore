@@ -347,9 +347,10 @@ namespace crdt
             }
         }
 
-        /*
         void update(const Key& key)
         {
+            static_cast<Container*>(this)->update(key);
+            /*
             auto allocator = static_cast<Container*>(this)->get_allocator();
             arena< 8192 > arena;
             arena_allocator< void > arenaallocator(arena);
@@ -361,8 +362,8 @@ namespace crdt
             delta.add_value(key, dot);
             merge(delta);
             static_cast<Container*>(this)->commit_delta(delta);
+            */
         }
-        */
 
         const_iterator begin() const { return values_.begin(); }
         iterator begin() { return values_.begin(); }

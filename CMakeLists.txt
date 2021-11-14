@@ -15,23 +15,17 @@ target_sources(fluidstore INTERFACE
     include/fluidstore/allocators/arena_allocator.h
     include/fluidstore/crdts/allocator.h
     include/fluidstore/crdts/allocator_ptr.h
-    include/fluidstore/crdts/default_hook.h
-    include/fluidstore/crdts/delta_hook.h
-    include/fluidstore/crdts/delta_replica.h  
     include/fluidstore/crdts/dot.h
     include/fluidstore/crdts/dot_context.h
     include/fluidstore/crdts/dot_counters_base.h
     include/fluidstore/crdts/dot_kernel.h
+    include/fluidstore/crdts/hook_default.h
+    include/fluidstore/crdts/hook_extract.h
     include/fluidstore/crdts/id_sequence.h
     include/fluidstore/crdts/set.h
-    include/fluidstore/crdts/set2.h
     include/fluidstore/crdts/map.h
-    include/fluidstore/crdts/map2.h
-    include/fluidstore/crdts/value.h
     include/fluidstore/crdts/value_mv.h
-    include/fluidstore/crdts/value_mv2.h
     include/fluidstore/crdts/noncopyable.h
-    include/fluidstore/crdts/registry.h
     include/fluidstore/crdts/replica.h
     include/fluidstore/flat/hat.h
     include/fluidstore/flat/map.h

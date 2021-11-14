@@ -4,11 +4,11 @@
 
 namespace crdt
 {
-    template < typename Value, typename Allocator, typename Tag, template <typename> typename Hook = hook_none >
+    template < typename Value, typename Allocator, typename Tag, template <typename,typename,typename> typename Hook = hook_none >
     class value_mv2;
 
-    template < typename Value, typename Allocator, template <typename> typename Hook >
-        class value_mv2< Value, Allocator, tag_delta, Hook >
+    template < typename Value, typename Allocator >
+        class value_mv2< Value, Allocator, tag_delta, hook_none >
     {
     public:
         using allocator_type = Allocator;
@@ -24,16 +24,21 @@ namespace crdt
 
         allocator_type& get_allocator()
         {
-            return allocator_;
+            return values_.get_allocator();
+        }
+
+        void reset()
+        {
+            values_.reset();
         }
 
     //private:
-        crdt::set2< Value, Allocator, tag_delta, Hook > values_;
+        crdt::set2< Value, Allocator, tag_delta > values_;
     };
 
-    template < typename Value, typename Allocator, template <typename> typename Hook >
+    template < typename Value, typename Allocator, template <typename,typename,typename> typename Hook >
     class value_mv2< Value, Allocator, tag_state, Hook >
-        : public Hook < value_mv2 < Value, Allocator, tag_delta > >
+        : public Hook < value_mv2< Value, Allocator, tag_state, Hook >, Allocator, value_mv2 < Value, Allocator, tag_delta > >
     {
     public:
         using allocator_type = Allocator;
@@ -43,8 +48,16 @@ namespace crdt
             using other = value_mv2< Value, AllocatorT, tag_state, Hook >;
         };
 
+        struct delta_extractor
+        {
+            template < typename Container, typename Delta > void apply(Container& instance, Delta& delta)
+            {
+                delta.values_.merge(instance.values_.extract_delta());
+            }
+        };
+
         value_mv2(allocator_type& allocator)
-            : Hook < value_mv2 < Value, Allocator, tag_delta > >(allocator)
+            : Hook < value_mv2< Value, Allocator, tag_state, Hook >, Allocator, value_mv2 < Value, Allocator, tag_delta > >(allocator)
             , values_(allocator)
         {}
 
@@ -76,7 +89,7 @@ namespace crdt
             values_.delta_insert(delta.values_, value);
             values_.merge(delta.values_);
 
-            commit_delta(delta);
+            commit_delta(std::move(delta));
         }
 
         template < typename ValueMv > void merge(const ValueMv& other)
@@ -113,7 +126,7 @@ namespace crdt
             return values_.get_allocator();
         }
 
-    private:
+    // private:
         crdt::set2< Value, Allocator, tag_state, Hook > values_;
     };
 }

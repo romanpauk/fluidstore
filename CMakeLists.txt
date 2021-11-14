@@ -45,7 +45,7 @@ if(Boost_FOUND)
     add_executable(fluidstoretest 
         src/tests/dot.cpp
         src/tests/flat.cpp
-        #src/tests/map.cpp
+        src/tests/map.cpp
         src/tests/performance.cpp
         #src/tests/replica.cpp
         src/tests/set.cpp

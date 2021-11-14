@@ -4,48 +4,68 @@
 
 namespace crdt
 {
-    template < typename Container > struct hook_none 
+    template < typename Container, typename Allocator, typename Delta > struct hook_none 
     {
-        hook_none(typename Container::allocator_type&) {}
+        hook_none() {}
+        hook_none(Allocator&)
+        {}
 
-        template < typename Delta > void commit_delta(Delta&& delta)
+        template < typename DeltaT > void commit_delta(DeltaT&& delta)
         {}
     };
 
-    template < typename Container > struct hook_extract
+    template < typename Container, typename Allocator, typename Delta > struct hook_extract
     {
-        hook_extract(typename Container::allocator_type& allocator)
+        hook_extract(Allocator& allocator)
             : delta_(allocator)
         {}
 
         template < typename Delta > void commit_delta(Delta&& delta)
         {
             delta_.merge(delta);
+            // delta_.get_allocator().update();
         }
 
-        Container extract_delta()
+        Delta extract_delta()
         {
-            Container delta(std::move(delta_));
+            Delta delta(delta_.get_allocator());
+            delta.merge(delta_);
+
+            typename Container::delta_extractor extractor;
+            extractor.apply(*static_cast<Container*>(this), delta);
+
+            delta_.reset();
             return delta;
         }
 
+        typename Allocator& get_allocator()
+        {
+            return delta_.get_allocator();
+        }
+
     private:
-        Container delta_;        
+        Delta delta_;
     };
 
-    template < typename Key, typename Allocator, typename Tag, template <typename> typename Hook = hook_none >
+    template < typename Key, typename Allocator, typename Tag, template <typename,typename,typename> typename Hook = hook_none >
     class set2;
 
-    template < typename Key, typename Allocator, template <typename> typename Hook >
-    class set2< Key, Allocator, tag_delta, Hook >
-        : public dot_kernel< Key, void, Allocator, set2< Key, Allocator, tag_delta, Hook >, tag_delta >
+    template < typename Key, typename Allocator >
+    class set2< Key, Allocator, tag_delta, hook_none >
+        : public dot_kernel< Key, void, Allocator, set2< Key, Allocator, tag_delta, hook_none >, tag_delta >
+        //, public hook_none< set2< Key, Allocator, tag_delta, hook_none > >
     {
     public:
         using allocator_type = Allocator;
 
+        struct delta_extractor
+        {
+            template < typename Container, typename Delta > void apply(Container& instance, Delta& delta) {}
+        };
+
         set2(allocator_type& allocator)
             : allocator_(allocator)
-        {}
+        {}    
 
         allocator_type& get_allocator()
         {
@@ -53,13 +73,13 @@ namespace crdt
         }
 
     private:
-        allocator_type& allocator_;
+        allocator_type allocator_;
     };
 
-    template < typename Key, typename Allocator, template <typename> typename Hook >
+    template < typename Key, typename Allocator, template <typename,typename,typename> typename Hook >
     class set2< Key, Allocator, tag_state, Hook >
         : public dot_kernel< Key, void, Allocator, set2< Key, Allocator, tag_state, Hook >, tag_state >
-        , public Hook < set2 < Key, Allocator, tag_delta > >
+        , public Hook < set2< Key, Allocator, tag_state, Hook >, Allocator, set2 < Key, Allocator, tag_delta > >
     {
         using dot_kernel_type = dot_kernel< Key, void, Allocator, set2< Key, Allocator, tag_state, Hook >, tag_state >;
         using iterator = typename dot_kernel_type::iterator;
@@ -67,8 +87,18 @@ namespace crdt
     public:
         using allocator_type = Allocator;
 
+        template < typename AllocatorT > struct rebind
+        {
+            using other = set2< Key, AllocatorT, tag_state, Hook >;
+        };
+
+        struct delta_extractor
+        {
+            template < typename Container, typename Delta > void apply(Container& instance, Delta& delta) {}
+        };
+
         set2(allocator_type& allocator)
-            : Hook< set2< Key, Allocator, tag_delta > >(allocator)
+            : Hook< set2< Key, Allocator, tag_state, Hook >, Allocator, set2< Key, Allocator, tag_delta > >(allocator_)
             , allocator_(allocator)
         {}
 
@@ -157,6 +187,6 @@ namespace crdt
             commit_delta(std::move(delta));
         }
 
-        allocator_type& allocator_;
+        allocator_type allocator_;
     };
 }

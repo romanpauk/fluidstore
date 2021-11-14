@@ -230,6 +230,12 @@ namespace crdt
 
         ~dot_kernel()
         {
+            reset();
+        }
+
+    public:
+        void reset()
+        {
             auto allocator = static_cast<Container*>(this)->get_allocator();
 
             for (auto& value : values_)
@@ -341,6 +347,7 @@ namespace crdt
             }
         }
 
+        /*
         void update(const Key& key)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
@@ -355,6 +362,7 @@ namespace crdt
             merge(delta);
             static_cast<Container*>(this)->commit_delta(delta);
         }
+        */
 
         const_iterator begin() const { return values_.begin(); }
         iterator begin() { return values_.begin(); }
@@ -362,22 +370,6 @@ namespace crdt
         iterator end() { return values_.end(); }
         const_iterator find(const Key& key) const { return values_.find(key); }
         iterator find(const Key& key) { return values_.find(key); }
-
-        void clear()
-        {
-            if (!empty())
-            {
-                auto allocator = static_cast<Container*>(this)->get_allocator();
-                arena< 8192 > arena;
-                arena_allocator< void > arenaallocator(arena);
-                crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arenaallocator);
-                auto delta = static_cast<Container*>(this)->mutable_delta(deltaallocator);
-
-                clear(delta);
-                merge(delta);
-                static_cast< Container* >(this)->commit_delta(delta);
-            }
-        }
 
     // TODO: for value_mv2
     public:
@@ -390,27 +382,6 @@ namespace crdt
         }
 
     public:
-    //protected:
-        size_t erase(const Key& key)
-        {
-            auto values_it = values_.find(key);
-            if (values_it != values_.end())
-            {
-                erase_context context;
-                erase(values_it, context);
-                return context.count;
-            }
-
-            return 0;
-        }
-
-        iterator erase(iterator it)
-        {
-            erase_context context;
-            erase(it.it_, context);
-            return context.iterator;
-        }
-
         bool empty() const
         {
             return values_.empty();
@@ -467,22 +438,6 @@ namespace crdt
             data.second.value.merge(value);
         }
 
-    private:
-        template < typename Context > void erase(typename values_type::iterator it, Context& context)
-        {
-            auto allocator = static_cast<Container*>(this)->get_allocator();
-            arena< 8192 > arena;
-            arena_allocator< void > arenaallocator(arena);
-            crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arenaallocator);
-            auto delta = static_cast<Container*>(this)->mutable_delta(deltaallocator);
-
-            const auto& dots = it->second.dots;
-            delta.add_counter_dots(dots);
-            merge(delta, context);
-            static_cast<Container*>(this)->commit_delta(delta);
-        }
-
-    protected:
     public:
         values_type values_;
         flat::map_base< replica_id_type, replica_data > replica_;

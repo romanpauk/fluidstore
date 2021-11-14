@@ -10,17 +10,15 @@ namespace crdt
         , public dot_kernel< Key, void, Allocator, set_base< Key, Allocator, Tag, Hook, Delta >, Tag 
         >
     {
-        typedef set_base< Key, Allocator, Tag, Hook, Delta > set_base_type;
-        typedef dot_kernel< Key, void, Allocator, set_base_type, Tag > dot_kernel_type;
+        using set_base_type = set_base< Key, Allocator, Tag, Hook, Delta >;
+        using dot_kernel_type = dot_kernel< Key, void, Allocator, set_base_type, Tag >;
         
         friend dot_kernel_type;
 
     public:
-        typedef Allocator allocator_type;
-        
-        typedef typename Hook::template hook< Allocator, Delta, set_base_type > hook_type;
-        typedef typename allocator_type::replica_type replica_type;
-
+        using allocator_type = Allocator;
+        using hook_type = typename Hook::template hook< Allocator, Delta, set_base_type >;
+                
         template < typename AllocatorT, typename HookT = Hook, typename TagT = Tag > struct rebind
         {
             using other = set_base< Key, AllocatorT, TagT, HookT, Delta >;
@@ -63,18 +61,18 @@ namespace crdt
         : public Hook::template hook< Allocator, void, set_base< Key, Allocator, Tag, Hook, void > >
         , public dot_kernel< Key, void, Allocator, set_base< Key, Allocator, Tag, Hook, void >, Tag >
     {
-        typedef dot_kernel< Key, void, Allocator, set_base< Key, Allocator, Tag, Hook, void >, Tag > dot_kernel_type;
-        typedef set_base< Key, Allocator, Tag, Hook, void > set_base_type;
-        typedef typename Hook::template hook< Allocator, void, set_base_type > hook_type;
+        using dot_kernel_type = dot_kernel< Key, void, Allocator, set_base< Key, Allocator, Tag, Hook, void >, Tag >;
+        using set_base_type = set_base< Key, Allocator, Tag, Hook, void >;
+        using hook_type = typename Hook::template hook< Allocator, void, set_base_type >;
 
     public:
-        typedef Allocator allocator_type;
+        using allocator_type = Allocator;
         
         template < typename AllocatorT, typename HookT = Hook > struct rebind
         {
             using other = set_base< Key, AllocatorT, Tag, HookT, void >;
         };
-
+        
         set_base(allocator_type& allocator)
             : hook_type(allocator)
         {}
@@ -87,12 +85,17 @@ namespace crdt
     > class set
         : public set_base< Key, Allocator, tag_state, Hook, Delta >
     {
-        typedef set_base< Key, Allocator, tag_state, Hook, Delta > set_base_type;
+        using set_base_type = set_base< Key, Allocator, tag_state, Hook, Delta >;
 
     public:
-        typedef Allocator allocator_type;
-        typedef Hook hook_type;
-        typedef Delta delta_type;
+        using allocator_type = Allocator;
+        using hook_type = Hook;
+        using delta_type = Delta;
+
+        template < typename AllocatorT, typename HookT = Hook > struct rebind
+        {
+            using other = set< Key, AllocatorT, HookT, Delta >;
+        };
 
         set(allocator_type& allocator)
             : set_base_type(allocator)

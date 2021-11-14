@@ -15,10 +15,13 @@ namespace crdt
         typedef dot_kernel< Key, Value, Allocator, map_base_type, Tag > dot_kernel_type;
     
     public:
-        typedef Allocator allocator_type;
-        typedef typename allocator_type::replica_type replica_type;
+        using allocator_type = Allocator;
+        using hook_type = typename Hook::template hook< allocator_type, Delta, map_base_type >;
 
-        typedef typename Hook::template hook< allocator_type, Delta, map_base_type > hook_type;
+        template < typename AllocatorT, typename HookT = Hook > struct rebind
+        {
+            using other = map_base< Key, typename Value::template rebind< AllocatorT, HookT >::other, AllocatorT, Tag, HookT, Delta >;
+        };
 
         struct delta_extractor
         {
@@ -115,11 +118,11 @@ namespace crdt
         typedef typename Hook::template hook< Allocator, void, map_base_type > hook_type;
 
     public:
-        typedef Allocator allocator_type;
+        using allocator_type = Allocator;
 
         template < typename AllocatorT, typename HookT = Hook > struct rebind
         {
-            using other = map_base< Key, Value, AllocatorT, Tag, HookT, void >;
+            using other = map_base< Key, typename Value::template rebind< AllocatorT, HookT >::other, AllocatorT, Tag, HookT, void >;
         };
 
         map_base(allocator_type allocator)
@@ -141,12 +144,12 @@ namespace crdt
     > class map
         : public map_base< Key, typename Value::template rebind< Allocator, Hook >::other, Allocator, tag_state, Hook, Delta >
     {
-        typedef map_base< Key, typename Value::template rebind< Allocator, Hook >::other, Allocator, tag_state, Hook, Delta > map_base_type;
+        using map_base_type = map_base< Key, typename Value::template rebind< Allocator, Hook >::other, Allocator, tag_state, Hook, Delta >;
 
     public:
-        typedef Allocator allocator_type;
-        typedef Hook hook_type;
-        typedef Delta delta_type;
+        using allocator_type = Allocator;
+        using hook_type = Hook;
+        using delta_type = Delta;
 
         template < typename AllocatorT, typename HookT = Hook > struct rebind
         {

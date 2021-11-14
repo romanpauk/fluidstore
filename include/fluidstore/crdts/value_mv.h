@@ -14,9 +14,9 @@ namespace crdt
     public:
         typedef Allocator allocator_type;
         
-        template < typename AllocatorT, typename HookT = Hook > struct rebind
+        template < typename AllocatorT, typename HookT = Hook, typename DeltaT = Delta > struct rebind
         {
-            using other = value_mv_base< Value, AllocatorT, Tag, HookT, Delta >;
+            using other = value_mv_base< Value, AllocatorT, Tag, HookT, DeltaT >;
         };
 
         struct delta_extractor

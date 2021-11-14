@@ -123,7 +123,7 @@ namespace crdt
         Outer operator++(int) { return it_++; }
         Outer operator--(int) { return it_--; }
 
-    protected:
+    // protected:
         Iterator it_;
     };
 

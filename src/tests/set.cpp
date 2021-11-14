@@ -1,4 +1,5 @@
 #include <fluidstore/crdts/set.h>
+#include <fluidstore/crdts/set2.h>
 #include <fluidstore/crdts/allocator.h>
 #include <fluidstore/crdts/delta_hook.h>
 #include <fluidstore/crdts/delta_replica.h>
@@ -129,5 +130,29 @@ BOOST_AUTO_TEST_CASE(set_sizeof)
         PRINT_SIZEOF(crdt::set_base< int, decltype(allocator), crdt::tag_delta, crdt::default_delta_hook, void >);
         PRINT_SIZEOF(crdt::set_base< int, decltype(allocator), crdt::tag_state, crdt::default_state_hook, 
             crdt::set_base< int, decltype(allocator), crdt::tag_delta, crdt::default_delta_hook, void > >);
+
+        PRINT_SIZEOF(crdt::set2< int, decltype(allocator), crdt::tag_state >);
+        PRINT_SIZEOF(crdt::set2< int, decltype(allocator), crdt::tag_delta >);
     }
+}
+
+BOOST_AUTO_TEST_CASE(set2)
+{
+    crdt::id_sequence<> sequence;
+    crdt::replica<> replica(1, sequence);
+    crdt::allocator<> allocator(replica);
+
+    crdt::set2< int, decltype(allocator), crdt::tag_state, crdt::hook_extract > set(allocator);
+    auto pb = set.insert(1);
+
+    set.erase(pb.first);
+    BOOST_TEST(set.empty());
+
+    set.insert(2);
+    set.insert(3);
+    auto delta = set.extract_delta();
+    BOOST_TEST(delta.size() == 2);
+    BOOST_TEST(set.extract_delta().empty());
+
+    set.clear();
 }

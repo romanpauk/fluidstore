@@ -55,7 +55,7 @@ namespace crdt
             crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arenaallocator);
             auto delta = mutable_delta(deltaallocator);
 
-            insert(delta, key, value);
+            insert(delta, key, /*typename Value::delta_type*/(value));
 
             // TODO:
             // When this is insert of one element, merge should change internal state only when an insert operation would.

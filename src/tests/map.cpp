@@ -1,4 +1,5 @@
 #include <fluidstore/crdts/map.h>
+#include <fluidstore/crdts/map2.h>
 #include <fluidstore/crdts/replica.h>
 #include <fluidstore/crdts/value_mv.h>
 #include <fluidstore/crdts/allocator.h>
@@ -183,4 +184,12 @@ BOOST_AUTO_TEST_CASE(map_sizeof)
         crdt::allocator<> allocator(replica);
         PRINT_SIZEOF(crdt::map< int, crdt::value_mv< int, decltype(allocator) >, decltype(allocator) >);
     }
+}
+
+BOOST_AUTO_TEST_CASE(map2)
+{
+    crdt::id_sequence<> sequence;
+    crdt::replica<> replica(0, sequence);
+    crdt::allocator<> allocator(replica);
+    crdt::map2< int, int, decltype(allocator), crdt::tag_state, crdt::hook_extract > map(allocator);
 }

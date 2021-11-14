@@ -379,6 +379,8 @@ namespace crdt
             }
         }
 
+    // TODO: for value_mv2
+    public:
         template < typename Delta > void clear(Delta& delta)
         {
             for (const auto& [value, data] : values_)
@@ -387,6 +389,8 @@ namespace crdt
             }
         }
 
+    public:
+    //protected:
         size_t erase(const Key& key)
         {
             auto values_it = values_.find(key);
@@ -412,11 +416,13 @@ namespace crdt
             return values_.empty();
         }
         
+    public:
         size_t size() const
         {
             return values_.size();
         }
        
+    
         template < typename Dots > void add_counter_dots(const Dots& dots)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
@@ -477,6 +483,7 @@ namespace crdt
         }
 
     protected:
+    public:
         values_type values_;
         flat::map_base< replica_id_type, replica_data > replica_;
     };

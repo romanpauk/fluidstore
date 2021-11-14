@@ -26,8 +26,10 @@ target_sources(fluidstore INTERFACE
     include/fluidstore/crdts/set.h
     include/fluidstore/crdts/set2.h
     include/fluidstore/crdts/map.h
+    include/fluidstore/crdts/map2.h
     include/fluidstore/crdts/value.h
     include/fluidstore/crdts/value_mv.h
+    include/fluidstore/crdts/value_mv2.h
     include/fluidstore/crdts/noncopyable.h
     include/fluidstore/crdts/registry.h
     include/fluidstore/crdts/replica.h
@@ -43,7 +45,7 @@ if(Boost_FOUND)
     add_executable(fluidstoretest 
         src/tests/dot.cpp
         src/tests/flat.cpp
-        src/tests/map.cpp
+        #src/tests/map.cpp
         src/tests/performance.cpp
         #src/tests/replica.cpp
         src/tests/set.cpp

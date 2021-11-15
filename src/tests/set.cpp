@@ -4,13 +4,27 @@
 
 #include <boost/test/unit_test.hpp>
 
+static crdt::id_sequence<> sequence;
+static crdt::replica<> replica(0, sequence);
+static crdt::allocator<> allocator(replica);
+
+BOOST_AUTO_TEST_CASE(set_rebind)
+{
+    crdt::set< int, decltype(allocator), crdt::tag_state, crdt::hook_extract > set(allocator);
+    decltype(set)::rebind< decltype(allocator), crdt::tag_delta, crdt::hook_default >::other deltaset(allocator);
+}
+
+BOOST_AUTO_TEST_CASE(set_move)
+{
+    //crdt::set< int, decltype(allocator), crdt::tag_state > set(allocator);
+    //crdt::set< int, decltype(allocator), crdt::tag_delta > set2(std::move(set));
+    //crdt::set< int, decltype(allocator), crdt::tag_state > set3(std::move(set2));
+}
+
 typedef boost::mpl::list< int, double > test_types;
 BOOST_AUTO_TEST_CASE_TEMPLATE(set_basic_operations, T, test_types)
 {
-    crdt::id_sequence<> sequence;
-    crdt::replica<> replica(0, sequence);
-    crdt::allocator<> allocator(replica);
-    crdt::set< T, decltype(allocator), crdt::tag_state, crdt::hook_extract > set(allocator);
+    crdt::set< T, decltype(allocator) > set(allocator);
 
     auto value0 = boost::lexical_cast<T>(0);
     auto value1 = boost::lexical_cast<T>(1);
@@ -64,10 +78,6 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_basic_operations, T, test_types)
 
 BOOST_AUTO_TEST_CASE(set_extract)
 {
-    crdt::id_sequence<> sequence;
-    crdt::replica<> replica(1, sequence);
-    crdt::allocator<> allocator(replica);
-
     crdt::set< int, decltype(allocator), crdt::tag_state, crdt::hook_extract > set(allocator);
     set.insert(1);
     set.insert(2);
@@ -77,10 +87,6 @@ BOOST_AUTO_TEST_CASE(set_extract)
 
 BOOST_AUTO_TEST_CASE(set_merge)
 {
-    crdt::id_sequence<> sequence;
-    crdt::replica<> replica(1, sequence);
-    crdt::allocator<> allocator(replica);
-    
     crdt::set< int, decltype(allocator), crdt::tag_state, crdt::hook_extract > set1(allocator);
     crdt::set< int, decltype(allocator), crdt::tag_state, crdt::hook_extract > set2(allocator);
 
@@ -114,11 +120,7 @@ BOOST_AUTO_TEST_CASE(set_merge)
 BOOST_AUTO_TEST_CASE(set_sizeof)
 {
     PRINT_SIZEOF(std::set< int >);
-
-    crdt::id_sequence<> sequence;
-    crdt::replica<> replica(0, sequence);
-    crdt::allocator<> allocator(replica);
-    PRINT_SIZEOF(crdt::set< int, decltype(allocator), crdt::tag_state >);
+    PRINT_SIZEOF(crdt::set< int, decltype(allocator) >);
     PRINT_SIZEOF(crdt::set< int, decltype(allocator), crdt::tag_state, crdt::hook_extract >);
     PRINT_SIZEOF(crdt::set< int, decltype(allocator), crdt::tag_delta >);
 }

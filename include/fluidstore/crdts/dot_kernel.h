@@ -8,10 +8,6 @@
 #include <fluidstore/allocators/arena_allocator.h>
 #include <fluidstore/flat/map.h>
 
-#include <algorithm>
-#include <scoped_allocator>
-#include <ostream>
-
 namespace crdt
 {
     template < typename Key, typename Value, typename Allocator, typename DotContext, typename DotKernel > class dot_kernel_value
@@ -155,9 +151,8 @@ namespace crdt
         template < typename Key, typename Value, typename Allocator, typename Container, typename Tag > friend class dot_kernel;
 
     public:
-        using allocator_type = Allocator;
-                
-    protected:
+        using allocator_type = Allocator;           
+    
         using replica_type = typename allocator_type::replica_type;
         using replica_id_type = typename replica_type::replica_id_type;
         using counter_type = typename replica_type::counter_type;
@@ -170,7 +165,7 @@ namespace crdt
         using dot_kernel_value_type = dot_kernel_value< Key, Value, dot_kernel_value_allocator_type, dot_context_type, dot_kernel_type >;
         
         using values_type = flat::map_base< Key, Value, dot_kernel_value_type >;
-
+        
         using iterator = dot_kernel_iterator< typename values_type::iterator, Key, typename dot_kernel_value_type::value_type >;
         using const_iterator = dot_kernel_iterator< typename values_type::const_iterator, Key, typename dot_kernel_value_type::value_type >;
 
@@ -185,6 +180,8 @@ namespace crdt
             const flat::set_base< counter_type >* other_counters;
         };
         
+        using replicas_type = flat::map_base< replica_id_type, replica_data >;
+
         struct context
         {
             void register_insert(std::pair< typename values_type::iterator, bool >) {}
@@ -224,16 +221,26 @@ namespace crdt
             Allocator& allocator_;
             flat::map_base< replica_id_type, replica_data >& replica_;
         };
-            
+           
         dot_kernel() = default;
-        dot_kernel(dot_kernel_type&& other) = default;
+
+        // TODO: investigate, the move is needed in extract_delta, yet there is pointer to old container...
+        dot_kernel(dot_kernel_type&& other) = default;        
+
+        /*
+            // TODO: the move is generally problematic, as values hold pointer to parent container
+
+        template < typename Allocator, typename Container, typename Tag > dot_kernel(dot_kernel< Key, Value, Allocator, Container, Tag >&& other)
+            : values_(std::move(other.values_))
+            , replicas_(std::move(other.replicas_))
+        {}
+        */
 
         ~dot_kernel()
         {
             reset();
         }
-
-    public:
+    
         void reset()
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
@@ -252,8 +259,6 @@ namespace crdt
             replica_.clear(allocator);
         }
 
-        // TODO: public
-    public:
         template < typename DotKernel >
         void merge(const DotKernel& other)
         {
@@ -266,10 +271,9 @@ namespace crdt
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
             arena< 8192 > arena;
-            arena_allocator< void > arenaallocator(arena);
-            crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > tmp(allocator.get_replica(), arenaallocator);
+            crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > tmp(allocator.get_replica(), arena);
 
-            for (const auto& [replica_id, rdata] : other.replica_)
+            for (const auto& [replica_id, rdata] : other.get_replica())
             {
                 // Merge counters
                 auto& ldata = replica_.emplace(allocator, replica_id, replica_data()).first->second;
@@ -279,7 +283,7 @@ namespace crdt
             }
 
             // Merge values
-            for (const auto& [rkey, rvalue] : other.values_)
+            for (const auto& [rkey, rvalue] : other.get_values())
             {
                 auto lpb = values_.emplace(allocator, allocator, rkey, this);
 
@@ -306,7 +310,7 @@ namespace crdt
                 ctx.register_insert(lpb);
             }
 
-            for (auto& [replica_id, rdata] : other.replica_)
+            for (auto& [replica_id, rdata] : other.get_replica())
             {
                 auto replica_it = replica_.find(replica_id);
                 if (replica_it != replica_.end())
@@ -347,22 +351,10 @@ namespace crdt
             }
         }
 
+        // TODO: can we get rid of this callback?
         void update(const Key& key)
         {
             static_cast<Container*>(this)->update(key);
-            /*
-            auto allocator = static_cast<Container*>(this)->get_allocator();
-            arena< 8192 > arena;
-            arena_allocator< void > arenaallocator(arena);
-            crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arenaallocator);
-            auto delta = static_cast<Container*>(this)->mutable_delta(deltaallocator);
-
-            auto dot = get_next_dot();
-            delta.add_counter_dot(dot);
-            delta.add_value(key, dot);
-            merge(delta);
-            static_cast<Container*>(this)->commit_delta(delta);
-            */
         }
 
         const_iterator begin() const { return values_.begin(); }
@@ -372,8 +364,6 @@ namespace crdt
         const_iterator find(const Key& key) const { return values_.find(key); }
         iterator find(const Key& key) { return values_.find(key); }
 
-    // TODO: for value_mv2
-    public:
         template < typename Delta > void clear(Delta& delta)
         {
             for (const auto& [value, data] : values_)
@@ -382,18 +372,15 @@ namespace crdt
             }
         }
 
-    public:
         bool empty() const
         {
             return values_.empty();
         }
         
-    public:
         size_t size() const
         {
             return values_.size();
-        }
-       
+        }       
     
         template < typename Dots > void add_counter_dots(const Dots& dots)
         {
@@ -439,8 +426,11 @@ namespace crdt
             data.second.value.merge(value);
         }
 
-    public:
+        const replicas_type& get_replica() const { return replica_; }
+        const values_type& get_values() const { return values_; }
+
+    private:
         values_type values_;
-        flat::map_base< replica_id_type, replica_data > replica_;
+        replicas_type replica_;
     };
 }

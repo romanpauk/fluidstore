@@ -117,7 +117,7 @@ namespace crdt
             }
                         
             // TODO: this assert should really by true. The issue is in map::insert with value_mv - it is not delta there.
-            // static_assert(std::is_same_v< RCounters::tag_type, tag_delta >);
+            //static_assert(std::is_same_v< RCounters::tag_type, tag_delta >);
             // 
             // assert(rcounters.size() == 1);   // delta variant can have N elements, and merging two state variants does not make sense
 
@@ -169,7 +169,7 @@ namespace crdt
         {
             counters_.clear(allocator);
         }
-
+            
         flat::set_base< counter_type, size_type > counters_;
     };
 }

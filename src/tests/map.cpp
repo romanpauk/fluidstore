@@ -6,17 +6,24 @@
 
 #include <boost/test/unit_test.hpp>
 
+static crdt::id_sequence<> sequence;
+static crdt::replica<> replica(0, sequence);
+static crdt::allocator<> allocator(replica);
+
+BOOST_AUTO_TEST_CASE(map_rebind)
+{
+    crdt::map< int, crdt::value_mv< int, decltype(allocator), crdt::tag_state, crdt::hook_extract >, decltype(allocator), crdt::tag_state > map(allocator);
+    decltype(map)::rebind< decltype(allocator), crdt::tag_delta, crdt::hook_default >::other deltamap(allocator);
+}
+
 //typedef boost::mpl::list< std::tuple< int, int > > test_types;
 BOOST_AUTO_TEST_CASE(map_basic_operations)
 {
-    crdt::id_sequence<> sequence;
-    crdt::replica<> replica(0, sequence);
-    crdt::allocator<> allocator(replica);
-    crdt::map< int, crdt::value_mv< int, decltype(allocator), crdt::tag_state >, decltype(allocator), crdt::tag_state > map(allocator);
+    crdt::map< int, crdt::value_mv< int, decltype(allocator) >, decltype(allocator) > map(allocator);
 
     auto key0 = boost::lexical_cast<int>(0);
     auto key1 = boost::lexical_cast<int>(1);
-    auto value1 = crdt::value_mv< int, decltype(allocator), crdt::tag_state > (allocator);
+    auto value1 = crdt::value_mv< int, decltype(allocator) > (allocator);
     value1.set(1);
 
     // Empty map
@@ -72,10 +79,6 @@ BOOST_AUTO_TEST_CASE(map_basic_operations)
 
 BOOST_AUTO_TEST_CASE(map_value_mv_merge)
 {
-    crdt::id_sequence<> sequence;
-    crdt::replica<> replica(1, sequence);
-    crdt::allocator<> allocator(replica);
-
     crdt::map< int, crdt::value_mv< int, decltype(allocator), crdt::tag_state, crdt::hook_extract >, decltype(allocator), crdt::tag_state, crdt::hook_extract > map1(allocator);
     crdt::map< int, crdt::value_mv< int, decltype(allocator), crdt::tag_state, crdt::hook_extract >, decltype(allocator), crdt::tag_state, crdt::hook_extract > map2(allocator);
     
@@ -107,10 +110,6 @@ BOOST_AUTO_TEST_CASE(map_value_mv_merge)
 
 BOOST_AUTO_TEST_CASE(map_map_value_mv_merge)
 {
-    crdt::id_sequence<> sequence;
-    crdt::replica<> replica(1, sequence);
-    crdt::allocator<> allocator(replica);
-
     crdt::map< int, crdt::map< int, crdt::value_mv< int, decltype(allocator), crdt::tag_state, crdt::hook_extract >, decltype(allocator), crdt::tag_state, crdt::hook_extract >, decltype(allocator), crdt::tag_state, crdt::hook_extract > map1(allocator);
     crdt::map< int, crdt::map< int, crdt::value_mv< int, decltype(allocator), crdt::tag_state, crdt::hook_extract >, decltype(allocator), crdt::tag_state, crdt::hook_extract >, decltype(allocator), crdt::tag_state, crdt::hook_extract > map2(allocator);
 
@@ -163,10 +162,6 @@ BOOST_AUTO_TEST_CASE(map_map_value_mv_merge)
 
 BOOST_AUTO_TEST_CASE(map_set_merge)
 {
-    crdt::id_sequence<> sequence;
-    crdt::replica<> replica(1, sequence);
-    crdt::allocator<> allocator(replica);
-
     crdt::map< int, crdt::set< int, decltype(allocator), crdt::tag_state, crdt::hook_extract >, decltype(allocator), crdt::tag_state, crdt::hook_extract > map1(allocator);
     crdt::map< int, crdt::set< int, decltype(allocator), crdt::tag_state, crdt::hook_extract >, decltype(allocator), crdt::tag_state, crdt::hook_extract > map2(allocator);
     
@@ -178,14 +173,7 @@ BOOST_AUTO_TEST_CASE(map_set_merge)
 BOOST_AUTO_TEST_CASE(map_sizeof)
 {
     PRINT_SIZEOF(std::map< int, int >);
-
-    crdt::id_sequence<> sequence;
-    crdt::replica<> replica(0, sequence);
-    crdt::allocator<> allocator(replica);
-
-    PRINT_SIZEOF(crdt::map< int, crdt::value_mv< int, decltype(allocator), crdt::tag_state >, decltype(allocator), crdt::tag_state >);
+    PRINT_SIZEOF(crdt::map< int, crdt::value_mv< int, decltype(allocator) >, decltype(allocator) >);
     PRINT_SIZEOF(crdt::map< int, crdt::value_mv< int, decltype(allocator), crdt::tag_state, crdt::hook_extract >, decltype(allocator), crdt::tag_state, crdt::hook_extract >);
-    
-    // TODO
-    //PRINT_SIZEOF(crdt::map2< int, crdt::value_mv2< int, decltype(allocator), crdt::tag_delta >, decltype(allocator), crdt::tag_delta >);
+    PRINT_SIZEOF(crdt::map< int, crdt::value_mv< int, decltype(allocator), crdt::tag_delta >, decltype(allocator), crdt::tag_delta >);
 }

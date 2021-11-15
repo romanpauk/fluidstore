@@ -55,14 +55,13 @@ namespace crdt
         {
             using other = allocator< Replica, U, typename Allocator::template rebind< U >::other, ContainerU >;
         };
-
+                
         allocator(Replica& replica)
             : replica_(replica)
         {}
 
-
-        allocator(Replica& replica, Allocator& allocator)
-            : Allocator(allocator)
+        template < typename Al > allocator(Replica& replica, Al&& al)
+            : Allocator(std::forward<Al>(al))
             , replica_(replica)
         {}
 
@@ -79,7 +78,7 @@ namespace crdt
             , Container(other)
             , replica_(other.replica_)
         {}
-
+        
         template < typename ReplicaU, typename U, typename AllocatorU, typename ContainerU > allocator(
             const allocator< ReplicaU, U, AllocatorU, ContainerU >& other, const Container& container
         )
@@ -87,7 +86,7 @@ namespace crdt
             , Container(container)
             , replica_(other.replica_)
         {}
-
+        
         auto& get_replica() const { return replica_; }
 
     private:

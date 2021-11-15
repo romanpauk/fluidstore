@@ -17,6 +17,9 @@ namespace crdt
 
         Delta extract_delta()
         {
+            // TODO: use move here
+            //Delta delta(std::move(delta_));
+
             Delta delta(delta_.get_allocator());
             delta.merge(delta_);
 

@@ -4,19 +4,27 @@
 
 namespace crdt
 {
-    template < typename Value, typename Allocator, typename Tag, template <typename,typename,typename> typename Hook = hook_default >
+    template < typename Value, typename Allocator, typename Tag = crdt::tag_state, template <typename,typename,typename> typename Hook = hook_default >
     class value_mv;
 
-    template < typename Value, typename Allocator >
-        class value_mv< Value, Allocator, tag_delta, hook_default >
+    template < typename Value, typename Allocator, template <typename, typename, typename> typename Hook >
+        class value_mv< Value, Allocator, tag_delta, Hook >
     {
+        template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook > friend class value_mv;
+
     public:
         using allocator_type = Allocator;
+        using tag_type = tag_delta;
+
+        template < typename AllocatorT, typename TagT = tag_delta, template <typename,typename,typename> typename HookT = hook_default > struct rebind
+        {
+            using other = value_mv< Value, AllocatorT, TagT, HookT >;
+        };
 
         value_mv(allocator_type& allocator)
             : values_(allocator)
         {}
-
+                
         template < typename ValueMv > void merge(const ValueMv& other)
         {
             values_.merge(other.values_);
@@ -32,7 +40,7 @@ namespace crdt
             values_.reset();
         }
 
-    //private:
+    private:
         crdt::set< Value, Allocator, tag_delta > values_;
     };
 
@@ -40,12 +48,15 @@ namespace crdt
     class value_mv< Value, Allocator, tag_state, Hook >
         : public Hook < value_mv< Value, Allocator, tag_state, Hook >, Allocator, value_mv< Value, Allocator, tag_delta > >
     {
+        template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook > friend class value_mv;
+
     public:
         using allocator_type = Allocator;
+        using tag_type = tag_state;
 
-        template < typename AllocatorT > struct rebind
+        template < typename AllocatorT, typename TagT = tag_state, template <typename, typename, typename> typename HookT = Hook > struct rebind
         {
-            using other = value_mv< Value, AllocatorT, tag_state, Hook >;
+            using other = value_mv< Value, AllocatorT, TagT, HookT >;
         };
 
         struct delta_extractor
@@ -81,11 +92,11 @@ namespace crdt
         {
             auto allocator = get_allocator();
             arena< 8192 > arena;
-            arena_allocator< void > arenaallocator(arena);
-            crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arenaallocator);
+            crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arena);
             
-            crdt::value_mv< Value, decltype(deltaallocator), tag_delta > delta(deltaallocator);
-            values_.clear(delta.values_);
+            typename rebind< decltype(deltaallocator), tag_delta, crdt::hook_default >::other delta(deltaallocator);
+            
+            values_.delta_clear(delta.values_);
             values_.delta_insert(delta.values_, value);
             values_.merge(delta.values_);
 
@@ -121,7 +132,7 @@ namespace crdt
             return values_ == other.values_;
         }
                 
-    // private:
+    private:
         crdt::set< Value, Allocator, tag_state, Hook > values_;
     };
 }

@@ -64,6 +64,8 @@ namespace crdt
         {
             using other = map< Key, typename Value::template rebind< AllocatorT, TagT, HookT >::other, AllocatorT, TagT, HookT >;
         };     
+                
+        using delta_type = typename rebind< Allocator, tag_delta, crdt::hook_default >::other;
 
         map(allocator_type& allocator)
             : Hook < map< Key, Value, Allocator, tag_state, Hook >, Allocator, map< Key, Value, Allocator, tag_delta > >(allocator)
@@ -85,7 +87,7 @@ namespace crdt
             arena< 8192 > arena;
             crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arena);
             
-            typename rebind< decltype(deltaallocator), tag_delta, crdt::hook_default >::other delta(deltaallocator);
+            typename delta_type::rebind< decltype(deltaallocator) >::other delta(deltaallocator);
 
             // TODO: move value
             auto dot = get_next_dot();
@@ -103,7 +105,7 @@ namespace crdt
             if constexpr (std::uses_allocator_v< Value, Allocator >)
             {
                 // TODO: this Value should not be tracked, it is temporary.
-                auto pairb = insert(key, typename Value::rebind< Allocator, tag_delta, crdt::hook_default >::other(this->get_allocator()));
+                auto pairb = insert(key, typename Value::delta_type(this->get_allocator()));
                 return (*pairb.first).second;
             }
             else
@@ -139,7 +141,7 @@ namespace crdt
                 arena< 8192 > arena;
                 crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arena);
 
-                typename rebind< decltype(deltaallocator), tag_delta, crdt::hook_default >::other delta(deltaallocator);
+                typename delta_type::rebind< decltype(deltaallocator) >::other delta(deltaallocator);
                 clear(delta);
 
                 merge(delta);
@@ -186,7 +188,7 @@ namespace crdt
             arena< 8192 > arena;
             crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arena);
 
-            typename rebind< decltype(deltaallocator), tag_delta, crdt::hook_default >::other delta(deltaallocator);
+            typename delta_type::rebind< decltype(deltaallocator) >::other delta(deltaallocator);
 
             auto dot = get_next_dot();
             delta.add_counter_dot(dot);
@@ -207,7 +209,7 @@ namespace crdt
             arena< 8192 > arena;
             crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arena);
 
-            typename rebind< decltype(deltaallocator), tag_delta, crdt::hook_default >::other delta(deltaallocator);
+            typename delta_type::rebind< decltype(deltaallocator) >::other delta(deltaallocator);
 
             // TODO: this can move dots
             delta.add_counter_dots(it.it_->second.dots);

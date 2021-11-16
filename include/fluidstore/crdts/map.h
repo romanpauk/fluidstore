@@ -70,13 +70,12 @@ namespace crdt
         map(allocator_type& allocator)
             : Hook < map< Key, Value, Allocator, tag_state, Hook >, Allocator, map< Key, Value, Allocator, tag_delta > >(allocator)
         {}
-
+        
         /*
             // TODO: to follow the rule that only delta can merge elsewhere, we need to convert value to delta first.
-
         std::pair< typename dot_kernel_type::iterator, bool > insert(const Key& key, const Value& value)
         {
-            typename Value::rebind< Allocator, tag_delta, crdt::hook_default >::other delta(value);
+            typename Value::delta_type delta(value);
             return insert(key, delta);
         }
         */

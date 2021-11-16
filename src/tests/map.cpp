@@ -162,10 +162,40 @@ BOOST_AUTO_TEST_CASE(map_map_value_mv_merge)
 
 BOOST_AUTO_TEST_CASE(map_set_merge)
 {
-    crdt::map< int, crdt::set< int, decltype(allocator), crdt::tag_state, crdt::hook_extract >, decltype(allocator), crdt::tag_state, crdt::hook_extract > map1(allocator);
-    crdt::map< int, crdt::set< int, decltype(allocator), crdt::tag_state, crdt::hook_extract >, decltype(allocator), crdt::tag_state, crdt::hook_extract > map2(allocator);
-    
-    // TODO: finish this
+    // TODO: the sequence is per-crdt instance, so the counters are growing wihtout holes.
+    // This means that replica is global and allocator ties together sequence and replica.
+    crdt::id_sequence<> sequence;
+    crdt::replica<> replica0(0, sequence);
+    crdt::allocator<> allocator0(replica0);
+    crdt::replica<> replica1(1, sequence);
+    crdt::allocator<> allocator1(replica1);
+
+    crdt::map< int, crdt::set< int, decltype(allocator0), crdt::tag_state, crdt::hook_extract >, decltype(allocator0), crdt::tag_state, crdt::hook_extract > map1(allocator0);
+    crdt::map< int, crdt::set< int, decltype(allocator1), crdt::tag_state, crdt::hook_extract >, decltype(allocator1), crdt::tag_state, crdt::hook_extract > map2(allocator1);
+        
+    map1[1].insert(1);
+    map2.merge(map1.extract_delta());
+    BOOST_TEST(*map2[1].begin() == 1);
+
+    map2[1].insert(2);
+    map1.merge(map2.extract_delta());
+    BOOST_TEST(*++map1[1].begin() == 2);
+
+    map2[1].insert(3);
+    BOOST_TEST(map2[1].size() == 3);
+    auto delta2 = map2.extract_delta();
+
+    map1[1].clear();
+    BOOST_TEST(map1[1].empty());
+    auto delta1 = map1.extract_delta();
+
+    map2.merge(delta1);
+    BOOST_TEST(map2[1].size() == 1);
+    BOOST_TEST(*map2[1].begin() == 3);
+
+    map1.merge(delta2);
+    BOOST_TEST(map2[1].size() == 1);
+    BOOST_TEST(*map2[1].begin() == 3);
 }
 
 #define PRINT_SIZEOF(...) std::cerr << "sizeof " << # __VA_ARGS__ << ": " << sizeof(__VA_ARGS__) << std::endl

@@ -318,6 +318,7 @@ namespace crdt
                     auto& ldata = replica_it->second;
 
                     // Find dots that were not visited during processing of values (thus valueless). Those are the ones to be removed.
+                    // TODO: this should be deque.
                     flat::vector < counter_type, decltype(tmp) > rdotsvalueless(tmp);
                     std::set_difference(
                         ldata.other_counters->begin(), ldata.other_counters->end(),

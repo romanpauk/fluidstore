@@ -10,6 +10,19 @@ namespace crdt
     template < typename Key, typename Value, typename Allocator, typename Tag = crdt::tag_state, template <typename,typename,typename> typename Hook = hook_default >
     class map;
 
+    template < typename Key, typename Value, typename Allocator = void, typename Tag = void, template <typename, typename, typename> typename Hook = hook_default >
+    class map2
+    {
+    public:
+        using allocator_type = Allocator;
+        using tag_type = Tag;
+        using hook_type = Hook< void, void, void >;
+
+        template < typename AllocatorT, typename TagT = Tag, template <typename, typename, typename> typename HookT = Hook > using rebind_t = map2< Key, Value, AllocatorT, TagT, HookT >;
+    };
+
+    template < typename Key, typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook > struct is_crdt_type < map2< Key, Value, Allocator, Tag, Hook > > : std::true_type {};
+
     template < typename Key, typename Value, typename Allocator, template <typename, typename, typename> typename Hook >
     class map< Key, Value, Allocator, tag_delta, Hook >
         : public dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, tag_delta, Hook >, tag_delta >
@@ -210,5 +223,15 @@ namespace crdt
             merge(delta, context);
             commit_delta(std::move(delta));
         }
+    };
+
+    template < typename Key, typename Value, typename Allocator, template <typename, typename, typename> typename Hook >
+    class map2< Key, Value, Allocator, tag_state, Hook >
+        : public map < Key, typename Value::template rebind_t< Allocator, tag_state, Hook >, Allocator, tag_state, Hook >
+    {
+    public:
+        map2(Allocator& allocator)
+            : map< Key, typename Value::template rebind_t< Allocator, tag_state, Hook >, Allocator, tag_state, Hook >(allocator)
+        {}
     };
 }

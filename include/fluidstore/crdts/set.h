@@ -2,11 +2,31 @@
 
 #include <fluidstore/crdts/dot_kernel.h>
 #include <fluidstore/crdts/hook_default.h>
+#include <fluidstore/crdts/traits.h>
 
 namespace crdt
 {
+    template < typename Value, typename Allocator = void, typename Tag = void, template <typename, typename, typename> typename Hook = hook_default >
+    class set2
+    {
+    public:
+        using allocator_type = Allocator;
+        using tag_type = Tag;
+        using hook_type = Hook< void, void, void >;
+
+        template < typename AllocatorT, typename TagT = Tag, template <typename, typename, typename> typename HookT = Hook > using rebind_t = set2< Value, AllocatorT, TagT, HookT >;
+    };
+
+    template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook > struct is_crdt_type < set2< Value, Allocator, Tag, Hook > > : std::true_type {};
+
+    namespace detail 
+    {
+    
+    }
     template < typename Key, typename Allocator, typename Tag = crdt::tag_state , template <typename, typename, typename> typename Hook = hook_default >
     class set;
+
+ 
 
     template < typename Key, typename Allocator, template <typename, typename, typename> typename Hook >
     class set< Key, Allocator, tag_delta, Hook >
@@ -148,5 +168,15 @@ namespace crdt
             merge(delta, context);
             commit_delta(std::move(delta));
         }
+    };
+
+    template < typename Key, typename Allocator, template <typename, typename, typename> typename Hook >
+    class set2< Key, Allocator, tag_state, Hook >
+        : public set< Key, Allocator, tag_state, Hook >
+    {
+    public:
+        set2(Allocator& allocator)
+            : set< Key, Allocator, tag_state, Hook >(allocator)
+        {}
     };
 }

@@ -12,18 +12,18 @@ static crdt::allocator<> allocator(replica);
 
 BOOST_AUTO_TEST_CASE(map_rebind)
 {
-    crdt::map< int, crdt::value_mv< int, decltype(allocator), crdt::tag_state, crdt::hook_extract >, decltype(allocator), crdt::tag_state > map(allocator);
+    crdt::map2< int, crdt::value_mv2< int >, decltype(allocator), crdt::tag_state > map(allocator);
     decltype(map)::rebind_t< decltype(allocator), crdt::tag_delta, crdt::hook_default > deltamap(allocator);
 }
 
 //typedef boost::mpl::list< std::tuple< int, int > > test_types;
 BOOST_AUTO_TEST_CASE(map_basic_operations)
 {
-    crdt::map< int, crdt::value_mv< int, decltype(allocator) >, decltype(allocator) > map(allocator);
+    crdt::map2< int, crdt::value_mv2< int >, decltype(allocator), crdt::tag_state > map(allocator);
 
     auto key0 = boost::lexical_cast<int>(0);
     auto key1 = boost::lexical_cast<int>(1);
-    auto value1 = crdt::value_mv< int, decltype(allocator) > (allocator);
+    auto value1 = crdt::value_mv2< int, decltype(allocator), crdt::tag_state > (allocator);
     value1.set(1);
 
     // Empty map
@@ -79,8 +79,8 @@ BOOST_AUTO_TEST_CASE(map_basic_operations)
 
 BOOST_AUTO_TEST_CASE(map_value_mv_merge)
 {
-    crdt::map< int, crdt::value_mv< int, decltype(allocator), crdt::tag_state, crdt::hook_extract >, decltype(allocator), crdt::tag_state, crdt::hook_extract > map1(allocator);
-    crdt::map< int, crdt::value_mv< int, decltype(allocator), crdt::tag_state, crdt::hook_extract >, decltype(allocator), crdt::tag_state, crdt::hook_extract > map2(allocator);
+    crdt::map2< int, crdt::value_mv2< int >, decltype(allocator), crdt::tag_state, crdt::hook_extract > map1(allocator);
+    crdt::map2< int, crdt::value_mv2< int >, decltype(allocator), crdt::tag_state, crdt::hook_extract > map2(allocator);
     
     map1[1].set(1);
     map2.merge(map1.extract_delta());
@@ -110,8 +110,8 @@ BOOST_AUTO_TEST_CASE(map_value_mv_merge)
 
 BOOST_AUTO_TEST_CASE(map_map_value_mv_merge)
 {
-    crdt::map< int, crdt::map< int, crdt::value_mv< int, decltype(allocator), crdt::tag_state, crdt::hook_extract >, decltype(allocator), crdt::tag_state, crdt::hook_extract >, decltype(allocator), crdt::tag_state, crdt::hook_extract > map1(allocator);
-    crdt::map< int, crdt::map< int, crdt::value_mv< int, decltype(allocator), crdt::tag_state, crdt::hook_extract >, decltype(allocator), crdt::tag_state, crdt::hook_extract >, decltype(allocator), crdt::tag_state, crdt::hook_extract > map2(allocator);
+    crdt::map2< int, crdt::map2< int, crdt::value_mv2< int > >, decltype(allocator), crdt::tag_state, crdt::hook_extract > map1(allocator);
+    crdt::map2< int, crdt::map2< int, crdt::value_mv2< int > >, decltype(allocator), crdt::tag_state, crdt::hook_extract > map2(allocator);
 
     map1[1][10].set(1);
     map2.merge(map1.extract_delta());
@@ -170,8 +170,8 @@ BOOST_AUTO_TEST_CASE(map_set_merge)
     crdt::replica<> replica1(1, sequence);
     crdt::allocator<> allocator1(replica1);
 
-    crdt::map< int, crdt::set< int, decltype(allocator0), crdt::tag_state, crdt::hook_extract >, decltype(allocator0), crdt::tag_state, crdt::hook_extract > map1(allocator0);
-    crdt::map< int, crdt::set< int, decltype(allocator1), crdt::tag_state, crdt::hook_extract >, decltype(allocator1), crdt::tag_state, crdt::hook_extract > map2(allocator1);
+    crdt::map2< int, crdt::set2< int >, decltype(allocator0), crdt::tag_state, crdt::hook_extract > map1(allocator0);
+    crdt::map2< int, crdt::set2< int >, decltype(allocator1), crdt::tag_state, crdt::hook_extract > map2(allocator1);
         
     map1[1].insert(1);
     map2.merge(map1.extract_delta());
@@ -203,7 +203,7 @@ BOOST_AUTO_TEST_CASE(map_set_merge)
 BOOST_AUTO_TEST_CASE(map_sizeof)
 {
     PRINT_SIZEOF(std::map< int, int >);
-    PRINT_SIZEOF(crdt::map< int, crdt::value_mv< int, decltype(allocator) >, decltype(allocator) >);
-    PRINT_SIZEOF(crdt::map< int, crdt::value_mv< int, decltype(allocator), crdt::tag_state, crdt::hook_extract >, decltype(allocator), crdt::tag_state, crdt::hook_extract >);
-    PRINT_SIZEOF(crdt::map< int, crdt::value_mv< int, decltype(allocator), crdt::tag_delta >, decltype(allocator), crdt::tag_delta >);
+    PRINT_SIZEOF(crdt::map2< int, crdt::value_mv2< int >, decltype(allocator) >);
+    PRINT_SIZEOF(crdt::map2< int, crdt::value_mv2< int >, decltype(allocator), crdt::tag_state, crdt::hook_extract >);
+    PRINT_SIZEOF(crdt::map2< int, crdt::value_mv2< int >, decltype(allocator), crdt::tag_delta >);
 }

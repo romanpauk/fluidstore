@@ -25,8 +25,8 @@ template < typename T > T tr(T val)
 
 BOOST_AUTO_TEST_CASE(set_insert_performance)
 {
-#define Outer 100000
-#define Inner 100
+#define Outer 10000
+#define Inner 1000
 //#define PROFILE
 
 #if !defined(PROFILE)
@@ -50,7 +50,7 @@ BOOST_AUTO_TEST_CASE(set_insert_performance)
             crdt::id_sequence<> sequence;
             crdt::replica<> replica(0, sequence);
             crdt::allocator< crdt::replica<> > allocator(replica);
-            crdt::set< size_t, decltype(allocator), crdt::tag_state /*, crdt::hook_extract*/ > set(allocator);
+            crdt::set2< size_t, decltype(allocator), crdt::tag_state /*, crdt::hook_extract*/ > set(allocator);
 
             for (size_t i = 0; i < Inner; ++i)
             {
@@ -71,7 +71,7 @@ BOOST_AUTO_TEST_CASE(set_insert_performance)
             crdt::arena_allocator< void > arenaallocator(arena);
             crdt::allocator< crdt::replica<>, void, crdt::arena_allocator< void > > allocator(replica, arenaallocator);
 
-            crdt::set < size_t, decltype(allocator), crdt::tag_state /*, crdt::hook_extract*/ > set(allocator);
+            crdt::set2 < size_t, decltype(allocator), crdt::tag_state /*, crdt::hook_extract*/ > set(allocator);
 
             for (size_t i = 0; i < Inner; ++i)
             {

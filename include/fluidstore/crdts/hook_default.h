@@ -19,4 +19,6 @@ namespace crdt
     private:
         Allocator allocator_;
     };
+        
+    template <> struct hook_default< void, void, void > {};
 }

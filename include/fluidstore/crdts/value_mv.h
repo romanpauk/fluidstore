@@ -1,14 +1,28 @@
 #pragma once
 
 #include <fluidstore/crdts/set.h>
+#include <fluidstore/crdts/traits.h>
 
 namespace crdt
 {
-    template < typename Value, typename Allocator, typename Tag = crdt::tag_state, template <typename,typename,typename> typename Hook = hook_default >
+    template < typename Value, typename Allocator, typename Tag = crdt::tag_state, template <typename, typename, typename> typename Hook = hook_default >
     class value_mv;
 
+    template < typename Value, typename Allocator = void, typename Tag = void, template <typename, typename, typename> typename Hook = hook_default >
+    class value_mv2
+    {
+    public:
+        using allocator_type = Allocator;
+        using tag_type = Tag;
+        using hook_type = Hook< void, void, void >;
+
+        template < typename AllocatorT, typename TagT = Tag, template <typename, typename, typename> typename HookT = Hook > using rebind_t = value_mv2< Value, AllocatorT, TagT, HookT >;
+    };
+
+    template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook > struct is_crdt_type < value_mv2< Value, Allocator, Tag, Hook > >: std::true_type {};
+
     template < typename Value, typename Allocator, template <typename, typename, typename> typename Hook >
-        class value_mv< Value, Allocator, tag_delta, Hook >
+    class value_mv< Value, Allocator, tag_delta, Hook >
     {
         template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook > friend class value_mv;
 
@@ -21,7 +35,7 @@ namespace crdt
         value_mv(allocator_type& allocator)
             : values_(allocator)
         {}
-                
+
         template < typename ValueMv > void merge(const ValueMv& other)
         {
             values_.merge(other.values_);
@@ -41,7 +55,7 @@ namespace crdt
         crdt::set< Value, Allocator, tag_delta > values_;
     };
 
-    template < typename Value, typename Allocator, template <typename,typename,typename> typename Hook >
+    template < typename Value, typename Allocator, template <typename, typename, typename> typename Hook >
     class value_mv< Value, Allocator, tag_state, Hook >
         : public Hook < value_mv< Value, Allocator, tag_state, Hook >, Allocator, value_mv< Value, Allocator, tag_delta > >
     {
@@ -90,9 +104,9 @@ namespace crdt
             auto allocator = get_allocator();
             arena< 8192 > arena;
             crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arena);
-            
+
             typename delta_type::rebind_t< decltype(deltaallocator) > delta(deltaallocator);
-            
+
             values_.delta_clear(delta.values_);
             values_.delta_insert(delta.values_, value);
             values_.merge(delta.values_);
@@ -128,8 +142,31 @@ namespace crdt
         {
             return values_ == other.values_;
         }
-                
+
     private:
         crdt::set< Value, Allocator, tag_state, Hook > values_;
     };
+
+    template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook, bool > struct rebind_value;
+    
+    template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook > struct rebind_value< Value, Allocator, Tag, Hook, true >
+    {
+        using type = typename Value::template rebind_t< Allocator, Tag, Hook >;
+    };
+
+    template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook > struct rebind_value< Value, Allocator, Tag, Hook, false >
+    {
+        using type = Value;
+    };
+
+    template < typename Value, typename Allocator, template <typename, typename, typename> typename Hook >
+    class value_mv2< Value, Allocator, tag_state, Hook >
+        : public value_mv < typename rebind_value< Value, Allocator, tag_state, Hook, is_crdt_type< Value >::value >::type, Allocator, tag_state, Hook >
+    {
+    public:
+        value_mv2(Allocator& allocator)
+            : value_mv< typename rebind_value< Value, Allocator, tag_state, Hook, is_crdt_type< Value >::value >::type, Allocator, tag_state, Hook >(allocator)
+        {}
+    };
+
 }

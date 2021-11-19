@@ -10,7 +10,7 @@ static crdt::allocator<> allocator(replica);
 
 BOOST_AUTO_TEST_CASE(set_rebind)
 {
-    crdt::set< int, decltype(allocator), crdt::tag_state, crdt::hook_extract > set(allocator);
+    crdt::set2< int, decltype(allocator), crdt::tag_state, crdt::hook_extract > set(allocator);
     decltype(set)::rebind_t< decltype(allocator), crdt::tag_delta, crdt::hook_default > deltaset(allocator);
 }
 
@@ -24,7 +24,7 @@ BOOST_AUTO_TEST_CASE(set_move)
 typedef boost::mpl::list< int, double > test_types;
 BOOST_AUTO_TEST_CASE_TEMPLATE(set_basic_operations, T, test_types)
 {
-    crdt::set< T, decltype(allocator) > set(allocator);
+    crdt::set2< T, decltype(allocator), crdt::tag_state, crdt::hook_extract > set(allocator);
 
     auto value0 = boost::lexical_cast<T>(0);
     auto value1 = boost::lexical_cast<T>(1);
@@ -78,7 +78,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_basic_operations, T, test_types)
 
 BOOST_AUTO_TEST_CASE(set_extract)
 {
-    crdt::set< int, decltype(allocator), crdt::tag_state, crdt::hook_extract > set(allocator);
+    crdt::set2< int, decltype(allocator), crdt::tag_state, crdt::hook_extract > set(allocator);
     set.insert(1);
     set.insert(2);
     BOOST_TEST(set.extract_delta().size() == 2);
@@ -87,8 +87,8 @@ BOOST_AUTO_TEST_CASE(set_extract)
 
 BOOST_AUTO_TEST_CASE(set_merge)
 {
-    crdt::set< int, decltype(allocator), crdt::tag_state, crdt::hook_extract > set1(allocator);
-    crdt::set< int, decltype(allocator), crdt::tag_state, crdt::hook_extract > set2(allocator);
+    crdt::set2< int, decltype(allocator), crdt::tag_state, crdt::hook_extract > set1(allocator);
+    crdt::set2< int, decltype(allocator), crdt::tag_state, crdt::hook_extract > set2(allocator);
 
     set1.insert(1);
     set2.merge(set1.extract_delta());
@@ -120,7 +120,7 @@ BOOST_AUTO_TEST_CASE(set_merge)
 BOOST_AUTO_TEST_CASE(set_sizeof)
 {
     PRINT_SIZEOF(std::set< int >);
-    PRINT_SIZEOF(crdt::set< int, decltype(allocator) >);
-    PRINT_SIZEOF(crdt::set< int, decltype(allocator), crdt::tag_state, crdt::hook_extract >);
-    PRINT_SIZEOF(crdt::set< int, decltype(allocator), crdt::tag_delta >);
+    PRINT_SIZEOF(crdt::set2< int, decltype(allocator) >);
+    PRINT_SIZEOF(crdt::set2< int, decltype(allocator), crdt::tag_state, crdt::hook_extract >);
+    PRINT_SIZEOF(crdt::set2< int, decltype(allocator), crdt::tag_delta >);
 }

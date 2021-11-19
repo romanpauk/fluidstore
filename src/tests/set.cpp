@@ -11,7 +11,7 @@ static crdt::allocator<> allocator(replica);
 BOOST_AUTO_TEST_CASE(set_rebind)
 {
     crdt::set< int, decltype(allocator), crdt::tag_state, crdt::hook_extract > set(allocator);
-    decltype(set)::rebind< decltype(allocator), crdt::tag_delta, crdt::hook_default >::other deltaset(allocator);
+    decltype(set)::rebind_t< decltype(allocator), crdt::tag_delta, crdt::hook_default > deltaset(allocator);
 }
 
 BOOST_AUTO_TEST_CASE(set_move)

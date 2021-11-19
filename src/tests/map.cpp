@@ -13,7 +13,7 @@ static crdt::allocator<> allocator(replica);
 BOOST_AUTO_TEST_CASE(map_rebind)
 {
     crdt::map< int, crdt::value_mv< int, decltype(allocator), crdt::tag_state, crdt::hook_extract >, decltype(allocator), crdt::tag_state > map(allocator);
-    decltype(map)::rebind< decltype(allocator), crdt::tag_delta, crdt::hook_default >::other deltamap(allocator);
+    decltype(map)::rebind_t< decltype(allocator), crdt::tag_delta, crdt::hook_default > deltamap(allocator);
 }
 
 //typedef boost::mpl::list< std::tuple< int, int > > test_types;

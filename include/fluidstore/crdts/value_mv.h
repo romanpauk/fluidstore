@@ -16,10 +16,7 @@ namespace crdt
         using allocator_type = Allocator;
         using tag_type = tag_delta;
 
-        template < typename AllocatorT, typename TagT = tag_delta, template <typename,typename,typename> typename HookT = hook_default > struct rebind
-        {
-            using other = value_mv< Value, AllocatorT, TagT, HookT >;
-        };
+        template < typename AllocatorT, typename TagT = tag_delta, template <typename, typename, typename> typename HookT = hook_default > using rebind_t = value_mv< Value, AllocatorT, TagT, HookT >;
 
         value_mv(allocator_type& allocator)
             : values_(allocator)
@@ -53,13 +50,11 @@ namespace crdt
     public:
         using allocator_type = Allocator;
         using tag_type = tag_state;
+        using value_type = Value;
 
-        template < typename AllocatorT, typename TagT = tag_state, template <typename, typename, typename> typename HookT = Hook > struct rebind
-        {
-            using other = value_mv< Value, AllocatorT, TagT, HookT >;
-        };
+        template < typename AllocatorT, typename TagT = tag_state, template <typename, typename, typename> typename HookT = Hook > using rebind_t = value_mv< Value, AllocatorT, TagT, HookT >;
 
-        using delta_type = typename rebind< Allocator, tag_delta, crdt::hook_default >::other;
+        using delta_type = typename rebind_t< Allocator, tag_delta, crdt::hook_default >;
 
         struct delta_extractor
         {
@@ -96,7 +91,7 @@ namespace crdt
             arena< 8192 > arena;
             crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arena);
             
-            typename delta_type::rebind< decltype(deltaallocator) >::other delta(deltaallocator);
+            typename delta_type::rebind_t< decltype(deltaallocator) > delta(deltaallocator);
             
             values_.delta_clear(delta.values_);
             values_.delta_insert(delta.values_, value);

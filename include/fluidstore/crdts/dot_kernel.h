@@ -17,7 +17,7 @@ namespace crdt
         using dot_kernel_value_type = dot_kernel_value< Key, Value, Allocator, DotContext, DotKernel >;
 
         using value_allocator_type = typename allocator_type::template rebind< typename allocator_type::value_type, allocator_container< dot_kernel_value_type > >::other;
-        using value_type = typename Value::template rebind< value_allocator_type >::other;
+        using value_type = typename Value::template rebind_t< value_allocator_type >;
         
         struct nested_value
         {

@@ -11,7 +11,7 @@ static crdt::allocator<> allocator(replica);
 BOOST_AUTO_TEST_CASE(value_mv_rebind)
 {   
     crdt::value_mv< int, decltype(allocator), crdt::tag_state, crdt::hook_extract > value(allocator);
-    decltype(value)::rebind< decltype(allocator), crdt::tag_delta, crdt::hook_default >::other deltavalue(allocator);
+    decltype(value)::rebind_t< decltype(allocator), crdt::tag_delta, crdt::hook_default > deltavalue(allocator);
 }
 
 BOOST_AUTO_TEST_CASE(value_mv_basic_operations)
@@ -53,9 +53,14 @@ BOOST_AUTO_TEST_CASE(value_mv_merge)
 
 BOOST_AUTO_TEST_CASE(value_mv_set)
 {
-    crdt::value_mv< crdt::set< int, decltype(allocator) >, decltype(allocator), crdt::tag_state, crdt::hook_extract > value(allocator);    
+    crdt::id_sequence<> sequence;
+    crdt::replica<> replica0(0, sequence);
+    crdt::allocator<> allocator0(replica0);
+    crdt::replica<> replica1(1, sequence);
+    crdt::allocator<> allocator1(replica1);
 
-    // TODO: finish
+    crdt::value_mv< crdt::set< int, decltype(allocator0) >, decltype(allocator0), crdt::tag_state, crdt::hook_extract > value0(allocator0);    
+    crdt::value_mv< crdt::set< int, decltype(allocator1) >, decltype(allocator1), crdt::tag_state, crdt::hook_extract > value1(allocator1);
 }
 
 #define PRINT_SIZEOF(...) std::cerr << "sizeof " << # __VA_ARGS__ << ": " << sizeof(__VA_ARGS__) << std::endl

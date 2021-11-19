@@ -123,7 +123,7 @@ namespace crdt
             using dot_kernel_type::get_replica;
             using dot_kernel_type::get_values;
 
-        // private:
+        private:
             template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook >
             friend class value_mv;
 

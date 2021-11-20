@@ -6,54 +6,22 @@
 
 namespace crdt
 {
-    template < typename T > struct allocator_container 
-    {
-        typedef T container_type;
-
-        allocator_container(T* container)
-            : container_(container)
-        {}
-
-        allocator_container(const allocator_container< T >& other)
-            : container_(other.container_)
-        {}
-
-        T& get_container() { return *container_; }
-        const T& get_container() const { return *container_; }
-
-        void update() { container_->update(); }
-
-        void set_container(T* container) { container_ = container; }
-
-    private:
-        T* container_;
-    };
-
-    template<> struct allocator_container<void> 
-    {
-        allocator_container(void* = 0) {}
-        template< typename T > allocator_container(const allocator_container<T>&) {}
-        void update() {}
-        void set_container(void*) {}
-    };
-
     template <
-        typename Replica = replica<>,
-        typename T = unsigned char,
-        typename Allocator = std::allocator< T >,
-        typename Container = allocator_container< void >
+        typename Replica = replica<>
+        , typename T = unsigned char
+        , typename Allocator = std::allocator< T >
     > class allocator
         : public Allocator
-        , public Container
+        
     {
-        template < typename Replica, typename U, typename AllocatorU, typename ContainerU > friend class allocator;
+        template < typename Replica, typename U, typename AllocatorU > friend class allocator;
 
     public:
         typedef Replica replica_type;
 
-        template< typename U, typename ContainerU = Container > struct rebind
+        template< typename U > struct rebind
         {
-            using other = allocator< Replica, U, typename Allocator::template rebind< U >::other, ContainerU >;
+            using other = allocator< Replica, U, typename Allocator::template rebind< U >::other >;
         };
                 
         allocator(Replica& replica)
@@ -64,30 +32,17 @@ namespace crdt
             : Allocator(std::forward<Al>(al))
             , replica_(replica)
         {}
-
-        allocator(const allocator< Replica, T, Allocator, Container >& other)
-            : Allocator(other)
-            , Container(other)
-            , replica_(other.replica_)
-        {}
-
-        template < typename ReplicaU, typename U, typename AllocatorU, typename ContainerU > allocator(
-            const allocator< ReplicaU, U, AllocatorU, ContainerU >& other
+                
+        template < typename ReplicaU, typename U, typename AllocatorU > allocator(
+            const allocator< ReplicaU, U, AllocatorU >& other
         )
             : Allocator(other)
-            , Container(other)
-            , replica_(other.replica_)
-        {}
-        
-        template < typename ReplicaU, typename U, typename AllocatorU, typename ContainerU > allocator(
-            const allocator< ReplicaU, U, AllocatorU, ContainerU >& other, const Container& container
-        )
-            : Allocator(other)
-            , Container(container)
             , replica_(other.replica_)
         {}
         
         auto& get_replica() const { return replica_; }
+
+        void update() {}
 
     private:
         Replica& replica_;

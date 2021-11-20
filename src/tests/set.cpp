@@ -4,8 +4,7 @@
 
 #include <boost/test/unit_test.hpp>
 
-static crdt::id_sequence<> sequence;
-static crdt::replica<> replica(0, sequence);
+static crdt::replica<> replica(0);
 static crdt::allocator<> allocator(replica);
 
 BOOST_AUTO_TEST_CASE(set_rebind)

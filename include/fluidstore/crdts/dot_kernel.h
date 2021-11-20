@@ -10,13 +10,31 @@
 
 namespace crdt
 {
+    template < typename Allocator, typename Container > struct dot_kernel_allocator
+        : public Allocator
+    {
+        typedef Container container_type;
+
+        dot_kernel_allocator(Allocator& allocator, Container* container)
+            : Allocator(allocator)
+            , container_(container)
+        {}
+
+        dot_kernel_allocator(const dot_kernel_allocator< Allocator, Container >& other) = default;
+
+        void set_container(container_type* container) { container_ = container; }
+        void update() { container_->update(); }
+
+    private:
+        container_type* container_;
+    };
+
     template < typename Key, typename Value, typename Allocator, typename DotContext, typename DotKernel > class dot_kernel_value
     {
     public:
         using allocator_type = Allocator;
-        using dot_kernel_value_type = dot_kernel_value< Key, Value, Allocator, DotContext, DotKernel >;
-
-        using value_allocator_type = typename allocator_type::template rebind< typename allocator_type::value_type, allocator_container< dot_kernel_value_type > >::other;
+        using dot_kernel_value_type = dot_kernel_value< Key, Value, Allocator, DotContext, DotKernel >;        
+        using value_allocator_type = dot_kernel_allocator< Allocator, dot_kernel_value_type >;
         using value_type = typename Value::template rebind_t< value_allocator_type >;
         
         struct nested_value
@@ -161,9 +179,8 @@ namespace crdt
         using dot_kernel_type = dot_kernel< Key, Value, allocator_type, Container, Tag >;
         using dot_context_type = dot_context< dot_type, Tag >;
         
-        using dot_kernel_value_allocator_type = typename allocator_type::template rebind< typename allocator_type::value_type, allocator_container< dot_kernel_type > >::other;
-        using dot_kernel_value_type = dot_kernel_value< Key, Value, dot_kernel_value_allocator_type, dot_context_type, dot_kernel_type >;
-        
+        using dot_kernel_value_type = dot_kernel_value< Key, Value, Allocator, dot_context_type, dot_kernel_type >;
+
         using values_type = flat::map_base< Key, Value, dot_kernel_value_type >;
         
         using iterator = dot_kernel_iterator< typename values_type::iterator, Key, typename dot_kernel_value_type::value_type >;

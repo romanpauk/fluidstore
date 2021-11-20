@@ -4,8 +4,7 @@
 
 #include <boost/test/unit_test.hpp>
 
-static crdt::id_sequence<> sequence;
-static crdt::replica<> replica(0, sequence);
+static crdt::replica<> replica(0);
 static crdt::allocator<> allocator(replica);
 
 BOOST_AUTO_TEST_CASE(value_mv_rebind)
@@ -53,10 +52,9 @@ BOOST_AUTO_TEST_CASE(value_mv_merge)
 
 BOOST_AUTO_TEST_CASE(value_mv_set)
 {
-    crdt::id_sequence<> sequence;
-    crdt::replica<> replica0(0, sequence);
+    crdt::replica<> replica0(0);
     crdt::allocator<> allocator0(replica0);
-    crdt::replica<> replica1(1, sequence);
+    crdt::replica<> replica1(1);
     crdt::allocator<> allocator1(replica1);
 
     crdt::value_mv< crdt::set< int >, decltype(allocator0), crdt::tag_state, crdt::hook_extract > value0(allocator0);    

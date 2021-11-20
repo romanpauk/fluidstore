@@ -46,9 +46,8 @@ BOOST_AUTO_TEST_CASE(set_insert_performance)
     auto t2 = measure([]
     {
         for (size_t x = 0; x < Outer; ++x)
-        {
-            crdt::id_sequence<> sequence;
-            crdt::replica<> replica(0, sequence);
+        {            
+            crdt::replica<> replica(0);
             crdt::allocator< crdt::replica<> > allocator(replica);
             crdt::set< size_t, decltype(allocator), crdt::tag_state, crdt::hook_default/*, crdt::hook_extract*/ > set(allocator);
 
@@ -65,8 +64,7 @@ BOOST_AUTO_TEST_CASE(set_insert_performance)
     {
         for (size_t x = 0; x < Outer; ++x)
         {
-            crdt::id_sequence<> sequence;
-            crdt::replica<> replica(0, sequence);
+            crdt::replica<> replica(0);
             crdt::arena< 32768 > arena;
             crdt::arena_allocator< void > arenaallocator(arena);
             crdt::allocator< crdt::replica<>, void, crdt::arena_allocator< void > > allocator(replica, arenaallocator);

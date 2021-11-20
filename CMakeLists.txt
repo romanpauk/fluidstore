@@ -21,7 +21,6 @@ target_sources(fluidstore INTERFACE
     include/fluidstore/crdts/dot_kernel.h
     include/fluidstore/crdts/hook_default.h
     include/fluidstore/crdts/hook_extract.h
-    include/fluidstore/crdts/id_sequence.h
     include/fluidstore/crdts/set.h
     include/fluidstore/crdts/map.h
     include/fluidstore/crdts/noncopyable.h

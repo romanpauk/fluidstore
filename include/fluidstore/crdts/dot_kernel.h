@@ -240,8 +240,7 @@ namespace crdt
         };
            
         dot_kernel() = default;
-
-        // TODO: investigate, the move is needed in extract_delta, yet there is pointer to old container...
+                
         dot_kernel(dot_kernel_type&& other) = default;        
 
         /*

@@ -8,20 +8,34 @@
 #include <fluidstore/allocators/arena_allocator.h>
 #include <fluidstore/flat/map.h>
 
-#include <algorithm>
-#include <scoped_allocator>
-#include <ostream>
-
 namespace crdt
 {
+    template < typename Allocator, typename Container > struct dot_kernel_allocator
+        : public Allocator
+    {
+        typedef Container container_type;
+
+        dot_kernel_allocator(Allocator& allocator, Container* container)
+            : Allocator(allocator)
+            , container_(container)
+        {}
+
+        dot_kernel_allocator(const dot_kernel_allocator< Allocator, Container >& other) = default;
+
+        void set_container(container_type* container) { container_ = container; }
+        void update() { container_->update(); }
+
+    private:
+        container_type* container_;
+    };
+
     template < typename Key, typename Value, typename Allocator, typename DotContext, typename DotKernel > class dot_kernel_value
     {
     public:
         using allocator_type = Allocator;
-        using dot_kernel_value_type = dot_kernel_value< Key, Value, Allocator, DotContext, DotKernel >;
-
-        using value_allocator_type = typename allocator_type::template rebind< typename allocator_type::value_type, allocator_container< dot_kernel_value_type > >::other;
-        using value_type = typename Value::template rebind< value_allocator_type >::other;
+        using dot_kernel_value_type = dot_kernel_value< Key, Value, Allocator, DotContext, DotKernel >;        
+        using value_allocator_type = dot_kernel_allocator< Allocator, dot_kernel_value_type >;
+        using value_type = typename Value::template rebind_t< value_allocator_type >;
         
         struct nested_value
         {
@@ -123,7 +137,7 @@ namespace crdt
         Outer operator++(int) { return it_++; }
         Outer operator--(int) { return it_--; }
 
-    protected:
+    // protected:
         Iterator it_;
     };
 
@@ -152,16 +166,11 @@ namespace crdt
 
     template < typename Key, typename Value, typename Allocator, typename Container, typename Tag > class dot_kernel
     {
-    public:
-        typedef Allocator allocator_type;
-        
-    private:
         template < typename Key, typename Value, typename Allocator, typename Container, typename Tag > friend class dot_kernel;
-        
-        template < typename Key, typename Value, typename Allocator, typename Container, typename Tag >
-        friend std::ostream& operator << (std::ostream&, const dot_kernel< Key, Value, Allocator, Container, Tag >& kernel);
 
-    protected:
+    public:
+        using allocator_type = Allocator;           
+    
         using replica_type = typename allocator_type::replica_type;
         using replica_id_type = typename replica_type::replica_id_type;
         using counter_type = typename replica_type::counter_type;
@@ -170,15 +179,12 @@ namespace crdt
         using dot_kernel_type = dot_kernel< Key, Value, allocator_type, Container, Tag >;
         using dot_context_type = dot_context< dot_type, Tag >;
         
-        using dot_kernel_value_allocator_type = typename allocator_type::template rebind< typename allocator_type::value_type, allocator_container< dot_kernel_type > >::other;
-        using dot_kernel_value_type = dot_kernel_value< Key, Value, dot_kernel_value_allocator_type, dot_context_type, dot_kernel_type >;
-        
+        using dot_kernel_value_type = dot_kernel_value< Key, Value, Allocator, dot_context_type, dot_kernel_type >;
+
         using values_type = flat::map_base< Key, Value, dot_kernel_value_type >;
-
-        typedef dot_kernel_iterator< typename values_type::iterator, Key, typename dot_kernel_value_type::value_type > iterator;
-        typedef dot_kernel_iterator< typename values_type::const_iterator, Key, typename dot_kernel_value_type::value_type > const_iterator;
-
-        values_type values_;
+        
+        using iterator = dot_kernel_iterator< typename values_type::iterator, Key, typename dot_kernel_value_type::value_type >;
+        using const_iterator = dot_kernel_iterator< typename values_type::const_iterator, Key, typename dot_kernel_value_type::value_type >;
 
         struct replica_data
         {
@@ -191,7 +197,7 @@ namespace crdt
             const flat::set_base< counter_type >* other_counters;
         };
         
-        flat::map_base< replica_id_type, replica_data > replica_;
+        using replicas_type = flat::map_base< replica_id_type, replica_data >;
 
         struct context
         {
@@ -232,12 +238,26 @@ namespace crdt
             Allocator& allocator_;
             flat::map_base< replica_id_type, replica_data >& replica_;
         };
-
-    protected:
+           
         dot_kernel() = default;
-        dot_kernel(dot_kernel_type&& other) = default;
+                
+        dot_kernel(dot_kernel_type&& other) = default;        
+
+        /*
+            // TODO: the move is generally problematic, as values hold pointer to parent container
+
+        template < typename Allocator, typename Container, typename Tag > dot_kernel(dot_kernel< Key, Value, Allocator, Container, Tag >&& other)
+            : values_(std::move(other.values_))
+            , replicas_(std::move(other.replicas_))
+        {}
+        */
 
         ~dot_kernel()
+        {
+            reset();
+        }
+    
+        void reset()
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
 
@@ -255,8 +275,6 @@ namespace crdt
             replica_.clear(allocator);
         }
 
-        // TODO: public
-    public:
         template < typename DotKernel >
         void merge(const DotKernel& other)
         {
@@ -269,10 +287,9 @@ namespace crdt
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
             arena< 8192 > arena;
-            arena_allocator< void > arenaallocator(arena);
-            crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > tmp(allocator.get_replica(), arenaallocator);
+            crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > tmp(allocator.get_replica(), arena);
 
-            for (const auto& [replica_id, rdata] : other.replica_)
+            for (const auto& [replica_id, rdata] : other.get_replica())
             {
                 // Merge counters
                 auto& ldata = replica_.emplace(allocator, replica_id, replica_data()).first->second;
@@ -282,7 +299,7 @@ namespace crdt
             }
 
             // Merge values
-            for (const auto& [rkey, rvalue] : other.values_)
+            for (const auto& [rkey, rvalue] : other.get_values())
             {
                 auto lpb = values_.emplace(allocator, allocator, rkey, this);
 
@@ -309,7 +326,7 @@ namespace crdt
                 ctx.register_insert(lpb);
             }
 
-            for (auto& [replica_id, rdata] : other.replica_)
+            for (auto& [replica_id, rdata] : other.get_replica())
             {
                 auto replica_it = replica_.find(replica_id);
                 if (replica_it != replica_.end())
@@ -317,6 +334,7 @@ namespace crdt
                     auto& ldata = replica_it->second;
 
                     // Find dots that were not visited during processing of values (thus valueless). Those are the ones to be removed.
+                    // TODO: this should be deque.
                     flat::vector < counter_type, decltype(tmp) > rdotsvalueless(tmp);
                     std::set_difference(
                         ldata.other_counters->begin(), ldata.other_counters->end(),
@@ -350,22 +368,12 @@ namespace crdt
             }
         }
 
+        // TODO: can we get rid of this callback?
         void update(const Key& key)
         {
-            auto allocator = static_cast<Container*>(this)->get_allocator();
-            arena< 8192 > arena;
-            arena_allocator< void > arenaallocator(arena);
-            crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arenaallocator);
-            auto delta = static_cast<Container*>(this)->mutable_delta(deltaallocator);
-
-            auto dot = get_next_dot();
-            delta.add_counter_dot(dot);
-            delta.add_value(key, dot);
-            merge(delta);
-            static_cast<Container*>(this)->commit_delta(delta);
+            static_cast<Container*>(this)->update(key);
         }
 
-    public:
         const_iterator begin() const { return values_.begin(); }
         iterator begin() { return values_.begin(); }
         const_iterator end() const { return values_.end(); }
@@ -373,48 +381,12 @@ namespace crdt
         const_iterator find(const Key& key) const { return values_.find(key); }
         iterator find(const Key& key) { return values_.find(key); }
 
-        void clear()
-        {
-            if (!empty())
-            {
-                auto allocator = static_cast<Container*>(this)->get_allocator();
-                arena< 8192 > arena;
-                arena_allocator< void > arenaallocator(arena);
-                crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arenaallocator);
-                auto delta = static_cast<Container*>(this)->mutable_delta(deltaallocator);
-
-                clear(delta);
-                merge(delta);
-                static_cast< Container* >(this)->commit_delta(delta);
-            }
-        }
-
         template < typename Delta > void clear(Delta& delta)
         {
             for (const auto& [value, data] : values_)
             {
                 delta.add_counter_dots(data.dots);
             }
-        }
-
-        size_t erase(const Key& key)
-        {
-            auto values_it = values_.find(key);
-            if (values_it != values_.end())
-            {
-                erase_context context;
-                erase(values_it, context);
-                return context.count;
-            }
-
-            return 0;
-        }
-
-        iterator erase(iterator it)
-        {
-            erase_context context;
-            erase(it.it_, context);
-            return context.iterator;
         }
 
         bool empty() const
@@ -425,24 +397,8 @@ namespace crdt
         size_t size() const
         {
             return values_.size();
-        }
-
-    private:
-        template < typename Context > void erase(typename values_type::iterator it, Context& context)
-        {
-            auto allocator = static_cast<Container*>(this)->get_allocator();
-            arena< 8192 > arena;
-            arena_allocator< void > arenaallocator(arena);
-            crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arenaallocator);
-            auto delta = static_cast<Container*>(this)->mutable_delta(deltaallocator);
-
-            const auto& dots = it->second.dots;
-            delta.add_counter_dots(dots);
-            merge(delta, context);
-            static_cast< Container* >(this)->commit_delta(delta);
-        }
-
-    public:
+        }       
+    
         template < typename Dots > void add_counter_dots(const Dots& dots)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
@@ -486,5 +442,12 @@ namespace crdt
             data.second.dots.emplace(allocator, dot);
             data.second.value.merge(value);
         }
+
+        const replicas_type& get_replica() const { return replica_; }
+        const values_type& get_values() const { return values_; }
+
+    private:
+        values_type values_;
+        replicas_type replica_;
     };
 }

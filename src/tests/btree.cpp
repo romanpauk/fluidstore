@@ -44,7 +44,7 @@ private:
     size_type size_;
 };
 
-template < typename T, typename Descriptor > auto find_node_index(const btree::fixed_vector< T, Descriptor >& nodes, T n)
+template < typename T, typename Descriptor > auto find_node_index(const btree::detail::fixed_vector< T, Descriptor >& nodes, T n)
 {
     for (decltype(nodes.capacity()) i = 0; i < nodes.capacity(); ++i)
     {
@@ -59,14 +59,14 @@ template < typename T, typename Descriptor > auto find_node_index(const btree::f
 
 BOOST_AUTO_TEST_CASE(btree_fixed_vector_find)
 {
-    btree::fixed_vector < int, descriptor < int, 7 > > c((descriptor < int, 7 >()));
+    btree::detail::fixed_vector < int, descriptor < int, 7 > > c((descriptor < int, 7 >()));
     volatile auto p = find_node_index(c, 1);
 }
 
 BOOST_AUTO_TEST_CASE(btree_fixed_vector)
 {
     std::allocator< char > a;
-    btree::fixed_vector < std::string, descriptor < std::string, 8 > > c((descriptor < std::string, 8 >()));
+    btree::detail::fixed_vector < std::string, descriptor < std::string, 8 > > c((descriptor < std::string, 8 >()));
     c.emplace_back(a, "2");
     c.emplace_back(a, "3");
     c.emplace(a, c.begin(), "1");
@@ -77,20 +77,20 @@ BOOST_AUTO_TEST_CASE(btree_fixed_split_vector)
 {
     std::allocator< char > a;
     
-    btree::fixed_vector < std::string, descriptor < std::string, 8 > > v1((descriptor < std::string, 8 >()));
-    btree::fixed_vector < std::string, descriptor < std::string, 8 > > v2((descriptor < std::string, 8 >()));
+    btree::detail::fixed_vector < std::string, descriptor < std::string, 8 > > v1((descriptor < std::string, 8 >()));
+    btree::detail::fixed_vector < std::string, descriptor < std::string, 8 > > v2((descriptor < std::string, 8 >()));
 
-    btree::fixed_split_vector < 
-        btree::fixed_vector < std::string, descriptor < std::string, 8 > >,
-        btree::fixed_vector < std::string, descriptor < std::string, 8 > >
+    btree::detail::fixed_split_vector < 
+        btree::detail::fixed_vector < std::string, descriptor < std::string, 8 > >,
+        btree::detail::fixed_vector < std::string, descriptor < std::string, 8 > >
     > c(v1, v2);
 
-    btree::fixed_vector < std::string, descriptor < std::string, 8 > > v3((descriptor < std::string, 8 >()));
-    btree::fixed_vector < std::string, descriptor < std::string, 8 > > v4((descriptor < std::string, 8 >()));
+    btree::detail::fixed_vector < std::string, descriptor < std::string, 8 > > v3((descriptor < std::string, 8 >()));
+    btree::detail::fixed_vector < std::string, descriptor < std::string, 8 > > v4((descriptor < std::string, 8 >()));
 
-    btree::fixed_split_vector <
-        btree::fixed_vector < std::string, descriptor < std::string, 8 > >,
-        btree::fixed_vector < std::string, descriptor < std::string, 8 > >
+    btree::detail::fixed_split_vector <
+        btree::detail::fixed_vector < std::string, descriptor < std::string, 8 > >,
+        btree::detail::fixed_vector < std::string, descriptor < std::string, 8 > >
     > c2(v3, v4);
 
     c.size();

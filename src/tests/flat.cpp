@@ -258,7 +258,7 @@ BOOST_AUTO_TEST_CASE(vector_size_type)
     BOOST_TEST(vector.max_size() == std::numeric_limits< unsigned char >::max());
     for (auto i = 0; i < vector.max_size(); ++i)
     {
-        vector.push_back(allocator, i);
+        vector.push_back(allocator, static_cast<char>(i));
     }
 
     BOOST_CHECK_THROW(vector.push_back(allocator, 0), std::runtime_error);

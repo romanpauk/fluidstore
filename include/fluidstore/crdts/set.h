@@ -1,101 +1,175 @@
 #pragma once
 
 #include <fluidstore/crdts/dot_kernel.h>
-#include <fluidstore/crdts/default_hook.h>
+#include <fluidstore/crdts/hook_default.h>
+#include <fluidstore/crdts/traits.h>
 
 namespace crdt
 {
-    template < typename Key, typename Allocator, typename Tag, typename Hook, typename Delta > class set_base
-        : public Hook::template hook< Allocator, Delta, set_base< Key, Allocator, Tag, Hook, Delta > >
-        , public dot_kernel< Key, void, Allocator, set_base< Key, Allocator, Tag, Hook, Delta >, Tag 
-        >
+    namespace detail
     {
-        typedef set_base< Key, Allocator, Tag, Hook, Delta > set_base_type;
-        typedef dot_kernel< Key, void, Allocator, set_base_type, Tag > dot_kernel_type;
-        
-        friend dot_kernel_type;
+        template < typename Key, typename Allocator, typename Tag = crdt::tag_state, template <typename, typename, typename> typename Hook = hook_default >
+        class set;
 
+        template < typename Key, typename Allocator, template <typename, typename, typename> typename Hook >
+        class set< Key, Allocator, tag_delta, Hook >
+            : public dot_kernel< Key, void, Allocator, set< Key, Allocator, tag_delta, Hook >, tag_delta >
+            , public hook_default< void, Allocator, void >
+        {
+            using dot_kernel_type = dot_kernel< Key, void, Allocator, set< Key, Allocator, tag_delta, Hook >, tag_delta >;
+
+        public:
+            using allocator_type = Allocator;
+            using tag_type = tag_delta;
+
+            using iterator = typename dot_kernel_type::iterator;
+
+            template < typename AllocatorT, typename TagT = tag_delta, template <typename, typename, typename> typename HookT = Hook > using rebind_t = set< Key, AllocatorT, TagT, HookT >;
+
+            struct delta_extractor
+            {
+                template < typename Container, typename Delta > void apply(Container& instance, Delta& delta) {}
+            };
+
+            set(allocator_type& allocator)
+                : hook_default< void, Allocator, void >(allocator)
+            {}
+        };
+
+        template < typename Key, typename Allocator, template <typename, typename, typename> typename Hook >
+        class set< Key, Allocator, tag_state, Hook >
+            : private dot_kernel< Key, void, Allocator, set< Key, Allocator, tag_state, Hook >, tag_state >
+            , public Hook < set< Key, Allocator, tag_state, Hook >, Allocator, set< Key, Allocator, tag_delta > >
+        {
+            using dot_kernel_type = dot_kernel< Key, void, Allocator, set< Key, Allocator, tag_state, Hook >, tag_state >;
+
+        public:
+            using allocator_type = Allocator;
+            using tag_type = tag_delta;
+
+            using iterator = typename dot_kernel_type::iterator;
+
+            template < typename AllocatorT, typename TagT = tag_state, template <typename, typename, typename> typename HookT = Hook > using rebind_t = set< Key, AllocatorT, TagT, HookT >;
+
+            using delta_type = rebind_t< allocator_type, tag_delta, crdt::hook_default >;
+
+            struct delta_extractor
+            {
+                template < typename Container, typename Delta > void apply(Container& instance, Delta& delta) {}
+            };
+
+            set(allocator_type& allocator)
+                : Hook< set< Key, Allocator, tag_state, Hook >, Allocator, set< Key, Allocator, tag_delta > >(allocator)
+            {}
+
+            std::pair< typename dot_kernel_type::iterator, bool > insert(const Key& key)
+            {
+                auto allocator = get_allocator();
+                arena< 8192 > arena;
+                crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arena);
+
+                typename delta_type::rebind_t< decltype(deltaallocator) > delta(deltaallocator);
+                delta_insert(delta, key);
+
+                insert_context context;
+                merge(delta, context);
+                commit_delta(std::move(delta));
+                return { context.result.first, context.result.second };
+            }
+
+            iterator erase(iterator it)
+            {
+                erase_context context;
+                erase(it, context);
+                return context.iterator;
+            }
+
+            size_t erase(const Key& key)
+            {
+                auto it = find(key);
+                if (it != end())
+                {
+                    erase_context context;
+                    erase(it, context);
+                    return context.count;
+                }
+
+                return 0;
+            }
+
+            void clear()
+            {
+                if (!empty())
+                {
+                    auto allocator = get_allocator();
+                    arena< 8192 > arena;
+                    crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arena);
+
+                    typename delta_type::rebind_t< decltype(deltaallocator) > delta(deltaallocator);
+                    delta_clear(delta);
+
+                    merge(delta);
+                    commit_delta(std::move(delta));
+                }
+            }
+
+            using dot_kernel_type::size;
+            using dot_kernel_type::find;
+            using dot_kernel_type::empty;
+            using dot_kernel_type::begin;
+            using dot_kernel_type::end;
+
+            using dot_kernel_type::merge;
+            using dot_kernel_type::get_replica;
+            using dot_kernel_type::get_values;
+
+        private:
+            template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook >
+            friend class value_mv;
+
+            template < typename Delta > void delta_clear(Delta& delta)
+            {
+                dot_kernel_type::clear(delta);
+            }
+
+            template < typename Delta > void delta_insert(Delta& delta, const Key& key)
+            {
+                auto dot = get_next_dot();
+                delta.add_counter_dot(dot);
+                delta.add_value(key, dot);
+            }
+
+            void erase(iterator it, typename dot_kernel_type::erase_context& context)
+            {
+                auto allocator = get_allocator();
+                arena< 8192 > arena;
+                crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arena);
+
+                typename delta_type::rebind_t< decltype(deltaallocator) > delta(deltaallocator);
+                delta.add_counter_dots(it.it_->second.dots);
+
+                merge(delta, context);
+                commit_delta(std::move(delta));
+            }
+        };
+    }
+
+    template < typename Key, typename Allocator = void, typename Tag = void, template <typename, typename, typename> typename Hook = hook_default >
+    class set
+        : public detail::set< Key, Allocator, Tag, Hook >
+    {
     public:
-        typedef Allocator allocator_type;
-        
-        typedef typename Hook::template hook< Allocator, Delta, set_base_type > hook_type;
-        typedef typename allocator_type::replica_type replica_type;
-
-        template < typename AllocatorT, typename HookT = Hook, typename TagT = Tag > struct rebind
-        {
-            using other = set_base< Key, AllocatorT, TagT, HookT, Delta >;
-        };
-        
-        struct delta_extractor
-        {
-            template < typename Delta > void apply(set_base_type& instance, Delta& delta) {}
-        };
-
-        set_base(allocator_type& allocator)
-            : hook_type(allocator)
+        set(Allocator& allocator)
+            : detail::set< Key, Allocator, Tag, Hook >(allocator)
         {}
-
-        std::pair< typename dot_kernel_type::iterator, bool > insert(const Key& key)
-        {
-            auto allocator = get_allocator();
-            arena< 8192 > arena;
-            arena_allocator< void > arenaallocator(arena);
-            crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arenaallocator);
-            
-            auto delta = mutable_delta(deltaallocator);
-            insert(delta, key);
-            insert_context context;
-            merge(delta, context);
-            commit_delta(delta);
-
-            return { context.result.first, context.result.second };
-        }
-
-        template < typename Delta > void insert(Delta& delta, const Key& key)
-        {
-            auto dot = this->get_next_dot();
-            delta.add_counter_dot(dot);
-            delta.add_value(key, dot);
-        }
     };
 
-    template < typename Key, typename Allocator, typename Tag, typename Hook > class set_base< Key, Allocator, Tag, Hook, void >
-        : public Hook::template hook< Allocator, void, set_base< Key, Allocator, Tag, Hook, void > >
-        , public dot_kernel< Key, void, Allocator, set_base< Key, Allocator, Tag, Hook, void >, Tag >
+    template < typename Key, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook > struct is_crdt_type < set< Key, Allocator, Tag, Hook > > : std::true_type {};
+
+    template < typename Key >
+    class set< Key, void, void, hook_default >
     {
-        typedef dot_kernel< Key, void, Allocator, set_base< Key, Allocator, Tag, Hook, void >, Tag > dot_kernel_type;
-        typedef set_base< Key, Allocator, Tag, Hook, void > set_base_type;
-        typedef typename Hook::template hook< Allocator, void, set_base_type > hook_type;
-
     public:
-        typedef Allocator allocator_type;
-        
-        template < typename AllocatorT, typename HookT = Hook > struct rebind
-        {
-            using other = set_base< Key, AllocatorT, Tag, HookT, void >;
-        };
-
-        set_base(allocator_type& allocator)
-            : hook_type(allocator)
-        {}
-
-        set_base(set_base_type&& other) = default;
-    };
-
-    template < typename Key, typename Allocator, typename Hook = default_state_hook, 
-        typename Delta = set_base< Key, Allocator, tag_delta, default_delta_hook, void >
-    > class set
-        : public set_base< Key, Allocator, tag_state, Hook, Delta >
-    {
-        typedef set_base< Key, Allocator, tag_state, Hook, Delta > set_base_type;
-
-    public:
-        typedef Allocator allocator_type;
-        typedef Hook hook_type;
-        typedef Delta delta_type;
-
-        set(allocator_type& allocator)
-            : set_base_type(allocator)
-        {}
+        template < typename AllocatorT, typename TagT = void, template <typename, typename, typename> typename HookT = hook_default > using rebind_t = set< Key, AllocatorT, TagT, HookT >;
     };
 }

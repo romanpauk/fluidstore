@@ -1,6 +1,7 @@
 #include <fluidstore/allocators/arena_allocator.h>
 #include <fluidstore/crdts/allocator.h>
 #include <fluidstore/crdts/set.h>
+#include <fluidstore/crdts/hook_extract.h>
 
 #include <boost/test/unit_test.hpp>
 
@@ -24,9 +25,9 @@ template < typename T > T tr(T val)
 
 BOOST_AUTO_TEST_CASE(set_insert_performance)
 {
-#define Outer 100000
-#define Inner 4
-#define PROFILE
+#define Outer 10000
+#define Inner 100
+//#define PROFILE
 
 #if !defined(PROFILE)
     auto t1 = measure([]
@@ -45,11 +46,10 @@ BOOST_AUTO_TEST_CASE(set_insert_performance)
     auto t2 = measure([]
     {
         for (size_t x = 0; x < Outer; ++x)
-        {
-            crdt::id_sequence<> sequence;
-            crdt::replica<> replica(0, sequence);
+        {            
+            crdt::replica<> replica(0);
             crdt::allocator< crdt::replica<> > allocator(replica);
-            crdt::set< size_t, decltype(allocator) > set(allocator);
+            crdt::set< size_t, decltype(allocator), crdt::tag_state, crdt::hook_default/*, crdt::hook_extract*/ > set(allocator);
 
             for (size_t i = 0; i < Inner; ++i)
             {
@@ -64,13 +64,12 @@ BOOST_AUTO_TEST_CASE(set_insert_performance)
     {
         for (size_t x = 0; x < Outer; ++x)
         {
-            crdt::id_sequence<> sequence;
-            crdt::replica<> replica(0, sequence);
+            crdt::replica<> replica(0);
             crdt::arena< 32768 > arena;
             crdt::arena_allocator< void > arenaallocator(arena);
             crdt::allocator< crdt::replica<>, void, crdt::arena_allocator< void > > allocator(replica, arenaallocator);
 
-            crdt::set< size_t, decltype(allocator) > set(allocator);
+            crdt::set < size_t, decltype(allocator), crdt::tag_state, crdt::hook_default /*, crdt::hook_extract*/ > set(allocator);
 
             for (size_t i = 0; i < Inner; ++i)
             {

@@ -644,16 +644,16 @@ namespace btree
                 }
             }
 
-            void erase(const key_type& key)
+            template < typename Allocator > void erase(Allocator& allocator, const key_type& key)
             {
                 auto it = find(key);
                 if (it != end())
                 {
-                    erase(it);
+                    erase(allocator, it);
                 }
             }
 
-            void erase(iterator it)
+            template < typename Allocator > void erase(Allocator& allocator, iterator it)
             {
                 assert(it != end());
             
@@ -664,24 +664,24 @@ namespace btree
                 {
                     if (ndata.size() > ndata.capacity() / 2)
                     {
-                        ndata.erase(allocator_, ndata.begin() + it.kindex_);
+                        ndata.erase(allocator, ndata.begin() + it.kindex_);
                         --size_;
                     }
                     else
                     {
                         auto key = node.get_keys()[it.kindex_];
-                        auto [n, nindex] = rebalance_erase(allocator_, depth_, node, it.nindex_);
+                        auto [n, nindex] = rebalance_erase(allocator, depth_, node, it.nindex_);
                     
                         assert(find_key_index(n.get_keys(), key) < n.get_keys().size());
 
                         auto ndata = n.get_data();
-                        ndata.erase(allocator_, ndata.begin() + find_key_index(n.get_keys(), key));
+                        ndata.erase(allocator, ndata.begin() + find_key_index(n.get_keys(), key));
                         --size_;
                     }
                 }
                 else
                 {
-                    ndata.erase(allocator_, ndata.begin() + it.kindex_);
+                    ndata.erase(allocator, ndata.begin() + it.kindex_);
                     --size_;
                 }
             }
@@ -1631,6 +1631,11 @@ namespace btree
             base_type::insert(allocator_, begin, end);
         }
 
+        void erase(const value_type& key)
+        {
+            base_type::erase(allocator_, key);
+        }
+
     private:
         allocator_type allocator_;
     };
@@ -1689,6 +1694,11 @@ namespace btree
         template < typename It > void insert(It begin, It end)
         {
             base_type::insert(allocator_, begin, end);
+        }
+
+        void erase(const typename value_type::first_type& key)
+        {
+            base_type::erase(allocator_, key);
         }
 
     private:

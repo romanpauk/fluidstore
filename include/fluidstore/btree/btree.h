@@ -504,7 +504,7 @@ namespace btree
             typename NodeSizeType, 
             typename InternalNode,
             typename ValueNode
-        > class container
+        > class container_base
         {
         public:
             using node_size_type = NodeSizeType;
@@ -513,7 +513,7 @@ namespace btree
             using value_type = typename value_type_traits< Key, Value >::value_type;
             using reference = typename value_type_traits< Key, Value >::reference;
             using allocator_type = Allocator;
-            using container_type = container< Key, Value, Compare, Allocator, NodeSizeType, InternalNode, ValueNode >;
+            using container_type = container_base< Key, Value, Compare, Allocator, NodeSizeType, InternalNode, ValueNode >;
             using internal_node = InternalNode;
             using value_node = ValueNode;
             using value_type_traits_type = value_type_traits< Key, Value >;
@@ -590,7 +590,7 @@ namespace btree
                 node_size_type nindex_;            
             };
 
-            container(Allocator& allocator = Allocator())
+            container_base(Allocator& allocator = Allocator())
                 : root_()
                 , first_node_()
                 , last_node_()
@@ -607,7 +607,7 @@ namespace btree
             #endif
             }
 
-            ~container()
+            ~container_base()
             {
                 if (root_)
                 {
@@ -1572,6 +1572,27 @@ namespace btree
         };
     }
 
+    template <
+        typename Key,
+        typename Compare = std::less< Key >,
+        typename Allocator = std::allocator< Key >,
+        typename NodeSizeType = uint8_t,
+        NodeSizeType N = detail::node_dimension< uint8_t, Key >::value,
+        typename InternalNodeType = detail::internal_node< Key, NodeSizeType, N >,
+        typename ValueNodeType = detail::value_node< Key, void, NodeSizeType, N, InternalNodeType >
+    > class set_base
+        : public detail::container_base< Key, void, Compare, Allocator, NodeSizeType, InternalNodeType, ValueNodeType >
+    {
+        using base_type = detail::container_base< Key, void, Compare, Allocator, NodeSizeType, InternalNodeType, ValueNodeType >;
+
+    public:
+        using allocator_type = Allocator;
+
+        set_base(Allocator& allocator = Allocator())
+            : base_type(allocator)
+        {}
+    };
+
     template < 
         typename Key, 
         typename Compare = std::less< Key >, 
@@ -1581,9 +1602,9 @@ namespace btree
         typename InternalNodeType = detail::internal_node< Key, NodeSizeType, N >,
         typename ValueNodeType = detail::value_node< Key, void, NodeSizeType, N, InternalNodeType >
     > class set
-        : public detail::container< Key, void, Compare, Allocator, NodeSizeType, InternalNodeType, ValueNodeType >
+        : public set_base< Key, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >
     {
-        using base_type = detail::container< Key, void, Compare, Allocator, NodeSizeType, InternalNodeType, ValueNodeType >;
+        using base_type = set_base< Key, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >;
 
     public:
         using allocator_type = Allocator;
@@ -1594,6 +1615,28 @@ namespace btree
     };
     
     template <
+        typename Key,
+        typename Value,
+        typename Compare = std::less< Key >,
+        typename Allocator = std::allocator< std::pair< Key, Value > >,
+        typename NodeSizeType = uint8_t,
+        NodeSizeType N = detail::node_dimension< uint8_t, Key >::value,
+        typename InternalNodeType = detail::internal_node< Key, NodeSizeType, N >,
+        typename ValueNodeType = detail::value_node< Key, Value, NodeSizeType, N, InternalNodeType >
+    > class map_base
+        : public detail::container_base< Key, Value, Compare, Allocator, NodeSizeType, InternalNodeType, ValueNodeType >
+    {
+        using base_type = detail::container_base< Key, Value, Compare, Allocator, NodeSizeType, InternalNodeType, ValueNodeType >;
+
+    public:
+        using allocator_type = Allocator;
+
+        map_base(Allocator& allocator = Allocator())
+            : base_type(allocator)
+        {}
+    };
+
+    template <
         typename Key, 
         typename Value, 
         typename Compare = std::less< Key >, 
@@ -1603,9 +1646,9 @@ namespace btree
         typename InternalNodeType = detail::internal_node< Key, NodeSizeType, N >,
         typename ValueNodeType = detail::value_node< Key, Value, NodeSizeType, N, InternalNodeType >
     > class map
-        : public detail::container< Key, Value, Compare, Allocator, NodeSizeType, InternalNodeType, ValueNodeType >
+        : public map_base< Key, Value, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >
     {
-        using base_type = detail::container< Key, Value, Compare, Allocator, NodeSizeType, InternalNodeType, ValueNodeType >;
+        using base_type = map_base< Key, Value, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >;
 
     public:
         using allocator_type = Allocator;

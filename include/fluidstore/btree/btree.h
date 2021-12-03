@@ -484,7 +484,7 @@ namespace btree
             typedef std::pair< const Key&, Value& > reference;
 
             template < typename Pair > static const Key& get_key(Pair&& p) { return p.first; }
-            template < typename Pair > static auto convert(Pair&& p) { return p; }
+            template < typename Pair > static auto&& convert(Pair&& p) { return std::forward< Pair >(p); }
         };
 
         template < typename Key > struct value_type_traits< Key, void >
@@ -606,6 +606,18 @@ namespace btree
                 assert(&n == (node*)&n);
             #endif
             }
+                        
+            container_base(container_type&& other)
+                : root_(other.root_)
+                , first_node_(other.first_node_)
+                , last_node_(other.last_node_)
+                , size_(other.size_)
+                , depth_(other.depth_)
+            {
+                other.root_ = nullptr;
+                other.first_node_ = other.last_node_ = nullptr;
+                other.depth_ = other.size_ = 0;
+            }
 
             ~container_base()
             {
@@ -618,6 +630,7 @@ namespace btree
                 if (root_)
                 {
                     free_node(allocator, root_, 1);
+                    depth_ = size_ = 0;
                 }
             }
 
@@ -627,6 +640,11 @@ namespace btree
             }
         
             template < typename Allocator > std::pair< iterator, bool > insert(Allocator& allocator, const value_type& value)
+            {
+                return emplace(allocator, nullptr, value);
+            }
+
+            template < typename Allocator > std::pair< iterator, bool > emplace(Allocator& allocator, const value_type& value)
             {
                 return emplace(allocator, nullptr, value);
             }
@@ -1617,6 +1635,13 @@ namespace btree
         set(Allocator& allocator = Allocator())
             : allocator_(allocator)
         {}
+              
+        set(set< Key, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >&& other) = default;
+
+        ~set()
+        {
+            base_type::clear(allocator_);
+        }
 
         std::pair< iterator, bool > insert(const value_type& value)
         {
@@ -1683,6 +1708,13 @@ namespace btree
         map(Allocator& allocator = Allocator())
             : allocator_(allocator)
         {}
+
+        map(map< Key, Value, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >&& other) = default;
+
+        ~map()
+        {
+            base_type::clear(allocator_);
+        }
 
         std::pair< iterator, bool > insert(const value_type& value)
         {

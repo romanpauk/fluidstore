@@ -609,9 +609,14 @@ namespace btree
 
             ~container_base()
             {
+                clear(allocator_);
+            }
+
+            template < typename Allocator > void clear(Allocator& allocator)
+            {
                 if (root_)
                 {
-                    free_node(root_, 1);
+                    free_node(allocator, root_, 1);
                 }
             }
 
@@ -620,22 +625,22 @@ namespace btree
                 return root_ ? find(root_, key) : end();
             }
         
-            std::pair< iterator, bool > insert(const value_type& value)
+            template < typename Allocator > std::pair< iterator, bool > insert(Allocator& allocator, const value_type& value)
             {
-                return emplace(nullptr, value);
+                return emplace(allocator, nullptr, value);
             }
 
-            std::pair< iterator, bool > insert(iterator hint, const value_type& value)
+            template < typename Allocator > std::pair< iterator, bool > insert(Allocator& allocator, iterator hint, const value_type& value)
             {
-                return emplace(&hint, value);
+                return emplace(allocator, &hint, value);
             }
 
-            template < typename It > void insert(It begin, It end)
+            template < typename Allocator, typename It > void insert(Allocator& allocator, It begin, It end)
             {
                 // TODO: hint, assume sorted range.
                 while (begin != end)
                 {
-                    insert(*begin++);
+                    insert(allocator, *begin++);
                 }
             }
 
@@ -665,7 +670,7 @@ namespace btree
                     else
                     {
                         auto key = node.get_keys()[it.kindex_];
-                        auto [n, nindex] = rebalance_erase(depth_, node, it.nindex_);
+                        auto [n, nindex] = rebalance_erase(allocator_, depth_, node, it.nindex_);
                     
                         assert(find_key_index(n.get_keys(), key) < n.get_keys().size());
 
@@ -687,7 +692,7 @@ namespace btree
             iterator begin() const { return iterator(first_node_, 0, 0); }
             iterator end() const { return iterator(nullptr, 0, 0); }
 
-        private:
+        //private:
             value_node* hint_node(iterator* it) const
             {
                 if (it)
@@ -698,11 +703,11 @@ namespace btree
                 return nullptr;
             }
 
-            template < typename T > std::pair< iterator, bool > emplace(iterator* hint, T&& value)
+            template < typename Allocator, typename T > std::pair< iterator, bool > emplace(Allocator& allocator, iterator* hint, T&& value)
             {
                 if (!root_)
                 {
-                    auto root = allocate_node< value_node >();
+                    auto root = allocate_node< value_node >(allocator);
                     root_ = first_node_ = last_node_ = root;
                     depth_ = 1;
 
@@ -724,12 +729,12 @@ namespace btree
                 {
                     if (n.get_parent())
                     {
-                        std::tie(n, nindex) = rebalance_insert(depth_, n, nindex, key);
+                        std::tie(n, nindex) = rebalance_insert(allocator, depth_, n, nindex, key);
                         return insert(n, nindex, std::forward< T >(value));
                     }
                     else
                     {
-                        std::tie(n, nindex) = rebalance_insert(depth_, n, key);
+                        std::tie(n, nindex) = rebalance_insert(allocator, depth_, n, key);
                         return insert(n, nindex, std::forward< T >(value));
                     }
                 }
@@ -847,13 +852,13 @@ namespace btree
                 return nodes.size();
             }
 
-            template< typename Node > void remove_node(size_type depth, node_descriptor< internal_node* > parent, const node_descriptor< Node* > n, node_size_type nindex, node_size_type kindex)
+            template< typename Allocator, typename Node > void remove_node(Allocator& allocator, size_type depth, node_descriptor< internal_node* > parent, const node_descriptor< Node* > n, node_size_type nindex, node_size_type kindex)
             {
                 auto pchildren = parent.get_children< node* >();
-                pchildren.erase(allocator_, pchildren.begin() + nindex);
+                pchildren.erase(allocator, pchildren.begin() + nindex);
             
                 auto pkeys = parent.get_keys();
-                pkeys.erase(allocator_, pkeys.begin() + kindex);
+                pkeys.erase(allocator, pkeys.begin() + kindex);
 
                 if (pkeys.empty())
                 {
@@ -864,34 +869,34 @@ namespace btree
                     assert(depth_ >= 1);
                     set_parent(depth_ == 1, root_, nullptr);
 
-                    deallocate_node(desc(node_cast< internal_node* >(root)));
+                    deallocate_node(allocator, desc(node_cast< internal_node* >(root)));
                 }
             }
 
-            template < typename Node > auto get_node_allocator()
+            template < typename Node, typename Allocator > auto get_node_allocator(Allocator& allocator)
             {
-                return std::allocator_traits< Allocator >::rebind_alloc< Node >(allocator_);
+                return std::allocator_traits< Allocator >::rebind_alloc< Node >(allocator);
             }
 
-            template < typename Node > Node* allocate_node()
+            template < typename Node, typename Allocator > Node* allocate_node(Allocator& allocator)
             {
                 static_assert(!std::is_same_v<Node, node>);
             
-                auto allocator = get_node_allocator< Node >();
-                auto ptr = std::allocator_traits< decltype(allocator) >::allocate(allocator, 1);
-                std::allocator_traits< decltype(allocator) >::construct(allocator, ptr);
+                auto alloc = get_node_allocator< Node >(allocator);
+                auto ptr = std::allocator_traits< decltype(alloc) >::allocate(alloc, 1);
+                std::allocator_traits< decltype(alloc) >::construct(alloc, ptr);
                 return ptr;
             }
 
-            template < typename Node > void deallocate_node(node_descriptor< Node* > n)
+            template < typename Allocator, typename Node > void deallocate_node(Allocator& allocator, node_descriptor< Node* > n)
             {
                 static_assert(!std::is_same_v<Node, node>);
             
-                n.cleanup(allocator_);
+                n.cleanup(allocator);
 
-                auto allocator = get_node_allocator< Node >();
-                std::allocator_traits< decltype(allocator) >::destroy(allocator, n.node());
-                std::allocator_traits< decltype(allocator) >::deallocate(allocator, n.node(), 1);
+                auto alloc = get_node_allocator< Node >(allocator);
+                std::allocator_traits< decltype(alloc) >::destroy(alloc, n.node());
+                std::allocator_traits< decltype(alloc) >::deallocate(alloc, n.node(), 1);
             }
 
             static const Key& split_key(/*const*/ node_descriptor< internal_node* > n)
@@ -900,38 +905,38 @@ namespace btree
                 return *(n.get_keys().begin() + internal_node::N);
             }
 
-            std::tuple< node_descriptor< internal_node* >, key_type > split_node(size_type depth, node_descriptor< internal_node* > lnode, node_size_type lindex, const key_type&)
+            template < typename Allocator > std::tuple< node_descriptor< internal_node* >, key_type > split_node(Allocator& allocator, size_type depth, node_descriptor< internal_node* > lnode, node_size_type lindex, const key_type&)
             {
                 assert(full(lnode));
-                auto rnode = desc(allocate_node< internal_node >());
+                auto rnode = desc(allocate_node< internal_node >(allocator));
 
                 auto lchildren = lnode.get_children< node* >();
                 auto rchildren = rnode.get_children< node* >();
             
                 assert(depth_ >= depth + 1);
-                rchildren.insert(allocator_, rchildren.begin(), lchildren.begin() + internal_node::N, lchildren.end());
+                rchildren.insert(allocator, rchildren.begin(), lchildren.begin() + internal_node::N, lchildren.end());
                 std::for_each(lchildren.begin() + internal_node::N, lchildren.end(), [&](auto& n) { set_parent(depth_ == depth + 1, n, rnode); });
 
                 auto lkeys = lnode.get_keys();
                 auto rkeys = rnode.get_keys();
 
                 auto begin = lkeys.begin() + internal_node::N;
-                rkeys.insert(allocator_, rkeys.end(), std::make_move_iterator(begin), std::make_move_iterator(lkeys.end()));
+                rkeys.insert(allocator, rkeys.end(), std::make_move_iterator(begin), std::make_move_iterator(lkeys.end()));
 
                 Key splitkey = std::move(*(begin - 1));
 
                 // Remove splitkey, too (begin - 1). Each node should end up with N-1 keys as split key will be propagated to parent node.
-                lkeys.erase(allocator_, begin - 1, lkeys.end());
+                lkeys.erase(allocator, begin - 1, lkeys.end());
                 assert(lkeys.size() == internal_node::N - 1);
                 assert(rkeys.size() == internal_node::N - 1);
        
                 return { rnode, splitkey };
             }
 
-            std::tuple< node_descriptor< value_node* >, key_type > split_node(size_type, node_descriptor< value_node* > lnode, node_size_type lindex, const key_type& key)
+            template < typename Allocator > std::tuple< node_descriptor< value_node* >, key_type > split_node(Allocator& allocator, size_type, node_descriptor< value_node* > lnode, node_size_type lindex, const key_type& key)
             {
                 assert(full(lnode));
-                auto rnode = desc(allocate_node< value_node >());
+                auto rnode = desc(allocate_node< value_node >(allocator));
                 auto lkeys = lnode.get_keys();
                 auto ldata = lnode.get_data();
 
@@ -943,10 +948,10 @@ namespace btree
                 auto rdata = rnode.get_data();
 
                 auto begin = ldata.begin() + value_node::N;
-                rdata.insert(allocator_, rdata.end(), std::make_move_iterator(begin), std::make_move_iterator(ldata.end()));
+                rdata.insert(allocator, rdata.end(), std::make_move_iterator(begin), std::make_move_iterator(ldata.end()));
 
                 // Keep splitkey.
-                ldata.erase(allocator_, begin, ldata.end());
+                ldata.erase(allocator, begin, ldata.end());
                 assert(ldata.size() == value_node::N);
                 assert(rdata.size() == value_node::N);
 
@@ -968,7 +973,7 @@ namespace btree
                 return { rnode, lkeys.back() };
             }
 
-            void free_node(node* n, size_type depth)
+            template < typename Allocator > void free_node(Allocator& allocator, node* n, size_type depth)
             {
                 if (depth != depth_)
                 {
@@ -977,14 +982,14 @@ namespace btree
 
                     for (auto child: nchildren)
                     {
-                        free_node(child, depth + 1);
+                        free_node(allocator, child, depth + 1);
                     }
 
-                    deallocate_node(in);
+                    deallocate_node(allocator, in);
                 }
                 else
                 {
-                    deallocate_node(desc(node_cast< value_node* >(n)));
+                    deallocate_node(allocator, desc(node_cast< value_node* >(n)));
                 }
             }
 
@@ -1192,27 +1197,27 @@ namespace btree
                 return false;
             }
 
-            template < typename Node > std::tuple< node_descriptor< Node* >, node_size_type > rebalance_insert(size_type depth, node_descriptor< Node* > n, const Key& key)
+            template < typename Allocator, typename Node > std::tuple< node_descriptor< Node* >, node_size_type > rebalance_insert(Allocator& allocator, size_type depth, node_descriptor< Node* > n, const Key& key)
             {
                 assert(full(n));
                 if(n.get_parent())
                 {
                     auto nindex = find_node_index(n.get_parent().get_children< node* >(), n);
-                    return rebalance_insert(depth, n, nindex, key);
+                    return rebalance_insert(allocator, depth, n, nindex, key);
                 }
                 else
                 {
-                    auto root = desc(allocate_node< internal_node >());
-                    auto [p, splitkey] = split_node(depth, n, 0, key);
+                    auto root = desc(allocate_node< internal_node >(allocator));
+                    auto [p, splitkey] = split_node(allocator, depth, n, 0, key);
 
                     auto children = root.get_children< node* >();
-                    children.emplace_back(allocator_, n);
+                    children.emplace_back(allocator, n);
                     n.set_parent(root);
-                    children.emplace_back(allocator_, p);
+                    children.emplace_back(allocator, p);
                     p.set_parent(root);
 
                     auto cmp = !(compare_lte(key, splitkey));
-                    root.get_keys().emplace_back(allocator_, std::move(splitkey));
+                    root.get_keys().emplace_back(allocator, std::move(splitkey));
 
                     root_ = root;
                     ++depth_;
@@ -1221,7 +1226,7 @@ namespace btree
                 }
             }
 
-            template < typename Node > std::tuple< node_descriptor< Node* >, node_size_type > rebalance_insert(size_type depth, node_descriptor< Node* > n, node_size_type nindex, const Key& key)
+            template < typename Allocator, typename Node > std::tuple< node_descriptor< Node* >, node_size_type > rebalance_insert(Allocator& allocator, size_type depth, node_descriptor< Node* > n, node_size_type nindex, const Key& key)
             {
                 assert(full(n));
                 assert(n.get_parent());
@@ -1231,12 +1236,12 @@ namespace btree
                 {
                     assert(depth > 1);
                     depth_check< true > dc(depth_, depth);
-                    rebalance_insert(depth - 1, n.get_parent(), split_key(n.get_parent()));
+                    rebalance_insert(allocator, depth - 1, n.get_parent(), split_key(n.get_parent()));
                     assert(!full(n.get_parent()));
                 }
                     
                 // TODO: check that the key is still value reference
-                auto [p, splitkey] = split_node(depth, n, nindex, key);
+                auto [p, splitkey] = split_node(allocator, depth, n, nindex, key);
                     
                 auto pchildren = n.get_parent().get_children< node* >();
                 if (parent_rebalance)
@@ -1254,16 +1259,16 @@ namespace btree
                 return { cmp ? p : n, nindex + cmp };
             }
 
-            template < typename Node > void rebalance_erase(size_type depth, node_descriptor< Node* > n)
+            template < typename Allocator, typename Node > void rebalance_erase(Allocator& allocator, size_type depth, node_descriptor< Node* > n)
             {
                 if (n.get_parent())
                 {
                     auto nindex = find_node_index(n.get_parent().get_children< node* >(), n);
-                    rebalance_erase(depth, n, nindex);
+                    rebalance_erase(allocator, depth, n, nindex);
                 }
             }
 
-            template < typename Node > std::tuple< node_descriptor< Node* >, node_size_type > rebalance_erase(size_type depth, node_descriptor< Node* > n, node_size_type nindex)
+            template < typename Allocator, typename Node > std::tuple< node_descriptor< Node* >, node_size_type > rebalance_erase(Allocator& allocator, size_type depth, node_descriptor< Node* > n, node_size_type nindex)
             {
                 assert(n.get_parent());
                 assert(n.get_keys().size() <= n.get_keys().capacity() / 2);
@@ -1288,7 +1293,7 @@ namespace btree
                 if (pkeys.size() <= pkeys.capacity() / 2)
                 {
                     depth_check< false > dc(depth_, depth);
-                    rebalance_erase(depth - 1, n.get_parent());
+                    rebalance_erase(allocator, depth - 1, n.get_parent());
                     nindex = find_node_index(n.get_parent().get_children< node* >(), n);
                 }                
                 
@@ -1298,14 +1303,14 @@ namespace btree
 
                     if (merge_keys(depth, left, lindex, n, nindex))
                     {
-                        remove_node(depth, n.get_parent(), n, nindex, nindex - 1);
-                        deallocate_node(n);
+                        remove_node(allocator, depth, n.get_parent(), n, nindex, nindex - 1);
+                        deallocate_node(allocator, n);
                         return { left, nindex - 1 };
                     }
                     else if (merge_keys(depth, right, rindex, n, nindex))
                     {
-                        remove_node(depth, n.get_parent(), n, nindex, nindex);
-                        deallocate_node(n);
+                        remove_node(allocator, depth, n.get_parent(), n, nindex, nindex);
+                        deallocate_node(allocator, n);
                         return { right, nindex + 1 };
                     }
 
@@ -1608,10 +1613,26 @@ namespace btree
 
     public:
         using allocator_type = Allocator;
-        
+        using value_type = typename base_type::value_type;
+        using iterator = typename base_type::iterator;
+
         set(Allocator& allocator = Allocator())
             : base_type(allocator)
+            , allocator_(allocator)
         {}
+
+        std::pair< iterator, bool > insert(const value_type& value)
+        {
+            return emplace(allocator_, nullptr, value);
+        }
+
+        template < typename It > void insert(It begin, It end)
+        {
+            base_type::insert(allocator_, begin, end);
+        }
+
+    private:
+        allocator_type allocator_;
     };
     
     template <
@@ -1652,9 +1673,25 @@ namespace btree
 
     public:
         using allocator_type = Allocator;
+        using value_type = typename base_type::value_type;
+        using iterator = typename base_type::iterator;
 
         map(Allocator& allocator = Allocator())
             : base_type(allocator)
+            , allocator_(allocator)
         {}
+
+        std::pair< iterator, bool > insert(const value_type& value)
+        {
+            return emplace(allocator_, nullptr, value);
+        }
+
+        template < typename It > void insert(It begin, It end)
+        {
+            base_type::insert(allocator_, begin, end);
+        }
+
+    private:
+        allocator_type allocator_;
     };
 }

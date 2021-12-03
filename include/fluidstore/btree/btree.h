@@ -502,7 +502,6 @@ namespace btree
             typename Compare, 
             typename Allocator, 
             typename NodeSizeType, 
-            NodeSizeType N,
             typename InternalNode,
             typename ValueNode
         > class container
@@ -514,13 +513,11 @@ namespace btree
             using value_type = typename value_type_traits< Key, Value >::value_type;
             using reference = typename value_type_traits< Key, Value >::reference;
             using allocator_type = Allocator;
-            using container_type = container< Key, Value, Compare, Allocator, NodeSizeType, N, InternalNode, ValueNode >;
+            using container_type = container< Key, Value, Compare, Allocator, NodeSizeType, InternalNode, ValueNode >;
             using internal_node = InternalNode;
             using value_node = ValueNode;
             using value_type_traits_type = value_type_traits< Key, Value >;
-
-            static const auto dimension = N;
-
+                        
             template < bool Inc > struct depth_check
             {
                 depth_check(size_type& gdepth, size_type& ldepth)
@@ -861,7 +858,7 @@ namespace btree
                 if (pkeys.empty())
                 {
                     auto root = root_;
-                    fixed_vector< node*, children_descriptor< internal_node*, size_type, 2 * N > > pchildren((internal_node*)parent, 1); // override the size to 1
+                    fixed_vector< node*, children_descriptor< internal_node*, size_type, 2 * internal_node::N > > pchildren((internal_node*)parent, 1); // override the size to 1
                     root_ = pchildren[0];
                     --depth_;
                     assert(depth_ >= 1);
@@ -900,7 +897,7 @@ namespace btree
             static const Key& split_key(/*const*/ node_descriptor< internal_node* > n)
             {
                 assert(full(n));
-                return *(n.get_keys().begin() + N);
+                return *(n.get_keys().begin() + internal_node::N);
             }
 
             std::tuple< node_descriptor< internal_node* >, key_type > split_node(size_type depth, node_descriptor< internal_node* > lnode, node_size_type lindex, const key_type&)
@@ -912,21 +909,21 @@ namespace btree
                 auto rchildren = rnode.get_children< node* >();
             
                 assert(depth_ >= depth + 1);
-                rchildren.insert(allocator_, rchildren.begin(), lchildren.begin() + N, lchildren.end());
-                std::for_each(lchildren.begin() + N, lchildren.end(), [&](auto& n) { set_parent(depth_ == depth + 1, n, rnode); });
+                rchildren.insert(allocator_, rchildren.begin(), lchildren.begin() + internal_node::N, lchildren.end());
+                std::for_each(lchildren.begin() + internal_node::N, lchildren.end(), [&](auto& n) { set_parent(depth_ == depth + 1, n, rnode); });
 
                 auto lkeys = lnode.get_keys();
                 auto rkeys = rnode.get_keys();
 
-                auto begin = lkeys.begin() + N;
+                auto begin = lkeys.begin() + internal_node::N;
                 rkeys.insert(allocator_, rkeys.end(), std::make_move_iterator(begin), std::make_move_iterator(lkeys.end()));
 
                 Key splitkey = std::move(*(begin - 1));
 
                 // Remove splitkey, too (begin - 1). Each node should end up with N-1 keys as split key will be propagated to parent node.
                 lkeys.erase(allocator_, begin - 1, lkeys.end());
-                assert(lkeys.size() == N - 1);
-                assert(rkeys.size() == N - 1);
+                assert(lkeys.size() == internal_node::N - 1);
+                assert(rkeys.size() == internal_node::N - 1);
        
                 return { rnode, splitkey };
             }
@@ -945,13 +942,13 @@ namespace btree
             #endif
                 auto rdata = rnode.get_data();
 
-                auto begin = ldata.begin() + N;
+                auto begin = ldata.begin() + value_node::N;
                 rdata.insert(allocator_, rdata.end(), std::make_move_iterator(begin), std::make_move_iterator(ldata.end()));
 
                 // Keep splitkey.
                 ldata.erase(allocator_, begin, ldata.end());
-                assert(ldata.size() == N);
-                assert(rdata.size() == N);
+                assert(ldata.size() == value_node::N);
+                assert(rdata.size() == value_node::N);
 
             #if defined(VALUE_NODE_APPEND)
                 }
@@ -1024,7 +1021,7 @@ namespace btree
                 auto sdata = source.get_data();
                 auto tdata = target.get_data();
             
-                if (sdata.size() > N && tdata.size() < 2*N)
+                if (sdata.size() > value_node::N && tdata.size() < 2 * value_node::N)
                 {
                     auto pkeys = target.get_parent().get_keys();
 
@@ -1066,7 +1063,7 @@ namespace btree
             
                 assert(depth_ >= depth + 1);
 
-                if (skeys.size() > N - 1 && tkeys.size() < 2*N - 1)
+                if (skeys.size() > internal_node::N - 1 && tkeys.size() < 2 * internal_node::N - 1)
                 {
                     auto pkeys = target.get_parent().get_keys();
 
@@ -1111,7 +1108,7 @@ namespace btree
                 }
 
                 auto tdata = target.get_data();
-                if (tdata.size() == N)
+                if (tdata.size() == value_node::N)
                 {
                     auto sdata = source.get_data();
                     tdata.insert(allocator_, tindex < sindex ? tdata.end() : tdata.begin(), std::make_move_iterator(sdata.begin()), std::make_move_iterator(sdata.end()));
@@ -1163,7 +1160,7 @@ namespace btree
                 auto skeys = source.get_keys();
                 auto tkeys = target.get_keys();
             
-                if (tkeys.size() == N - 1)
+                if (tkeys.size() == internal_node::N - 1)
                 {
                     auto pkeys = target.get_parent().get_keys();
 
@@ -1422,7 +1419,7 @@ namespace btree
                 return compare_(lhs, rhs) || !compare_(rhs, lhs);
             }
 
-            template < typename Node > bool full(const node_descriptor< Node > n) const
+            template < typename Node > static bool full(const node_descriptor< Node > n)
             {
                 return n.get_keys().size() == n.get_keys().capacity();
             }
@@ -1440,6 +1437,8 @@ namespace btree
         
         template < typename Key, typename SizeType, SizeType N > struct internal_node : node
         {
+            enum { N = N };
+
             internal_node() = default;
 
             uint8_t keys[(2 * N - 1) * sizeof(Key)];
@@ -1476,6 +1475,8 @@ namespace btree
 
         template < typename Key, typename Value, typename SizeType, SizeType N, typename InternalNodeType > struct value_node : node
         {
+            enum { N = N };
+
             value_node() = default;
 
             uint8_t keys[2 * N * sizeof(Key)];
@@ -1528,6 +1529,8 @@ namespace btree
 
         template < typename Key, typename SizeType, SizeType N, typename InternalNodeType > struct value_node< Key, void, SizeType, N, InternalNodeType > : node
         {
+            enum { N = N };
+
             value_node() = default;
 
             uint8_t keys[2 * N * sizeof(Key)];
@@ -1578,9 +1581,9 @@ namespace btree
         typename InternalNodeType = detail::internal_node< Key, NodeSizeType, N >,
         typename ValueNodeType = detail::value_node< Key, void, NodeSizeType, N, InternalNodeType >
     > class set
-        : public detail::container< Key, void, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >
+        : public detail::container< Key, void, Compare, Allocator, NodeSizeType, InternalNodeType, ValueNodeType >
     {
-        using base_type = detail::container< Key, void, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >;
+        using base_type = detail::container< Key, void, Compare, Allocator, NodeSizeType, InternalNodeType, ValueNodeType >;
 
     public:
         using allocator_type = Allocator;
@@ -1600,9 +1603,9 @@ namespace btree
         typename InternalNodeType = detail::internal_node< Key, NodeSizeType, N >,
         typename ValueNodeType = detail::value_node< Key, Value, NodeSizeType, N, InternalNodeType >
     > class map
-        : public detail::container< Key, Value, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >
+        : public detail::container< Key, Value, Compare, Allocator, NodeSizeType, InternalNodeType, ValueNodeType >
     {
-        using base_type = detail::container< Key, Value, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >;
+        using base_type = detail::container< Key, Value, Compare, Allocator, NodeSizeType, InternalNodeType, ValueNodeType >;
 
     public:
         using allocator_type = Allocator;

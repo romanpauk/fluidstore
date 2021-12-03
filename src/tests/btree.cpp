@@ -17,7 +17,7 @@
 static int Iters = 200;
 static int Max = 32768;
 static const int ArenaSize = 65536 * 2;
-static const int N = 10;
+static const int Count = 10;
 
 template < typename T, size_t N > struct descriptor
 {
@@ -124,19 +124,19 @@ BOOST_AUTO_TEST_CASE(btree_set_node_dimension)
     // Note: Total number of elements in node is N * 2
 
     typedef btree::set< uint8_t > set_uint8_t;
-    BOOST_TEST(set_uint8_t::dimension == 32);
+    BOOST_TEST(set_uint8_t::value_node::N == 32);
 
     typedef btree::set< uint16_t > set_uint16_t;
-    BOOST_TEST(set_uint16_t::dimension == 16);
+    BOOST_TEST(set_uint16_t::value_node::N == 16);
 
     typedef btree::set< uint32_t > set_uint32_t;
-    BOOST_TEST(set_uint32_t::dimension == 8);
+    BOOST_TEST(set_uint32_t::value_node::N == 8);
 
     typedef btree::set< uint64_t > set_uint64_t;
-    BOOST_TEST(set_uint64_t::dimension == 4);
+    BOOST_TEST(set_uint64_t::value_node::N == 4);
 
     typedef btree::set< std::string > set_string;
-    BOOST_TEST(set_string::dimension == 4);
+    BOOST_TEST(set_string::value_node::N == 4);
 }
 
 BOOST_AUTO_TEST_CASE(btree_map_node_dimension)
@@ -144,19 +144,19 @@ BOOST_AUTO_TEST_CASE(btree_map_node_dimension)
     // Note: Total number of elements in node is N * 2
 
     typedef btree::map< uint8_t, int > map_uint8_t;
-    BOOST_TEST(map_uint8_t::dimension == 32);
+    BOOST_TEST(map_uint8_t::value_node::N == 32);
 
     typedef btree::map< uint16_t, int > map_uint16_t;
-    BOOST_TEST(map_uint16_t::dimension == 16);
+    BOOST_TEST(map_uint16_t::value_node::N == 16);
 
     typedef btree::map< uint32_t, int > map_uint32_t;
-    BOOST_TEST(map_uint32_t::dimension == 8);
+    BOOST_TEST(map_uint32_t::value_node::N == 8);
 
     typedef btree::map< uint64_t, int > map_uint64_t;
-    BOOST_TEST(map_uint64_t::dimension == 4);
+    BOOST_TEST(map_uint64_t::value_node::N == 4);
 
     typedef btree::map< std::string, int > map_string;
-    BOOST_TEST(map_string::dimension == 4);
+    BOOST_TEST(map_string::value_node::N == 4);
 }
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_insert, T, test_types)
@@ -211,7 +211,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_insert, T, test_types)
 typedef boost::mpl::list<size_t> btree_range_for_types;
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_range_for, T, btree_range_for_types)
 {
-    for (int i = 0; i < N; ++i)
+    for (int i = 0; i < Count; ++i)
     {
         btree::set< T > c;
 
@@ -232,7 +232,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_range_for, T, btree_range_for_types)
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_range_for, T, btree_range_for_types)
 {
-    for (int i = 0; i < N; ++i)
+    for (int i = 0; i < Count; ++i)
     {
         btree::map< T, T > c;
 
@@ -256,13 +256,13 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_range_for, T, btree_range_for_types)
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_insert_loop, T, test_types)
 {
-    if ((1ull << sizeof(T)) < N)
+    if ((1ull << sizeof(T)) < Count)
     {
         return;
     }
 
     btree::set< T > c;
-    for (int i = 0; i < N; ++i)
+    for (int i = 0; i < Count; ++i)
     {
         auto iv = value<T>(i);
         BOOST_REQUIRE(c.insert(iv).second);
@@ -281,13 +281,13 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_insert_loop, T, test_types)
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_insert_loop, T, test_types)
 {
-    if ((1ull << sizeof(T)) < N)
+    if ((1ull << sizeof(T)) < Count)
     {
         return;
     }
 
     btree::map< T, T > c;
-    for (int i = 0; i < N; ++i)
+    for (int i = 0; i < Count; ++i)
     {
         auto iv = value<T>(i);
         BOOST_REQUIRE(c.insert({ iv,iv }).second);
@@ -307,12 +307,12 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_insert_loop, T, test_types)
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_erase_loop, T, test_types)
 {
-    if ((1ull << sizeof(T)) < N)
+    if ((1ull << sizeof(T)) < Count)
     {
         return;
     }
 
-    for (int i = 0; i < N; ++i)
+    for (int i = 0; i < Count; ++i)
     {
         btree::set< T > c;
         for (int j = 0; j < i; ++j)
@@ -333,7 +333,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_erase_loop, T, test_types)
         }
     }
 
-    for (int i = 0; i < N; ++i)
+    for (int i = 0; i < Count; ++i)
     {
         btree::set< T > c;
         for (int j = 0; j < i; ++j)
@@ -357,12 +357,12 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_erase_loop, T, test_types)
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_erase_loop, T, test_types)
 {
-    if ((1ull << sizeof(T)) < N)
+    if ((1ull << sizeof(T)) < Count)
     {
         return;
     }
 
-    for (int i = 0; i < N; ++i)
+    for (int i = 0; i < Count; ++i)
     {
         btree::map< T, T > c;
         for (int j = 0; j < i; ++j)
@@ -383,7 +383,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_erase_loop, T, test_types)
         }
     }
 
-    for (int i = 0; i < N; ++i)
+    for (int i = 0; i < Count; ++i)
     {
         btree::map< T, T > c;
         for (int j = 0; j < i; ++j)

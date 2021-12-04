@@ -189,6 +189,16 @@ BOOST_AUTO_TEST_CASE(btree_map_iterator)
     BOOST_TEST(it->second == "1");
 }
 
+BOOST_AUTO_TEST_CASE(btree_set_erase_all)
+{
+    btree::set < int > set1;
+    set1.insert(1);
+    set1.erase(1);
+    BOOST_TEST(set1.size() == 0);
+    BOOST_TEST(set1.empty());
+    BOOST_TEST((set1.begin() == set1.end()));    
+}
+
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_move, T, test_types)
 {
     btree::map< T, T > map1;

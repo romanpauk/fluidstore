@@ -9,6 +9,7 @@
     #define _SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING 0
 
     #if defined(_DEBUG)
+        #define _ITERATOR_DEBUG_LEVEL 1	// btree is not very conforming
         #define _CRTDBG_MAP_ALLOC
         #include <stdlib.h>
         #include <crtdbg.h>

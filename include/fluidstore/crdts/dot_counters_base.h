@@ -79,7 +79,7 @@ namespace crdt
 
             // assert(counters.counters_.size() == 1);  // delta variant can have more than 1 element
 
-            counters_.insert(allocator, counters.counters_);
+            counters_.insert(allocator, counters.counters_.begin(), counters.counters_.end());
         }
 
         size_type size() const
@@ -124,7 +124,7 @@ namespace crdt
             if (counters_.size() == 0)
             {
                 // Trivial append
-                counters_.insert(allocator, rcounters.counters_);
+                counters_.insert(allocator, rcounters.counters_.begin(), rcounters.counters_.end());
             }
             else if (counters_.size() == 1 && rcounters.size() == 1)
             {
@@ -143,13 +143,13 @@ namespace crdt
                 }
                 else
                 {
-                    counters_.insert(allocator, rcounters.counters_);
+                    counters_.insert(allocator, rcounters.counters_.begin(), rcounters.counters_.end());
                 }
             }
             else
             {
                 // TODO: two sets merge
-                counters_.insert(allocator, rcounters.counters_);
+                counters_.insert(allocator, rcounters.counters_.begin(), rcounters.counters_.end());
             }
 
             if (std::is_same_v< Tag, tag_state >)

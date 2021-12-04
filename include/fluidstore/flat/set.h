@@ -38,22 +38,21 @@ namespace crdt::flat
             return { data_.emplace(allocator, data_.end(), std::forward< Value >(value)), true };
         }
 
-        template < typename Allocator, typename SizeTypeT > void insert(Allocator& allocator, const set_base< T, SizeTypeT >& data)
+        template < typename Allocator, typename It > void insert(Allocator& allocator, It begin, It end)
         {
             if (empty())
             {
-                data_.assign(allocator, data.begin(), data.end());
+                data_.assign(allocator, begin, end);
             }
             else
             {
-                data_.reserve(allocator, data_.size() + data.size());
-                auto it = data_.begin();
-                for (auto& value: data)
+                data_.reserve(allocator, data_.size() + std::distance(begin, end));
+                for (auto it = begin; it != end; ++it)
                 {
                     // it = lower_bound(it, value);
                     // it = emplace(allocator, it, value);
 
-                    emplace(allocator, value);
+                    emplace(allocator, *it);
                 }
             }
         }

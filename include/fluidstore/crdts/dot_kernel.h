@@ -10,7 +10,7 @@
 
 #include <fluidstore/btree/btree.h>
 
-#define DOTKERNEL_BTREE
+// #define DOTKERNEL_BTREE
 
 namespace crdt
 {
@@ -200,7 +200,12 @@ namespace crdt
             flat::map_base< counter_type, Key > dots;
         #endif       
             // Temporary merge data
+
+        #if defined(DOTKERNEL_BTREE)
+            btree::set_base< counter_type > visited;
+        #else
             flat::set_base< counter_type > visited;
+        #endif  
             const flat::set_base< counter_type >* other_counters;
         };
         
@@ -320,7 +325,7 @@ namespace crdt
                     auto& ldata = replica_.emplace(allocator, replica_id, replica_data()).first->second;
                     
                     // Track visited dots
-                    ldata.visited.insert(tmp, rdots.counters_);
+                    ldata.visited.insert(tmp, rdots.counters_.begin(), rdots.counters_.end());
                     
                     for (const auto& counter : rdots.counters_)
                     {

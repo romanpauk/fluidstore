@@ -630,6 +630,8 @@ namespace btree
                 other.depth_ = other.size_ = 0;
             }
 
+            container_base(const container_type&& other) = delete;
+
         #if defined(_DEBUG)
             ~container_base()
             {
@@ -643,6 +645,8 @@ namespace btree
                 if (root_)
                 {
                     free_node(allocator, root_, 1);
+
+                    root_ = first_node_ = last_node_ = nullptr;
                     depth_ = size_ = 0;
                 }
             }
@@ -714,7 +718,11 @@ namespace btree
                 else
                 {
                     ndata.erase(allocator, ndata.begin() + it.kindex_);
-                    --size_;
+
+                    if (--size_ == 0)
+                    {                        
+                        clear(allocator);
+                    }
                 }
             }
 
@@ -794,10 +802,10 @@ namespace btree
                         return { hint, 0 };
                     }
                 }
-            #endif
-
+            #endif                
                 size_type depth = depth_;
                 node_size_type nindex = 0;
+                assert(depth_ > 0);
                 while (--depth)
                 {
                     auto in = desc(node_cast<internal_node*>(n));

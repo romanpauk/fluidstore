@@ -8,6 +8,10 @@
 #include <fluidstore/allocators/arena_allocator.h>
 #include <fluidstore/flat/map.h>
 
+#include <fluidstore/btree/btree.h>
+
+#define DOTKERNEL_BTREE
+
 namespace crdt
 {
     template < typename Allocator, typename Container > struct dot_kernel_allocator
@@ -190,8 +194,11 @@ namespace crdt
         {
             // Persistent data
             dot_counters_base< counter_type, Tag > counters;
+        #if defined(DOTKERNEL_BTREE)
+            btree::map_base< counter_type, Key > dots;
+        #else
             flat::map_base< counter_type, Key > dots;
-            
+        #endif       
             // Temporary merge data
             flat::set_base< counter_type > visited;
             const flat::set_base< counter_type >* other_counters;

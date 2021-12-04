@@ -208,14 +208,14 @@ namespace btree
                 assert(size() <= capacity());
 
                 // vec_.assign(begin(), end());
-                assert(std::is_sorted(vec_.begin(), vec_.end()));
+                // assert(std::is_sorted(vec_.begin(), vec_.end()));
             #endif
             }
 
             Descriptor desc_;
 
         #if defined(_DEBUG)
-            std::vector< T > vec_;
+            // std::vector< T > vec_;
         #endif
         };
 
@@ -488,8 +488,8 @@ namespace btree
 
             template < typename T > static reference* reference_address(T&& p) 
             { 
-                // TODO: this will never call destructor to pair with two references inside. But it allows us to return pointer to 'reference' 
-                // that is temporary object in case of map.
+                // TODO: this will never call destructor to pair with two references inside. 
+                // But it allows us to return pointer to 'reference' that is needed for iterator -> ()
                 static thread_local std::aligned_storage_t< sizeof(reference) > storage;
                 new (&storage) reference(std::forward< T >(p));
                 return reinterpret_cast< reference* >(&storage); 
@@ -654,7 +654,7 @@ namespace btree
         
             template < typename Allocator > std::pair< iterator, bool > insert(Allocator& allocator, const value_type& value)
             {
-                return emplace(allocator, nullptr, value);
+                return emplace_hint(allocator, nullptr, value);
             }
 
             template < typename Allocator, typename... Args > std::pair< iterator, bool > emplace(Allocator& allocator, Args&&... args)

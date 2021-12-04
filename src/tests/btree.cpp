@@ -170,6 +170,25 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_move, T, test_types)
     BOOST_TEST((*set2.begin()) == value<T>(1));
 }
 
+BOOST_AUTO_TEST_CASE(btree_set_iterator)
+{
+    // This mostly tests that the code compiles, as there is some complexity in map<> iterator's ->.
+    btree::set < std::string > set1;
+    set1.insert("1");
+    auto it = set1.begin();
+    BOOST_TEST(it->size() == 1);
+}
+
+BOOST_AUTO_TEST_CASE(btree_map_iterator)
+{
+    // This mostly tests that the code compiles, as there is some complexity in map<> iterator's ->.
+    btree::map < int, std::string > map1;
+    map1.insert({ 1, "1" });
+    auto it = map1.begin();
+    BOOST_TEST(it->first == 1);
+    BOOST_TEST(it->second == "1");
+}
+
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_move, T, test_types)
 {
     btree::map< T, T > map1;

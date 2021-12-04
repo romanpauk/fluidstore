@@ -485,6 +485,15 @@ namespace btree
 
             template < typename Pair > static const Key& get_key(Pair&& p) { return p.first; }
             template < typename Pair > static auto&& convert(Pair&& p) { return std::forward< Pair >(p); }
+
+            template < typename T > static reference* reference_address(T&& p) 
+            { 
+                // TODO: this will never call destructor to pair with two references inside. But it allows us to return pointer to 'reference' 
+                // that is temporary object in case of map.
+                static thread_local std::aligned_storage_t< sizeof(reference) > storage;
+                new (&storage) reference(std::forward< T >(p));
+                return reinterpret_cast< reference* >(&storage); 
+            }
         };
 
         template < typename Key > struct value_type_traits< Key, void >
@@ -494,6 +503,8 @@ namespace btree
 
             static const Key& get_key(const Key& p) { return p; }
             template < typename T > static auto&& convert(T&& p) { return p; }
+
+            template < typename T > static std::remove_reference_t< T >* reference_address(T&& p) { return &p; }
         };
 
         template < 
@@ -557,9 +568,9 @@ namespace btree
 
                 const reference operator*() const { return node_descriptor< value_node* >(node_).get_data()[kindex_]; }
                       reference operator*()       { return node_descriptor< value_node* >(node_).get_data()[kindex_]; }
-
-                // TODO: this would need thread local static as we don't have anything to point to.
-                //const value_type* operator->() const { return &node_.get_value(kindex_); }
+                                      
+                const std::remove_reference_t< reference >* operator->() const  { return value_type_traits_type::reference_address(node_descriptor< value_node* >(node_).get_data()[kindex_]); }
+                      std::remove_reference_t< reference >* operator->()        { return value_type_traits_type::reference_address(node_descriptor< value_node* >(node_).get_data()[kindex_]); }
 
                 iterator& operator ++ ()
                 {

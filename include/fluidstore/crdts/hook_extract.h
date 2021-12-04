@@ -10,6 +10,13 @@ namespace crdt
             : allocator_(allocator)
         {}
 
+        ~hook_extract()
+        {
+            delta_.reset(allocator_);
+        }
+
+        hook_extract(hook_extract< Container, Allocator, Delta >&&) = default;
+
         template < typename Delta > void commit_delta(Delta&& delta)
         {
             if (!delta_)

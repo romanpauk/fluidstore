@@ -619,11 +619,13 @@ namespace btree
                 other.depth_ = other.size_ = 0;
             }
 
+        #if defined(_DEBUG)
             ~container_base()
             {
                 // TODO: default for release
                 assert(empty());
             }
+        #endif
 
             template < typename Allocator > void clear(Allocator& allocator)
             {
@@ -644,14 +646,14 @@ namespace btree
                 return emplace(allocator, nullptr, value);
             }
 
-            template < typename Allocator > std::pair< iterator, bool > emplace(Allocator& allocator, const value_type& value)
+            template < typename Allocator, typename... Args > std::pair< iterator, bool > emplace(Allocator& allocator, Args&&... args)
             {
-                return emplace(allocator, nullptr, value);
+                return emplace_hint(allocator, nullptr, value_type(std::forward< Args >(args)...));
             }
 
             template < typename Allocator > std::pair< iterator, bool > insert(Allocator& allocator, iterator hint, const value_type& value)
             {
-                return emplace(allocator, &hint, value);
+                return emplace_hint(allocator, &hint, value);
             }
 
             template < typename Allocator, typename It > void insert(Allocator& allocator, It begin, It end)
@@ -722,17 +724,19 @@ namespace btree
                 return nullptr;
             }
 
-            template < typename Allocator, typename T > std::pair< iterator, bool > emplace(Allocator& allocator, iterator* hint, T&& value)
+            template < typename Allocator, typename... Args > std::pair< iterator, bool > emplace_hint(Allocator& allocator, iterator* hint, Args&&... args)
             {
+                value_type value(std::forward< Args >(args)...);
+
                 if (!root_)
                 {
                     auto root = allocate_node< value_node >(allocator);
                     root_ = first_node_ = last_node_ = root;
                     depth_ = 1;
 
-                    return insert(allocator, root, 0, std::forward< T >(value));
+                    return insert(allocator, root, 0, std::move(value));
                 }
-
+                                
                 const auto& key = value_type_traits_type::get_key(value);
 
             #if defined(VALUE_NODE_HINT)
@@ -742,19 +746,19 @@ namespace btree
             #endif
                 if (!full(n))
                 {
-                    return insert(allocator, n, nindex, std::forward< T >(value));
+                    return insert(allocator, n, nindex, std::move(value));
                 }
                 else
                 {
                     if (n.get_parent())
                     {
                         std::tie(n, nindex) = rebalance_insert(allocator, depth_, n, nindex, key);
-                        return insert(allocator, n, nindex, std::forward< T >(value));
+                        return insert(allocator, n, nindex, std::move(value));
                     }
                     else
                     {
                         std::tie(n, nindex) = rebalance_insert(allocator, depth_, n, key);
-                        return insert(allocator, n, nindex, std::forward< T >(value));
+                        return insert(allocator, n, nindex, std::move(value));
                     }
                 }
             }
@@ -821,7 +825,7 @@ namespace btree
                 }
             }
 
-            template < typename Allocator > std::pair< iterator, bool > insert(Allocator& allocator, node_descriptor< value_node* > n, node_size_type nindex, const value_type& value)
+            template < typename Allocator, typename T > std::pair< iterator, bool > insert(Allocator& allocator, node_descriptor< value_node* > n, node_size_type nindex, T&& value)
             {
                 assert(!full(n));
 
@@ -836,7 +840,7 @@ namespace btree
                 else
                 {
                     // TODO: move
-                    n.get_data().emplace(allocator, n.get_data().begin() + kindex, value_type_traits_type::convert(value));
+                    n.get_data().emplace(allocator, n.get_data().begin() + kindex, value_type_traits_type::convert(std::forward< T >(value)));
                     ++size_;
 
                     return { iterator(n, nindex, kindex), true };
@@ -1645,7 +1649,7 @@ namespace btree
 
         std::pair< iterator, bool > insert(const value_type& value)
         {
-            return emplace(allocator_, nullptr, value);
+            return base_type::emplace_hint(allocator_, nullptr, value);
         }
 
         template < typename It > void insert(It begin, It end)
@@ -1718,7 +1722,7 @@ namespace btree
 
         std::pair< iterator, bool > insert(const value_type& value)
         {
-            return emplace(allocator_, nullptr, value);
+            return base_type::emplace_hint(allocator_, nullptr, value);
         }
 
         template < typename It > void insert(It begin, It end)

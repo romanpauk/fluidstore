@@ -100,10 +100,16 @@ namespace btree
                 if (it < end())
                 {
                     move_backward(alloc, it, end(), end() + 1);
-             
-                    //const_cast< T& >(*it) = T(std::forward< Ty >(value));
-                    std::allocator_traits< Allocator >::destroy(alloc, it);
-                    std::allocator_traits< Allocator >::construct(alloc, it, std::forward< Args >(args)...);
+
+                    if constexpr (std::is_move_assignable_v< T >)
+                    {
+                        const_cast<T&>(*it) = T(std::forward< Args >(args)...);
+                    }
+                    else
+                    {
+                        std::allocator_traits< Allocator >::destroy(alloc, it);
+                        std::allocator_traits< Allocator >::construct(alloc, it, std::forward< Args >(args)...);
+                    }
                 }
                 else
                 {
@@ -207,15 +213,15 @@ namespace btree
                 assert(end() - begin() == size());
                 assert(size() <= capacity());
 
-                // vec_.assign(begin(), end());
-                // assert(std::is_sorted(vec_.begin(), vec_.end()));
+                vec_.assign(begin(), end());
+                //assert(std::is_sorted(vec_.begin(), vec_.end()));
             #endif
             }
 
             Descriptor desc_;
 
         #if defined(_DEBUG)
-            // std::vector< T > vec_;
+            std::vector< T > vec_;
         #endif
         };
 
@@ -572,7 +578,7 @@ namespace btree
                 const std::remove_reference_t< reference >* operator->() const  { return value_type_traits_type::reference_address(node_descriptor< value_node* >(node_).get_data()[kindex_]); }
                       std::remove_reference_t< reference >* operator->()        { return value_type_traits_type::reference_address(node_descriptor< value_node* >(node_).get_data()[kindex_]); }
 
-                iterator& operator ++ ()
+                iterator& operator++()
                 {
                     auto node = node_descriptor< value_node* >(node_);
                     if (++kindex_ == node.get_keys().size())
@@ -593,6 +599,22 @@ namespace btree
                     iterator it = *this;
                     ++*this;
                     return it;
+                }
+
+                iterator& operator--()
+                {
+                    auto node = node_descriptor< value_node* >(node_);
+                    if (!kindex_)
+                    {                        
+                    #if defined(VALUE_NODE_LR)
+                        node_ = node_->left;
+                    #else
+                        std::tie(node_, nindex_) = get_left(node, nindex_, true);
+                    #endif
+                        kindex_ = node_descriptor< value_node* >(node_).get_keys().size() - 1;
+                    }
+
+                    return *this;
                 }
 
             private:
@@ -631,6 +653,8 @@ namespace btree
             }
 
             container_base(const container_type&& other) = delete;
+
+            container_type& operator = (container_type&& other) = default;
 
         #if defined(_DEBUG)
             ~container_base()
@@ -689,7 +713,7 @@ namespace btree
                 }
             }
 
-            template < typename Allocator > void erase(Allocator& allocator, iterator it)
+            template < typename Allocator > iterator erase(Allocator& allocator, iterator it)
             {
                 assert(it != end());
             
@@ -702,6 +726,8 @@ namespace btree
                     {
                         ndata.erase(allocator, ndata.begin() + it.kindex_);
                         --size_;
+                      
+                        return it;
                     }
                     else
                     {
@@ -711,8 +737,11 @@ namespace btree
                         assert(find_key_index(n.get_keys(), key) < n.get_keys().size());
 
                         auto ndata = n.get_data();
-                        ndata.erase(allocator, ndata.begin() + find_key_index(n.get_keys(), key));
+                        auto kindex = find_key_index(n.get_keys(), key);
+                        ndata.erase(allocator, ndata.begin() + kindex);
                         --size_;
+                                                
+                        return iterator(n, nindex, kindex);
                     }
                 }
                 else
@@ -722,7 +751,16 @@ namespace btree
                     if (--size_ == 0)
                     {                        
                         clear(allocator);
+                        return end();
                     }
+                    else if (it.kindex_ == ndata.size())
+                    {
+                        return end();
+                    }
+                    else 
+                    {
+                        return it;
+                    }                    
                 }
             }
 
@@ -731,7 +769,7 @@ namespace btree
 
             iterator begin() const { return iterator(first_node_, 0, 0); }
             iterator end() const { return iterator(nullptr, 0, 0); }
-
+                        
         //private:
             value_node* hint_node(iterator* it) const
             {
@@ -1353,7 +1391,7 @@ namespace btree
                     {
                         remove_node(allocator, depth, n.get_parent(), n, nindex, nindex);
                         deallocate_node(allocator, n);
-                        return { right, nindex + 1 };
+                        return { right, nindex };
                     }
 
                 #if !defined(VALUE_NODE_APPEND)
@@ -1679,6 +1717,11 @@ namespace btree
         void erase(const value_type& key)
         {
             base_type::erase(allocator_, key);
+        }
+
+        iterator erase(iterator it)
+        {
+            return base_type::erase(allocator_, it);
         }
 
         void clear()

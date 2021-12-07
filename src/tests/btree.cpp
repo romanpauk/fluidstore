@@ -189,15 +189,65 @@ BOOST_AUTO_TEST_CASE(btree_map_iterator)
     BOOST_TEST(it->second == "1");
 }
 
-BOOST_AUTO_TEST_CASE(btree_set_erase_all)
+BOOST_AUTO_TEST_CASE(btree_set_erase)
 {
     btree::set < int > set1;
     set1.insert(1);
-    set1.erase(1);
+    BOOST_TEST((set1.erase(set1.begin()) == set1.end()));
     BOOST_TEST(set1.size() == 0);
     BOOST_TEST(set1.empty());
-    BOOST_TEST((set1.begin() == set1.end()));    
+    BOOST_TEST((set1.begin() == set1.end()));
 }
+
+BOOST_AUTO_TEST_CASE(btree_set_erase_iterator_forward)
+{
+    btree::set < int > set1;
+    
+    int Count = 256;
+    for (int i = 0; i < Count; ++i)
+    {
+        set1.insert(i);
+    }
+
+    int i = 0;
+    auto it = set1.begin();
+    while (it != set1.end())
+    {
+        auto x = *it;
+        if (i == 8)
+        {
+            int a(1);
+        }
+        BOOST_TEST(*it == i++);
+        it = set1.erase(it);
+    }
+
+    BOOST_TEST(i == Count);
+}
+
+/*
+BOOST_AUTO_TEST_CASE(btree_set_erase_iterator_backwards)
+{
+    btree::set < int > set1;
+
+    int Count = 256;
+    for (int i = 0; i < Count; ++i)
+    {
+        set1.insert(i);
+    }
+
+    int i = Count - 1;
+    while (!set1.empty())
+    {
+        auto it = --set1.end();
+        BOOST_TEST(*it == i--);
+        it = set1.erase(it);
+        BOOST_TEST((it == set1.end()));
+    }
+
+    BOOST_TEST(i == 0);
+}
+*/
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_move, T, test_types)
 {

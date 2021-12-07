@@ -10,7 +10,7 @@
 
 #include <fluidstore/btree/btree.h>
 
-// #define DOTKERNEL_BTREE
+//#define DOTKERNEL_BTREE
 
 namespace crdt
 {
@@ -206,10 +206,19 @@ namespace crdt
         #else
             flat::set_base< counter_type > visited;
         #endif  
+
+        #if defined(DOTCOUNTERS_BTREE)
+            const btree::set_base< counter_type >* other_counters;
+        #else
             const flat::set_base< counter_type >* other_counters;
+        #endif  
         };
         
+    //#if defined(DOTKERNEL_BTREE)
+    //    using replicas_type = btree::map_base< replica_id_type, replica_data >;
+    //#else
         using replicas_type = flat::map_base< replica_id_type, replica_data >;
+    //#endif
 
         struct context
         {
@@ -230,9 +239,9 @@ namespace crdt
             size_t count = 0;
         };
 
-        template < typename Allocator > struct value_context
+        template < typename Allocator, typename ReplicaMap > struct value_context
         {
-            value_context(Allocator& allocator, flat::map_base< replica_id_type, replica_data >& replica)
+            value_context(Allocator& allocator, ReplicaMap& replica)
                 : allocator_(allocator)
                 , replica_(replica)
             {}
@@ -248,7 +257,7 @@ namespace crdt
 
         private:
             Allocator& allocator_;
-            flat::map_base< replica_id_type, replica_data >& replica_;
+            ReplicaMap& replica_;
         };
            
         dot_kernel() = default;

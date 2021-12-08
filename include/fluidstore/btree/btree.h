@@ -39,16 +39,19 @@ namespace btree
                 emplace(alloc, end(), std::forward< Args >(args)...);
             }
 
-            template < typename Allocator > void erase(Allocator& alloc, iterator index)
+            template < typename Allocator > iterator erase(Allocator& alloc, iterator index)
             {
                 assert(begin() <= index && index < end());
-            
+                
+                bool last = index == end() - 1;
                 auto dest = std::move(index + 1, end(), index);
                 destroy(alloc, end()-1, end());
             
                 desc_.set_size(size() - 1);
 
                 checkvec();
+
+                return last ? end() : index;
             }
 
             template < typename Allocator > void erase(Allocator& alloc , iterator from, iterator to)
@@ -268,6 +271,8 @@ namespace btree
                 iterator operator + (size_type n) const { return { container_, it_ + n }; }
                 iterator operator - (size_type n) const { return { container_, it_ - n }; }
 
+                bool operator == (const iterator& other) { return it_ == other.it_; }
+
             private:
                 container_type& container_;
                 base_iterator it_;
@@ -282,9 +287,11 @@ namespace btree
                 emplace(alloc, end(), std::forward< Ty >(value));
             }
 
-            template < typename Allocator > void erase(Allocator& alloc, iterator index)
+            template < typename Allocator > iterator erase(Allocator& alloc, iterator index)
             {
+                bool last = (index + 1 == end());
                 erase_impl(alloc, index, sequence());
+                return last ? end() : index;
             }
 
             template < typename Allocator > void erase(Allocator& alloc, iterator from, iterator to)

@@ -213,11 +213,6 @@ BOOST_AUTO_TEST_CASE(btree_set_erase_iterator_forward)
     auto it = set1.begin();
     while (it != set1.end())
     {
-        auto x = *it;
-        if (i == 8)
-        {
-            int a(1);
-        }
         BOOST_TEST(*it == i++);
         it = set1.erase(it);
     }
@@ -225,7 +220,6 @@ BOOST_AUTO_TEST_CASE(btree_set_erase_iterator_forward)
     BOOST_TEST(i == Count);
 }
 
-/*
 BOOST_AUTO_TEST_CASE(btree_set_erase_iterator_backwards)
 {
     btree::set < int > set1;
@@ -236,18 +230,23 @@ BOOST_AUTO_TEST_CASE(btree_set_erase_iterator_backwards)
         set1.insert(i);
     }
 
-    int i = Count - 1;
+    int i = Count;
     while (!set1.empty())
     {
-        auto it = --set1.end();
-        BOOST_TEST(*it == i--);
+        // TODO: no decrementable end()
+        auto it = set1.begin();
+        for (size_t x = 0; x < i - 1; ++x)
+        {
+            ++it;
+        }
+
+        BOOST_TEST(*it == --i);
         it = set1.erase(it);
         BOOST_TEST((it == set1.end()));
     }
 
     BOOST_TEST(i == 0);
 }
-*/
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_move, T, test_types)
 {

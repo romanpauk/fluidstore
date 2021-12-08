@@ -722,6 +722,8 @@ namespace btree
 
             template < typename Allocator > iterator erase(Allocator& allocator, iterator it)
             {
+                // TODO: size should be decremented after successfull erase
+
                 assert(it != end());
             
                 auto node = desc(it.node_);
@@ -730,11 +732,17 @@ namespace btree
                 if (node.get_parent())
                 {
                     if (ndata.size() > ndata.capacity() / 2)
-                    {
-                        ndata.erase(allocator, ndata.begin() + it.kindex_);
+                    {                        
                         --size_;
-                      
-                        return it;
+                        if (ndata.erase(allocator, ndata.begin() + it.kindex_) == ndata.end())
+                        {
+                            auto [right, rindex] = get_right(node, it.nindex_, true);
+                            return iterator(right, rindex, 0);
+                        }
+                        else
+                        {
+                            return it;
+                        }
                     }
                     else
                     {
@@ -744,30 +752,35 @@ namespace btree
                         assert(find_key_index(n.get_keys(), key) < n.get_keys().size());
 
                         auto ndata = n.get_data();
-                        auto kindex = find_key_index(n.get_keys(), key);
-                        ndata.erase(allocator, ndata.begin() + kindex);
+                        auto kindex = find_key_index(n.get_keys(), key);       
+                
                         --size_;
-                                                
-                        return iterator(n, nindex, kindex);
+                        if (ndata.erase(allocator, ndata.begin() + kindex) == ndata.end())
+                        {
+                            auto [right, rindex] = get_right(n, nindex, true);
+                            return iterator(right, rindex, 0);
+                        }
+                        else
+                        {
+                            return iterator(n, nindex, kindex);
+                        }
                     }
                 }
                 else
                 {
-                    ndata.erase(allocator, ndata.begin() + it.kindex_);
+                    --size_;
+                    if (ndata.erase(allocator, ndata.begin() + it.kindex_) == ndata.end())
+                    {
+                        if (empty())
+                        {
+                            // TODO: we should keep what we allocated
+                            clear(allocator);
+                        }
+                        
+                        return end();
+                    }
 
-                    if (--size_ == 0)
-                    {                        
-                        clear(allocator);
-                        return end();
-                    }
-                    else if (it.kindex_ == ndata.size())
-                    {
-                        return end();
-                    }
-                    else 
-                    {
-                        return it;
-                    }                    
+                    return it;                    
                 }
             }
 

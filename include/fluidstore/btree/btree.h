@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <iterator>
 
-//#define VALUE_NODE_LR
+#define VALUE_NODE_LR
 //#define VALUE_NODE_APPEND
 //#define VALUE_NODE_HINT
 
@@ -593,14 +593,14 @@ namespace btree
                     auto node = node_descriptor< value_node* >(node_);
                     if (++kindex_ == node.get_keys().size())
                     {
-                    //#if defined(VALUE_NODE_LR)
-                    //    if(node_->right_)
-                    //    {
-                    //        node_ = node_->right;
-                    //        nindex_ = get_index(desc(node_));
-                    //        kindex_ = 0;
-                    //    }
-                    //#else
+                    #if defined(VALUE_NODE_LR)
+                        if(node_->right)
+                        {
+                            node_ = node_->right;
+                            nindex_ = get_index(desc(node_));
+                            kindex_ = 0;
+                        }
+                    #else
                         auto [right, rindex] = get_right(node, nindex_, true);
                         if (right)
                         {
@@ -608,7 +608,7 @@ namespace btree
                             nindex_ = rindex;
                             kindex_ = 0;
                         }
-                    //#endif
+                    #endif
                     }
 
                     return *this;
@@ -626,13 +626,13 @@ namespace btree
                     auto node = node_descriptor< value_node* >(node_);
                     if (!kindex_)
                     {                        
-                    //#if defined(VALUE_NODE_LR)
-                    //    assert(node_->left);
-                    //    node_ = node_->left;
-                    //    nindex_ = get_index(desc(node_));
-                    //#else
+                    #if defined(VALUE_NODE_LR)
+                        assert(node_->left);
+                        node_ = node_->left;
+                        nindex_ = get_index(desc(node_));
+                    #else
                         std::tie(node_, nindex_) = get_left(node, nindex_, true);
-                    //#endif
+                    #endif
                         kindex_ = node_descriptor< value_node* >(node_).get_keys().size() - 1;
                     }
                     else

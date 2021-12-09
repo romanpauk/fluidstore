@@ -1394,10 +1394,7 @@ namespace btree
 
                 {
                     auto [left, lindex] = get_left(n, nindex);
-                    auto [right, rindex] = get_right(n, nindex);
-
-                    if (left && share_keys(allocator, depth, n, nindex, left, lindex) ||
-                        right && share_keys(allocator, depth, n, nindex, right, rindex))
+                    if (left && share_keys(allocator, depth, n, nindex, left, lindex))
                     {
                     #if defined(VALUE_NODE_APPEND)
                         // TODO: investigate - right was 0, so possibly rigthtmost node append optimization?
@@ -1408,37 +1405,56 @@ namespace btree
                     }
                 }
 
-                auto pkeys = n.get_parent().get_keys();
-                if (pkeys.size() <= pkeys.capacity() / 2)
                 {
-                    depth_check< false > dc(depth_, depth);
-                    rebalance_erase(allocator, depth - 1, n.get_parent());
-                    nindex = find_node_index(n.get_parent().get_children< node* >(), n);
-                }                
-                
-                {
-                    auto [left, lindex] = get_left(n, nindex);
                     auto [right, rindex] = get_right(n, nindex);
+                    if (right && share_keys(allocator, depth, n, nindex, right, rindex))
+                    {
+                    #if defined(VALUE_NODE_APPEND)
+                        // TODO: investigate - right was 0, so possibly rigthtmost node append optimization?
+                    #else
+                        assert(n.get_keys().size() > n.get_keys().capacity() / 2);
+                    #endif
+                        return { n, nindex };
+                    }
+                }
 
+                {
+                    auto pkeys = n.get_parent().get_keys();
+                    if (pkeys.size() <= pkeys.capacity() / 2)
+                    {
+                        depth_check< false > dc(depth_, depth);
+                        rebalance_erase(allocator, depth - 1, n.get_parent());
+                        nindex = find_node_index(n.get_parent().get_children< node* >(), n);
+                    }
+                }
+
+                {
+                    // TODO: call get_left only if nindex changed
+                    auto [left, lindex] = get_left(n, nindex);
                     if (merge_keys(allocator, depth, left, lindex, n, nindex))
                     {
                         remove_node(allocator, depth, n.get_parent(), n, nindex, nindex - 1);
                         deallocate_node(allocator, n);
                         return { left, nindex - 1 };
                     }
-                    else if (merge_keys(allocator, depth, right, rindex, n, nindex))
+                }
+
+                {
+                    // TODO: call get_right only if nindex changed
+                    auto [right, rindex] = get_right(n, nindex);
+                    if (merge_keys(allocator, depth, right, rindex, n, nindex))
                     {
                         remove_node(allocator, depth, n.get_parent(), n, nindex, nindex);
                         deallocate_node(allocator, n);
                         return { right, nindex };
                     }
-
-                #if !defined(VALUE_NODE_APPEND)
-                    assert(false);
-                    std::abort();
-                #endif
-                    return { n, nindex };
                 }
+
+            #if !defined(VALUE_NODE_APPEND)
+                assert(false);
+                std::abort();
+            #endif
+                return { n, nindex };
             }
 
         public:

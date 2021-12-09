@@ -233,13 +233,7 @@ BOOST_AUTO_TEST_CASE(btree_set_erase_iterator_backwards)
     int i = Count;
     while (!set1.empty())
     {
-        // TODO: no decrementable end()
-        auto it = set1.begin();
-        for (size_t x = 0; x < i - 1; ++x)
-        {
-            ++it;
-        }
-
+        auto it = --set1.end();
         BOOST_TEST(*it == --i);
         it = set1.erase(it);
         BOOST_TEST((it == set1.end()));

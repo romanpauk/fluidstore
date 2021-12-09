@@ -573,10 +573,9 @@ namespace btree
             {
                 friend class container_type;
 
-                iterator(value_node* n, node_size_type nindex, node_size_type kindex)
+                iterator(value_node* n, node_size_type kindex)
                     : node_(n)
                     , kindex_(kindex)
-                    , nindex_(nindex)
                 {}
 
                 bool operator == (const iterator& rhs) const { return node_ == rhs.node_ && kindex_ == rhs.kindex_; }
@@ -591,21 +590,21 @@ namespace btree
                 iterator& operator++()
                 {
                     auto node = node_descriptor< value_node* >(node_);
+                    assert(kindex_ <= node.get_keys().size());
+
                     if (++kindex_ == node.get_keys().size())
                     {
                     #if defined(VALUE_NODE_LR)
                         if(node_->right)
                         {
-                            node_ = node_->right;
-                            nindex_ = get_index(desc(node_));
+                            node_ = node_->right; 
                             kindex_ = 0;
                         }
                     #else
-                        auto [right, rindex] = get_right(node, nindex_, true);
+                        auto [right, rindex] = get_right(node, get_index(node), true);
                         if (right)
                         {
                             node_ = right;
-                            nindex_ = rindex;
                             kindex_ = 0;
                         }
                     #endif
@@ -623,15 +622,16 @@ namespace btree
 
                 iterator& operator--()
                 {
+                    assert(kindex_ > 0);
+
                     auto node = node_descriptor< value_node* >(node_);
                     if (!kindex_)
                     {                        
                     #if defined(VALUE_NODE_LR)
                         assert(node_->left);
                         node_ = node_->left;
-                        nindex_ = get_index(desc(node_));
                     #else
-                        std::tie(node_, nindex_) = get_left(node, nindex_, true);
+                        std::tie(node_, _) = get_left(node, get_index(node), true);
                     #endif
                         kindex_ = node_descriptor< value_node* >(node_).get_keys().size() - 1;
                     }
@@ -646,7 +646,6 @@ namespace btree
             private:
                 value_node* node_;
                 node_size_type kindex_;
-                node_size_type nindex_;            
             };
 
             container_base()
@@ -755,10 +754,10 @@ namespace btree
                         --size_;
                         if (ndata.erase(allocator, ndata.begin() + it.kindex_) == ndata.end())
                         {
-                            auto [right, rindex] = get_right(node, it.nindex_, true);
+                            auto [right, rindex] = get_right(node, get_index(node), true);
                             if (right)
                             {
-                                return iterator(right, rindex, 0);
+                                return iterator(right, 0);
                             }
                         }
                         
@@ -767,7 +766,7 @@ namespace btree
                     else
                     {
                         auto key = node.get_keys()[it.kindex_];
-                        auto [n, nindex] = rebalance_erase(allocator, depth_, node, it.nindex_);
+                        auto [n, nindex] = rebalance_erase(allocator, depth_, node, get_index(node));
                     
                         assert(find_key_index(n.get_keys(), key) < n.get_keys().size());
 
@@ -780,11 +779,11 @@ namespace btree
                             auto [right, rindex] = get_right(n, nindex, true);
                             if (right)
                             {
-                                return iterator(right, rindex, 0);
+                                return iterator(right, 0);
                             }
                         }
                         
-                        return iterator(n, nindex, kindex);
+                        return iterator(n, kindex);
                     }
                 }
                 else
@@ -808,15 +807,14 @@ namespace btree
             size_type size() const { return size_; }
             bool empty() const { return size_ == 0; }
 
-            iterator begin() const { return iterator(first_node_, 0, 0); }
+            iterator begin() const { return iterator(first_node_, 0); }
 
             iterator end() const
             {                              
                 // TODO: last_node_ seems a bit of...
 
                 auto ln = root_ ? last_node< value_node* >(root_, depth_) : nullptr;
-                auto nindex = get_index(desc(ln));
-                return iterator(ln, nindex, ln ? ln->size : 0);
+                return iterator(ln, ln ? ln->size : 0);
             }
                         
         //private:
@@ -923,7 +921,7 @@ namespace btree
                 auto kindex = find_key_index(nkeys, key);
                 if (kindex < nkeys.size() && key == nkeys[kindex])
                 {
-                    return iterator(vn, vnindex, kindex);
+                    return iterator(vn, kindex);
                 }
                 else
                 {
@@ -941,7 +939,7 @@ namespace btree
                 auto kindex = find_key_index(nkeys, key);
                 if (kindex < nkeys.size() && key == nkeys[kindex])
                 {
-                    return { iterator(n, nindex, kindex), false };
+                    return { iterator(n, kindex), false };
                 }
                 else
                 {
@@ -949,7 +947,7 @@ namespace btree
                     n.get_data().emplace(allocator, n.get_data().begin() + kindex, value_type_traits_type::convert(std::forward< T >(value)));
                     ++size_;
 
-                    return { iterator(n, nindex, kindex), true };
+                    return { iterator(n, kindex), true };
                 }
             }
 

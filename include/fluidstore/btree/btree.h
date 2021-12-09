@@ -216,7 +216,7 @@ namespace btree
                 assert(end() - begin() == size());
                 assert(size() <= capacity());
 
-                vec_.assign(begin(), end());
+                //vec_.assign(begin(), end());
                 //assert(std::is_sorted(vec_.begin(), vec_.end()));
             #endif
             }
@@ -224,7 +224,7 @@ namespace btree
             Descriptor desc_;
 
         #if defined(_DEBUG)
-            std::vector< T > vec_;
+            //std::vector< T > vec_;
         #endif
         };
 
@@ -788,7 +788,26 @@ namespace btree
             bool empty() const { return size_ == 0; }
 
             iterator begin() const { return iterator(first_node_, 0, 0); }
-            iterator end() const { return iterator(nullptr, 0, 0); }
+
+            iterator end() const
+            {                   
+                return iterator(nullptr, 0, 0);
+
+                // TODO: this really needs pointers to left/right nodes
+                auto nindex = node_size_type();
+
+                if (last_node_)
+                {
+                    auto node = desc(last_node_);
+                    if (node.get_parent())
+                    {
+                        auto children = node.get_parent().get_children< value_node* >();
+                        nindex = find_node_index(children, node);
+                    }
+                }
+
+                return iterator(last_node_, 0, last_node_ ? last_node_->size : 0);
+            }
                         
         //private:
             value_node* hint_node(iterator* it) const

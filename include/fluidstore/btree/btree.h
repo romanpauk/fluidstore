@@ -876,9 +876,8 @@ namespace btree
                     {
                         auto hkeys = hint->get_keys();
                         if (!hkeys.empty() && compare_lte(hkeys[0], key))
-                        {
-                            auto children = hint->get_parent()->get_children< node* >();
-                            return { hint, find_node_index(children, hint) };
+                        {                            
+                            return { hint, get_index(desc(hint)) };
                         }
                     }
                     else
@@ -968,6 +967,8 @@ namespace btree
 
             template < typename Node, typename Descriptor > static auto find_node_index(const fixed_vector< Node*, Descriptor >& nodes, const node* n)
             {
+                // TODO: better search, this should use vector with thombstone so we can iterate over capacity() and unroll the iteration.
+                // The code will count number of elements smaller than n (equals to index of n).
                 for (decltype(nodes.size()) i = 0; i < nodes.size(); ++i)
                 {
                     if (nodes[i] == n)
@@ -1329,9 +1330,8 @@ namespace btree
             {
                 assert(full(n));
                 if(n.get_parent())
-                {
-                    auto nindex = find_node_index(n.get_parent().get_children< node* >(), n);
-                    return rebalance_insert(allocator, depth, n, nindex, key);
+                {                    
+                    return rebalance_insert(allocator, depth, n, get_index(n), key);
                 }
                 else
                 {
@@ -1374,7 +1374,7 @@ namespace btree
                 auto pchildren = n.get_parent().get_children< node* >();
                 if (parent_rebalance)
                 {
-                    nindex = find_node_index(pchildren, n);
+                    nindex = get_index(n);
                 }
 
                 pchildren.emplace(allocator, pchildren.begin() + nindex + 1, p);
@@ -1390,9 +1390,8 @@ namespace btree
             template < typename Allocator, typename Node > void rebalance_erase(Allocator& allocator, size_type depth, node_descriptor< Node* > n)
             {
                 if (n.get_parent())
-                {
-                    auto nindex = find_node_index(n.get_parent().get_children< node* >(), n);
-                    rebalance_erase(allocator, depth, n, nindex);
+                {                    
+                    rebalance_erase(allocator, depth, n, get_index(n));
                 }
             }
 
@@ -1433,7 +1432,7 @@ namespace btree
                     {
                         depth_check< false > dc(depth_, depth);
                         rebalance_erase(allocator, depth - 1, n.get_parent());
-                        nindex = find_node_index(n.get_parent().get_children< node* >(), n);
+                        nindex = get_index(n);
                     }
                 }
 
@@ -1489,7 +1488,7 @@ namespace btree
                     {
                         if (p.get_parent())
                         {
-                            index = find_node_index(p.get_parent().get_children< internal_node* >(), p);
+                            index = get_index(p);
                             ++depth;
                         }
 
@@ -1504,6 +1503,13 @@ namespace btree
                 return { nullptr, 0 };
             }
 
+        #if defined(VALUE_NODE_LR)
+            static std::tuple< node_descriptor< value_node* >, node_size_type > get_right(node_descriptor< value_node* > n, node_size_type index, bool)
+            {
+                return { n.node()->right, n.node()->right ? get_index(desc(n.node()->right)) : 0 };
+            }
+        #endif
+                    
             template< typename Node > static std::tuple< node_descriptor< Node >, node_size_type > get_left(node_descriptor< Node > n, node_size_type index, bool recursive = false)
             {
                 node_descriptor< internal_node* > p = n.get_parent();
@@ -1526,7 +1532,7 @@ namespace btree
                     {
                         if (p.get_parent())
                         {
-                            index = find_node_index(p.get_parent().get_children< internal_node* >(), p);
+                            index = get_index(p);
                             ++depth;
                         }
 
@@ -1540,6 +1546,13 @@ namespace btree
 
                 return { nullptr, 0 };
             }
+
+        #if defined(VALUE_NODE_LR)
+            static std::tuple< node_descriptor< value_node* >, node_size_type > get_left(node_descriptor< value_node* > n, node_size_type index, bool)
+            {
+                return { n.node()->left, n.node()->left ? get_index(n.node()->left) : 0 };
+            }
+        #endif
 
             template< typename Node > static node_size_type get_index(node_descriptor< Node > n)
             {

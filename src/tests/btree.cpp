@@ -203,7 +203,7 @@ BOOST_AUTO_TEST_CASE(btree_set_erase_iterator_forward)
 {
     btree::set < int > set1;
     
-    int Count = 256;
+    int Count = 512;
     for (int i = 0; i < Count; ++i)
     {
         set1.insert(i);
@@ -224,7 +224,7 @@ BOOST_AUTO_TEST_CASE(btree_set_erase_iterator_backwards)
 {
     btree::set < int > set1;
 
-    int Count = 256;
+    int Count = 512;
     for (int i = 0; i < Count; ++i)
     {
         set1.insert(i);

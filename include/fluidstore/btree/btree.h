@@ -6,17 +6,37 @@
 #include <algorithm>
 #include <iterator>
 
-#define VALUE_NODE_LR
-//#define VALUE_NODE_APPEND
-//#define VALUE_NODE_HINT
+#define BTREE_VALUE_NODE_LR
+//#define BTREE_VALUE_NODE_APPEND
+//#define BTREE_VALUE_NODE_HINT
 
-//#define CHECK_VECTOR_INVARIANTS
-//#define CHECK_TREE_INVARIANTS
+#if defined(_DEBUG)
+    //#define BTREE_CHECK_VECTOR_INVARIANTS
+    #define BTREE_CHECK_TREE_INVARIANTS
+
+    // TODO: try lambdas, but look at code generated for release.
+    #define BTREE_CHECK(code) \
+        do { \
+            (code); \
+            checktree(); \
+        } while(0)
+
+    #define BTREE_CHECK_RETURN(code) \
+        do { \
+            auto result = (code); \
+            checktree(); \
+            return result; \
+        } while(0)
+#else
+    #define BTREE_CHECK(code) (code)
+    #define BTREE_CHECK_RETURN(code) return (code);
+#endif
 
 namespace btree
 {
     namespace detail 
     {
+        // TODO: this could use at least one test...
         template < typename T, typename Descriptor > struct fixed_vector
         {
         public:
@@ -387,7 +407,7 @@ namespace btree
             }
         };
 
-        // This class will not have any data, it is there just to have common pointer to both node types.
+        // This class will not have any data, it is there just to have common base class for both node types.
         struct node
         {
         protected:
@@ -504,8 +524,7 @@ namespace btree
 
             template < typename T > static reference* reference_address(T&& p) 
             { 
-                // TODO: this will never call destructor to pair with two references inside. 
-                // But it allows us to return pointer to 'reference' that is needed for iterator -> ()
+                // TODO: this traits pair< Key&, Value& > as POD. Needed to return address of temporary pair< Key&, Value& > for iterator::operator ->().
                 static thread_local std::aligned_storage_t< sizeof(reference) > storage;
                 new (&storage) reference(std::forward< T >(p));
                 return reinterpret_cast< reference* >(&storage); 
@@ -590,11 +609,12 @@ namespace btree
                 iterator& operator++()
                 {
                     auto node = node_descriptor< value_node* >(node_);
+                    assert(node_);
                     assert(kindex_ <= node.get_keys().size());
 
                     if (++kindex_ == node.get_keys().size())
                     {
-                    #if defined(VALUE_NODE_LR)
+                    #if defined(BTREE_VALUE_NODE_LR)
                         if(node_->right)
                         {
                             node_ = node_->right; 
@@ -622,16 +642,17 @@ namespace btree
 
                 iterator& operator--()
                 {
+                    assert(node_);
                     assert(kindex_ > 0);
 
                     auto node = node_descriptor< value_node* >(node_);
                     if (!kindex_)
                     {                        
-                    #if defined(VALUE_NODE_LR)
+                    #if defined(BTREE_VALUE_NODE_LR)
                         assert(node_->left);
                         node_ = node_->left;
                     #else
-                        std::tie(node_, _) = get_left(node, get_index(node), true);
+                        std::tie(node_, tmp) = get_left(node, get_index(node), true);
                     #endif
                         kindex_ = node_descriptor< value_node* >(node_).get_keys().size() - 1;
                     }
@@ -843,7 +864,7 @@ namespace btree
                                 
                 const auto& key = value_type_traits_type::get_key(value);
 
-            #if defined(VALUE_NODE_HINT)
+            #if defined(BTREE_VALUE_NODE_HINT)
                 auto [n, nindex] = find_value_node(root_, hint_node(hint), key);
             #else
                 auto [n, nindex] = find_value_node(root_, nullptr, key);
@@ -869,7 +890,7 @@ namespace btree
 
             std::tuple< node_descriptor< value_node* >, node_size_type > find_value_node(node* n, value_node* hint, const key_type& key) const
             {
-            #if defined(VALUE_NODE_HINT)
+            #if defined(BTREE_VALUE_NODE_HINT)
                 if (hint)
                 {
                     if (hint->get_parent())
@@ -1068,7 +1089,7 @@ namespace btree
                 auto lkeys = lnode.get_keys();
                 auto ldata = lnode.get_data();
 
-            #if defined(VALUE_NODE_APPEND)
+            #if defined(BTREE_VALUE_NODE_APPEND)
                 auto [right, rindex] = get_right(lnode, lindex);
                 if (right || compare_lte(key, lkeys.back()))
                 {
@@ -1083,11 +1104,11 @@ namespace btree
                 assert(ldata.size() == value_node::N);
                 assert(rdata.size() == value_node::N);
 
-            #if defined(VALUE_NODE_APPEND)
+            #if defined(BTREE_VALUE_NODE_APPEND)
                 }
             #endif
 
-            #if defined(VALUE_NODE_LR)
+            #if defined(BTREE_VALUE_NODE_LR)
                 auto znode = lnode.node()->right;
                 lnode.node()->right = rnode;
                 rnode.node()->right = znode;
@@ -1249,7 +1270,7 @@ namespace btree
 
                     if (tindex < sindex)
                     {
-                    #if defined(VALUE_NODE_LR)
+                    #if defined(BTREE_VALUE_NODE_LR)
                         target.node()->right = source.node()->right;
                         if (source.node()->right)
                         {
@@ -1264,7 +1285,7 @@ namespace btree
                     }
                     else
                     {
-                    #if defined(VALUE_NODE_LR)
+                    #if defined(BTREE_VALUE_NODE_LR)
                         target.node()->left = source.node()->left;
                         if (source.node()->left)
                         {
@@ -1344,6 +1365,11 @@ namespace btree
                     children.emplace_back(allocator, p);
                     p.set_parent(root);
 
+                    if (root_ == last_node_)
+                    {
+                        last_node_ = node_cast< value_node* >(p);
+                    }
+
                     auto cmp = !(compare_lte(key, splitkey));
                     root.get_keys().emplace_back(allocator, std::move(splitkey));
 
@@ -1368,7 +1394,7 @@ namespace btree
                     assert(!full(n.get_parent()));
                 }
                     
-                // TODO: check that the key is still value reference
+                // TODO: check that the key is still valid reference, it might not be after split
                 auto [p, splitkey] = split_node(allocator, depth, n, nindex, key);
                     
                 auto pchildren = n.get_parent().get_children< node* >();
@@ -1382,6 +1408,12 @@ namespace btree
 
                 auto pkeys = n.get_parent().get_keys();
                 pkeys.emplace(allocator, pkeys.begin() + nindex, splitkey);
+
+                // TODO:
+                if ((uintptr_t)last_node_ == (uintptr_t)n.node())
+                {
+                    last_node_ = node_cast< value_node* >(p.node());
+                }
 
                 auto cmp = !(compare_lte(key, splitkey));
                 return { cmp ? p : n, nindex + cmp };
@@ -1404,7 +1436,7 @@ namespace btree
                     auto [left, lindex] = get_left(n, nindex);
                     if (left && share_keys(allocator, depth, n, nindex, left, lindex))
                     {
-                    #if defined(VALUE_NODE_APPEND)
+                    #if defined(BTREE_VALUE_NODE_APPEND)
                         // TODO: investigate - right was 0, so possibly rigthtmost node append optimization?
                     #else
                         assert(n.get_keys().size() > n.get_keys().capacity() / 2);
@@ -1417,7 +1449,7 @@ namespace btree
                     auto [right, rindex] = get_right(n, nindex);
                     if (right && share_keys(allocator, depth, n, nindex, right, rindex))
                     {
-                    #if defined(VALUE_NODE_APPEND)
+                    #if defined(BTREE_VALUE_NODE_APPEND)
                         // TODO: investigate - right was 0, so possibly rigthtmost node append optimization?
                     #else
                         assert(n.get_keys().size() > n.get_keys().capacity() / 2);
@@ -1458,7 +1490,7 @@ namespace btree
                     }
                 }
 
-            #if !defined(VALUE_NODE_APPEND)
+            #if !defined(BTREE_VALUE_NODE_APPEND)
                 assert(false);
                 std::abort();
             #endif
@@ -1503,7 +1535,7 @@ namespace btree
                 return { nullptr, 0 };
             }
 
-        #if defined(VALUE_NODE_LR)
+        #if defined(BTREE_VALUE_NODE_LR)
             static std::tuple< node_descriptor< value_node* >, node_size_type > get_right(node_descriptor< value_node* > n, node_size_type index, bool)
             {
                 return { n.node()->right, n.node()->right ? get_index(desc(n.node()->right)) : 0 };
@@ -1547,7 +1579,7 @@ namespace btree
                 return { nullptr, 0 };
             }
 
-        #if defined(VALUE_NODE_LR)
+        #if defined(BTREE_VALUE_NODE_LR)
             static std::tuple< node_descriptor< value_node* >, node_size_type > get_left(node_descriptor< value_node* > n, node_size_type index, bool)
             {
                 return { n.node()->left, n.node()->left ? get_index(n.node()->left) : 0 };
@@ -1599,16 +1631,21 @@ namespace btree
             }
 
         protected:
+        #if defined(BTREE_CHECK_TREE_INVARIANTS)
+            // TODO: try to move this code to some outside class
+
             void checktree()
             {
-            #if defined(CHECK_TREE_INVARIANTS)
                 if (root_)
                 {
                     checktree(root_, nullptr, 1);
-                }
-            #endif
-            }
 
+                    // TODO: after we move last_node/first_node to pointer versions, we will need a way how to find them through traversal.
+                    assert(last_node_ == last_node< value_node* >(root_, depth_));
+                    assert(first_node_ == first_node< value_node* >(root_, depth_));
+                }
+            }
+        
             void checktree(node* n, internal_node* parent, node_size_type depth)
             {
                 if (depth_ == depth)
@@ -1617,27 +1654,62 @@ namespace btree
                     assert(vn->parent == parent);
                 }
                 else
-                {
+                {       
                     auto in = node_cast<internal_node*>(n);
-                    auto children = desc(in).get_children< node* >();
 
-                    for (auto child : children)
                     {
+                        // Child/parent relationship check
+    
+                        auto children = desc(in).get_children< node* >();
+                        for (auto child : children)
+                        {
+                            if (depth + 1 == depth_)
+                            {
+                                auto node = node_cast<value_node*>(child);
+                                assert(node->parent == in);
+                            }
+                            else
+                            {
+                                auto node = node_cast<internal_node*>(child);
+                                assert(node->parent == in);
+                            }
+
+                            checktree(child, in, depth + 1);
+                        }
+                    }
+
+                    {
+                        // Left/Right check
+
+                    #if defined(BTREE_VALUE_NODE_LR)
                         if (depth + 1 == depth_)
                         {
-                            auto node = node_cast<value_node*>(child);
-                            assert(node->parent == in);
-                        }
-                        else
-                        {
-                            auto node = node_cast<internal_node*>(child);
-                            assert(node->parent == in);
-                        }
+                            auto children = desc(in).get_children< value_node* >();
+                            assert(children.size() >= 1);
 
-                        checktree(child, in, depth + 1);
+                            if (children.size() == 1)
+                            {
+                                assert(children[0]->left == nullptr);
+                                assert(children[0]->right == nullptr);
+                            }
+                            else
+                            {
+                                assert(children.front()->left == nullptr);
+                                for (node_size_type i = 1; i < children.size(); ++i)
+                                {
+                                    assert(children[i]->left == children[i - 1]);
+                                    assert(children[i] == children[i - 1]->right);
+                                }
+
+                                // TODO: :)
+                                //assert(children.back()->right == nullptr);
+                            }
+                        }
+                    #endif      
                     }
                 }
             }
+        #endif
 
         private:
             // TODO: add SOO
@@ -1700,7 +1772,7 @@ namespace btree
             uint8_t values[2 * N * sizeof(Value)];
             InternalNodeType* parent;
 
-        #if defined(VALUE_NODE_LR)
+        #if defined(BTREE_VALUE_NODE_LR)
             value_node* left;
             value_node* right;
         #endif
@@ -1752,7 +1824,7 @@ namespace btree
 
             uint8_t keys[2 * N * sizeof(Key)];
             InternalNodeType* parent;
-        #if defined(VALUE_NODE_LR)
+        #if defined(BTREE_VALUE_NODE_LR)
             value_node* left;
             value_node* right;
         #endif
@@ -1832,37 +1904,33 @@ namespace btree
 
         ~set()
         {
-            base_type::clear(allocator_);
+            clear();
         }
 
         std::pair< iterator, bool > insert(const value_type& value)
         {
-            auto tmp = base_type::emplace_hint(allocator_, nullptr, value);
-            checktree();
-            return tmp;
+            BTREE_CHECK_RETURN(base_type::emplace_hint(allocator_, nullptr, value));
         }
 
         template < typename It > void insert(It begin, It end)
         {
-            base_type::insert(allocator_, begin, end);
+            BTREE_CHECK(base_type::insert(allocator_, begin, end));
         }
 
         void erase(const value_type& key)
         {
-            base_type::erase(allocator_, key);
+            BTREE_CHECK(base_type::erase(allocator_, key));
         }
 
         iterator erase(iterator it)
         {
-            auto tmp = base_type::erase(allocator_, it);
-            checktree();
-            return tmp;
+            BTREE_CHECK_RETURN(base_type::erase(allocator_, it));
         }
 
         void clear()
         {
             // TODO: missing test
-            base_type::clear(allocator_);
+            BTREE_CHECK(base_type::clear(allocator_));
         }
 
     private:
@@ -1914,28 +1982,28 @@ namespace btree
 
         ~map()
         {
-            base_type::clear(allocator_);
+            clear();
         }
 
         std::pair< iterator, bool > insert(const value_type& value)
         {
-            return base_type::emplace_hint(allocator_, nullptr, value);
+            BTREE_CHECK_RETURN(base_type::emplace_hint(allocator_, nullptr, value));
         }
 
         template < typename It > void insert(It begin, It end)
         {
-            base_type::insert(allocator_, begin, end);
+            BTREE_CHECK_RETURN(base_type::insert(allocator_, begin, end));
         }
 
         void erase(const typename value_type::first_type& key)
         {
-            base_type::erase(allocator_, key);
+            BTREE_CHECK(base_type::erase(allocator_, key));
         }
 
         void clear()
         {
             // TODO: missing test
-            base_type::clear(allocator_);
+            BTREE_CHECK(base_type::clear(allocator_));
         }
 
     private:

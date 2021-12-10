@@ -643,10 +643,9 @@ namespace btree
                 iterator& operator--()
                 {
                     assert(node_);
-                    assert(kindex_ > 0);
-
+                    
                     auto node = node_descriptor< value_node* >(node_);
-                    if (!kindex_)
+                    if (kindex_ == 0)
                     {                        
                     #if defined(BTREE_VALUE_NODE_LR)
                         assert(node_->left);
@@ -1637,12 +1636,63 @@ namespace btree
             void checktree()
             {
                 if (root_)
-                {
+                {                    
                     checktree(root_, nullptr, 1);
 
                     // TODO: after we move last_node/first_node to pointer versions, we will need a way how to find them through traversal.
                     assert(last_node_ == last_node< value_node* >(root_, depth_));
-                    assert(first_node_ == first_node< value_node* >(root_, depth_));
+                    assert(first_node_ == first_node< value_node* >(root_, depth_));                   
+
+                    // TODO:
+                    //assert(count == std::distance(begin(), end()));                    
+
+                    size_type count_forward = 0;
+                    for (auto it = begin(); it != end(); ++it)
+                    {
+                        ++count_forward;
+                    }
+                    assert(count_forward == size());
+
+                    size_type count_backward = 0;
+                    auto it = end();
+                    do
+                    {
+                        --it;
+                        ++count_backward;
+                    } while (it != begin());
+                    assert(count_backward == size());
+
+                    size_type count_node = 0;
+                    for (auto vn = first_node_; vn != nullptr; )
+                    {
+                        count_node += vn->size;
+
+                        if (vn == first_node_)
+                        {
+                            assert(vn->left == nullptr);
+                        }
+                        else if (vn == last_node_)
+                        {
+                            assert(vn->right == nullptr);
+                        }
+
+                        if (vn->right)
+                        {
+                            assert(vn->right->left == vn);
+                        }
+
+                        vn = vn->right;
+                    }
+
+                    assert(count_node == size());
+                }
+                else
+                {                    
+                    assert(empty());
+                    assert(size() == 0);
+                    assert(begin() == end());
+                    assert(first_node_ == nullptr);
+                    assert(last_node_ == nullptr);
                 }
             }
         
@@ -1656,56 +1706,25 @@ namespace btree
                 else
                 {       
                     auto in = node_cast<internal_node*>(n);
+                    assert(in->parent == parent);
 
-                    {
-                        // Child/parent relationship check
+                    // Child/parent relationship check
     
-                        auto children = desc(in).get_children< node* >();
-                        for (auto child : children)
-                        {
-                            if (depth + 1 == depth_)
-                            {
-                                auto node = node_cast<value_node*>(child);
-                                assert(node->parent == in);
-                            }
-                            else
-                            {
-                                auto node = node_cast<internal_node*>(child);
-                                assert(node->parent == in);
-                            }
-
-                            checktree(child, in, depth + 1);
-                        }
-                    }
-
+                    auto children = desc(in).get_children< node* >();
+                    for (auto child : children)
                     {
-                        // Left/Right check
-
-                    #if defined(BTREE_VALUE_NODE_LR)
                         if (depth + 1 == depth_)
                         {
-                            auto children = desc(in).get_children< value_node* >();
-                            assert(children.size() >= 1);
-
-                            if (children.size() == 1)
-                            {
-                                assert(children[0]->left == nullptr);
-                                assert(children[0]->right == nullptr);
-                            }
-                            else
-                            {
-                                assert(children.front()->left == nullptr);
-                                for (node_size_type i = 1; i < children.size(); ++i)
-                                {
-                                    assert(children[i]->left == children[i - 1]);
-                                    assert(children[i] == children[i - 1]->right);
-                                }
-
-                                // TODO: :)
-                                //assert(children.back()->right == nullptr);
-                            }
+                            auto node = node_cast<value_node*>(child);
+                            assert(node->parent == in);
                         }
-                    #endif      
+                        else
+                        {
+                            auto node = node_cast<internal_node*>(child);
+                            assert(node->parent == in);
+                        }
+
+                        checktree(child, in, depth + 1);
                     }
                 }
             }

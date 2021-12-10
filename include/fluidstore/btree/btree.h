@@ -828,15 +828,8 @@ namespace btree
             bool empty() const { return size_ == 0; }
 
             iterator begin() const { return iterator(first_node_, 0); }
-
-            iterator end() const
-            {                              
-                // TODO: last_node_ seems a bit of...
-
-                auto ln = root_ ? last_node< value_node* >(root_, depth_) : nullptr;
-                return iterator(ln, ln ? ln->size : 0);
-            }
-                        
+            iterator end() const { return iterator(last_node_, last_node_ ? last_node_->size : 0); }
+            
         //private:
             value_node* hint_node(iterator* it) const
             {

@@ -10,7 +10,7 @@
 
 #include <fluidstore/btree/btree.h>
 
-//#define DOTKERNEL_BTREE
+// #define DOTKERNEL_BTREE
 
 namespace crdt
 {
@@ -85,7 +85,13 @@ namespace crdt
         bool operator < (const dot_kernel_value_type& other) const { return first < other.first; }
 
         const Key first;
+
+    #if defined(DOTKERNEL_BTREE)
+        DotContext dots;
+        value_type value;
+    #else
         nested_value second;
+    #endif
     };
 
     template < typename Key, typename Allocator, typename DotContext, typename DotKernel > class dot_kernel_value< Key, void, Allocator, DotContext, DotKernel >
@@ -94,12 +100,7 @@ namespace crdt
         using allocator_type = Allocator;
         using value_type = void;
         using dot_kernel_value_type = dot_kernel_value< Key, void, Allocator, DotContext, DotKernel >;
-
-        struct nested_value
-        {
-            DotContext dots;
-        };
-
+                
         template < typename AllocatorT > dot_kernel_value(AllocatorT&, Key key, DotKernel*)
             : first(key)
         {}
@@ -109,7 +110,11 @@ namespace crdt
       
         template < typename Allocator, typename DotKernelValue, typename Context > void merge(Allocator& allocator, const DotKernelValue& other, Context& context)
         {
+        #if defined(DOTKERNEL_BTREE)
+            dots.merge(allocator, other.dots, context);
+        #else
             second.dots.merge(allocator, other.dots, context);
+        #endif
         }
 
         void update() {}
@@ -121,7 +126,17 @@ namespace crdt
         bool operator < (const dot_kernel_value_type& other) const { return first < other.first; }
 
         const Key first;
+
+    #if defined(DOTKERNEL_BTREE)
+        DotContext dots;
+    #else
+        struct nested_value
+        {
+            DotContext dots;
+        };
+
         nested_value second;
+    #endif
     };
 
     template < typename Iterator, typename Outer > class dot_kernel_iterator_base
@@ -185,8 +200,12 @@ namespace crdt
         
         using dot_kernel_value_type = dot_kernel_value< Key, Value, Allocator, dot_context_type, dot_kernel_type >;
 
+    #if defined(DOTKERNEL_BTREE)
+        using values_type = btree::map_base< Key, dot_kernel_value_type >;
+    #else
         using values_type = flat::map_base< Key, Value, dot_kernel_value_type >;
-        
+    #endif
+
         using iterator = dot_kernel_iterator< typename values_type::iterator, Key, typename dot_kernel_value_type::value_type >;
         using const_iterator = dot_kernel_iterator< typename values_type::const_iterator, Key, typename dot_kernel_value_type::value_type >;
 
@@ -318,12 +337,19 @@ namespace crdt
             // Merge values
             for (const auto& [rkey, rvalue] : other.get_values())
             {
+            #if defined(DOTKERNEL_BTREE)
+                auto lpb = values_.emplace(allocator, rkey, dot_kernel_value_type(allocator, rkey, this));
+            #else
                 auto lpb = values_.emplace(allocator, allocator, rkey, this);
-
+            #endif
                 auto& lvalue = *lpb.first;
 
                 value_context value_ctx(allocator, replica_);
+            #if defined(DOTKERNEL_BTREE)
+                lvalue.second.merge(allocator, rvalue, value_ctx);
+            #else
                 lvalue.merge(allocator, rvalue, value_ctx);
+            #endif
 
                 for (const auto& [replica_id, rdots] : rvalue.dots)
                 {
@@ -369,6 +395,7 @@ namespace crdt
                                 auto& lkey = counter_it->second;
                                 auto values_it = values_.find(lkey);
                                 values_it->second.dots.erase(allocator, dot_type{ replica_id, counter });
+                            
                                 if (values_it->second.dots.empty())
                                 {
                                     auto it = values_.erase(allocator, values_it);
@@ -448,7 +475,11 @@ namespace crdt
         void add_value(const Key& key, const dot_type& dot)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
+        #if defined(DOTKERNEL_BTREE)
+            auto& data = *values_.emplace(allocator, key, dot_kernel_value_type(allocator, key, nullptr)).first;
+        #else
             auto& data = *values_.emplace(allocator, allocator, key, nullptr).first;
+        #endif
             data.second.dots.emplace(allocator, dot);
         }
 
@@ -456,7 +487,11 @@ namespace crdt
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
             auto& data = *values_.emplace(allocator, allocator, key, nullptr).first;
+        #if defined(DOTKERNEL_BTREE)
+            data.second.second.dots.emplace(allocator, dot);
+        #else
             data.second.dots.emplace(allocator, dot);
+        #endif
             data.second.value.merge(value);
         }
 

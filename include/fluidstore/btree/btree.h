@@ -300,7 +300,7 @@ namespace btree
                 container_type& container_;
                 base_iterator it_;
             };
-
+                        
             fixed_split_vector(Args... args)
                 : std::tuple< Args... >(args...)
             {}
@@ -592,6 +592,9 @@ namespace btree
             {
                 friend class container_type;
 
+                iterator() = default;
+                iterator(const iterator&) = default;
+
                 iterator(value_node* n, node_size_type kindex)
                     : node_(n)
                     , kindex_(kindex)
@@ -667,6 +670,8 @@ namespace btree
                 value_node* node_;
                 node_size_type kindex_;
             };
+
+            using const_iterator = iterator;
 
         #if defined(_DEBUG)
             container_base()

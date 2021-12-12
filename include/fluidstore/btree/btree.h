@@ -697,17 +697,19 @@ namespace btree
                 other.depth_ = other.size_ = 0;
             }
 
-            container_base(const container_type&& other) = delete;
-
             container_type& operator = (container_type&& other) = default;
 
+            container_base(const container_type&& other) = delete;
+            container_type& operator = (const container_type& other) = delete;
+            
         #if defined(_DEBUG)
             ~container_base()
             {
-                // TODO: default for release
                 assert(empty());
             }
-        #endif
+        #else
+            ~container_base() = default;
+        #endif  
 
             template < typename Allocator > void clear(Allocator& allocator)
             {
@@ -732,7 +734,7 @@ namespace btree
 
             template < typename Allocator, typename... Args > std::pair< iterator, bool > emplace(Allocator& allocator, Args&&... args)
             {
-                return emplace_hint(allocator, nullptr, value_type(std::forward< Args >(args)...));
+                return emplace_hint(allocator, nullptr, std::forward< Args >(args)...);
             }
 
             template < typename Allocator > std::pair< iterator, bool > insert(Allocator& allocator, iterator hint, const value_type& value)
@@ -843,7 +845,7 @@ namespace btree
 
             template < typename Allocator, typename... Args > std::pair< iterator, bool > emplace_hint(Allocator& allocator, iterator* hint, Args&&... args)
             {
-                value_type value(std::forward< Args >(args)...);
+                value_type value{ std::forward< Args >(args)... };
 
                 if (!root_)
                 {

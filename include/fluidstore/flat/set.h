@@ -16,6 +16,11 @@ namespace crdt::flat
         set_base() = default;
         set_base(set_base< T, SizeType >&& other) = default;
         ~set_base() = default;
+        set_base< T, SizeType >& operator = (set_base< T, SizeType >&&) = default;
+
+        set_base(const set_base< T, SizeType >&) = delete;
+        set_base< T, SizeType >& operator = (const set_base< T, SizeType >&) = delete;
+        
 
         template < typename Allocator, typename Value > std::pair< iterator, bool > emplace(Allocator& allocator, Value&& value)
         {

@@ -34,7 +34,10 @@ namespace crdt
         dot_counters_base(dot_counters_base&& other) = default;
         ~dot_counters_base() = default;
 
-        // dot_counters_base< CounterType, Tag, SizeType >& operator = (const dot_counters_base< CounterType, Tag, SizeType >&);
+        dot_counters_base< CounterType, Tag, SizeType >& operator = (dot_counters_base< CounterType, Tag, SizeType >&&) = default;
+
+        dot_counters_base(const dot_counters_base&) = delete;
+        dot_counters_base< CounterType, Tag, SizeType >& operator = (const dot_counters_base< CounterType, Tag, SizeType >&) = delete;
 
         counter_type get() const
         {
@@ -141,6 +144,7 @@ namespace crdt
                     auto counter = *counters_.begin();
 
                 #if defined(DOTCOUNTERS_BTREE)
+                    // TODO: in-place update
                     counters_.insert(allocator, *counters_.begin() + 1);
                     counters_.erase(allocator, counters_.begin());
                 #else

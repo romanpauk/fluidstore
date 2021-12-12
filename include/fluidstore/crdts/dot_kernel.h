@@ -194,31 +194,27 @@ namespace crdt
         {
             // Persistent data
             dot_counters_base< counter_type, Tag > counters;
+
         #if defined(DOTKERNEL_BTREE)
             btree::map_base< counter_type, Key > dots;
-        #else
-            flat::map_base< counter_type, Key > dots;
-        #endif       
+            
             // Temporary merge data
-
-        #if defined(DOTKERNEL_BTREE)
             btree::set_base< counter_type > visited;
-        #else
-            flat::set_base< counter_type > visited;
-        #endif  
-
-        #if defined(DOTCOUNTERS_BTREE)
             const btree::set_base< counter_type >* other_counters;
         #else
+            flat::map_base< counter_type, Key > dots;
+
+            // Temporary merge data
+            flat::set_base< counter_type > visited;
             const flat::set_base< counter_type >* other_counters;
-        #endif  
+        #endif       
         };
         
-    //#if defined(DOTKERNEL_BTREE)
-    //    using replicas_type = btree::map_base< replica_id_type, replica_data >;
-    //#else
+    #if defined(DOTKERNEL_BTREE)
+        using replicas_type = btree::map_base< replica_id_type, replica_data >;
+    #else
         using replicas_type = flat::map_base< replica_id_type, replica_data >;
-    //#endif
+    #endif
 
         struct context
         {

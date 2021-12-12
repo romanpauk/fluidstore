@@ -25,7 +25,7 @@ template < typename T > T tr(T val)
 
 BOOST_AUTO_TEST_CASE(set_insert_performance)
 {
-#define Outer 10000
+#define Outer 100
 #define Inner 100
 //#define PROFILE
 

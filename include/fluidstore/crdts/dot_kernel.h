@@ -58,16 +58,25 @@ namespace crdt
         dot_kernel_value(const dot_kernel_value_type&) = delete;
         dot_kernel_value_type& operator = (const dot_kernel_value_type&) = delete;
 
-        template < typename AllocatorT > dot_kernel_value(AllocatorT& allocator, Key key, DotKernel* parent)
+        template < typename AllocatorT > dot_kernel_value(AllocatorT& allocator, Key key, DotKernel* p)
             : first(key)
-            , second(value_allocator_type(allocator, this), parent)
+        #if defined(DOTKERNEL_BTREE)
+            , value(value_allocator_type(allocator, this))
+            , parent(p)
+        #else
+            , second(value_allocator_type(allocator, this), p)
+        #endif
         {}
 
         dot_kernel_value(dot_kernel_value_type&& other)
             : second(std::move(other.second))
             , first(std::move(other.first))
         {
+        #if defined(DOTKERNEL_BTREE)
+            value.get_allocator().set_container(this);
+        #else
             second.value.get_allocator().set_container(this);
+        #endif
         }
         
         template < typename Allocator, typename DotKernelValue, typename Context > void merge(Allocator& allocator, const DotKernelValue& other, Context& context)
@@ -78,7 +87,11 @@ namespace crdt
 
         void update()
         {
+        #if defined(DOTKERNEL_BTREE)
+            parent->update(first);
+        #else
             second.parent->update(first);
+        #endif
         }
 
         bool operator == (const Key& other) const { return first == other; }
@@ -90,8 +103,9 @@ namespace crdt
         Key first;
 
     #if defined(DOTKERNEL_BTREE)
+        DotKernel* parent;
         DotContext dots;
-        value_type value;
+        value_type value;        
     #else
         nested_value second;
     #endif

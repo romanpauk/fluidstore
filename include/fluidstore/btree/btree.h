@@ -386,14 +386,18 @@ namespace btree
             }
 
             template < typename Allocator, typename Ty, size_t... Ids > void emplace_impl(Allocator& alloc, iterator index, Ty&& value, std::integer_sequence< size_t, Ids... >)
-            {
-                
-
+            {             
                 auto offset = index - begin();
-                (std::get< Ids >(*this).emplace(alloc, std::get< Ids >(*this).begin() + offset, std::get< Ids >(std::forward< Ty >(value))), ...);
-                
-                // TODO: the move is required to compile crdts.
-                // (std::get< Ids >(*this).emplace(alloc, std::get< Ids >(*this).begin() + offset, std::move(std::get< Ids >(std::forward< Ty >(value)))), ...);
+
+                if constexpr (std::is_rvalue_reference_v< decltype(value) >)
+                {
+                    // TODO: the move is required to compile crdts.
+                    (std::get< Ids >(*this).emplace(alloc, std::get< Ids >(*this).begin() + offset, std::move(std::get< Ids >(std::forward< Ty >(value)))), ...);
+                }
+                else
+                {
+                    (std::get< Ids >(*this).emplace(alloc, std::get< Ids >(*this).begin() + offset, std::get< Ids >(std::forward< Ty >(value))), ...);
+                }
             }         
 
             template < typename Allocator, typename U, size_t... Ids > void insert_impl(Allocator& alloc, iterator index, std::move_iterator<U> from, std::move_iterator<U> to, std::integer_sequence< size_t, Ids... >)
@@ -532,8 +536,7 @@ namespace btree
             typedef std::pair< const Key&, Value& > reference;
 
             template < typename Pair > static const Key& get_key(Pair&& p) { return p.first; }
-            template < typename Pair > static auto&& convert(Pair&& p) { return std::forward< Pair >(p); }
-
+            
             template < typename T > static reference* reference_address(T&& p) 
             { 
                 // TODO: this traits pair< Key&, Value& > as POD. Needed to return address of temporary pair< Key&, Value& > for iterator::operator ->().
@@ -549,8 +552,7 @@ namespace btree
             typedef const Key& reference;
 
             static const Key& get_key(const Key& p) { return p; }
-            template < typename T > static auto&& convert(T&& p) { return std::forward<T>(p); }
-
+            
             template < typename T > static std::remove_reference_t< T >* reference_address(T&& p) { return &p; }
         };
 
@@ -975,7 +977,7 @@ namespace btree
                 else
                 {
                     // TODO: move
-                    n.get_data().emplace(allocator, n.get_data().begin() + kindex, value_type_traits_type::convert(std::forward< T >(value)));
+                    n.get_data().emplace(allocator, n.get_data().begin() + kindex, std::forward< T >(value));
                     ++size_;
 
                     return { iterator(n, kindex), true };

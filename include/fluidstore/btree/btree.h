@@ -684,8 +684,7 @@ namespace btree
             };
 
             using const_iterator = iterator;
-
-        #if defined(_DEBUG)
+                    
             container_base()
                 : root_()
                 , first_node_()
@@ -693,16 +692,16 @@ namespace btree
                 , size_()
                 , depth_()
             {
+                // TODO: why does defaulting this not clear the pointers?
+            #if defined(_DEBUG)
                 // Make sure the objects alias.
                 value_node v;
                 assert(&v == (node*)&v);
                 internal_node n;
                 assert(&n == (node*)&n);
+            #endif
             }
-        #else
-            container_base() = default;
-        #endif
-
+        
             container_base(container_type&& other)
                 : root_(other.root_)
                 , first_node_(other.first_node_)

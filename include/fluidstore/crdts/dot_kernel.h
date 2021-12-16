@@ -10,7 +10,7 @@
 
 #include <fluidstore/btree/btree.h>
 
-// #define DOTKERNEL_BTREE
+//#define DOTKERNEL_BTREE
 
 namespace crdt
 {
@@ -55,6 +55,9 @@ namespace crdt
             value_type value;
         };
 
+        dot_kernel_value(const dot_kernel_value_type&) = delete;
+        dot_kernel_value_type& operator = (const dot_kernel_value_type&) = delete;
+
         template < typename AllocatorT > dot_kernel_value(AllocatorT& allocator, Key key, DotKernel* parent)
             : first(key)
             , second(value_allocator_type(allocator, this), parent)
@@ -66,7 +69,7 @@ namespace crdt
         {
             second.value.get_allocator().set_container(this);
         }
-
+        
         template < typename Allocator, typename DotKernelValue, typename Context > void merge(Allocator& allocator, const DotKernelValue& other, Context& context)
         {
             second.dots.merge(allocator, other.dots, context);
@@ -84,7 +87,7 @@ namespace crdt
         bool operator < (const Key& other) const { return first < other; }
         bool operator < (const dot_kernel_value_type& other) const { return first < other.first; }
 
-        const Key first;
+        Key first;
 
     #if defined(DOTKERNEL_BTREE)
         DotContext dots;
@@ -106,8 +109,12 @@ namespace crdt
         {}
 
         dot_kernel_value() = default;
-        dot_kernel_value(dot_kernel_value_type&& other) = default;
-      
+        dot_kernel_value(dot_kernel_value_type&&) = default;
+        dot_kernel_value_type& operator = (dot_kernel_value_type&&) = default;
+
+        dot_kernel_value(const dot_kernel_value_type&) = delete;
+        dot_kernel_value_type& operator = (const dot_kernel_value_type&) = delete;
+
         template < typename Allocator, typename DotKernelValue, typename Context > void merge(Allocator& allocator, const DotKernelValue& other, Context& context)
         {
         #if defined(DOTKERNEL_BTREE)
@@ -125,7 +132,7 @@ namespace crdt
         bool operator < (const Key& other) const { return first < other; }
         bool operator < (const dot_kernel_value_type& other) const { return first < other.first; }
 
-        const Key first;
+        Key first;
 
     #if defined(DOTKERNEL_BTREE)
         DotContext dots;

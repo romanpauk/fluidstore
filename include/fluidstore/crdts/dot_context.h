@@ -4,6 +4,10 @@
 #include <fluidstore/crdts/dot_counters_base.h>
 #include <fluidstore/flat/map.h>
 
+#include <fluidstore/btree/btree.h>
+
+//#define DOTCONTEXT_BTREE
+
 namespace crdt
 {
     template < typename Dot, typename Tag, typename SizeType = uint32_t > class dot_context
@@ -26,10 +30,19 @@ namespace crdt
             return std::allocator_traits< Allocator >::template rebind_alloc< T >(allocator);
         }
 
+        static_assert(std::is_trivially_copyable_v< Dot >);
+        static_assert(std::is_trivially_move_assignable_v< Dot >);
+        static_assert(std::is_trivially_move_constructible_v< Dot >);
+                        
     public:
         dot_context() = default;
-        dot_context(dot_context&& other) = default;
+        dot_context(dot_context&&) = default;
         ~dot_context() = default;
+
+        dot_context& operator = (dot_context&&) = default;
+
+        dot_context(const dot_context&) = delete;
+        dot_context& operator = (const dot_context&) = delete;
 
         template < typename Allocator, typename... Args > void emplace(Allocator& allocator, const dot_type& dot)
         {
@@ -144,10 +157,14 @@ namespace crdt
 
     private:
         // TODO: constness
+    #if defined(DOTCONTEXT_BTREE)
+        mutable btree::map_base < replica_id_type, dot_counters_base< counter_type, Tag, size_type > > counters_;
+    #else
         mutable flat::map_base< 
             replica_id_type, dot_counters_base< counter_type, Tag, size_type >, 
             flat::map_node< replica_id_type, dot_counters_base< counter_type, Tag, size_type > >,
             size_type 
         > counters_;
+    #endif
     };
 }

@@ -57,6 +57,9 @@ namespace btree
                 checkvec();
             }
 
+            fixed_vector(fixed_vector&&) = default;
+            fixed_vector< T, Descriptor >& operator = (fixed_vector< T, Descriptor >&&) = default;
+
             template < typename Allocator, typename... Args > void emplace_back(Allocator& alloc, Args&&... args)
             {
                 emplace(alloc, end(), std::forward< Args >(args)...);
@@ -67,7 +70,7 @@ namespace btree
                 assert(begin() <= index && index < end());
                 
                 bool last = index == end() - 1;
-                auto dest = std::move(index + 1, end(), index);
+                std::move(index + 1, end(), index);
                 destroy(alloc, end()-1, end());
             
                 desc_.set_size(size() - 1);
@@ -127,9 +130,10 @@ namespace btree
                 {
                     move_backward(alloc, it, end(), end() + 1);
 
+                    // TODO: does this make sense?
                     if constexpr (std::is_move_assignable_v< T >)
                     {
-                        const_cast<T&>(*it) = T(std::forward< Args >(args)...);
+                        const_cast<T&>(*it) = T{ std::forward< Args >(args)... };
                     }
                     else
                     {
@@ -300,10 +304,13 @@ namespace btree
                 container_type& container_;
                 base_iterator it_;
             };
-                        
-            fixed_split_vector(Args... args)
-                : std::tuple< Args... >(args...)
+                
+            template < typename... ArgsT > fixed_split_vector(ArgsT... args)
+                : std::tuple< Args... >(std::forward< ArgsT >(args)...)
             {}
+
+            fixed_split_vector(fixed_split_vector&&) = default;
+            fixed_split_vector& operator = (fixed_split_vector&&) = default;
 
             template < typename Allocator, typename Ty > void emplace_back(Allocator& alloc, Ty&& value)
             {
@@ -380,9 +387,14 @@ namespace btree
 
             template < typename Allocator, typename Ty, size_t... Ids > void emplace_impl(Allocator& alloc, iterator index, Ty&& value, std::integer_sequence< size_t, Ids... >)
             {
+                
+
                 auto offset = index - begin();
                 (std::get< Ids >(*this).emplace(alloc, std::get< Ids >(*this).begin() + offset, std::get< Ids >(std::forward< Ty >(value))), ...);
-            }
+                
+                // TODO: the move is required to compile crdts.
+                // (std::get< Ids >(*this).emplace(alloc, std::get< Ids >(*this).begin() + offset, std::move(std::get< Ids >(std::forward< Ty >(value)))), ...);
+            }         
 
             template < typename Allocator, typename U, size_t... Ids > void insert_impl(Allocator& alloc, iterator index, std::move_iterator<U> from, std::move_iterator<U> to, std::integer_sequence< size_t, Ids... >)
             {
@@ -537,7 +549,7 @@ namespace btree
             typedef const Key& reference;
 
             static const Key& get_key(const Key& p) { return p; }
-            template < typename T > static auto&& convert(T&& p) { return p; }
+            template < typename T > static auto&& convert(T&& p) { return std::forward<T>(p); }
 
             template < typename T > static std::remove_reference_t< T >* reference_address(T&& p) { return &p; }
         };

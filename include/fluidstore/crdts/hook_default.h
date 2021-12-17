@@ -13,7 +13,7 @@ namespace crdt
         hook_default< Container, Allocator, Delta >& operator = (hook_default< Container, Allocator, Delta > && other)
         {
             // TODO: not everytime moving the allocator makes sense
-            // allocator_ = std::move(other.allocator_);
+            allocator_ = std::move(other.allocator_);
             return *this;
         }
 

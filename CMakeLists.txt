@@ -52,8 +52,8 @@ if(Boost_FOUND)
     target_link_libraries(fluidstoretest fluidstore Boost::boost)
     target_precompile_headers(fluidstoretest PRIVATE src/tests/pch.h)
 
-    # target_compile_definitions(fluidstoretest PRIVATE DOTKERNEL_BTREE DOTCOUNTERS_BTREE DOTCONTEXT_BTREE)
-
+    target_compile_definitions(fluidstoretest PRIVATE DOTKERNEL_BTREE DOTCONTEXT_BTREE DOTCOUNTERS_BTREE)
+    
     add_executable(fluidstoreperf 
         src/tests/perf.cpp
         src/tests/testmodule.cpp

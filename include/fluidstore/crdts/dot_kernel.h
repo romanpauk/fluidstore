@@ -26,8 +26,9 @@ namespace crdt
 
         dot_kernel_allocator< Allocator, Container >& operator = (dot_kernel_allocator< Allocator, Container >&& other)
         {
-            // TODO: not everytime moving the allocator makes sense.
-            container_ = std::move(other.container_);
+            // TODO: think about who should move the container. dot_kernel_value resets that.
+
+            static_cast<Allocator&>(*this) = std::move(other);
             return *this;
         }
 
@@ -77,6 +78,7 @@ namespace crdt
             : first(std::move(other.first))
         #if defined(DOTKERNEL_BTREE)
             , value(std::move(other.value))
+            , dots(std::move(other.dots))
             , parent(other.parent)
         #else
             , second(std::move(other.second))
@@ -95,9 +97,12 @@ namespace crdt
 
         #if defined(DOTKERNEL_BTREE)
             value = std::move(other.value);
+            dots = std::move(other.dots);
+            parent = other.parent;            
             value.get_allocator().set_container(this);
         #else
             second = std::move(other.second);
+            second.value.get_allocator().set_container(this);
         #endif
 
             return *this;
@@ -106,8 +111,8 @@ namespace crdt
         template < typename Allocator, typename DotKernelValue, typename Context > void merge(Allocator& allocator, const DotKernelValue& other, Context& context)
         {            
         #if defined(DOTKERNEL_BTREE)
-            value.merge(other.value);
             dots.merge(allocator, other.dots, context);
+            value.merge(other.value);            
         #else
             second.dots.merge(allocator, other.dots, context);
             second.value.merge(other.value);
@@ -266,17 +271,18 @@ namespace crdt
 
         #if defined(DOTKERNEL_BTREE)
             btree::map_base< counter_type, Key > dots;
-            
+        #else
+            flat::map_base< counter_type, Key > dots;            
+        #endif       
+        #if defined(DOTCOUNTERS_BTREE)
+            const btree::set_base< counter_type >* other_counters;
             // Temporary merge data
             btree::set_base< counter_type > visited;
-            const btree::set_base< counter_type >* other_counters;
         #else
-            flat::map_base< counter_type, Key > dots;
-
+            const flat::set_base< counter_type >* other_counters;
             // Temporary merge data
             flat::set_base< counter_type > visited;
-            const flat::set_base< counter_type >* other_counters;
-        #endif       
+        #endif
         };
         
     #if defined(DOTKERNEL_BTREE)

@@ -22,7 +22,7 @@ namespace crdt
             assert(!delta_);
 
             // TODO: not everytime moving the allocator makes sense
-            // allocator_ = std::move(other.allocator_);
+            allocator_ = std::move(other.allocator_);
             delta_ = std::move(other.delta_);
             return *this;
         }
@@ -41,7 +41,7 @@ namespace crdt
         Delta extract_delta()
         {
             // TODO: use move here
-            //Delta delta(std::move(delta_));
+            // Delta delta(std::move(delta_));
 
             Delta delta(allocator_);
             if (delta_)

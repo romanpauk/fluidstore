@@ -731,11 +731,8 @@ namespace btree
             
         #if defined(_DEBUG)
             ~container_base()
-            {
-            #if !defined(DOTKERNEL_BTREE)
-                //TODO
+            {            
                 assert(empty());
-            #endif
             }
         #else
             ~container_base() = default;

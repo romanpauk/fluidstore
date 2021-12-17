@@ -331,7 +331,17 @@ namespace crdt
 
         dot_kernel(dot_kernel_type&& other) = default;        
         
-        dot_kernel_type& operator = (dot_kernel_type&&) = default;
+        dot_kernel_type& operator = (dot_kernel_type&& other)
+        {
+            // TODO:
+            //std::swap(values_, other.values_);
+            //std::swap(replica_, other.replica_);
+            values_ = std::move(other.values_);
+            replica_ = std::move(other.replica_);
+
+            return *this;
+        }
+
 
         /*
             // TODO: the move is generally problematic, as values hold pointer to parent container

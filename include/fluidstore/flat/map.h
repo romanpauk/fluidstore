@@ -37,8 +37,9 @@ namespace crdt::flat
         map_base< Key, Value, Node, SizeType >& operator = (map_base< Key, Value, Node, SizeType >&&) = default;
 
         map_base(const map_base< Key, Value, Node, SizeType >&) = delete;
-        map_base< Key, Value, Node, SizeType >& operator = (const map_base< Key, Value, Node, SizeType >&) = delete;
-
+        
+        map_base< Key, Value, Node, SizeType >& operator = (const map_base< Key, Value, Node, SizeType >&) = default;
+        
         template< typename Allocator, typename... Args > std::pair< iterator, bool > emplace(Allocator& allocator, Args&&... args)
         {
             Node node{ std::forward< Args >(args)... };

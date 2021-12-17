@@ -17,6 +17,16 @@ namespace crdt
 
         hook_extract(hook_extract< Container, Allocator, Delta >&&) = default;
 
+        hook_extract< Container, Allocator, Delta >& operator = (hook_extract< Container, Allocator, Delta >&& other)
+        {
+            assert(!delta_);
+
+            // TODO: not everytime moving the allocator makes sense
+            // allocator_ = std::move(other.allocator_);
+            delta_ = std::move(other.delta_);
+            return *this;
+        }
+
         template < typename Delta > void commit_delta(Delta&& delta)
         {
             if (!delta_)

@@ -192,13 +192,13 @@ BOOST_AUTO_TEST_CASE(btree_map_node_dimension)
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_move, T, test_types)
 {
- //   btree::set< T > set1;
- //   set1.insert(value<T>(1));
+    btree::set< T > set1;
+    set1.insert(value<T>(1));
 
- //   btree::set< T > set2 = std::move(set1);
- //   BOOST_TEST(set1.size() == 0);
- //   BOOST_TEST(set2.size() == 1);
- //   BOOST_TEST((*set2.begin()) == value<T>(1));
+    btree::set< T > set2 = std::move(set1);
+    BOOST_TEST(set1.size() == 0);
+    BOOST_TEST(set2.size() == 1);
+    BOOST_TEST((*set2.begin()) == value<T>(1));
 }
 
 BOOST_AUTO_TEST_CASE(btree_set_iterator)

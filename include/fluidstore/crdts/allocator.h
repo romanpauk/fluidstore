@@ -28,10 +28,27 @@ namespace crdt
             : replica_(replica)
         {}
 
+        allocator(const allocator& other)
+            : Allocator(static_cast<const Allocator&>(other))
+            , replica_(other.replica_)
+        {}
+
         template < typename Al > allocator(Replica& replica, Al&& al)
             : Allocator(std::forward<Al>(al))
             , replica_(replica)
         {}
+
+        allocator(allocator&& other)
+            : Allocator(std::move(static_cast<Allocator&>(other)))
+            , replica_(std::move(other.replica_))
+        {}
+
+        allocator& operator = (allocator&& other)
+        {
+            static_cast<Allocator&>(*this) = std::move(other);
+            replica_ = std::move(other.replica_);
+            return *this;
+        }
                 
         template < typename ReplicaU, typename U, typename AllocatorU > allocator(
             const allocator< ReplicaU, U, AllocatorU >& other
@@ -39,7 +56,7 @@ namespace crdt
             : Allocator(other)
             , replica_(other.replica_)
         {}
-        
+                
         auto& get_replica() const { return replica_; }
 
         void update() {}

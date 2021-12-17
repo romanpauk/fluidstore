@@ -15,9 +15,11 @@ BOOST_AUTO_TEST_CASE(set_rebind)
 
 BOOST_AUTO_TEST_CASE(set_move)
 {
-    //crdt::set< int, decltype(allocator), crdt::tag_state > set(allocator);
-    //crdt::set< int, decltype(allocator), crdt::tag_delta > set2(std::move(set));
-    //crdt::set< int, decltype(allocator), crdt::tag_state > set3(std::move(set2));
+    crdt::set< int, decltype(allocator), crdt::tag_state > set(allocator);
+    //crdt::set< int, decltype(allocator), crdt::tag_state > set2(std::move(set));
+    
+    // TODO:
+    //set = std::move(set2);
 }
 
 typedef boost::mpl::list< int, double > test_types;

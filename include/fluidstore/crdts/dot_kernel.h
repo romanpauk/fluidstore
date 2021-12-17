@@ -10,7 +10,7 @@
 
 #include <fluidstore/btree/btree.h>
 
-//#define DOTKERNEL_BTREE
+#define DOTKERNEL_BTREE
 
 namespace crdt
 {
@@ -25,6 +25,12 @@ namespace crdt
         {}
 
         dot_kernel_allocator(const dot_kernel_allocator< Allocator, Container >& other) = default;
+        
+        dot_kernel_allocator< Allocator, Container >& operator = (dot_kernel_allocator< Allocator, Container >&& other)
+        {
+            container_ = std::move(other.container_);
+            return *this;
+        }
 
         void set_container(container_type* container) { container_ = container; }
         void update() { container_->update(); }
@@ -83,7 +89,21 @@ namespace crdt
             second.value.get_allocator().set_container(this);
         #endif
         }
-        
+                
+        dot_kernel_value_type& operator = (dot_kernel_value_type&& other)
+        {
+            first = std::move(other.first);
+
+        #if defined(DOTKERNEL_BTREE)
+            value = std::move(other.value);
+            value.get_allocator().set_container(this);
+        #else
+            second = std::move(other.second);
+        #endif
+
+            return *this;
+        }
+
         template < typename Allocator, typename DotKernelValue, typename Context > void merge(Allocator& allocator, const DotKernelValue& other, Context& context)
         {            
         #if defined(DOTKERNEL_BTREE)
@@ -307,8 +327,8 @@ namespace crdt
         };
            
         dot_kernel() = default;
-
-        dot_kernel(dot_kernel_type&& other) = default;        
+        dot_kernel(dot_kernel_type&& other) = default;
+        dot_kernel& operator = (dot_kernel&&) = default;
 
         /*
             // TODO: the move is generally problematic, as values hold pointer to parent container

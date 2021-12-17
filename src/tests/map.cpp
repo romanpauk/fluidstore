@@ -15,6 +15,14 @@ BOOST_AUTO_TEST_CASE(map_rebind)
     decltype(map)::rebind_t< decltype(allocator), crdt::tag_delta, crdt::hook_default > deltamap(allocator);
 }
 
+BOOST_AUTO_TEST_CASE(map_move)
+{
+    crdt::map< int, crdt::value_mv< int >, decltype(allocator), crdt::tag_state > map(allocator);
+    crdt::map< int, crdt::value_mv< int >, decltype(allocator), crdt::tag_state > map2(std::move(map));
+
+    map = std::move(map2);    
+}
+
 //typedef boost::mpl::list< std::tuple< int, int > > test_types;
 BOOST_AUTO_TEST_CASE(map_basic_operations)
 {
@@ -109,8 +117,15 @@ BOOST_AUTO_TEST_CASE(map_value_mv_merge)
 
 BOOST_AUTO_TEST_CASE(map_map_value_mv_merge)
 {
-    crdt::map< int, crdt::map< int, crdt::value_mv< int > >, decltype(allocator), crdt::tag_state, crdt::hook_extract > map1(allocator);
-    crdt::map< int, crdt::map< int, crdt::value_mv< int > >, decltype(allocator), crdt::tag_state, crdt::hook_extract > map2(allocator);
+    // TODO: the sequence is per-crdt instance, so the counters are growing wihtout holes.
+    // This means that replica is global and allocator ties together sequence and replica.
+    crdt::replica<> replica1(0);
+    crdt::allocator<> allocator1(replica1);
+    crdt::replica<> replica2(1);
+    crdt::allocator<> allocator2(replica2);
+
+    crdt::map< int, crdt::map< int, crdt::value_mv< int > >, decltype(allocator1), crdt::tag_state, crdt::hook_extract > map1(allocator1);
+    crdt::map< int, crdt::map< int, crdt::value_mv< int > >, decltype(allocator2), crdt::tag_state, crdt::hook_extract > map2(allocator2);
 
     map1[1][10].set(1);
     map2.merge(map1.extract_delta());

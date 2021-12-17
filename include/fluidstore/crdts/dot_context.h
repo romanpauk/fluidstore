@@ -6,7 +6,7 @@
 
 #include <fluidstore/btree/btree.h>
 
-//#define DOTCONTEXT_BTREE
+#define DOTCONTEXT_BTREE
 
 namespace crdt
 {

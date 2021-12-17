@@ -43,7 +43,6 @@ if(Boost_FOUND)
         src/tests/flat.cpp
         src/tests/map.cpp
         src/tests/performance.cpp
-        #src/tests/replica.cpp
         src/tests/set.cpp
         src/tests/testmodule.cpp
         src/tests/value_mv.cpp

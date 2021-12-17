@@ -716,7 +716,17 @@ namespace btree
                 other.depth_ = other.size_ = 0;
             }
 
-            container_type& operator = (container_type&& other) = default;
+            container_type& operator = (container_type&& other)
+            {
+                // TODO
+                // assert(empty());
+                std::swap(root_, other.root_);
+                std::swap(first_node_, other.first_node_);
+                std::swap(last_node_, other.last_node_);
+                std::swap(size_, other.size_);
+                std::swap(depth_, other.depth_);
+                return *this;
+            }
 
             container_base(const container_type&& other) = delete;
             container_type& operator = (const container_type& other) = delete;
@@ -724,7 +734,12 @@ namespace btree
         #if defined(_DEBUG)
             ~container_base()
             {
-                assert(empty());
+                // TODO:
+                if (!empty())
+                {
+                    int a(1);
+                }
+                // assert(empty());
             }
         #else
             ~container_base() = default;

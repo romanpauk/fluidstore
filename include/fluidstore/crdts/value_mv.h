@@ -25,6 +25,9 @@ namespace crdt
                 : values_(allocator)
             {}
 
+            value_mv(value_mv&&) = default;
+            value_mv& operator = (value_mv&&) = default;
+
             template < typename ValueMv > void merge(const ValueMv& other)
             {
                 values_.merge(other.values_);
@@ -49,6 +52,7 @@ namespace crdt
             : public Hook < value_mv< Value, Allocator, tag_state, Hook >, Allocator, value_mv< Value, Allocator, tag_delta > >
         {
             template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook > friend class value_mv;
+            using hook_type = Hook < value_mv< Value, Allocator, tag_state, Hook >, Allocator, value_mv< Value, Allocator, tag_delta > >;
 
         public:
             using allocator_type = Allocator;
@@ -71,6 +75,15 @@ namespace crdt
                 : Hook < value_mv< Value, Allocator, tag_state, Hook >, Allocator, value_mv< Value, Allocator, tag_delta > >(allocator)
                 , values_(get_allocator())
             {}
+
+            value_mv(value_mv< Value, Allocator, tag_state, Hook >&&) = default;
+            
+            value_mv< Value, Allocator, tag_state, Hook >& operator = (value_mv< Value, Allocator, tag_state, Hook >&& other)
+            {
+                static_cast<hook_type&>(*this) = std::move(other);
+                values_ = std::move(other.values_);
+                return *this;
+            }
 
             Value get_one() const
             {
@@ -157,6 +170,14 @@ namespace crdt
         value_mv(Allocator& allocator)
             : detail::value_mv< typename rebind_value< Value, Allocator, Tag, Hook, is_crdt_type< Value >::value >::type, Allocator, Tag, Hook >(allocator)
         {}
+
+        value_mv(value_mv< Value, Allocator, Tag, Hook >&&) = default;
+        
+        value_mv< Value, Allocator, Tag, Hook >& operator = (value_mv< Value, Allocator, Tag, Hook >&& other)
+        {
+            static_cast<detail::value_mv < typename rebind_value< Value, Allocator, Tag, Hook, is_crdt_type< Value >::value >::type, Allocator, Tag, Hook >&>(*this) = std::move(other);
+            return *this;
+        }
     };
 
     template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook > struct is_crdt_type < value_mv< Value, Allocator, Tag, Hook > > : std::true_type {};

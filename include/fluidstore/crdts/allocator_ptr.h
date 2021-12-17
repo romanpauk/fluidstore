@@ -11,11 +11,18 @@ namespace crdt
         {}
 
         allocator_ptr_base(allocator_ptr_base< T >&& other)
-            : ptr_(other.ptr_)
+            : ptr_()
         {
-            other.ptr_ = nullptr;
+            std::swap(ptr_, other.ptr_);
         }
 
+        allocator_ptr_base< T >& operator = (allocator_ptr_base< T >&& other)
+        {
+            assert(!ptr_);
+            std::swap(ptr_, other.ptr_);
+            return *this;
+        }
+        
         ~allocator_ptr_base() = default;
 
         template < typename Allocator, typename... Args > void emplace(Allocator& allocator, Args&&... args)

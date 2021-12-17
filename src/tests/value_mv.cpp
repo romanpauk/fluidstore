@@ -13,6 +13,14 @@ BOOST_AUTO_TEST_CASE(value_mv_rebind)
     decltype(value)::rebind_t< decltype(allocator), crdt::tag_delta, crdt::hook_default > deltavalue(allocator);
 }
 
+BOOST_AUTO_TEST_CASE(value_mv_move)
+{
+    crdt::value_mv< int, decltype(allocator), crdt::tag_state, crdt::hook_extract > value(allocator);
+    crdt::value_mv< int, decltype(allocator), crdt::tag_state, crdt::hook_extract > value2(std::move(value));
+
+    value = std::move(value2);
+}
+
 BOOST_AUTO_TEST_CASE(value_mv_basic_operations)
 {
     crdt::value_mv< int, decltype(allocator), crdt::tag_state, crdt::hook_extract > value(allocator);

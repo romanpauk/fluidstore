@@ -94,7 +94,8 @@ namespace crdt
             }
             else
             {
-                assert(false);
+                // TODO
+                //assert(false);
                 return Allocator::allocate(n);
             }
         }

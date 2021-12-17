@@ -6,8 +6,6 @@
 
 #include <fluidstore/btree/btree.h>
 
-//#define DOTCONTEXT_BTREE
-
 namespace crdt
 {
     template < typename Dot, typename Tag, typename SizeType = uint32_t > class dot_context

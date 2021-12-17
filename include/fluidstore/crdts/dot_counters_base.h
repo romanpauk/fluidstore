@@ -5,8 +5,6 @@
 
 #include <fluidstore/btree/btree.h>
 
-//#define DOTCOUNTERS_BTREE
-
 namespace crdt
 {
     struct tag_delta {};

@@ -10,8 +10,6 @@
 
 #include <fluidstore/btree/btree.h>
 
-//#define DOTKERNEL_BTREE
-
 namespace crdt
 {
     template < typename Allocator, typename Container > struct dot_kernel_allocator

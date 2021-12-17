@@ -69,8 +69,13 @@ namespace crdt
         {}
 
         dot_kernel_value(dot_kernel_value_type&& other)
-            : second(std::move(other.second))
-            , first(std::move(other.first))
+            : first(std::move(other.first))
+        #if defined(DOTKERNEL_BTREE)
+            , value(std::move(other.value))
+            , parent(other.parent)
+        #else
+            , second(std::move(other.second))
+        #endif
         {
         #if defined(DOTKERNEL_BTREE)
             value.get_allocator().set_container(this);
@@ -80,9 +85,14 @@ namespace crdt
         }
         
         template < typename Allocator, typename DotKernelValue, typename Context > void merge(Allocator& allocator, const DotKernelValue& other, Context& context)
-        {
+        {            
+        #if defined(DOTKERNEL_BTREE)
+            value.merge(other.value);
+            dots.merge(allocator, other.dots, context);
+        #else
             second.dots.merge(allocator, other.dots, context);
             second.value.merge(other.value);
+        #endif
         }
 
         void update()
@@ -297,7 +307,7 @@ namespace crdt
         };
            
         dot_kernel() = default;
-                
+
         dot_kernel(dot_kernel_type&& other) = default;        
 
         /*
@@ -507,10 +517,12 @@ namespace crdt
         template < typename ValueT > void add_value(const Key& key, const dot_type& dot, ValueT&& value)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
-            auto& data = *values_.emplace(allocator, allocator, key, nullptr).first;
+            
         #if defined(DOTKERNEL_BTREE)
-            data.second.second.dots.emplace(allocator, dot);
+            auto& data = *values_.emplace(allocator, key, dot_kernel_value_type(allocator, key, nullptr)).first;
+            data.second.dots.emplace(allocator, dot);
         #else
+            auto& data = *values_.emplace(allocator, allocator, key, nullptr).first;
             data.second.dots.emplace(allocator, dot);
         #endif
             data.second.value.merge(value);

@@ -17,6 +17,9 @@ namespace crdt
             : public dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, tag_delta, Hook >, tag_delta >
             , public hook_default< void, Allocator, void >
         {
+            using dot_kernel_type = dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, tag_delta, Hook >, tag_delta >;
+            using hook_type = hook_default< void, Allocator, void >;
+
         public:
             using allocator_type = Allocator;
             using tag_type = tag_delta;
@@ -26,6 +29,15 @@ namespace crdt
             map(allocator_type& allocator)
                 : hook_default< void, Allocator, void >(allocator)
             {}
+
+            map(map< Key, Value, Allocator, tag_delta, Hook >&&) = default;
+
+            map< Key, Value, Allocator, tag_delta, Hook >& operator = (map< Key, Value, Allocator, tag_delta, Hook > && other)
+            {
+                static_cast<hook_type&>(*this) = std::move(other);
+                static_cast<dot_kernel_type&>(*this) = std::move(other);
+                return *this;
+            }
         };
 
         template < typename Key, typename Value, typename Allocator, template <typename, typename, typename> typename Hook >
@@ -33,11 +45,12 @@ namespace crdt
             : private dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, tag_state, Hook >, tag_state >
             , public Hook < map< Key, Value, Allocator, tag_state, Hook >, Allocator, map < Key, Value, Allocator, tag_delta > >
         {
+            using hook_type = Hook < map< Key, Value, Allocator, tag_state, Hook >, Allocator, map < Key, Value, Allocator, tag_delta > >;
+            using dot_kernel_type = dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, tag_state, Hook >, tag_state >;
+
         public:
             using allocator_type = Allocator;
-            using tag_type = tag_state;
-
-            using dot_kernel_type = dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, tag_state, Hook >, tag_state >;
+            using tag_type = tag_state;            
             using iterator = typename dot_kernel_type::iterator;
             using value_type = Value;
 
@@ -64,8 +77,17 @@ namespace crdt
             using delta_type = rebind_t< Allocator, tag_delta, crdt::hook_default >;
 
             map(allocator_type& allocator)
-                : Hook < map< Key, Value, Allocator, tag_state, Hook >, Allocator, map< Key, Value, Allocator, tag_delta > >(allocator)
+                : hook_type(allocator)
             {}
+
+            map(map< Key, Value, Allocator, tag_state, Hook >&&) = default;
+
+            map< Key, Value, Allocator, tag_state, Hook >& operator = (map< Key, Value, Allocator, tag_state, Hook > && other)
+            {
+                static_cast<hook_type&>(*this) = std::move(other);
+                static_cast<dot_kernel_type&>(*this) = std::move(other);
+                return *this;
+            }
 
             /*
                 // TODO: to follow the rule that only delta can merge elsewhere, we need to convert value to delta first.
@@ -223,6 +245,14 @@ namespace crdt
         map(Allocator& allocator)
             : detail::map< Key, typename Value::template rebind_t< Allocator, tag_state, Hook >, Allocator, Tag, Hook >(allocator)
         {}
+
+        map(map< Key, Value, Allocator, Tag, Hook >&&) = default;
+
+        map< Key, Value, Allocator, Tag, Hook >& operator = (map< Key, Value, Allocator, Tag, Hook > && other)
+        {
+            static_cast<detail::map < Key, typename Value::template rebind_t< Allocator, Tag, Hook >, Allocator, Tag, Hook >&>(*this) = std::move(other);
+            return *this;
+        }
     };
 
     template < typename Key, typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook > struct is_crdt_type < map< Key, Value, Allocator, Tag, Hook > > : std::true_type {};

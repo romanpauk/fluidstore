@@ -15,6 +15,14 @@ BOOST_AUTO_TEST_CASE(map_rebind)
     decltype(map)::rebind_t< decltype(allocator), crdt::tag_delta, crdt::hook_default > deltamap(allocator);
 }
 
+BOOST_AUTO_TEST_CASE(map_move)
+{
+    crdt::map< int, crdt::value_mv< int >, decltype(allocator), crdt::tag_state > map(allocator);
+    crdt::map< int, crdt::value_mv< int >, decltype(allocator), crdt::tag_state > map2(std::move(map));
+
+    map = std::move(map2);
+}
+
 //typedef boost::mpl::list< std::tuple< int, int > > test_types;
 BOOST_AUTO_TEST_CASE(map_basic_operations)
 {

@@ -88,16 +88,7 @@ namespace crdt
                 static_cast<dot_kernel_type&>(*this) = std::move(other);
                 return *this;
             }
-
-            /*
-                // TODO: to follow the rule that only delta can merge elsewhere, we need to convert value to delta first.
-            std::pair< typename dot_kernel_type::iterator, bool > insert(const Key& key, const Value& value)
-            {
-                typename Value::delta_type delta(value);
-                return insert(key, delta);
-            }
-            */
-
+           
             template < typename ValueT > std::pair< typename dot_kernel_type::iterator, bool > insert(const Key& key, const ValueT& value)
             {
                 auto allocator = get_allocator();

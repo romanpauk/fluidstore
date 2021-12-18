@@ -1,9 +1,12 @@
 #pragma once
 
 #include <fluidstore/crdts/dot.h>
-#include <fluidstore/flat/set.h>
 
-#include <fluidstore/btree/btree.h>
+#if defined(DOTCOUNTERS_BTREE)
+#include <fluidstore/btree/set.h>
+#else
+#include <fluidstore/flat/set.h>
+#endif
 
 namespace crdt
 {

@@ -2,9 +2,12 @@
 
 #include <fluidstore/crdts/dot.h>
 #include <fluidstore/crdts/dot_counters_base.h>
-#include <fluidstore/flat/map.h>
 
-#include <fluidstore/btree/btree.h>
+#if defined(DOTCONTEXT_BTREE)
+#include <fluidstore/btree/map.h>
+#else
+#include <fluidstore/flat/map.h>
+#endif
 
 namespace crdt
 {

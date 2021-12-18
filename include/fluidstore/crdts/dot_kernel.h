@@ -1,14 +1,16 @@
+#pragma once
+
 // Merge algorithm is based on the article "An Optimized Conflict-free Replicated Set"
 // https://pages.lip6.fr/Marek.Zawirski/papers/RR-8083.pdf
-
-#pragma once
 
 #include <fluidstore/crdts/dot_context.h>
 #include <fluidstore/crdts/allocator.h>
 #include <fluidstore/allocators/arena_allocator.h>
+
 #include <fluidstore/flat/map.h>
 
-#include <fluidstore/btree/btree.h>
+#include <fluidstore/btree/map.h>
+#include <fluidstore/btree/map.h>
 
 namespace crdt
 {

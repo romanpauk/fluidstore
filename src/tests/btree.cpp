@@ -1,4 +1,5 @@
-#include <fluidstore/btree/btree.h>
+#include <fluidstore/btree/map.h>
+#include <fluidstore/btree/set.h>
 #include <fluidstore/flat/set.h>
 #include <fluidstore/allocators/arena_allocator.h>
 

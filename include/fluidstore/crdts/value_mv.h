@@ -135,27 +135,29 @@ namespace crdt
         private:
             crdt::set< Value, Allocator, tag_state, Hook > values_;
         };
-    }
-    
-    template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook, bool > struct rebind_value;
-    
-    template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook > struct rebind_value< Value, Allocator, Tag, Hook, true >
-    {
-        using type = typename Value::template rebind_t< Allocator, Tag, Hook >;
-    };
 
-    template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook > struct rebind_value< Value, Allocator, Tag, Hook, false >
-    {
-        using type = Value;
-    };
+        template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook, bool > struct rebind_value;
 
+        template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook > struct rebind_value< Value, Allocator, Tag, Hook, true >
+        {
+            using type = typename Value::template rebind_t< Allocator, Tag, Hook >;
+        };
+
+        template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook > struct rebind_value< Value, Allocator, Tag, Hook, false >
+        {
+            using type = Value;
+        };
+
+        template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook, bool > using rebind_value_t = typename detail::rebind_value< Value, Allocator, Tag, Hook, false >::type;
+    }  
+            
     template < typename Value, typename Allocator = void, typename Tag = void, template <typename, typename, typename> typename Hook = hook_default >
     class value_mv
-        : public detail::value_mv < typename rebind_value< Value, Allocator, Tag, Hook, is_crdt_type< Value >::value >::type, Allocator, Tag, Hook >
+        : public detail::value_mv < typename detail::rebind_value_t< Value, Allocator, Tag, Hook, is_crdt_type< Value >::value >, Allocator, Tag, Hook >
     {
     public:
         value_mv(Allocator& allocator)
-            : detail::value_mv< typename rebind_value< Value, Allocator, Tag, Hook, is_crdt_type< Value >::value >::type, Allocator, Tag, Hook >(allocator)
+            : detail::value_mv< typename detail::rebind_value_t< Value, Allocator, Tag, Hook, is_crdt_type< Value >::value >, Allocator, Tag, Hook >(allocator)
         {}
     };
 

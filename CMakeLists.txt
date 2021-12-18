@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/MP>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/bigobj>")
 add_link_options("$<$<CXX_COMPILER_ID:MSVC>:LINKER:/DEBUG:FASTLINK>")
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 enable_testing()
 
 add_library(fluidstore INTERFACE)
@@ -13,7 +14,10 @@ target_include_directories(fluidstore INTERFACE include)
 
 target_sources(fluidstore INTERFACE
     include/fluidstore/allocators/arena_allocator.h
-    include/fluidstore/btree/btree.h
+    include/fluidstore/btree/detail/container.h
+    include/fluidstore/btree/detail/fixed_vector.h
+    include/fluidstore/btree/map.h
+    include/fluidstore/btree/set.h
     include/fluidstore/crdts/allocator.h
     include/fluidstore/crdts/allocator_ptr.h
     include/fluidstore/crdts/dot.h
@@ -28,7 +32,6 @@ target_sources(fluidstore INTERFACE
     include/fluidstore/crdts/replica.h
     include/fluidstore/crdts/traits.h
     include/fluidstore/crdts/value_mv.h    
-    include/fluidstore/flat/hat.h
     include/fluidstore/flat/map.h
     include/fluidstore/flat/memory.h
     include/fluidstore/flat/set.h

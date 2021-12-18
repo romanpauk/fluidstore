@@ -144,8 +144,7 @@ namespace crdt
             using dot_kernel_type::get_values;
 
         private:
-            template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook >
-            friend class value_mv;
+            template < typename ValueT, typename AllocatorT, typename TagT, template <typename, typename, typename> typename HookT > friend class value_mv;
 
             template < typename Delta > void delta_clear(Delta& delta)
             {

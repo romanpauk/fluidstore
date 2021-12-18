@@ -45,16 +45,16 @@ namespace crdt::flat
 
     template < typename Allocator, typename T, typename SizeType, typename std::enable_if<
         std::is_trivially_copyable_v< T > && 
-        std::is_trivially_destructible_v< T >
-    >::type* = 0 > void move(Allocator&, T* destination, T* source, SizeType count)
+        std::is_trivially_destructible_v< T >, int
+    >::type = 0 > void move(Allocator&, T* destination, T* source, SizeType count)
     {
         memmove(destination, source, count * sizeof(T));
     }
 
     template < typename Allocator, typename T, typename SizeType, typename std::enable_if<
         !std::is_trivially_copyable_v< T > &&
-        std::is_move_constructible_v< T >
-    >::type* = 0 > void move(Allocator& allocator, T* destination, T* source, SizeType count)
+        std::is_move_constructible_v< T >, int
+    >::type = 0 > void move(Allocator& allocator, T* destination, T* source, SizeType count)
     {
         if (destination < source)
         {

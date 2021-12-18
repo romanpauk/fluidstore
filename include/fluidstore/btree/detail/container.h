@@ -562,7 +562,7 @@ namespace btree::detail
                     nindex = nkeys.size();
                 }
 
-                n = in.get_children< node* >()[nindex];
+                n = in.template get_children< node* >()[nindex];
             }
 
             return { node_cast<value_node*>(n), nindex };
@@ -662,7 +662,7 @@ namespace btree::detail
 
         template < typename Node, typename AllocatorT > auto get_node_allocator(AllocatorT& allocator)
         {
-            return std::allocator_traits< AllocatorT >::template rebind_alloc< Node >(allocator);
+            return typename std::allocator_traits< AllocatorT >::template rebind_alloc< Node >(allocator);
         }
 
         template < typename Node, typename AllocatorT > Node* allocate_node(AllocatorT& allocator)
@@ -697,8 +697,8 @@ namespace btree::detail
             assert(full(lnode));
             auto rnode = desc(allocate_node< internal_node >(allocator));
 
-            auto lchildren = lnode.get_children< node* >();
-            auto rchildren = rnode.get_children< node* >();
+            auto lchildren = lnode.template get_children< node* >();
+            auto rchildren = rnode.template get_children< node* >();
 
             assert(depth_ >= depth + 1);
             rchildren.insert(allocator, rchildren.begin(), lchildren.begin() + internal_node::N, lchildren.end());
@@ -765,7 +765,7 @@ namespace btree::detail
             if (depth != depth_)
             {
                 auto in = desc(node_cast<internal_node*>(n));
-                auto nchildren = in.get_children< node* >();
+                auto nchildren = in.template get_children< node* >();
 
                 for (auto child : nchildren)
                 {
@@ -997,7 +997,7 @@ namespace btree::detail
                 auto root = desc(allocate_node< internal_node >(allocator));
                 auto [p, splitkey] = split_node(allocator, depth, n, 0, key);
 
-                auto children = root.get_children< node* >();
+                auto children = root.template get_children< node* >();
                 children.emplace_back(allocator, n);
                 n.set_parent(root);
                 children.emplace_back(allocator, p);
@@ -1035,7 +1035,7 @@ namespace btree::detail
             // TODO: check that the key is still valid reference, it might not be after split
             auto [p, splitkey] = split_node(allocator, depth, n, nindex, key);
 
-            auto pchildren = n.get_parent().get_children< node* >();
+            auto pchildren = n.get_parent().template get_children< node* >();
             if (parent_rebalance)
             {
                 nindex = get_index(n);
@@ -1230,7 +1230,7 @@ namespace btree::detail
 
             if (n && n.get_parent())
             {
-                index = find_node_index(n.get_parent().get_children< node* >(), n);
+                index = find_node_index(n.get_parent().template get_children< node* >(), n);
             }
 
             return index;

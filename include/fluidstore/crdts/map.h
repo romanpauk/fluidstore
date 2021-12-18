@@ -188,7 +188,7 @@ namespace crdt
             using dot_kernel_type::get_values;
 
         private:
-            friend class dot_kernel_type;
+            friend dot_kernel_type;
 
             void update(const Key& key)
             {

@@ -113,7 +113,7 @@ namespace crdt
             return *this;
         }
 
-        template < typename Allocator, typename DotKernelValue, typename Context > void merge(Allocator& allocator, const DotKernelValue& other, Context& context)
+        template < typename AllocatorT, typename DotKernelValue, typename Context > void merge(AllocatorT& allocator, const DotKernelValue& other, Context& context)
         {            
         #if defined(DOTKERNEL_BTREE)
             dots.merge(allocator, other.dots, context);
@@ -168,7 +168,7 @@ namespace crdt
         dot_kernel_value(const dot_kernel_value_type&) = delete;
         dot_kernel_value_type& operator = (const dot_kernel_value_type&) = delete;
 
-        template < typename Allocator, typename DotKernelValue, typename Context > void merge(Allocator& allocator, const DotKernelValue& other, Context& context)
+        template < typename AllocatorT, typename DotKernelValue, typename Context > void merge(AllocatorT& allocator, const DotKernelValue& other, Context& context)
         {
         #if defined(DOTKERNEL_BTREE)
             dots.merge(allocator, other.dots, context);
@@ -246,7 +246,7 @@ namespace crdt
 
     template < typename Key, typename Value, typename Allocator, typename Container, typename Tag > class dot_kernel
     {
-        template < typename Key, typename Value, typename Allocator, typename Container, typename Tag > friend class dot_kernel;
+        template < typename KeyT, typename ValueT, typename AllocatorT, typename ContainerT, typename TagT > friend class dot_kernel;
 
     public:
         using allocator_type = Allocator;           
@@ -316,9 +316,9 @@ namespace crdt
             size_t count = 0;
         };
 
-        template < typename Allocator, typename ReplicaMap > struct value_context
+        template < typename AllocatorT, typename ReplicaMap > struct value_context
         {
-            value_context(Allocator& allocator, ReplicaMap& replica)
+            value_context(AllocatorT& allocator, ReplicaMap& replica)
                 : allocator_(allocator)
                 , replica_(replica)
             {}

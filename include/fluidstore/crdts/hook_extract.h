@@ -27,7 +27,7 @@ namespace crdt
             return *this;
         }
 
-        template < typename Delta > void commit_delta(Delta&& delta)
+        template < typename DeltaT > void commit_delta(DeltaT&& delta)
         {
             if (!delta_)
             {
@@ -57,7 +57,7 @@ namespace crdt
             return delta;
         }
 
-        typename Allocator& get_allocator()
+        Allocator& get_allocator()
         {
             return allocator_;
         }

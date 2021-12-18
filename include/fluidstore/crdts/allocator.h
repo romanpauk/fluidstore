@@ -14,16 +14,18 @@ namespace crdt
         : public Allocator
         
     {
-        template < typename Replica, typename U, typename AllocatorU > friend class allocator;
+        template < typename ReplicaU, typename U, typename AllocatorU > friend class allocator;
 
     public:
         typedef Replica replica_type;
 
+        /*
         template< typename U > struct rebind
         {
             using other = allocator< Replica, U, typename Allocator::template rebind< U >::other >;
         };
-                
+        */
+
         allocator(Replica& replica)
             : replica_(replica)
         {}

@@ -13,7 +13,7 @@ namespace crdt
         template < typename Value, typename Allocator, template <typename, typename, typename> typename Hook >
         class value_mv< Value, Allocator, tag_delta, Hook >
         {
-            template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook > friend class value_mv;
+            template < typename ValueT, typename AllocatorT, typename TagT, template <typename, typename, typename> typename HookT > friend class value_mv;
 
         public:
             using allocator_type = Allocator;
@@ -48,7 +48,7 @@ namespace crdt
         class value_mv< Value, Allocator, tag_state, Hook >
             : public Hook < value_mv< Value, Allocator, tag_state, Hook >, Allocator, value_mv< Value, Allocator, tag_delta > >
         {
-            template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook > friend class value_mv;
+            template < typename ValueT, typename AllocatorT, typename TagT, template <typename, typename, typename> typename HookT > friend class value_mv;
 
         public:
             using allocator_type = Allocator;
@@ -57,7 +57,7 @@ namespace crdt
 
             template < typename AllocatorT, typename TagT = tag_state, template <typename, typename, typename> typename HookT = Hook > using rebind_t = value_mv< Value, AllocatorT, TagT, HookT >;
 
-            using delta_type = typename rebind_t< Allocator, tag_delta, crdt::hook_default >;
+            using delta_type = rebind_t< Allocator, tag_delta, crdt::hook_default >;
 
             struct delta_extractor
             {

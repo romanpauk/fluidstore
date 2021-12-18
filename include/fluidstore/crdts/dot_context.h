@@ -144,7 +144,7 @@ namespace crdt
         {
             // TODO: this seems to be used only for testing, as well as find().
             size_type count = 0;
-            for (auto& [replica_id, counters]: counters_)
+            for (const auto& [replica_id, counters]: counters_)
             {
                 count += counters.size();
             }

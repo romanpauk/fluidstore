@@ -256,7 +256,7 @@ BOOST_AUTO_TEST_CASE(vector_size_type)
     crdt::flat::vector_base< char, unsigned char > vector;
 
     BOOST_TEST(vector.max_size() == std::numeric_limits< unsigned char >::max());
-    for (size_t i = 0; i < vector.max_size(); ++i)
+    for (auto i = 0; i < vector.max_size(); ++i)
     {
         vector.push_back(allocator, static_cast<char>(i));
     }

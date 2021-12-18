@@ -8,6 +8,8 @@
 #include <fluidstore/allocators/arena_allocator.h>
 #include <fluidstore/flat/map.h>
 
+#include <fluidstore/btree/btree.h>
+
 namespace crdt
 {
     template < typename Allocator, typename Container > struct dot_kernel_allocator
@@ -21,6 +23,14 @@ namespace crdt
         {}
 
         dot_kernel_allocator(const dot_kernel_allocator< Allocator, Container >& other) = default;
+
+        dot_kernel_allocator< Allocator, Container >& operator = (dot_kernel_allocator< Allocator, Container >&& other)
+        {
+            // TODO: think about who should move the container. dot_kernel_value resets that.
+
+            static_cast<Allocator&>(*this) = std::move(other);
+            return *this;
+        }
 
         void set_container(container_type* container) { container_ = container; }
         void update() { container_->update(); }
@@ -51,27 +61,71 @@ namespace crdt
             value_type value;
         };
 
-        template < typename AllocatorT > dot_kernel_value(AllocatorT& allocator, Key key, DotKernel* parent)
+        dot_kernel_value(const dot_kernel_value_type&) = delete;
+        dot_kernel_value_type& operator = (const dot_kernel_value_type&) = delete;
+
+        template < typename AllocatorT > dot_kernel_value(AllocatorT& allocator, Key key, DotKernel* p)
             : first(key)
-            , second(value_allocator_type(allocator, this), parent)
+        #if defined(DOTKERNEL_BTREE)
+            , value(value_allocator_type(allocator, this))
+            , parent(p)
+        #else
+            , second(value_allocator_type(allocator, this), p)
+        #endif
         {}
 
         dot_kernel_value(dot_kernel_value_type&& other)
-            : second(std::move(other.second))
-            , first(std::move(other.first))
+            : first(std::move(other.first))
+        #if defined(DOTKERNEL_BTREE)
+            , value(std::move(other.value))
+            , dots(std::move(other.dots))
+            , parent(other.parent)
+        #else
+            , second(std::move(other.second))
+        #endif
         {
+        #if defined(DOTKERNEL_BTREE)
+            value.get_allocator().set_container(this);
+        #else
             second.value.get_allocator().set_container(this);
+        #endif
+        }
+        
+        dot_kernel_value_type& operator = (dot_kernel_value_type&& other)
+        {
+            first = std::move(other.first);
+
+        #if defined(DOTKERNEL_BTREE)
+            value = std::move(other.value);
+            dots = std::move(other.dots);
+            parent = other.parent;            
+            value.get_allocator().set_container(this);
+        #else
+            second = std::move(other.second);
+            second.value.get_allocator().set_container(this);
+        #endif
+
+            return *this;
         }
 
         template < typename Allocator, typename DotKernelValue, typename Context > void merge(Allocator& allocator, const DotKernelValue& other, Context& context)
-        {
+        {            
+        #if defined(DOTKERNEL_BTREE)
+            dots.merge(allocator, other.dots, context);
+            value.merge(other.value);            
+        #else
             second.dots.merge(allocator, other.dots, context);
             second.value.merge(other.value);
+        #endif
         }
 
         void update()
         {
+        #if defined(DOTKERNEL_BTREE)
+            parent->update(first);
+        #else
             second.parent->update(first);
+        #endif
         }
 
         bool operator == (const Key& other) const { return first == other; }
@@ -80,8 +134,15 @@ namespace crdt
         bool operator < (const Key& other) const { return first < other; }
         bool operator < (const dot_kernel_value_type& other) const { return first < other.first; }
 
-        const Key first;
+        Key first;
+
+    #if defined(DOTKERNEL_BTREE)
+        DotKernel* parent;
+        DotContext dots;
+        value_type value;        
+    #else
         nested_value second;
+    #endif
     };
 
     template < typename Key, typename Allocator, typename DotContext, typename DotKernel > class dot_kernel_value< Key, void, Allocator, DotContext, DotKernel >
@@ -90,22 +151,25 @@ namespace crdt
         using allocator_type = Allocator;
         using value_type = void;
         using dot_kernel_value_type = dot_kernel_value< Key, void, Allocator, DotContext, DotKernel >;
-
-        struct nested_value
-        {
-            DotContext dots;
-        };
-
+                
         template < typename AllocatorT > dot_kernel_value(AllocatorT&, Key key, DotKernel*)
             : first(key)
         {}
 
         dot_kernel_value() = default;
-        dot_kernel_value(dot_kernel_value_type&& other) = default;
-      
+        dot_kernel_value(dot_kernel_value_type&&) = default;
+        dot_kernel_value_type& operator = (dot_kernel_value_type&&) = default;
+
+        dot_kernel_value(const dot_kernel_value_type&) = delete;
+        dot_kernel_value_type& operator = (const dot_kernel_value_type&) = delete;
+
         template < typename Allocator, typename DotKernelValue, typename Context > void merge(Allocator& allocator, const DotKernelValue& other, Context& context)
         {
+        #if defined(DOTKERNEL_BTREE)
+            dots.merge(allocator, other.dots, context);
+        #else
             second.dots.merge(allocator, other.dots, context);
+        #endif
         }
 
         void update() {}
@@ -116,8 +180,18 @@ namespace crdt
         bool operator < (const Key& other) const { return first < other; }
         bool operator < (const dot_kernel_value_type& other) const { return first < other.first; }
 
-        const Key first;
+        Key first;
+
+    #if defined(DOTKERNEL_BTREE)
+        DotContext dots;
+    #else
+        struct nested_value
+        {
+            DotContext dots;
+        };
+
         nested_value second;
+    #endif
     };
 
     template < typename Iterator, typename Outer > class dot_kernel_iterator_base
@@ -181,8 +255,12 @@ namespace crdt
         
         using dot_kernel_value_type = dot_kernel_value< Key, Value, Allocator, dot_context_type, dot_kernel_type >;
 
+    #if defined(DOTKERNEL_BTREE)
+        using values_type = btree::map_base< Key, dot_kernel_value_type >;
+    #else
         using values_type = flat::map_base< Key, Value, dot_kernel_value_type >;
-        
+    #endif
+
         using iterator = dot_kernel_iterator< typename values_type::iterator, Key, typename dot_kernel_value_type::value_type >;
         using const_iterator = dot_kernel_iterator< typename values_type::const_iterator, Key, typename dot_kernel_value_type::value_type >;
 
@@ -190,14 +268,28 @@ namespace crdt
         {
             // Persistent data
             dot_counters_base< counter_type, Tag > counters;
-            flat::map_base< counter_type, Key > dots;
-            
+
+        #if defined(DOTKERNEL_BTREE)
+            btree::map_base< counter_type, Key > dots;
+        #else
+            flat::map_base< counter_type, Key > dots;            
+        #endif       
+        #if defined(DOTCOUNTERS_BTREE)
+            const btree::set_base< counter_type >* other_counters;
+            // Temporary merge data
+            btree::set_base< counter_type > visited;
+        #else
+            const flat::set_base< counter_type >* other_counters;
             // Temporary merge data
             flat::set_base< counter_type > visited;
-            const flat::set_base< counter_type >* other_counters;
+        #endif
         };
         
+    #if defined(DOTKERNEL_BTREE)
+        using replicas_type = btree::map_base< replica_id_type, replica_data >;
+    #else
         using replicas_type = flat::map_base< replica_id_type, replica_data >;
+    #endif
 
         struct context
         {
@@ -218,9 +310,9 @@ namespace crdt
             size_t count = 0;
         };
 
-        template < typename Allocator > struct value_context
+        template < typename Allocator, typename ReplicaMap > struct value_context
         {
-            value_context(Allocator& allocator, flat::map_base< replica_id_type, replica_data >& replica)
+            value_context(Allocator& allocator, ReplicaMap& replica)
                 : allocator_(allocator)
                 , replica_(replica)
             {}
@@ -236,12 +328,24 @@ namespace crdt
 
         private:
             Allocator& allocator_;
-            flat::map_base< replica_id_type, replica_data >& replica_;
+            ReplicaMap& replica_;
         };
            
         dot_kernel() = default;
-                
+
         dot_kernel(dot_kernel_type&& other) = default;        
+        
+        dot_kernel_type& operator = (dot_kernel_type&& other)
+        {
+            // TODO:
+            //std::swap(values_, other.values_);
+            //std::swap(replica_, other.replica_);
+            values_ = std::move(other.values_);
+            replica_ = std::move(other.replica_);
+
+            return *this;
+        }
+
 
         /*
             // TODO: the move is generally problematic, as values hold pointer to parent container
@@ -301,19 +405,26 @@ namespace crdt
             // Merge values
             for (const auto& [rkey, rvalue] : other.get_values())
             {
+            #if defined(DOTKERNEL_BTREE)
+                auto lpb = values_.emplace(allocator, rkey, dot_kernel_value_type(allocator, rkey, this));
+            #else
                 auto lpb = values_.emplace(allocator, allocator, rkey, this);
-
+            #endif
                 auto& lvalue = *lpb.first;
 
                 value_context value_ctx(allocator, replica_);
+            #if defined(DOTKERNEL_BTREE)
+                lvalue.second.merge(allocator, rvalue, value_ctx);
+            #else
                 lvalue.merge(allocator, rvalue, value_ctx);
+            #endif
 
                 for (const auto& [replica_id, rdots] : rvalue.dots)
                 {
                     auto& ldata = replica_.emplace(allocator, replica_id, replica_data()).first->second;
                     
                     // Track visited dots
-                    ldata.visited.insert(tmp, rdots.counters_);
+                    ldata.visited.insert(tmp, rdots.counters_.begin(), rdots.counters_.end());
                     
                     for (const auto& counter : rdots.counters_)
                     {
@@ -352,6 +463,7 @@ namespace crdt
                                 auto& lkey = counter_it->second;
                                 auto values_it = values_.find(lkey);
                                 values_it->second.dots.erase(allocator, dot_type{ replica_id, counter });
+                            
                                 if (values_it->second.dots.empty())
                                 {
                                     auto it = values_.erase(allocator, values_it);
@@ -431,15 +543,25 @@ namespace crdt
         void add_value(const Key& key, const dot_type& dot)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
+        #if defined(DOTKERNEL_BTREE)
+            auto& data = *values_.emplace(allocator, key, dot_kernel_value_type(allocator, key, nullptr)).first;
+        #else
             auto& data = *values_.emplace(allocator, allocator, key, nullptr).first;
+        #endif
             data.second.dots.emplace(allocator, dot);
         }
 
         template < typename ValueT > void add_value(const Key& key, const dot_type& dot, ValueT&& value)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
+            
+        #if defined(DOTKERNEL_BTREE)
+            auto& data = *values_.emplace(allocator, key, dot_kernel_value_type(allocator, key, nullptr)).first;
+            data.second.dots.emplace(allocator, dot);
+        #else
             auto& data = *values_.emplace(allocator, allocator, key, nullptr).first;
             data.second.dots.emplace(allocator, dot);
+        #endif
             data.second.value.merge(value);
         }
 

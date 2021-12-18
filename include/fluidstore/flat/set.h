@@ -16,6 +16,11 @@ namespace crdt::flat
         set_base() = default;
         set_base(set_base< T, SizeType >&& other) = default;
         ~set_base() = default;
+        set_base< T, SizeType >& operator = (set_base< T, SizeType >&&) = default;
+
+        set_base(const set_base< T, SizeType >&) = delete;
+        set_base< T, SizeType >& operator = (const set_base< T, SizeType >&) = delete;
+        
 
         template < typename Allocator, typename Value > std::pair< iterator, bool > emplace(Allocator& allocator, Value&& value)
         {
@@ -38,22 +43,21 @@ namespace crdt::flat
             return { data_.emplace(allocator, data_.end(), std::forward< Value >(value)), true };
         }
 
-        template < typename Allocator, typename SizeTypeT > void insert(Allocator& allocator, const set_base< T, SizeTypeT >& data)
+        template < typename Allocator, typename It > void insert(Allocator& allocator, It begin, It end)
         {
             if (empty())
             {
-                data_.assign(allocator, data.begin(), data.end());
+                data_.assign(allocator, begin, end);
             }
             else
             {
-                data_.reserve(allocator, data_.size() + data.size());
-                auto it = data_.begin();
-                for (auto& value: data)
+                data_.reserve(allocator, data_.size() + std::distance(begin, end));
+                for (auto it = begin; it != end; ++it)
                 {
                     // it = lower_bound(it, value);
                     // it = emplace(allocator, it, value);
 
-                    emplace(allocator, value);
+                    emplace(allocator, *it);
                 }
             }
         }
@@ -192,12 +196,12 @@ namespace crdt::flat
 
         template < typename Ty > auto insert(Ty&& value)
         {
-            return set_base_type::insert(allocator_, end(), std::forward< Ty >(value));
+            return set_base_type::insert_impl(allocator_, end(), std::forward< Ty >(value));
         }
 
         template < typename It, typename Ty > auto insert(It hint, Ty&& value)
         {
-            return set_base_type::insert(allocator_, hint, std::forward< Ty >(value));
+            return set_base_type::insert_impl(allocator_, hint, std::forward< Ty >(value));
         }
 
         void erase(const T& value) 

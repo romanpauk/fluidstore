@@ -32,7 +32,7 @@ Lets look at how crdt::set looks like with respect to inheritance and map/sets u
                 - using set
             - temporary sets for merge operations
 
-Sets and maps here correspond to 'normal', stl-like sets and maps, yet implemented in a flat memory buffer due to memory/performance issues. b+-tree implementation is comming to deal with performance issues with larger sets and to give the possibility to offload the data to persistent storage effectively (as we will be able to work with just portion of structure that is changing). There is not yet merged b+tree implementation here: [btree.h](https://github.com/romanpauk/fluidstore/blob/feature/btree2/include/fluidstore/btree/btree.h). The b+tree code avoids using virtual functions for internal/value nodes so those can be mapped from file.
+Sets and maps are based on b+tree containers, see [btree.h](https://github.com/romanpauk/fluidstore/blob/develop/include/fluidstore/btree/btree.h). The b+tree code avoids using virtual functions for internal /value nodes so those can be mapped from a file one day. As it is a tree, the performance for large number of elements does not suffer as much as with flat arrays.
 
 To add to the fun, the merge algorithm very slightly differs for delta/non-delta variants (D and S) in a most inner class, crdt::dot_counters_base. 
 
@@ -49,13 +49,13 @@ The performance of current implementation of crdt::map/crdt::set is comparable t
 
 # Tests
 
-Sure, [here](src/tests) they go.
+Sure, [here](src/tests) they are.
 
 # The End
 
 Thank you, interested reader. 
 
-As the structures are recursive and the combination of CRDT structures is again a CRDT structure, graphs emerge naturally, or one can imagine json documents, all having the deterministic merging ability on all their fields, perhaps defined by user-selected merge strategy (observed remove, last write wins, etc).
+As the structures are recursive and the combination of CRDT structures is again a CRDT structure, graphs emerge naturally, or one can imagine json documents, all having the deterministic merging ability on all their fields, perhaps defined by user-selected merge strategy (observed remove, last write wins, etc), mapped from the persistent storage.
 
 What is possible right now is something like this (more can be seen in tests):
 
@@ -80,6 +80,10 @@ What is possible right now is something like this (more can be seen in tests):
     // deserialize delta
     data.merge(delta);
     // and there is now 33 in data[1][2]
+}
+
+{
+    // More examples, and especially examples that resolve conflicts, can be found in the tests.
 }
 ```
 

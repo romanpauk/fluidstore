@@ -17,6 +17,7 @@ namespace crdt
             , public hook_default< void, Allocator, void >
         {
             using dot_kernel_type = dot_kernel< Key, void, Allocator, set< Key, Allocator, tag_delta, Hook >, tag_delta >;
+            using hook_type = hook_default< void, Allocator, void >;
 
         public:
             using allocator_type = Allocator;
@@ -34,6 +35,15 @@ namespace crdt
             set(allocator_type& allocator)
                 : hook_default< void, Allocator, void >(allocator)
             {}
+
+            set(set< Key, Allocator, tag_delta, Hook >&& other) = default;
+
+            set< Key, Allocator, tag_delta, Hook >& operator = (set< Key, Allocator, tag_delta, Hook > && other)
+            {
+                static_cast<hook_type&>(*this) = std::move(other);
+                static_cast<dot_kernel_type&>(*this) = std::move(other);
+                return *this;
+            };
         };
 
         template < typename Key, typename Allocator, template <typename, typename, typename> typename Hook >
@@ -42,6 +52,7 @@ namespace crdt
             , public Hook < set< Key, Allocator, tag_state, Hook >, Allocator, set< Key, Allocator, tag_delta > >
         {
             using dot_kernel_type = dot_kernel< Key, void, Allocator, set< Key, Allocator, tag_state, Hook >, tag_state >;
+            using hook_type = Hook < set< Key, Allocator, tag_state, Hook >, Allocator, set< Key, Allocator, tag_delta > >;
 
         public:
             using allocator_type = Allocator;
@@ -59,8 +70,17 @@ namespace crdt
             };
 
             set(allocator_type& allocator)
-                : Hook< set< Key, Allocator, tag_state, Hook >, Allocator, set< Key, Allocator, tag_delta > >(allocator)
+                : hook_type(allocator)
             {}
+
+            set(set< Key, Allocator, tag_state, Hook >&&) = default;
+            
+            set< Key, Allocator, tag_state, Hook >& operator = (set< Key, Allocator, tag_state, Hook > && other)
+            {
+                static_cast<hook_type&>(*this) = std::move(static_cast<hook_type&>(other));
+                static_cast<dot_kernel_type&>(*this) = std::move(static_cast<dot_kernel_type&>(other));
+                return *this;
+            }
 
             std::pair< typename dot_kernel_type::iterator, bool > insert(const Key& key)
             {

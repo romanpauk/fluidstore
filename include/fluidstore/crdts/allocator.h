@@ -40,6 +40,23 @@ namespace crdt
             , replica_(other.replica_)
         {}
         
+        allocator(const allocator< Replica, T, Allocator >& other)
+            : Allocator(static_cast<const Allocator&>(other))
+            , replica_(other.replica_)
+        {}
+
+        allocator(allocator< Replica, T, Allocator >&& other)
+            : Allocator(std::move(static_cast< allocator< Replica, T, Allocator >& >(other)))
+            , replica_(std::move(other.replica_))
+        {}
+
+        allocator< Replica, T, Allocator >& operator = (allocator< Replica, T, Allocator >&& other)
+        {
+            static_cast<Allocator&>(*this) = std::move(other);
+            replica_ = std::move(other.replica_);
+            return *this;
+        }
+
         auto& get_replica() const { return replica_; }
 
         void update() {}

@@ -134,8 +134,10 @@ namespace crdt::flat
         }
 
         vector_base(const vector_base< T, SizeType >&) = delete;
-        vector_base< T >& operator = (const vector_base< T >&) = delete;
+        vector_base< T, SizeType >& operator = (const vector_base< T, SizeType >&) = delete;
     
+        vector_base< T, SizeType >& operator = (vector_base< T, SizeType >&&) = default;
+
     #if defined(_DEBUG)
         ~vector_base()
         {

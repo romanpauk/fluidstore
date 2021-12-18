@@ -3,6 +3,8 @@
 #include <fluidstore/crdts/dot.h>
 #include <fluidstore/flat/set.h>
 
+#include <fluidstore/btree/btree.h>
+
 namespace crdt
 {
     struct tag_delta {};
@@ -30,9 +32,14 @@ namespace crdt
         dot_counters_base(dot_counters_base&& other) = default;
         ~dot_counters_base() = default;
 
+        dot_counters_base< CounterType, Tag, SizeType >& operator = (dot_counters_base< CounterType, Tag, SizeType >&&) = default;
+
+        dot_counters_base(const dot_counters_base&) = delete;
+        dot_counters_base< CounterType, Tag, SizeType >& operator = (const dot_counters_base< CounterType, Tag, SizeType >&) = delete;
+
         counter_type get() const
         {
-            return !counters_.empty() ? counters_.back() : counter_type();
+            return !counters_.empty() ? *--counters_.end() : counter_type();
         }
 
         bool has(counter_type counter) const
@@ -79,12 +86,13 @@ namespace crdt
 
             // assert(counters.counters_.size() == 1);  // delta variant can have more than 1 element
 
-            counters_.insert(allocator, counters.counters_);
+            counters_.insert(allocator, counters.counters_.begin(), counters.counters_.end());
         }
 
         size_type size() const
         {
-            return counters_.size();
+            // TODO
+            return (size_type)counters_.size();
         }
 
         template < typename Allocator, typename ReplicaId, typename Context > void collapse(Allocator& allocator, const ReplicaId& replica_id, Context& context)
@@ -124,7 +132,7 @@ namespace crdt
             if (counters_.size() == 0)
             {
                 // Trivial append
-                counters_.insert(allocator, rcounters.counters_);
+                counters_.insert(allocator, rcounters.counters_.begin(), rcounters.counters_.end());
             }
             else if (counters_.size() == 1 && rcounters.size() == 1)
             {
@@ -133,8 +141,14 @@ namespace crdt
                 {
                     auto counter = *counters_.begin();
 
-                    // TODO: test missing
+                #if defined(DOTCOUNTERS_BTREE)
+                    // TODO: in-place update
+                    counters_.insert(allocator, *counters_.begin() + 1);
+                    counters_.erase(allocator, counters_.begin());
+                #else
+                    // TODO: test missing, crude hack to change set element without erase/insert
                     counters_.update(counters_.begin(), *counters_.begin() + 1);
+                #endif
 
                     // No need to collapse here, but have to notify upper layer about removal
                     context.register_erase(dot< ReplicaId, counter_type >{ replica_id, counter });
@@ -143,13 +157,13 @@ namespace crdt
                 }
                 else
                 {
-                    counters_.insert(allocator, rcounters.counters_);
+                    counters_.insert(allocator, rcounters.counters_.begin(), rcounters.counters_.end());
                 }
             }
             else
             {
                 // TODO: two sets merge
-                counters_.insert(allocator, rcounters.counters_);
+                counters_.insert(allocator, rcounters.counters_.begin(), rcounters.counters_.end());
             }
 
             if (std::is_same_v< Tag, tag_state >)
@@ -170,6 +184,10 @@ namespace crdt
             counters_.clear(allocator);
         }
             
+    #if defined(DOTCOUNTERS_BTREE)
+        btree::set_base< counter_type > counters_;
+    #else
         flat::set_base< counter_type, size_type > counters_;
+    #endif
     };
 }

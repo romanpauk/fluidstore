@@ -13,6 +13,7 @@ target_include_directories(fluidstore INTERFACE include)
 
 target_sources(fluidstore INTERFACE
     include/fluidstore/allocators/arena_allocator.h
+    include/fluidstore/btree/btree.h
     include/fluidstore/crdts/allocator.h
     include/fluidstore/crdts/allocator_ptr.h
     include/fluidstore/crdts/dot.h
@@ -37,11 +38,11 @@ target_sources(fluidstore INTERFACE
 find_package(Boost)
 if(Boost_FOUND)
     add_executable(fluidstoretest 
+        src/tests/btree.cpp
         src/tests/dot.cpp
         src/tests/flat.cpp
         src/tests/map.cpp
         src/tests/performance.cpp
-        #src/tests/replica.cpp
         src/tests/set.cpp
         src/tests/testmodule.cpp
         src/tests/value_mv.cpp
@@ -50,4 +51,14 @@ if(Boost_FOUND)
     add_test(fluidstoretest COMMAND fluidstoretest)
     target_link_libraries(fluidstoretest fluidstore Boost::boost)
     target_precompile_headers(fluidstoretest PRIVATE src/tests/pch.h)
+
+    target_compile_definitions(fluidstoretest PRIVATE DOTKERNEL_BTREE DOTCONTEXT_BTREE DOTCOUNTERS_BTREE)
+    
+    add_executable(fluidstoreperf 
+        src/tests/perf.cpp
+        src/tests/testmodule.cpp
+    )
+    add_test(fluidstoreperf COMMAND fluidstoreperf)
+    target_link_libraries(fluidstoreperf fluidstore Boost::boost)
+    target_precompile_headers(fluidstoreperf PRIVATE src/tests/pch.h)
 endif()

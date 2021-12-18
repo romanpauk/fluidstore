@@ -5,24 +5,22 @@
 #include <algorithm>
 #include <iterator>
 
-#include <fluidstore/btree/detail/fixed_vector.h>
-
 #define BTREE_VALUE_NODE_LR
 //#define BTREE_VALUE_NODE_APPEND
 //#define BTREE_VALUE_NODE_HINT
 
 #if defined(_DEBUG)
     //#define BTREE_CHECK_VECTOR_INVARIANTS
-#define BTREE_CHECK_TREE_INVARIANTS
+    #define BTREE_CHECK_TREE_INVARIANTS
 
-// TODO: try lambdas, but look at code generated for release.
-#define BTREE_CHECK(code) \
+    // TODO: try lambdas, but look at code generated for release.
+    #define BTREE_CHECK(code) \
         do { \
             (code); \
             checktree(); \
         } while(0)
 
-#define BTREE_CHECK_RETURN(code) \
+    #define BTREE_CHECK_RETURN(code) \
         do { \
             auto result = (code); \
             checktree(); \
@@ -32,6 +30,8 @@
 #define BTREE_CHECK(code) (code)
 #define BTREE_CHECK_RETURN(code) return (code);
 #endif
+
+#include <fluidstore/btree/detail/fixed_vector.h>
 
 namespace btree::detail
 {    

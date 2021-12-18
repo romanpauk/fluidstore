@@ -32,7 +32,7 @@ Lets look at how crdt::set looks like with respect to inheritance and map/sets u
                 - using set
             - temporary sets for merge operations
 
-Sets and maps are based on b+tree container, see [btree](https://github.com/romanpauk/fluidstore/blob/develop/include/fluidstore/btree). The b+tree code avoids using virtual functions for internal /value nodes so those can be mapped from a file one day. As it is a tree, the performance for large number of elements does not suffer as much as with flat arrays.
+Sets and maps are based on b+tree container, see [btree](include/fluidstore/btree). The b+tree code avoids using virtual functions for internal /value nodes so those can be mapped from a file one day. As it is a tree, the performance for large number of elements does not suffer as much as with flat arrays.
 
 To add to the fun, the merge algorithm very slightly differs for delta/non-delta variants (D and S) in a most inner class, crdt::dot_counters_base. 
 

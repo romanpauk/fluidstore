@@ -36,6 +36,7 @@ target_sources(fluidstore INTERFACE
     include/fluidstore/flat/memory.h
     include/fluidstore/flat/set.h
     include/fluidstore/flat/vector.h
+    readme.md
 )
 
 macro(group_sources path)

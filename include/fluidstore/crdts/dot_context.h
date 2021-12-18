@@ -13,7 +13,7 @@ namespace crdt
 {
     template < typename Dot, typename Tag, typename SizeType = uint32_t > class dot_context
     {
-        template < typename Dot, typename Tag, typename SizeType > friend class dot_context;
+        template < typename DotT, typename TagT, typename SizeTypeT > friend class dot_context;
 
         using dot_type = Dot;
         using replica_id_type = typename dot_type::replica_id_type;

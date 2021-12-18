@@ -66,6 +66,9 @@ namespace crdt
         dot_kernel_value(const dot_kernel_value_type&) = delete;
         dot_kernel_value_type& operator = (const dot_kernel_value_type&) = delete;
 
+        // TODO: allocator points to 'this' so we can invoke this->parent->update() with key stored on this.
+        // Not sure yet how to change it so it does not need two pointers.
+
         template < typename AllocatorT > dot_kernel_value(AllocatorT& allocator, Key key, DotKernel* p)
             : first(key)
         #if defined(DOTKERNEL_BTREE)
@@ -182,6 +185,7 @@ namespace crdt
         bool operator < (const Key& other) const { return first < other; }
         bool operator < (const dot_kernel_value_type& other) const { return first < other.first; }
 
+        // TODO: need a way how to determine key from value without storing duplicate key (if is not small enough).
         Key first;
 
     #if defined(DOTKERNEL_BTREE)
@@ -347,16 +351,6 @@ namespace crdt
 
             return *this;
         }
-
-
-        /*
-            // TODO: the move is generally problematic, as values hold pointer to parent container
-
-        template < typename Allocator, typename Container, typename Tag > dot_kernel(dot_kernel< Key, Value, Allocator, Container, Tag >&& other)
-            : values_(std::move(other.values_))
-            , replicas_(std::move(other.replicas_))
-        {}
-        */
 
         ~dot_kernel()
         {

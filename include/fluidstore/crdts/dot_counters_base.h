@@ -19,7 +19,7 @@ namespace crdt
 
     template < typename CounterType, typename Tag, typename SizeType = uint32_t > class dot_counters_base
     {
-        template < typename CounterType, typename Tag, typename SizeType > friend class dot_counters_base;
+        template < typename CounterTypeT, typename TagT, typename SizeTypeT > friend class dot_counters_base;
 
         using counter_type = CounterType;
         using size_type = SizeType;

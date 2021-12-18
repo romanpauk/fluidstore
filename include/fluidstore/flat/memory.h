@@ -34,9 +34,7 @@ namespace crdt::flat
         destroy(allocator, source, count);
     }
 
-    template < typename Allocator, typename T, typename SizeType, typename std::enable_if<
-       1 // std::is_move_assignable_v< T >
-    >::type* = 0 > void move_construct(Allocator& allocator, T* destination, T* source, SizeType count)
+    template < typename Allocator, typename T, typename SizeType > void move_construct(Allocator& allocator, T* destination, T* source, SizeType count)
     {
         for (SizeType i = 0; i < count; ++i)
         {

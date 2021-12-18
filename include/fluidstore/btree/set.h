@@ -6,9 +6,9 @@ namespace btree
 {
     namespace detail
     {
-        template < typename Key, typename SizeType, SizeType N, typename InternalNodeType > struct value_node< Key, void, SizeType, N, InternalNodeType > : node
+        template < typename Key, typename SizeType, SizeType Dim, typename InternalNodeType > struct value_node< Key, void, SizeType, Dim, InternalNodeType > : node
         {
-            enum { N = N };
+            enum { N = Dim };
 
             value_node() = default;
 

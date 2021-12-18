@@ -1,22 +1,23 @@
 #pragma once
 
-#include <fluidstore/crdts/dot.h>
-#include <fluidstore/flat/set.h>
+#include <fluidstore/crdt/detail/dot.h>
+#include <fluidstore/crdt/tags.h>
 
-#include <fluidstore/btree/btree.h>
+#if defined(DOTCOUNTERS_BTREE)
+#include <fluidstore/btree/set.h>
+#else
+#include <fluidstore/flat/set.h>
+#endif
 
 namespace crdt
 {
-    struct tag_delta {};
-    struct tag_state {};
-
     // TODO: the delta variant and state variant have different requirements for the types they keep:
     //  delta variant keeps sorted set
     //  state variant keeps just the latest. This is true after the merge, but not during the merge.
 
     template < typename CounterType, typename Tag, typename SizeType = uint32_t > class dot_counters_base
     {
-        template < typename CounterType, typename Tag, typename SizeType > friend class dot_counters_base;
+        template < typename CounterTypeT, typename TagT, typename SizeTypeT > friend class dot_counters_base;
 
         using counter_type = CounterType;
         using size_type = SizeType;

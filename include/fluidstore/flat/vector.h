@@ -154,7 +154,7 @@ namespace crdt::flat
 
         template < typename Allocator, typename... Args > iterator emplace(Allocator& allocator, iterator position, Args&&... args)
         {
-            auto alloc = std::allocator_traits< Allocator >::rebind_alloc< T >(allocator);
+            auto alloc = typename std::allocator_traits< Allocator >::template rebind_alloc< T >(allocator);
 
             size_type index = position.index_;
 
@@ -202,7 +202,7 @@ namespace crdt::flat
 
         template < typename Allocator > iterator erase(Allocator& allocator, iterator it)
         {
-            auto alloc = std::allocator_traits< Allocator >::rebind_alloc< T >(allocator);
+            auto alloc = typename std::allocator_traits< Allocator >::template rebind_alloc< T >(allocator);
             std::allocator_traits< decltype(alloc) >::destroy(alloc, data_->get(it.index_));
             move(alloc, data_->get(it.index_), data_->get(it.index_ + 1), data_->size - it.index_ - 1);
             --data_->size;
@@ -218,7 +218,7 @@ namespace crdt::flat
         {
             if (data_)
             {
-                auto alloc = std::allocator_traits< Allocator >::rebind_alloc< unsigned char >(allocator);
+                auto alloc = typename std::allocator_traits< Allocator >::template rebind_alloc< unsigned char >(allocator);
                 destroy(alloc, data_->get(), data_->size);
                 alloc.deallocate((unsigned char*)data_, vector_data::get_memory_size(data_->capacity));
                 data_ = nullptr;
@@ -263,7 +263,7 @@ namespace crdt::flat
             size_type ocapacity = capacity();
             if (ocapacity < nsize)
             {
-                auto alloc = std::allocator_traits< Allocator >::rebind_alloc< unsigned char >(allocator);
+                auto alloc = typename std::allocator_traits< Allocator >::template rebind_alloc< unsigned char >(allocator);
 
                 size_type ncapacity = (ocapacity + nsize);
                 if (ncapacity < ocapacity)

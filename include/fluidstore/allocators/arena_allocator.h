@@ -62,15 +62,15 @@ namespace crdt
         };
 
         template < typename... Args > arena_allocator(arena_base& arena, Args&&... args) noexcept
-            : arena_(arena)
-            , Allocator(std::forward< Args >(args)...)
+            : Allocator(std::forward< Args >(args)...)
+            , arena_(arena)
         {}
 
-        template < typename T, typename Allocator > friend class arena_allocator;
+        template < typename U, typename AllocatorU > friend class arena_allocator;
 
         template < typename U, typename AllocatorU > arena_allocator(const arena_allocator< U, AllocatorU >& alloc) noexcept
-            : arena_(alloc.arena_)
-            , Allocator(alloc)
+            : Allocator(alloc)
+            , arena_(alloc.arena_)
         {}
 
         arena_allocator< T, Allocator >& operator = (const arena_allocator< T, Allocator >& other)

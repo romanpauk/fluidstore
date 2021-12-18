@@ -20,7 +20,7 @@ namespace crdt
         template < typename DeltaT > void commit_delta(DeltaT&& delta)
         {}
 
-        typename Allocator& get_allocator()
+        Allocator& get_allocator()
         {
             return allocator_;
         }

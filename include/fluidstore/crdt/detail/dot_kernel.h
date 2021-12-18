@@ -1,14 +1,16 @@
+#pragma once
+
 // Merge algorithm is based on the article "An Optimized Conflict-free Replicated Set"
 // https://pages.lip6.fr/Marek.Zawirski/papers/RR-8083.pdf
 
-#pragma once
-
-#include <fluidstore/crdts/dot_context.h>
-#include <fluidstore/crdts/allocator.h>
+#include <fluidstore/crdt/detail/dot_context.h>
+#include <fluidstore/crdt/allocator.h>
 #include <fluidstore/allocators/arena_allocator.h>
+
 #include <fluidstore/flat/map.h>
 
-#include <fluidstore/btree/btree.h>
+#include <fluidstore/btree/map.h>
+#include <fluidstore/btree/set.h>
 
 namespace crdt
 {
@@ -64,6 +66,9 @@ namespace crdt
         dot_kernel_value(const dot_kernel_value_type&) = delete;
         dot_kernel_value_type& operator = (const dot_kernel_value_type&) = delete;
 
+        // TODO: allocator points to 'this' so we can invoke this->parent->update() with key stored on this.
+        // Not sure yet how to change it so it does not need two pointers.
+
         template < typename AllocatorT > dot_kernel_value(AllocatorT& allocator, Key key, DotKernel* p)
             : first(key)
         #if defined(DOTKERNEL_BTREE)
@@ -93,22 +98,22 @@ namespace crdt
         
         dot_kernel_value_type& operator = (dot_kernel_value_type&& other)
         {
-            first = std::move(other.first);
+            std::swap(first, other.first);
 
         #if defined(DOTKERNEL_BTREE)
-            value = std::move(other.value);
-            dots = std::move(other.dots);
-            parent = other.parent;            
+            std::swap(value, other.value);
+            std::swap(dots, other.dots);
+            std::swap(parent, other.parent);            
             value.get_allocator().set_container(this);
         #else
-            second = std::move(other.second);
+            std::swap(second, other.second);
             second.value.get_allocator().set_container(this);
         #endif
 
             return *this;
         }
 
-        template < typename Allocator, typename DotKernelValue, typename Context > void merge(Allocator& allocator, const DotKernelValue& other, Context& context)
+        template < typename AllocatorT, typename DotKernelValue, typename Context > void merge(AllocatorT& allocator, const DotKernelValue& other, Context& context)
         {            
         #if defined(DOTKERNEL_BTREE)
             dots.merge(allocator, other.dots, context);
@@ -163,7 +168,7 @@ namespace crdt
         dot_kernel_value(const dot_kernel_value_type&) = delete;
         dot_kernel_value_type& operator = (const dot_kernel_value_type&) = delete;
 
-        template < typename Allocator, typename DotKernelValue, typename Context > void merge(Allocator& allocator, const DotKernelValue& other, Context& context)
+        template < typename AllocatorT, typename DotKernelValue, typename Context > void merge(AllocatorT& allocator, const DotKernelValue& other, Context& context)
         {
         #if defined(DOTKERNEL_BTREE)
             dots.merge(allocator, other.dots, context);
@@ -180,6 +185,7 @@ namespace crdt
         bool operator < (const Key& other) const { return first < other; }
         bool operator < (const dot_kernel_value_type& other) const { return first < other.first; }
 
+        // TODO: need a way how to determine key from value without storing duplicate key (if is not small enough).
         Key first;
 
     #if defined(DOTKERNEL_BTREE)
@@ -240,7 +246,7 @@ namespace crdt
 
     template < typename Key, typename Value, typename Allocator, typename Container, typename Tag > class dot_kernel
     {
-        template < typename Key, typename Value, typename Allocator, typename Container, typename Tag > friend class dot_kernel;
+        template < typename KeyT, typename ValueT, typename AllocatorT, typename ContainerT, typename TagT > friend class dot_kernel;
 
     public:
         using allocator_type = Allocator;           
@@ -310,9 +316,9 @@ namespace crdt
             size_t count = 0;
         };
 
-        template < typename Allocator, typename ReplicaMap > struct value_context
+        template < typename AllocatorT, typename ReplicaMap > struct value_context
         {
-            value_context(Allocator& allocator, ReplicaMap& replica)
+            value_context(AllocatorT& allocator, ReplicaMap& replica)
                 : allocator_(allocator)
                 , replica_(replica)
             {}
@@ -336,25 +342,11 @@ namespace crdt
         dot_kernel(dot_kernel_type&& other) = default;        
         
         dot_kernel_type& operator = (dot_kernel_type&& other)
-        {
-            // TODO:
-            //std::swap(values_, other.values_);
-            //std::swap(replica_, other.replica_);
-            values_ = std::move(other.values_);
-            replica_ = std::move(other.replica_);
-
+        {            
+            std::swap(values_, std::move(other.values_));
+            std::swap(replica_, std::move(other.replica_));
             return *this;
         }
-
-
-        /*
-            // TODO: the move is generally problematic, as values hold pointer to parent container
-
-        template < typename Allocator, typename Container, typename Tag > dot_kernel(dot_kernel< Key, Value, Allocator, Container, Tag >&& other)
-            : values_(std::move(other.values_))
-            , replicas_(std::move(other.replicas_))
-        {}
-        */
 
         ~dot_kernel()
         {

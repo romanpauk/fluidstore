@@ -1,8 +1,9 @@
 #pragma once
 
-#include <fluidstore/crdts/dot_kernel.h>
-#include <fluidstore/crdts/hook_default.h>
-#include <fluidstore/crdts/traits.h>
+#include <fluidstore/crdt/detail/dot_kernel.h>
+#include <fluidstore/crdt/detail/traits.h>
+
+#include <fluidstore/crdt/hooks/hook_default.h>
 
 namespace crdt
 {
@@ -40,8 +41,8 @@ namespace crdt
 
             set< Key, Allocator, tag_delta, Hook >& operator = (set< Key, Allocator, tag_delta, Hook > && other)
             {
-                static_cast<hook_type&>(*this) = std::move(other);
-                static_cast<dot_kernel_type&>(*this) = std::move(other);
+                std::swap(static_cast<hook_type&>(*this), static_cast<hook_type&>(other));
+                std::swap(static_cast<dot_kernel_type&>(*this), static_cast<dot_kernel_type&>(other));
                 return *this;
             };
         };
@@ -77,8 +78,8 @@ namespace crdt
             
             set< Key, Allocator, tag_state, Hook >& operator = (set< Key, Allocator, tag_state, Hook > && other)
             {
-                static_cast<hook_type&>(*this) = std::move(static_cast<hook_type&>(other));
-                static_cast<dot_kernel_type&>(*this) = std::move(static_cast<dot_kernel_type&>(other));
+                std::swap(static_cast<hook_type&>(*this), static_cast<hook_type&>(other));
+                std::swap(static_cast<dot_kernel_type&>(*this), static_cast<dot_kernel_type&>(other));
                 return *this;
             }
 
@@ -144,8 +145,7 @@ namespace crdt
             using dot_kernel_type::get_values;
 
         private:
-            template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook >
-            friend class value_mv;
+            template < typename ValueT, typename AllocatorT, typename TagT, template <typename, typename, typename> typename HookT > friend class value_mv;
 
             template < typename Delta > void delta_clear(Delta& delta)
             {

@@ -1,6 +1,6 @@
-#include <fluidstore/crdts/allocator.h>
-#include <fluidstore/crdts/dot_context.h>
-#include <fluidstore/crdts/dot_counters_base.h>
+#include <fluidstore/crdt/allocator.h>
+#include <fluidstore/crdt/detail/dot_context.h>
+#include <fluidstore/crdt/detail/dot_counters_base.h>
 
 #include <boost/test/unit_test.hpp>
 

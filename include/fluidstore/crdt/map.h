@@ -1,7 +1,7 @@
 #pragma once
 
-#include <fluidstore/crdts/dot_kernel.h>
-#include <fluidstore/crdts/set.h>
+#include <fluidstore/crdt/detail/dot_kernel.h>
+#include <fluidstore/crdt/set.h>
 
 #include <stdexcept>
 
@@ -34,8 +34,8 @@ namespace crdt
 
             map< Key, Value, Allocator, tag_delta, Hook >& operator = (map< Key, Value, Allocator, tag_delta, Hook > && other)
             {
-                static_cast<hook_type&>(*this) = std::move(other);
-                static_cast<dot_kernel_type&>(*this) = std::move(other);
+                std::swap(static_cast<hook_type&>(*this), static_cast<hook_type&>(other));
+                std::swap(static_cast<dot_kernel_type&>(*this), static_cast<dot_kernel_type&>(other));
                 return *this;
             }
         };
@@ -84,20 +84,11 @@ namespace crdt
 
             map< Key, Value, Allocator, tag_state, Hook >& operator = (map< Key, Value, Allocator, tag_state, Hook > && other)
             {
-                static_cast<hook_type&>(*this) = std::move(other);
-                static_cast<dot_kernel_type&>(*this) = std::move(other);
+                std::swap(static_cast<hook_type&>(*this), static_cast<hook_type&>(other));
+                std::swap(static_cast<dot_kernel_type&>(*this), static_cast<dot_kernel_type&>(other));
                 return *this;
             }
-
-            /*
-                // TODO: to follow the rule that only delta can merge elsewhere, we need to convert value to delta first.
-            std::pair< typename dot_kernel_type::iterator, bool > insert(const Key& key, const Value& value)
-            {
-                typename Value::delta_type delta(value);
-                return insert(key, delta);
-            }
-            */
-
+           
             template < typename ValueT > std::pair< typename dot_kernel_type::iterator, bool > insert(const Key& key, const ValueT& value)
             {
                 auto allocator = get_allocator();
@@ -197,7 +188,7 @@ namespace crdt
             using dot_kernel_type::get_values;
 
         private:
-            friend class dot_kernel_type;
+            friend dot_kernel_type;
 
             void update(const Key& key)
             {
@@ -241,6 +232,8 @@ namespace crdt
     class map
         : public detail::map < Key, typename Value::template rebind_t< Allocator, Tag, Hook >, Allocator, Tag, Hook >
     {
+        using base_type = detail::map < Key, typename Value::template rebind_t< Allocator, Tag, Hook >, Allocator, Tag, Hook >;
+
     public:
         map(Allocator& allocator)
             : detail::map< Key, typename Value::template rebind_t< Allocator, tag_state, Hook >, Allocator, Tag, Hook >(allocator)
@@ -250,7 +243,7 @@ namespace crdt
 
         map< Key, Value, Allocator, Tag, Hook >& operator = (map< Key, Value, Allocator, Tag, Hook > && other)
         {
-            static_cast<detail::map < Key, typename Value::template rebind_t< Allocator, Tag, Hook >, Allocator, Tag, Hook >&>(*this) = std::move(other);
+            std::swap(static_cast<base_type&>(*this), static_cast<base_type&>(other));
             return *this;
         }
     };

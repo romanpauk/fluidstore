@@ -1,16 +1,19 @@
 #pragma once
 
-#include <fluidstore/crdts/dot.h>
-#include <fluidstore/crdts/dot_counters_base.h>
-#include <fluidstore/flat/map.h>
+#include <fluidstore/crdt/detail/dot.h>
+#include <fluidstore/crdt/detail/dot_counters_base.h>
 
-#include <fluidstore/btree/btree.h>
+#if defined(DOTCONTEXT_BTREE)
+#include <fluidstore/btree/map.h>
+#else
+#include <fluidstore/flat/map.h>
+#endif
 
 namespace crdt
 {
     template < typename Dot, typename Tag, typename SizeType = uint32_t > class dot_context
     {
-        template < typename Dot, typename Tag, typename SizeType > friend class dot_context;
+        template < typename DotT, typename TagT, typename SizeTypeT > friend class dot_context;
 
         using dot_type = Dot;
         using replica_id_type = typename dot_type::replica_id_type;
@@ -141,7 +144,7 @@ namespace crdt
         {
             // TODO: this seems to be used only for testing, as well as find().
             size_type count = 0;
-            for (auto& [replica_id, counters]: counters_)
+            for (const auto& [replica_id, counters]: counters_)
             {
                 count += counters.size();
             }

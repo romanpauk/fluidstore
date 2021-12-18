@@ -1,10 +1,9 @@
 #include <fluidstore/flat/vector.h>
 #include <fluidstore/flat/set.h>
 #include <fluidstore/flat/map.h>
-#include <fluidstore/flat/hat.h>
 
-#include <fluidstore/crdts/dot_context.h>
-#include <fluidstore/crdts/dot.h>
+#include <fluidstore/crdt/detail/dot_context.h>
+#include <fluidstore/crdt/detail/dot.h>
 
 #include <fluidstore/allocators/arena_allocator.h>
 
@@ -116,28 +115,6 @@ BOOST_AUTO_TEST_CASE(map_custom_node)
     map_base< int, int, node > map;
     map.emplace(allocator, node(std::allocator_arg, allocator, 1, 1));
     map.clear(allocator);
-}
-
-BOOST_AUTO_TEST_CASE(hat_basic_operations)
-{
-    crdt::arena< 32768 > arena;
-    crdt::arena_allocator< int > allocator(arena);
-    //std::allocator< char > allocator;
-
-    hat_base< int > hat;
-    for (int i = 0; i < 16; ++i)
-    {
-        hat.push_back(allocator, i);
-        BOOST_TEST(hat[i] == i);
-        BOOST_TEST(hat.size() == i + 1);
-
-        for (int j = 0; j < i; ++j)
-        {
-            BOOST_TEST(hat[j] == j);
-        }
-    }
-
-    hat.clear(allocator);
 }
 
 BOOST_AUTO_TEST_CASE(vector_string)

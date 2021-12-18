@@ -1,6 +1,6 @@
-#include <fluidstore/crdts/value_mv.h>
-#include <fluidstore/crdts/hook_extract.h>
-#include <fluidstore/crdts/allocator.h>
+#include <fluidstore/crdt/value_mv.h>
+#include <fluidstore/crdt/hooks/hook_extract.h>
+#include <fluidstore/crdt/allocator.h>
 
 #include <boost/test/unit_test.hpp>
 

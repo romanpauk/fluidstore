@@ -3,6 +3,7 @@ project(fluidstore)
 cmake_minimum_required(VERSION 3.19)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/MP>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/bigobj>")
 add_link_options("$<$<CXX_COMPILER_ID:MSVC>:LINKER:/DEBUG:FASTLINK>")
@@ -13,27 +14,42 @@ target_include_directories(fluidstore INTERFACE include)
 
 target_sources(fluidstore INTERFACE
     include/fluidstore/allocators/arena_allocator.h
-    include/fluidstore/btree/btree.h
-    include/fluidstore/crdts/allocator.h
-    include/fluidstore/crdts/allocator_ptr.h
-    include/fluidstore/crdts/dot.h
-    include/fluidstore/crdts/dot_context.h
-    include/fluidstore/crdts/dot_counters_base.h
-    include/fluidstore/crdts/dot_kernel.h
-    include/fluidstore/crdts/hook_default.h
-    include/fluidstore/crdts/hook_extract.h
-    include/fluidstore/crdts/set.h
-    include/fluidstore/crdts/map.h
-    include/fluidstore/crdts/noncopyable.h
-    include/fluidstore/crdts/replica.h
-    include/fluidstore/crdts/traits.h
-    include/fluidstore/crdts/value_mv.h    
-    include/fluidstore/flat/hat.h
+    include/fluidstore/btree/detail/container.h
+    include/fluidstore/btree/detail/fixed_vector.h
+    include/fluidstore/btree/map.h
+    include/fluidstore/btree/set.h
+    include/fluidstore/crdt/allocator.h
+    include/fluidstore/crdt/detail/allocator_ptr.h
+    include/fluidstore/crdt/detail/dot.h
+    include/fluidstore/crdt/detail/dot_context.h
+    include/fluidstore/crdt/detail/dot_counters_base.h
+    include/fluidstore/crdt/detail/dot_kernel.h
+    include/fluidstore/crdt/detail/traits.h
+    include/fluidstore/crdt/hooks/hook_default.h
+    include/fluidstore/crdt/hooks/hook_extract.h
+    include/fluidstore/crdt/set.h
+    include/fluidstore/crdt/map.h
+    include/fluidstore/crdt/replica.h    
+    include/fluidstore/crdt/tags.h
+    include/fluidstore/crdt/value_mv.h    
     include/fluidstore/flat/map.h
     include/fluidstore/flat/memory.h
     include/fluidstore/flat/set.h
     include/fluidstore/flat/vector.h
+    readme.md
 )
+
+macro(group_sources path)
+    file(GLOB children RELATIVE ${PROJECT_SOURCE_DIR}/${path} ${PROJECT_SOURCE_DIR}/${path}/*)
+    foreach(child ${children})
+        if(IS_DIRECTORY ${PROJECT_SOURCE_DIR}/${path}/${child})
+            group_sources(${path}/${child})
+        else()
+            string(REPLACE "/" "\\" groupname ${path})
+            source_group(${groupname} FILES ${PROJECT_SOURCE_DIR}/${path}/${child})
+        endif()
+    endforeach()
+endmacro()
 
 find_package(Boost)
 if(Boost_FOUND)
@@ -61,4 +77,9 @@ if(Boost_FOUND)
     add_test(fluidstoreperf COMMAND fluidstoreperf)
     target_link_libraries(fluidstoreperf fluidstore Boost::boost)
     target_precompile_headers(fluidstoreperf PRIVATE src/tests/pch.h)
+
+    if(WIN32)
+        group_sources(src)
+        group_sources(include)
+    endif()
 endif()

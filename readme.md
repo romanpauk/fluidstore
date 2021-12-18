@@ -22,30 +22,28 @@ The code is using templates to keep core algorithm in one place yet detaches it 
 
 Lets look at how crdt::set looks like with respect to inheritance and map/sets usage:
 
-- [crdt::set](include/fluidstore/crdts/set.h) - two specializations, delta one for gathering mutations and state one for preserving full state
-    - [crtd::dot_kernel](include/fluidstore/crdts/dot_kernel.h), the core of the containers, shared between map and set implementation
+- [crdt::set](include/fluidstore/crdt/set.h) - two specializations, delta one for gathering mutations and state one for preserving full state
+    - [crtd::dot_kernel](include/fluidstore/crdt/detail/dot_kernel.h), the core of the containers, shared between map and set implementation
         - map with keys/values and additional data
-            - [crdt::dot_context](include/fluidstore/crdts/dot_context.h) is tracking dot data for each replica, for each value, for associative container version
-                - using map of [crdt::dot_counters_base](include/fluidstore/crdts/dot_counters_base.h)
+            - [crdt::dot_context](include/fluidstore/crdt/detail/dot_context.h) is tracking dot data for each replica, for each value, for associative container version
+                - using map of [crdt::dot_counters_base](include/fluidstore/crdt/detail/dot_counters_base.h)
         - map with per-replica data
-            - [crdt::dot_counters_base](include/fluidstore/crdts/dot_counters_base.h)
+            - [crdt::dot_counters_base](include/fluidstore/crdt/detail/dot_counters_base.h)
                 - using set
             - temporary sets for merge operations
 
-Sets and maps are based on b+tree containers, see [btree.h](https://github.com/romanpauk/fluidstore/blob/develop/include/fluidstore/btree/btree.h). The b+tree code avoids using virtual functions for internal /value nodes so those can be mapped from a file one day. As it is a tree, the performance for large number of elements does not suffer as much as with flat arrays.
+Sets and maps are based on b+tree container, see [btree::map](include/fluidstore/btree/map.h) and [btree::set](include/fluidstore/btree/set.h). The b+tree code avoids using virtual functions for internal /value nodes so those can be mapped from a file one day. As it is a tree, the performance for large number of elements does not suffer as much as with flat arrays.
 
 To add to the fun, the merge algorithm very slightly differs for delta/non-delta variants (D and S) in a most inner class, crdt::dot_counters_base. 
 
 Different data types implemented:    
-- [crdt::set](include/fluidstore/crdts/set.h)
-- [crdt::map](include/fluidstore/crdts/map.h)
-- [crdt::value_mv](include/fluidstore/crdts/value_mv.h) - multivalue register, usually holding one value, but sometimes holding two values (in case of conflicting merge - here the conflict resolution means that we will not lose any data but propagate it to application layer). Based on crdt::set.
-
-I've skipped counters as they are easy to implement.
+- [crdt::set](include/fluidstore/crdt/set.h) - stl-like set
+- [crdt::map](include/fluidstore/crdt/map.h) - stl-like map
+- [crdt::value_mv](include/fluidstore/crdt/value_mv.h) - multi-value register
 
 # Performance
 
-The performance of current implementation of crdt::map/crdt::set is comparable to performance of default configuration of std::map/std::set but this of course cheats a lot - I am comparing custom container configured with various optimizations to stl's container configured without optimizations. This is simply to show that even the above implementation does not have to be as slow as it seems when done carefully as it is as fast as default use of stl (or as slow).
+The performance of the current implementation of crdt::map/crdt::set is roughly 10x slower compared to std::map/std::set.
 
 # Tests
 

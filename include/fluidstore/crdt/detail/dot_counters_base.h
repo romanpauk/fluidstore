@@ -1,6 +1,7 @@
 #pragma once
 
 #include <fluidstore/crdt/detail/dot.h>
+#include <fluidstore/crdt/tags.h>
 
 #if defined(DOTCOUNTERS_BTREE)
 #include <fluidstore/btree/set.h>
@@ -10,9 +11,6 @@
 
 namespace crdt
 {
-    struct tag_delta {};
-    struct tag_state {};
-
     // TODO: the delta variant and state variant have different requirements for the types they keep:
     //  delta variant keeps sorted set
     //  state variant keeps just the latest. This is true after the merge, but not during the merge.

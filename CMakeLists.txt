@@ -24,12 +24,13 @@ target_sources(fluidstore INTERFACE
     include/fluidstore/crdt/detail/dot_context.h
     include/fluidstore/crdt/detail/dot_counters_base.h
     include/fluidstore/crdt/detail/dot_kernel.h
+    include/fluidstore/crdt/detail/traits.h
     include/fluidstore/crdt/hooks/hook_default.h
     include/fluidstore/crdt/hooks/hook_extract.h
     include/fluidstore/crdt/set.h
     include/fluidstore/crdt/map.h
-    include/fluidstore/crdt/replica.h
-    include/fluidstore/crdt/detail/traits.h
+    include/fluidstore/crdt/replica.h    
+    include/fluidstore/crdt/tags.h
     include/fluidstore/crdt/value_mv.h    
     include/fluidstore/flat/map.h
     include/fluidstore/flat/memory.h

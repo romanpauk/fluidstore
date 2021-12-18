@@ -22,7 +22,7 @@ The code is using templates to keep core algorithm in one place yet detaches it 
 
 Lets look at how crdt::set looks like with respect to inheritance and map/sets usage:
 
-- [crdt::set](include/fluidstore/crdts/set.h) - two specializations, delta one for gathering mutations and state one for preserving full state
+- [crdt::set](include/fluidstore/crdt/set.h) - two specializations, delta one for gathering mutations and state one for preserving full state
     - [crtd::dot_kernel](include/fluidstore/crdt/detail/dot_kernel.h), the core of the containers, shared between map and set implementation
         - map with keys/values and additional data
             - [crdt::dot_context](include/fluidstore/crdt/detail/dot_context.h) is tracking dot data for each replica, for each value, for associative container version
@@ -39,7 +39,7 @@ To add to the fun, the merge algorithm very slightly differs for delta/non-delta
 Different data types implemented:    
 - [crdt::set](include/fluidstore/crdt/set.h) - stl-like set
 - [crdt::map](include/fluidstore/crdt/map.h) - stl-like map
-- [crdt::value_mv](include/fluidstore/crdt/value_mv.h) - multi-value register, usually holding one value, but sometimes holding two values (in case of conflicting merge - here the conflict resolution means that we will not lose any data but propagate it to application layer). Using crdt::set.
+- [crdt::value_mv](include/fluidstore/crdt/value_mv.h) - multi-value register
 
 # Performance
 

@@ -98,15 +98,15 @@ namespace crdt
         
         dot_kernel_value_type& operator = (dot_kernel_value_type&& other)
         {
-            first = std::move(other.first);
+            std::swap(first, other.first);
 
         #if defined(DOTKERNEL_BTREE)
-            value = std::move(other.value);
-            dots = std::move(other.dots);
-            parent = other.parent;            
+            std::swap(value, other.value);
+            std::swap(dots, other.dots);
+            std::swap(parent, other.parent);            
             value.get_allocator().set_container(this);
         #else
-            second = std::move(other.second);
+            std::swap(second, other.second);
             second.value.get_allocator().set_container(this);
         #endif
 
@@ -342,13 +342,9 @@ namespace crdt
         dot_kernel(dot_kernel_type&& other) = default;        
         
         dot_kernel_type& operator = (dot_kernel_type&& other)
-        {
-            // TODO:
-            //std::swap(values_, other.values_);
-            //std::swap(replica_, other.replica_);
-            values_ = std::move(other.values_);
-            replica_ = std::move(other.replica_);
-
+        {            
+            std::swap(values_, std::move(other.values_));
+            std::swap(replica_, std::move(other.replica_));
             return *this;
         }
 

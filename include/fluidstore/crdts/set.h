@@ -40,8 +40,8 @@ namespace crdt
 
             set< Key, Allocator, tag_delta, Hook >& operator = (set< Key, Allocator, tag_delta, Hook > && other)
             {
-                static_cast<hook_type&>(*this) = std::move(other);
-                static_cast<dot_kernel_type&>(*this) = std::move(other);
+                std::swap(static_cast<hook_type&>(*this), static_cast<hook_type&>(other));
+                std::swap(static_cast<dot_kernel_type&>(*this), static_cast<dot_kernel_type&>(other));
                 return *this;
             };
         };
@@ -77,8 +77,8 @@ namespace crdt
             
             set< Key, Allocator, tag_state, Hook >& operator = (set< Key, Allocator, tag_state, Hook > && other)
             {
-                static_cast<hook_type&>(*this) = std::move(static_cast<hook_type&>(other));
-                static_cast<dot_kernel_type&>(*this) = std::move(static_cast<dot_kernel_type&>(other));
+                std::swap(static_cast<hook_type&>(*this), static_cast<hook_type&>(other));
+                std::swap(static_cast<dot_kernel_type&>(*this), static_cast<dot_kernel_type&>(other));
                 return *this;
             }
 

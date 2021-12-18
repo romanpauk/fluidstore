@@ -34,8 +34,8 @@ namespace crdt
 
             map< Key, Value, Allocator, tag_delta, Hook >& operator = (map< Key, Value, Allocator, tag_delta, Hook > && other)
             {
-                static_cast<hook_type&>(*this) = std::move(other);
-                static_cast<dot_kernel_type&>(*this) = std::move(other);
+                std::swap(static_cast<hook_type&>(*this), static_cast<hook_type&>(other));
+                std::swap(static_cast<dot_kernel_type&>(*this), static_cast<dot_kernel_type&>(other));
                 return *this;
             }
         };
@@ -84,8 +84,8 @@ namespace crdt
 
             map< Key, Value, Allocator, tag_state, Hook >& operator = (map< Key, Value, Allocator, tag_state, Hook > && other)
             {
-                static_cast<hook_type&>(*this) = std::move(other);
-                static_cast<dot_kernel_type&>(*this) = std::move(other);
+                std::swap(static_cast<hook_type&>(*this), static_cast<hook_type&>(other));
+                std::swap(static_cast<dot_kernel_type&>(*this), static_cast<dot_kernel_type&>(other));
                 return *this;
             }
            
@@ -232,6 +232,8 @@ namespace crdt
     class map
         : public detail::map < Key, typename Value::template rebind_t< Allocator, Tag, Hook >, Allocator, Tag, Hook >
     {
+        using base_type = detail::map < Key, typename Value::template rebind_t< Allocator, Tag, Hook >, Allocator, Tag, Hook >;
+
     public:
         map(Allocator& allocator)
             : detail::map< Key, typename Value::template rebind_t< Allocator, tag_state, Hook >, Allocator, Tag, Hook >(allocator)
@@ -241,7 +243,7 @@ namespace crdt
 
         map< Key, Value, Allocator, Tag, Hook >& operator = (map< Key, Value, Allocator, Tag, Hook > && other)
         {
-            static_cast<detail::map < Key, typename Value::template rebind_t< Allocator, Tag, Hook >, Allocator, Tag, Hook >&>(*this) = std::move(other);
+            std::swap(static_cast<base_type&>(*this), static_cast<base_type&>(other));
             return *this;
         }
     };

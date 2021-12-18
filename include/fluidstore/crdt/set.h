@@ -1,8 +1,9 @@
 #pragma once
 
-#include <fluidstore/crdts/dot_kernel.h>
-#include <fluidstore/crdts/hook_default.h>
-#include <fluidstore/crdts/traits.h>
+#include <fluidstore/crdt/detail/dot_kernel.h>
+#include <fluidstore/crdt/detail/traits.h>
+
+#include <fluidstore/crdt/hooks/hook_default.h>
 
 namespace crdt
 {

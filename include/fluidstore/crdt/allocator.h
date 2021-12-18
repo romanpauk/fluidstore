@@ -1,6 +1,6 @@
 #pragma once
 
-#include <fluidstore/crdts/replica.h>
+#include <fluidstore/crdt/replica.h>
 
 #include <memory>
 

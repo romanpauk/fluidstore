@@ -3,14 +3,14 @@
 // Merge algorithm is based on the article "An Optimized Conflict-free Replicated Set"
 // https://pages.lip6.fr/Marek.Zawirski/papers/RR-8083.pdf
 
-#include <fluidstore/crdts/dot_context.h>
-#include <fluidstore/crdts/allocator.h>
+#include <fluidstore/crdt/detail/dot_context.h>
+#include <fluidstore/crdt/allocator.h>
 #include <fluidstore/allocators/arena_allocator.h>
 
 #include <fluidstore/flat/map.h>
 
 #include <fluidstore/btree/map.h>
-#include <fluidstore/btree/map.h>
+#include <fluidstore/btree/set.h>
 
 namespace crdt
 {

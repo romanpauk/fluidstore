@@ -1,7 +1,7 @@
 #pragma once
 
-#include <fluidstore/crdts/set.h>
-#include <fluidstore/crdts/traits.h>
+#include <fluidstore/crdt/set.h>
+#include <fluidstore/crdt/detail/traits.h>
 
 namespace crdt
 {

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <fluidstore/crdts/dot_kernel.h>
-#include <fluidstore/crdts/set.h>
+#include <fluidstore/crdt/detail/dot_kernel.h>
+#include <fluidstore/crdt/set.h>
 
 #include <stdexcept>
 

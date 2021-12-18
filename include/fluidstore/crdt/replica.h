@@ -1,7 +1,5 @@
 #pragma once
 
-#include <fluidstore/crdts/noncopyable.h>
-
 namespace crdt
 {
     template < typename ReplicaIdType = uint64_t, typename CounterType = uint64_t > class replica

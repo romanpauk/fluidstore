@@ -1,7 +1,7 @@
 #pragma once
 
-#include <fluidstore/crdts/dot.h>
-#include <fluidstore/crdts/dot_counters_base.h>
+#include <fluidstore/crdt/detail/dot.h>
+#include <fluidstore/crdt/detail/dot_counters_base.h>
 
 #if defined(DOTCONTEXT_BTREE)
 #include <fluidstore/btree/map.h>

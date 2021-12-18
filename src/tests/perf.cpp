@@ -1,4 +1,4 @@
-#include <fluidstore/btree/btree.h>
+#include <fluidstore/btree/set.h>
 #include <fluidstore/allocators/arena_allocator.h>
 
 #include <boost/test/unit_test.hpp>

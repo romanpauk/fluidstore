@@ -1,7 +1,7 @@
 #include <fluidstore/allocators/arena_allocator.h>
-#include <fluidstore/crdts/allocator.h>
-#include <fluidstore/crdts/set.h>
-#include <fluidstore/crdts/hook_extract.h>
+#include <fluidstore/crdt/allocator.h>
+#include <fluidstore/crdt/set.h>
+#include <fluidstore/crdt/hooks/hook_extract.h>
 
 #include <boost/test/unit_test.hpp>
 

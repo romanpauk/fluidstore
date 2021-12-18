@@ -1,6 +1,6 @@
 #pragma once
 
-#include <fluidstore/crdts/allocator_ptr.h>
+#include <fluidstore/crdt/detail/allocator_ptr.h>
 
 namespace crdt
 {

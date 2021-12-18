@@ -18,20 +18,19 @@ target_sources(fluidstore INTERFACE
     include/fluidstore/btree/detail/fixed_vector.h
     include/fluidstore/btree/map.h
     include/fluidstore/btree/set.h
-    include/fluidstore/crdts/allocator.h
-    include/fluidstore/crdts/allocator_ptr.h
-    include/fluidstore/crdts/dot.h
-    include/fluidstore/crdts/dot_context.h
-    include/fluidstore/crdts/dot_counters_base.h
-    include/fluidstore/crdts/dot_kernel.h
-    include/fluidstore/crdts/hook_default.h
-    include/fluidstore/crdts/hook_extract.h
-    include/fluidstore/crdts/set.h
-    include/fluidstore/crdts/map.h
-    include/fluidstore/crdts/noncopyable.h
-    include/fluidstore/crdts/replica.h
-    include/fluidstore/crdts/traits.h
-    include/fluidstore/crdts/value_mv.h    
+    include/fluidstore/crdt/allocator.h
+    include/fluidstore/crdt/detail/allocator_ptr.h
+    include/fluidstore/crdt/detail/dot.h
+    include/fluidstore/crdt/detail/dot_context.h
+    include/fluidstore/crdt/detail/dot_counters_base.h
+    include/fluidstore/crdt/detail/dot_kernel.h
+    include/fluidstore/crdt/hooks/hook_default.h
+    include/fluidstore/crdt/hooks/hook_extract.h
+    include/fluidstore/crdt/set.h
+    include/fluidstore/crdt/map.h
+    include/fluidstore/crdt/replica.h
+    include/fluidstore/crdt/detail/traits.h
+    include/fluidstore/crdt/value_mv.h    
     include/fluidstore/flat/map.h
     include/fluidstore/flat/memory.h
     include/fluidstore/flat/set.h

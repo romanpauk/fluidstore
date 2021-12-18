@@ -2,8 +2,8 @@
 #include <fluidstore/flat/set.h>
 #include <fluidstore/flat/map.h>
 
-#include <fluidstore/crdts/dot_context.h>
-#include <fluidstore/crdts/dot.h>
+#include <fluidstore/crdt/detail/dot_context.h>
+#include <fluidstore/crdt/detail/dot.h>
 
 #include <fluidstore/allocators/arena_allocator.h>
 

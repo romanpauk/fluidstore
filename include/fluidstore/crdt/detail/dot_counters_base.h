@@ -1,6 +1,6 @@
 #pragma once
 
-#include <fluidstore/crdts/dot.h>
+#include <fluidstore/crdt/detail/dot.h>
 
 #if defined(DOTCOUNTERS_BTREE)
 #include <fluidstore/btree/set.h>

@@ -54,14 +54,14 @@ endmacro()
 find_package(Boost)
 if(Boost_FOUND)
     add_executable(fluidstoretest 
-        src/tests/btree.cpp
-        src/tests/dot.cpp
-        src/tests/flat.cpp
-        src/tests/map.cpp
-        src/tests/performance.cpp
-        src/tests/set.cpp
+        src/tests/btree/btree.cpp
+        src/tests/crdt/dot.cpp
+        src/tests/crdt/map.cpp
+        src/tests/crdt/performance.cpp
+        src/tests/crdt/set.cpp
+        src/tests/crdt/value_mv.cpp
+        src/tests/flat/flat.cpp
         src/tests/testmodule.cpp
-        src/tests/value_mv.cpp
         src/tests/pch.h
     )
     add_test(fluidstoretest COMMAND fluidstoretest)
@@ -70,14 +70,6 @@ if(Boost_FOUND)
 
     target_compile_definitions(fluidstoretest PRIVATE DOTKERNEL_BTREE DOTCONTEXT_BTREE DOTCOUNTERS_BTREE)
     
-    add_executable(fluidstoreperf 
-        src/tests/perf.cpp
-        src/tests/testmodule.cpp
-    )
-    add_test(fluidstoreperf COMMAND fluidstoreperf)
-    target_link_libraries(fluidstoreperf fluidstore Boost::boost)
-    target_precompile_headers(fluidstoreperf PRIVATE src/tests/pch.h)
-
     if(WIN32)
         group_sources(src)
         group_sources(include)

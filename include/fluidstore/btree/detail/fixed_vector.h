@@ -12,8 +12,7 @@ namespace btree::detail
 
     // TODO:
     // template < typename T > static const bool is_fixed_vector_trivial_v = is_fixed_vector_trivial< T >::value;
-
-    // TODO: this could use at least one test...
+        
     template < typename T, typename Descriptor, bool IsTrivial = is_fixed_vector_trivial< T >::value > struct fixed_vector
     {
     public:
@@ -23,18 +22,15 @@ namespace btree::detail
 
         fixed_vector(Descriptor desc)
             : desc_(desc)
-        {
-            checkvec();
-        }
+        {}
 
         fixed_vector(Descriptor desc, size_type size)
             : desc_(desc)
         {
             desc_.set_size(size);
-            checkvec();
         }
 
-        fixed_vector(fixed_vector&&) = default;
+        fixed_vector(fixed_vector< T, Descriptor, IsTrivial >&&) = default;
         fixed_vector< T, Descriptor, IsTrivial >& operator = (fixed_vector< T, Descriptor, IsTrivial >&&) = default;
 
         template < typename Allocator, typename... Args > void emplace_back(Allocator& alloc, Args&&... args)
@@ -51,8 +47,6 @@ namespace btree::detail
             destroy(alloc, end() - 1, end());
 
             desc_.set_size(size() - 1);
-
-            checkvec();
 
             return last ? end() : index;
         }
@@ -71,8 +65,6 @@ namespace btree::detail
             {
                 std::abort(); // TODO
             }
-
-            checkvec();
         }
 
         size_type size() const { return desc_.size(); }
@@ -124,8 +116,6 @@ namespace btree::detail
             }
 
             desc_.set_size(desc_.size() + 1);
-
-            checkvec();
         }
 
         template < typename Allocator, typename U > void insert(Allocator& alloc, iterator it, U from, U to)
@@ -140,8 +130,6 @@ namespace btree::detail
 
             copy(alloc, from, to, it);
             desc_.set_size(size() + static_cast<size_type>(to - from));
-
-            checkvec();
         }
 
         value_type& operator[](size_type index)
@@ -213,24 +201,147 @@ namespace btree::detail
                 std::uninitialized_copy(first + cnt, last, dest + cnt);
             }
         }
+                
+        Descriptor desc_;
+    };
 
-        void checkvec()
+    //*
+    template < typename T, typename Descriptor > struct fixed_vector< T, Descriptor, true >
+    {
+        using value_type = T;
+        using iterator = value_type*;
+        using size_type = typename Descriptor::size_type;
+
+        fixed_vector(Descriptor desc)
+            : desc_(desc)
+        {}
+
+        fixed_vector(Descriptor desc, size_type size)
+            : desc_(desc)
         {
-        #if defined(BTREE_CHECK_VECTOR_INVARIANTS)
-            assert(end() - begin() == size());
-            assert(size() <= capacity());
+            desc_.set_size(size);
+        }
 
-            vec_.assign(begin(), end());
-            assert(std::is_sorted(vec_.begin(), vec_.end()));
-        #endif
+        fixed_vector(fixed_vector< T, Descriptor, true >&&) = default;
+        fixed_vector< T, Descriptor, true >& operator = (fixed_vector< T, Descriptor, true >&&) = default;
+
+        // TODO
+        // move to common base class
+
+        size_type size() const { return desc_.size(); }
+        constexpr size_type capacity() const { return desc_.capacity(); }
+        bool empty() const { return size() == 0; }
+
+        T* begin() { return reinterpret_cast<T*>(desc_.data()); }
+        const T* begin() const { return reinterpret_cast<const T*>(desc_.data()); }
+
+        T* end() { return begin() + size(); }
+        const T* end() const { return begin() + size(); }
+                
+        T& front() { return *begin(); }
+        const T& front() const { return *begin(); }
+
+        T& back() { return *(end() - 1); }
+        const T& back() const { return *(end() - 1); }
+
+        template < typename Allocator > void clear(Allocator& alloc)
+        {
+            desc_.set_size(0);
+        }
+
+        template < typename Allocator, typename... Args > void emplace_back(Allocator& alloc, Args&&... args)
+        {
+            emplace(alloc, end(), std::forward< Args >(args)...);
+        }
+
+        template < typename Allocator, typename... Args > void emplace(Allocator&, iterator it, Args&&... args)
+        {
+            assert(size() < capacity());
+            assert(it >= begin());
+            assert(it <= end());
+
+            if (it < end())
+            {
+                move(it + 1, it, static_cast< size_type >(end() - it));
+            }
+
+            new (it) T(std::forward< Args >(args)...);
+
+            desc_.set_size(size() + 1);
+        }
+
+        template < typename Allocator > iterator erase(Allocator&, iterator it)
+        {
+            assert(begin() <= it && it < end());
+
+            bool last = it == end() - 1;
+            copy(it, it + 1, static_cast< size_type >(end() - it - 1)); 
+            desc_.set_size(size() - 1);
+            return last ? end() : it;
+        }
+
+        template < typename Allocator > void erase(Allocator&, iterator from, iterator to)
+        {
+            assert(begin() <= from && from <= to);
+            assert(from <= to && to <= end());
+
+            if (to == end())
+            {                
+                desc_.set_size(size() - static_cast<size_type>(to - from));
+            }
+            else
+            {
+                std::abort(); // TODO
+            }
+        }
+
+        template < typename Allocator, typename U > void insert(Allocator& alloc, iterator it, std::move_iterator< U > from, std::move_iterator< U > to)
+        {
+            insert(alloc, it, from.base(), to.base());
+        }
+
+        template < typename Allocator, typename U > void insert(Allocator&, iterator it, U from, U to)
+        {
+            assert(begin() <= it && it <= end());
+            assert((uintptr_t)(to - from + it - begin()) <= capacity());
+
+            const auto count = static_cast<size_type>(to - from);
+
+            if (it < end())
+            {                
+                move(it + count, it, count);
+            }
+
+            copy(it, from, count);
+                        
+            desc_.set_size(size() + count);
+        }
+
+        value_type& operator[](size_type index)
+        {
+            assert(index < size());
+            return *(begin() + index);
+        }
+
+        const value_type& operator[](size_type index) const
+        {
+            return const_cast< fixed_vector< T, Descriptor, true >& >(*this).operator [](index);
+        }
+
+    private:
+        void move(T* dest, const T* source, size_type count)
+        {
+            std::memmove(dest, source, sizeof(T) * count);
+        }
+
+        void copy(T* dest, const T* source, size_type count)
+        {
+            std::memcpy(dest, source, sizeof(T) * count);
         }
 
         Descriptor desc_;
-
-    #if defined(BTREE_CHECK_VECTOR_INVARIANTS)
-        std::vector< T > vec_;
-    #endif
     };
+    //*/
 
     // TODO: exception safety
     template < typename... Args > struct fixed_split_vector

@@ -13,7 +13,55 @@ namespace btree::detail
     // TODO:
     // template < typename T > static const bool is_fixed_vector_trivial_v = is_fixed_vector_trivial< T >::value;
         
+    template < typename T, typename Descriptor > struct fixed_vector_base
+    {
+        using size_type = typename Descriptor::size_type;
+
+        fixed_vector_base(Descriptor desc)
+            : desc_(desc)
+        {}
+
+        fixed_vector_base(Descriptor desc, size_type size)
+            : desc_(desc)
+        {
+            // TODO: desc ctor
+            desc_.set_size(size);
+        }
+        
+        size_type size() const { return desc_.size(); }
+        constexpr size_type capacity() const { return desc_.capacity(); }
+        bool empty() const { return size() == 0; }
+
+        T* begin() { return reinterpret_cast<T*>(desc_.data()); }
+        const T* begin() const { return reinterpret_cast<const T*>(desc_.data()); }
+
+        T* end() { return begin() + size(); }
+        const T* end() const { return begin() + size(); }
+
+        T& front() { return *begin(); }
+        const T& front() const { return *begin(); }
+
+        T& back() { return *(end() - 1); }
+        const T& back() const { return *(end() - 1); }
+
+        T& operator[](size_type index)
+        {
+            assert(index < size());
+            return *(begin() + index);
+        }
+
+        const T& operator[](size_type index) const
+        {
+            return const_cast<fixed_vector_base< T, Descriptor >&>(*this).operator [](index);
+        }
+
+    protected:
+        Descriptor desc_;
+    };
+
+    // TODO: what is the alignment of desc_.data()?
     template < typename T, typename Descriptor, bool IsTrivial = is_fixed_vector_trivial< T >::value > struct fixed_vector
+        : public fixed_vector_base< T, Descriptor >
     {
     public:
         using size_type = typename Descriptor::size_type;
@@ -21,17 +69,12 @@ namespace btree::detail
         using iterator = value_type*;
 
         fixed_vector(Descriptor desc)
-            : desc_(desc)
+            : fixed_vector_base< T, Descriptor >(desc)
         {}
 
         fixed_vector(Descriptor desc, size_type size)
-            : desc_(desc)
-        {
-            desc_.set_size(size);
-        }
-
-        fixed_vector(fixed_vector< T, Descriptor, IsTrivial >&&) = default;
-        fixed_vector< T, Descriptor, IsTrivial >& operator = (fixed_vector< T, Descriptor, IsTrivial >&&) = default;
+            : : fixed_vector_base< T, Descriptor >(desc, size)
+        {}     
 
         template < typename Allocator, typename... Args > void emplace_back(Allocator& alloc, Args&&... args)
         {
@@ -66,28 +109,12 @@ namespace btree::detail
                 std::abort(); // TODO
             }
         }
-
-        size_type size() const { return desc_.size(); }
-        constexpr size_type capacity() const { return desc_.capacity(); }
-        bool empty() const { return desc_.size() == 0; }
-
+               
         template < typename Allocator > void clear(Allocator& alloc)
         {
             destroy(alloc, begin(), end());
             desc_.set_size(0);
-        }
-
-        T* begin() { return reinterpret_cast<T*>(desc_.data()); }
-        const T* begin() const { return reinterpret_cast<const T*>(desc_.data()); }
-
-        T* end() { return reinterpret_cast<T*>(desc_.data()) + desc_.size(); }
-        const T* end() const { return reinterpret_cast<const T*>(desc_.data()) + desc_.size(); }
-
-        T& front() { return *begin(); }
-        const T& front() const { return *begin(); }
-
-        T& back() { return *(end() - 1); }
-        const T& back() const { return *(end() - 1); }
+        }       
 
         template < typename Allocator, typename... Args > void emplace(Allocator& alloc, iterator it, Args&&... args)
         {
@@ -130,18 +157,6 @@ namespace btree::detail
 
             copy(alloc, from, to, it);
             desc_.set_size(size() + static_cast<size_type>(to - from));
-        }
-
-        value_type& operator[](size_type index)
-        {
-            assert(index < size());
-            return *(begin() + index);
-        }
-
-        const value_type& operator[](size_type index) const
-        {
-            assert(index < size());
-            return *(begin() + index);
         }
 
     private:
@@ -201,49 +216,23 @@ namespace btree::detail
                 std::uninitialized_copy(first + cnt, last, dest + cnt);
             }
         }
-                
-        Descriptor desc_;
     };
-
-    //*
+        
     template < typename T, typename Descriptor > struct fixed_vector< T, Descriptor, true >
+        : public fixed_vector_base< T, Descriptor >
     {
         using value_type = T;
         using iterator = value_type*;
         using size_type = typename Descriptor::size_type;
 
         fixed_vector(Descriptor desc)
-            : desc_(desc)
+            : fixed_vector_base< T, Descriptor >(desc)
         {}
 
         fixed_vector(Descriptor desc, size_type size)
-            : desc_(desc)
-        {
-            desc_.set_size(size);
-        }
-
-        fixed_vector(fixed_vector< T, Descriptor, true >&&) = default;
-        fixed_vector< T, Descriptor, true >& operator = (fixed_vector< T, Descriptor, true >&&) = default;
-
-        // TODO
-        // move to common base class
-
-        size_type size() const { return desc_.size(); }
-        constexpr size_type capacity() const { return desc_.capacity(); }
-        bool empty() const { return size() == 0; }
-
-        T* begin() { return reinterpret_cast<T*>(desc_.data()); }
-        const T* begin() const { return reinterpret_cast<const T*>(desc_.data()); }
-
-        T* end() { return begin() + size(); }
-        const T* end() const { return begin() + size(); }
-                
-        T& front() { return *begin(); }
-        const T& front() const { return *begin(); }
-
-        T& back() { return *(end() - 1); }
-        const T& back() const { return *(end() - 1); }
-
+            : fixed_vector_base< T, Descriptor >(desc, size)
+        {}
+        
         template < typename Allocator > void clear(Allocator& alloc)
         {
             desc_.set_size(0);
@@ -315,18 +304,7 @@ namespace btree::detail
             copy(it, from, count);
                         
             desc_.set_size(size() + count);
-        }
-
-        value_type& operator[](size_type index)
-        {
-            assert(index < size());
-            return *(begin() + index);
-        }
-
-        const value_type& operator[](size_type index) const
-        {
-            return const_cast< fixed_vector< T, Descriptor, true >& >(*this).operator [](index);
-        }
+        }       
 
     private:
         void move(T* dest, const T* source, size_type count)
@@ -338,11 +316,8 @@ namespace btree::detail
         {
             std::memcpy(dest, source, sizeof(T) * count);
         }
-
-        Descriptor desc_;
     };
-    //*/
-
+    
     // TODO: exception safety
     template < typename... Args > struct fixed_split_vector
         : std::tuple< Args... >

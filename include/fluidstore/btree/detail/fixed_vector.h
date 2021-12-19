@@ -2,8 +2,19 @@
 
 namespace btree::detail
 {
+    template < typename T > struct is_fixed_vector_trivial
+    {
+        static const bool value =
+            std::is_trivially_copy_constructible<T>::value &&
+            std::is_trivially_move_constructible<T>::value &&
+            std::is_trivially_destructible<T>::value;
+    };
+
+    // TODO:
+    // template < typename T > static const bool is_fixed_vector_trivial_v = is_fixed_vector_trivial< T >::value;
+
     // TODO: this could use at least one test...
-    template < typename T, typename Descriptor > struct fixed_vector
+    template < typename T, typename Descriptor, bool IsTrivial = is_fixed_vector_trivial< T >::value > struct fixed_vector
     {
     public:
         using size_type = typename Descriptor::size_type;
@@ -24,7 +35,7 @@ namespace btree::detail
         }
 
         fixed_vector(fixed_vector&&) = default;
-        fixed_vector< T, Descriptor >& operator = (fixed_vector< T, Descriptor >&&) = default;
+        fixed_vector< T, Descriptor, IsTrivial >& operator = (fixed_vector< T, Descriptor, IsTrivial >&&) = default;
 
         template < typename Allocator, typename... Args > void emplace_back(Allocator& alloc, Args&&... args)
         {

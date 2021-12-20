@@ -9,10 +9,8 @@ namespace btree
         template < typename Key, typename SizeType, SizeType Dim, typename InternalNodeType > struct value_node< Key, void, SizeType, Dim, InternalNodeType > : node
         {
             enum { N = Dim };
-
-            value_node() = default;
-
-            uint8_t keys[2 * N * sizeof(Key)];
+                        
+            alignas(Key) uint8_t keys[2 * N * sizeof(Key)];
             InternalNodeType* parent;
         #if defined(BTREE_VALUE_NODE_LR)
             value_node* left;

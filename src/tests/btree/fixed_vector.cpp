@@ -34,6 +34,20 @@ BOOST_AUTO_TEST_CASE(is_fixed_vector_trivial)
     BOOST_TEST(btree::detail::is_fixed_vector_trivial< std::string >::value == false);
     BOOST_TEST((btree::detail::is_fixed_vector_trivial< std::pair< int, int > >::value == true));
     BOOST_TEST((btree::detail::is_fixed_vector_trivial< std::pair< int&, int& > >::value == true));
+
+    // TODO
+    struct movable
+    {
+        //movable() = delete;
+        //movable(int) {}
+        //movable(movable&&) = default;
+        //movable(const movable&) = delete;
+
+        //movable& operator = (const movable&) = delete;
+        //movable& operator = (movable&&) = default;
+    };
+
+    BOOST_TEST((btree::detail::is_fixed_vector_trivial< movable >::value == true));
 }
 
 BOOST_AUTO_TEST_CASE(fixed_vector_basic_operations)

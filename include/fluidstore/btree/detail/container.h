@@ -1385,11 +1385,9 @@ namespace btree::detail
     template < typename Key, typename SizeType, SizeType Dim > struct internal_node : node
     {
         enum { N = Dim };
-
-        internal_node() = default;
-
-        uint8_t keys[(2 * N - 1) * sizeof(Key)];
-        uint8_t children[2 * N * sizeof(node*)];
+                
+        alignas(Key) uint8_t keys[(2 * N - 1) * sizeof(Key)];
+        alignas(node*) uint8_t children[2 * N * sizeof(node*)];
         internal_node< Key, SizeType, N >* parent;
         SizeType size;
     };

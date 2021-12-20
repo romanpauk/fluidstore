@@ -58,8 +58,7 @@ namespace btree::detail
     protected:
         Descriptor desc_;
     };
-
-    // TODO: what is the alignment of desc_.data()?
+        
     template < typename T, typename Descriptor, bool IsTrivial = is_fixed_vector_trivial< T >::value > struct fixed_vector
         : public fixed_vector_base< T, Descriptor >
     {

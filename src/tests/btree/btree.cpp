@@ -45,24 +45,6 @@ private:
     size_type size_;
 };
 
-template < typename T, typename Descriptor > auto find_node_index(const btree::detail::fixed_vector< T, Descriptor >& nodes, T n)
-{
-    for (decltype(nodes.capacity()) i = 0; i < nodes.capacity(); ++i)
-    {
-        if (*(nodes.begin() + i) == n)
-        {
-            return i;
-        }
-    }
-
-    return nodes.size();
-}
-
-BOOST_AUTO_TEST_CASE(btree_fixed_vector_find)
-{
-    btree::detail::fixed_vector < int, descriptor < int, 7 > > c((descriptor < int, 7 >()));
-    volatile auto p = find_node_index(c, 1);
-}
 
 BOOST_AUTO_TEST_CASE(btree_fixed_vector)
 {
@@ -74,34 +56,6 @@ BOOST_AUTO_TEST_CASE(btree_fixed_vector)
     c.clear(a);
 }
 
-BOOST_AUTO_TEST_CASE(btree_fixed_vector_move)
-{
-    struct non_movable
-    {
-        non_movable() = default;
-        non_movable(non_movable&&) = delete;
-        non_movable& operator = (non_movable&&) = delete;
-    };
-
-    struct movable
-    {
-        movable() = delete;
-        movable(int) {}
-        movable(movable&&) = default;
-        movable(const movable&) = delete;
-        
-        movable& operator = (const movable&) = delete;
-        movable& operator = (movable&&) = default;
-
-        // non_movable nm;
-    };
-
-    std::allocator< char > a;
-    btree::detail::fixed_vector < movable, descriptor < movable, 8 > > c((descriptor < movable, 8 >()));
-    c.emplace_back(a, 1);
-    
-    c.clear(a);
-}
 
 BOOST_AUTO_TEST_CASE(btree_fixed_split_vector)
 {

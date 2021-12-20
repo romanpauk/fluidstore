@@ -25,15 +25,8 @@ namespace crdt
         {}
 
         dot_kernel_allocator(const dot_kernel_allocator< Allocator, Container >& other) = default;
-
-        dot_kernel_allocator< Allocator, Container >& operator = (dot_kernel_allocator< Allocator, Container >&& other)
-        {
-            // TODO: think about who should move the container. dot_kernel_value resets that.
-
-            static_cast<Allocator&>(*this) = std::move(other);
-            return *this;
-        }
-
+        dot_kernel_allocator< Allocator, Container >& operator = (dot_kernel_allocator< Allocator, Container >&& other) = default;
+        
         void set_container(container_type* container) { container_ = container; }
         void update() { container_->update(); }
 
@@ -338,16 +331,9 @@ namespace crdt
         };
            
         dot_kernel() = default;
-
-        dot_kernel(dot_kernel_type&& other) = default;        
+        dot_kernel(dot_kernel_type&& other) = default;             
+        dot_kernel_type& operator = (dot_kernel_type&& other) = default;
         
-        dot_kernel_type& operator = (dot_kernel_type&& other)
-        {            
-            std::swap(values_, std::move(other.values_));
-            std::swap(replica_, std::move(other.replica_));
-            return *this;
-        }
-
         ~dot_kernel()
         {
             reset();

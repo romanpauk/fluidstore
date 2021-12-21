@@ -131,7 +131,8 @@ namespace btree
         Value& operator[](const Key& key)
         {
             // TODO: missing test
-            BTREE_CHECK_RETURN(base_type::emplace(allocator_, key, Value()).first->second);
+            // TODO: missing BTREE_CHECK_RETURN as it requires move
+            return (*base_type::emplace(allocator_, key, Value()).first).second;
         }
 
     private:

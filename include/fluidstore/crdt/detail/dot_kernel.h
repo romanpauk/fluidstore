@@ -72,11 +72,9 @@ namespace crdt
 
         using iterator = dot_kernel_iterator< typename values_type::iterator, Key, typename dot_kernel_value_type::value_type >;
         using const_iterator = dot_kernel_iterator< typename values_type::const_iterator, Key, typename dot_kernel_value_type::value_type >;
-
-        // TODO: parametrize by tag, tag_state does not have to hold temporary merge data.
+                
         struct replica_data
         {
-            // Persistent data
             dot_counters_base< counter_type, Tag > counters;
 
         #if defined(DOTKERNEL_BTREE)
@@ -180,7 +178,8 @@ namespace crdt
             arena< 8192 > arena;
             crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > tmp(allocator.get_replica(), arena);
 
-            //btree::map< replica_id_type, btree::set_base< counter_type >, std::less< replica_id_type >, decltype(tmp) > rvisited(tmp);
+            // TODO: this is added latery to make replica_data smaller, but it has a price as we need to search for it twice.
+            // btree::map< replica_id_type, btree::set_base< counter_type >, std::less< replica_id_type >, decltype(tmp) > rvisited(tmp);
 
             for (const auto& [replica_id, rdata] : other.get_replica())
             {
@@ -212,7 +211,6 @@ namespace crdt
                     
                     // Track visited dots
                     ldata.visited.insert(tmp, rdots.counters_.begin(), rdots.counters_.end());     
-
                     // rvisited[replica_id].insert(tmp, rdots.counters_.begin(), rdots.counters_.end());
 
                     for (const auto& counter : rdots.counters_)
@@ -231,6 +229,9 @@ namespace crdt
                 auto replica_it = replica_.find(replica_id);
                 if (replica_it != replica_.end())
                 {
+                    // TODO: other counters and visited can be tracked on rdata.
+                    // This way persistent replica_data will be two members less.
+
                     auto& ldata = replica_it->second;
                     const auto& rdata_counters = rdata.counters.counters_;
                     // const auto& rdata_visited = rvisited[replica_id];
@@ -243,10 +244,23 @@ namespace crdt
                         ldata.visited.begin(), ldata.visited.end(),
                         std::back_inserter(rdotsvalueless)
                     );
+                    
+                    /*
+                    auto it = rvisited.find(replica_id);
+                    if (it != rvisited.end())
+                    {
+                        auto& rdata_visited = (*it).second;
 
-                    // TODO: other counters and visited can be tracked on rdata.
-                    // Only after there will be valueless dots, we will query ldata and clear it.
-                    // This way persistent replica_data will be two members less.
+                        std::set_difference(
+                            rdata_counters.begin(), rdata_counters.end(),
+                            // ldata.visited.begin(), ldata.visited.end(),
+                            rdata_visited.begin(), rdata_visited.end(),
+                            std::back_inserter(rdotsvalueless)
+                        );
+
+                        rdata_visited.clear(tmp);
+                    }
+                    */
 
                     if (!rdotsvalueless.empty())
                     {

@@ -24,6 +24,9 @@ target_sources(fluidstore INTERFACE
     include/fluidstore/crdt/detail/dot_context.h
     include/fluidstore/crdt/detail/dot_counters_base.h
     include/fluidstore/crdt/detail/dot_kernel.h
+    include/fluidstore/crdt/detail/dot_kernel_allocator.h
+    include/fluidstore/crdt/detail/dot_kernel_iterator.h
+    include/fluidstore/crdt/detail/dot_kernel_value.h
     include/fluidstore/crdt/detail/traits.h
     include/fluidstore/crdt/hooks/hook_default.h
     include/fluidstore/crdt/hooks/hook_extract.h

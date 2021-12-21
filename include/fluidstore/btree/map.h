@@ -10,10 +10,8 @@ namespace btree
         {
             enum { N = Dim };
 
-            value_node() = default;
-
-            uint8_t keys[2 * N * sizeof(Key)];
-            uint8_t values[2 * N * sizeof(Value)];
+            alignas(Key) uint8_t keys[2 * N * sizeof(Key)];
+            alignas(Value) uint8_t values[2 * N * sizeof(Value)];
             InternalNodeType* parent;
 
         #if defined(BTREE_VALUE_NODE_LR)

@@ -94,10 +94,7 @@ namespace crdt
             }
             else
             {                
-            #if !defined(DOTKERNEL_BTREE)
-                //TODO
                 assert(false);
-            #endif
                 return Allocator::allocate(n);
             }
         }

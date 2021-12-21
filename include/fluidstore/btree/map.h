@@ -128,6 +128,12 @@ namespace btree
             BTREE_CHECK(base_type::clear(allocator_));
         }
 
+        Value& operator[](const Key& key)
+        {
+            // TODO: missing test
+            BTREE_CHECK_RETURN(base_type::emplace(allocator_, key, Value()).first->second);
+        }
+
     private:
         allocator_type allocator_;
     };

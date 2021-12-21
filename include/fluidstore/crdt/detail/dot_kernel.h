@@ -17,7 +17,36 @@
 #include <fluidstore/btree/set.h>
 
 namespace crdt
-{    
+{
+    /*
+        // This will not save any search.
+
+    template < typename Key, typename Counter, typename Tag > struct dot_kernel_replica_data;
+    
+    template < typename Key, typename Counter > struct dot_kernel_replica_data < Key, Counter, tag_state >
+    {
+        dot_counters_base< Counter, tag_state > counters;
+
+    #if defined(DOTKERNEL_BTREE)
+        btree::map_base< Counter, Key > dots;
+    #else
+        flat::map_base< Counter, Key > dots;
+    #endif       
+    };
+
+    template < typename Key, typename Counter > struct dot_kernel_replica_data < Key, Counter, tag_delta >
+        : dot_kernel_replica_data< Key, Counter, tag_state >
+    {
+    #if defined(DOTCOUNTERS_BTREE)
+        // Temporary merge data
+        btree::set_base< Counter > visited;
+    #else        
+        // Temporary merge data
+        flat::set_base< Counter > visited;
+    #endif
+    };
+    */
+
     template < typename Key, typename Value, typename Allocator, typename Container, typename Tag > class dot_kernel
     {
         template < typename KeyT, typename ValueT, typename AllocatorT, typename ContainerT, typename TagT > friend class dot_kernel;
@@ -44,6 +73,7 @@ namespace crdt
         using iterator = dot_kernel_iterator< typename values_type::iterator, Key, typename dot_kernel_value_type::value_type >;
         using const_iterator = dot_kernel_iterator< typename values_type::const_iterator, Key, typename dot_kernel_value_type::value_type >;
 
+        // TODO: parametrize by tag, tag_state does not have to hold temporary merge data.
         struct replica_data
         {
             // Persistent data
@@ -55,11 +85,9 @@ namespace crdt
             flat::map_base< counter_type, Key > dots;            
         #endif       
         #if defined(DOTCOUNTERS_BTREE)
-            const btree::set_base< counter_type >* other_counters;
             // Temporary merge data
             btree::set_base< counter_type > visited;
         #else
-            const flat::set_base< counter_type >* other_counters;
             // Temporary merge data
             flat::set_base< counter_type > visited;
         #endif
@@ -152,13 +180,13 @@ namespace crdt
             arena< 8192 > arena;
             crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > tmp(allocator.get_replica(), arena);
 
+            //btree::map< replica_id_type, btree::set_base< counter_type >, std::less< replica_id_type >, decltype(tmp) > rvisited(tmp);
+
             for (const auto& [replica_id, rdata] : other.get_replica())
             {
                 // Merge counters
                 auto& ldata = replica_.emplace(allocator, replica_id, replica_data()).first->second;
                 ldata.counters.merge(allocator, replica_id, rdata.counters);
-
-                ldata.other_counters = &rdata.counters.counters_;
             }
 
             // Merge values
@@ -183,8 +211,10 @@ namespace crdt
                     auto& ldata = replica_.emplace(allocator, replica_id, replica_data()).first->second;
                     
                     // Track visited dots
-                    ldata.visited.insert(tmp, rdots.counters_.begin(), rdots.counters_.end());
-                    
+                    ldata.visited.insert(tmp, rdots.counters_.begin(), rdots.counters_.end());     
+
+                    // rvisited[replica_id].insert(tmp, rdots.counters_.begin(), rdots.counters_.end());
+
                     for (const auto& counter : rdots.counters_)
                     {
                         // Create dot -> key link
@@ -202,15 +232,21 @@ namespace crdt
                 if (replica_it != replica_.end())
                 {
                     auto& ldata = replica_it->second;
+                    const auto& rdata_counters = rdata.counters.counters_;
+                    // const auto& rdata_visited = rvisited[replica_id];
 
                     // Find dots that were not visited during processing of values (thus valueless). Those are the ones to be removed.
                     // TODO: this should be deque.
                     flat::vector < counter_type, decltype(tmp) > rdotsvalueless(tmp);
                     std::set_difference(
-                        ldata.other_counters->begin(), ldata.other_counters->end(),
+                        rdata_counters.begin(), rdata_counters.end(),
                         ldata.visited.begin(), ldata.visited.end(),
                         std::back_inserter(rdotsvalueless)
                     );
+
+                    // TODO: other counters and visited can be tracked on rdata.
+                    // Only after there will be valueless dots, we will query ldata and clear it.
+                    // This way persistent replica_data will be two members less.
 
                     if (!rdotsvalueless.empty())
                     {
@@ -226,6 +262,8 @@ namespace crdt
                                 if (values_it->second.dots.empty())
                                 {
                                     auto it = values_.erase(allocator, values_it);
+
+                                    // Support for erase iterator return value
                                     ctx.register_erase(it);
                                 }
 

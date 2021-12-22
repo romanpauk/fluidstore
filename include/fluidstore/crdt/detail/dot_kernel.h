@@ -53,6 +53,10 @@ namespace crdt
         #else
             flat::map_base< counter_type, Key > dots;            
         #endif       
+
+            // TODO: this either needs to go (ideally), or it needs to become much smaller. 
+            // But there is some practicality on it being here as in all places where we need this, we 
+            // we already are searching for replica_data.
         #if defined(DOTCOUNTERS_BTREE)
             // Temporary merge data
             btree::set_base< counter_type > visited;

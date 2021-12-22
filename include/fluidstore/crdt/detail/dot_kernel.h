@@ -18,35 +18,6 @@
 
 namespace crdt
 {
-    /*
-        // This will not save any search.
-
-    template < typename Key, typename Counter, typename Tag > struct dot_kernel_replica_data;
-    
-    template < typename Key, typename Counter > struct dot_kernel_replica_data < Key, Counter, tag_state >
-    {
-        dot_counters_base< Counter, tag_state > counters;
-
-    #if defined(DOTKERNEL_BTREE)
-        btree::map_base< Counter, Key > dots;
-    #else
-        flat::map_base< Counter, Key > dots;
-    #endif       
-    };
-
-    template < typename Key, typename Counter > struct dot_kernel_replica_data < Key, Counter, tag_delta >
-        : dot_kernel_replica_data< Key, Counter, tag_state >
-    {
-    #if defined(DOTCOUNTERS_BTREE)
-        // Temporary merge data
-        btree::set_base< Counter > visited;
-    #else        
-        // Temporary merge data
-        flat::set_base< Counter > visited;
-    #endif
-    };
-    */
-
     template < typename Key, typename Value, typename Allocator, typename Container, typename Tag > class dot_kernel
     {
         template < typename KeyT, typename ValueT, typename AllocatorT, typename ContainerT, typename TagT > friend class dot_kernel;
@@ -179,14 +150,7 @@ namespace crdt
             crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > tmp(allocator.get_replica(), arena);
 
             // TODO: this is added latery to make replica_data smaller, but it has a price as we need to search for it twice.
-            // btree::map< replica_id_type, btree::set_base< counter_type >, std::less< replica_id_type >, decltype(tmp) > rvisited(tmp);
-
-            for (const auto& [replica_id, rdata] : other.get_replica())
-            {
-                // Merge counters
-                auto& ldata = replica_.emplace(allocator, replica_id, replica_data()).first->second;
-                ldata.counters.merge(allocator, replica_id, rdata.counters);
-            }
+            // btree::map< replica_id_type, btree::set_base< counter_type >, std::less< replica_id_type >, decltype(tmp) > rvisited(tmp);         
 
             // Merge values
             for (const auto& [rkey, rvalue] : other.get_values())
@@ -207,11 +171,13 @@ namespace crdt
 
                 for (const auto& [replica_id, rdots] : rvalue.dots)
                 {
-                    auto& ldata = replica_.emplace(allocator, replica_id, replica_data()).first->second;
-                    
                     // Track visited dots
-                    ldata.visited.insert(tmp, rdots.counters_.begin(), rdots.counters_.end());     
-                    // rvisited[replica_id].insert(tmp, rdots.counters_.begin(), rdots.counters_.end());
+                                        
+                    // TODO: better insert
+                    //rvisited[replica_id].insert(tmp, rdots.counters_.begin(), rdots.counters_.end());
+
+                    auto& ldata = replica_.emplace(allocator, replica_id, replica_data()).first->second;
+                    ldata.visited.insert(tmp, rdots.counters_.begin(), rdots.counters_.end());
 
                     for (const auto& counter : rdots.counters_)
                     {
@@ -224,69 +190,79 @@ namespace crdt
                 ctx.register_insert(lpb);
             }
 
+            // Merge replicas
             for (auto& [replica_id, rdata] : other.get_replica())
             {
-                auto replica_it = replica_.find(replica_id);
-                if (replica_it != replica_.end())
+                // Merge global counters
+                auto& ldata = replica_.emplace(allocator, replica_id, replica_data()).first->second;
+                ldata.counters.merge(allocator, replica_id, rdata.counters);
+
+                const auto& rdata_counters = rdata.counters.counters_;
+
+                // Determine deleted values (those are the ones we have not visited in a loop over values).
+
+                // TODO: deque
+                flat::vector < counter_type, decltype(tmp) > rdotsvalueless(tmp);
+
+                //*                
+                std::set_difference(
+                    rdata_counters.begin(), rdata_counters.end(),
+                    ldata.visited.begin(), ldata.visited.end(),
+                    std::back_inserter(rdotsvalueless)
+                );
+                
+                ldata.visited.clear(tmp);
+                //*/
+
+                /*
+                auto it = rvisited.find(replica_id);
+                if (it != rvisited.end())
                 {
-                    // TODO: other counters and visited can be tracked on rdata.
-                    // This way persistent replica_data will be two members less.
+                    auto& rdata_visited = (*it).second;
 
-                    auto& ldata = replica_it->second;
-                    const auto& rdata_counters = rdata.counters.counters_;
-                    // const auto& rdata_visited = rvisited[replica_id];
-
-                    // Find dots that were not visited during processing of values (thus valueless). Those are the ones to be removed.
-                    // TODO: this should be deque.
-                    flat::vector < counter_type, decltype(tmp) > rdotsvalueless(tmp);
                     std::set_difference(
                         rdata_counters.begin(), rdata_counters.end(),
-                        ldata.visited.begin(), ldata.visited.end(),
+                        rdata_visited.begin(), rdata_visited.end(),
                         std::back_inserter(rdotsvalueless)
                     );
-                    
-                    /*
-                    auto it = rvisited.find(replica_id);
-                    if (it != rvisited.end())
+
+                    rdata_visited.clear(tmp);
+                }
+                else
+                {
+                    // TODO:
+                    btree::set_base< counter_type > empty_visited;
+                    std::set_difference(
+                        rdata_counters.begin(), rdata_counters.end(),
+                        // ldata.visited.begin(), ldata.visited.end(),
+                        empty_visited.begin(), empty_visited.end(),
+                        std::back_inserter(rdotsvalueless)
+                    );
+
+                    // TODO:
+                    // rdotsavalueless.assign(rdata_counters.begin(), rdata_counters.end());
+                }
+                */
+
+                for (const auto& counter : rdotsvalueless)
+                {
+                    auto counter_it = ldata.dots.find(counter);
+                    if (counter_it != ldata.dots.end())
                     {
-                        auto& rdata_visited = (*it).second;
+                        auto& lkey = counter_it->second;
+                        auto values_it = values_.find(lkey);
+                        values_it->second.dots.erase(allocator, dot_type{ replica_id, counter });
 
-                        std::set_difference(
-                            rdata_counters.begin(), rdata_counters.end(),
-                            // ldata.visited.begin(), ldata.visited.end(),
-                            rdata_visited.begin(), rdata_visited.end(),
-                            std::back_inserter(rdotsvalueless)
-                        );
-
-                        rdata_visited.clear(tmp);
-                    }
-                    */
-
-                    if (!rdotsvalueless.empty())
-                    {
-                        for (const auto& counter : rdotsvalueless)
+                        if (values_it->second.dots.empty())
                         {
-                            auto counter_it = ldata.dots.find(counter);
-                            if (counter_it != ldata.dots.end())
-                            {
-                                auto& lkey = counter_it->second;
-                                auto values_it = values_.find(lkey);
-                                values_it->second.dots.erase(allocator, dot_type{ replica_id, counter });
-                            
-                                if (values_it->second.dots.empty())
-                                {
-                                    auto it = values_.erase(allocator, values_it);
+                            auto it = values_.erase(allocator, values_it);
 
-                                    // Support for erase iterator return value
-                                    ctx.register_erase(it);
-                                }
-
-                                ldata.dots.erase(allocator, counter_it);
-                            }
+                            // Support for erase iterator return value
+                            ctx.register_erase(it);
                         }
-                    }
 
-                    ldata.visited.clear(tmp);
+                        ldata.dots.erase(allocator, counter_it);
+                    }
                 }
             }
         }

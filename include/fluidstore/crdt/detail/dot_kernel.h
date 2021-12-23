@@ -16,45 +16,6 @@
 #include <fluidstore/btree/map.h>
 #include <fluidstore/btree/set.h>
 
-//
-// dot_kernel_value
-//      dot_context - map< replica, set< counter > >
-//          - few replicas
-//      - N*40 - move to pointer
-//      = N*8
-//
-// dot_kernel
-//      replicas_ 
-//          40 counters        - collapsed counters
-//              - few
-//          40 dots            - counter -> key map
-//              - a lot, for all keys
-//          40 visited          - temporary, should be removed
-//          = 8
-//      - there will always be all replicas, but not full nodes
-//      - N*120
-//      = N*8
-//         
-//      values_             - key -> dot_kernel_value
-//      - there will be a lot values (and a lot of non-full nodes)
-//      - N*(8*40)
-//      = N*8
-//
-// need to share common data across different data structures
-//   replica_id, instance_id -> counters, dots, (visited)
-//      - big per instance overhead
-//
-//   replica_id
-//      (instance_id, counter)
-//      (instance_id, dot, key)
-//      - instances merged together
-//
-// dot_kernel
-//      8 instance_id
-//      8 replicas_*
-//      8 values_;
-//
-
 namespace crdt
 {
     template < typename Key, typename Value, typename Allocator, typename Container, typename Tag > class dot_kernel
@@ -194,7 +155,7 @@ namespace crdt
             arena< 8192 > arena;
             crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > tmp(allocator.get_replica(), arena);
 
-            // TODO: this is added latery to make replica_data smaller, but it has a price as we need to search for it twice.
+            // TODO: this is added to make replica_data smaller, but it has a price as we need to search for it twice.
             // btree::map< replica_id_type, btree::set_base< counter_type >, std::less< replica_id_type >, decltype(tmp) > rvisited(tmp);         
 
             // Merge values

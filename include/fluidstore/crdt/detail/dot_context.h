@@ -159,6 +159,7 @@ namespace crdt
     private:
         // TODO: constness
     #if defined(DOTCONTEXT_BTREE)
+        // TODO: use pointer for value
         mutable btree::map_base < replica_id_type, dot_counters_base< counter_type, Tag, size_type > > counters_;
     #else
         mutable flat::map_base< 

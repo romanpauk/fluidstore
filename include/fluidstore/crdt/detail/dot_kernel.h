@@ -16,6 +16,45 @@
 #include <fluidstore/btree/map.h>
 #include <fluidstore/btree/set.h>
 
+//
+// dot_kernel_value
+//      dot_context - map< replica, set< counter > >
+//          - few replicas
+//      - N*40 - move to pointer
+//      = N*8
+//
+// dot_kernel
+//      replicas_ 
+//          40 counters        - collapsed counters
+//              - few
+//          40 dots            - counter -> key map
+//              - a lot, for all keys
+//          40 visited          - temporary, should be removed
+//          = 8
+//      - there will always be all replicas, but not full nodes
+//      - N*120
+//      = N*8
+//         
+//      values_             - key -> dot_kernel_value
+//      - there will be a lot values (and a lot of non-full nodes)
+//      - N*(8*40)
+//      = N*8
+//
+// need to share common data across different data structures
+//   replica_id, instance_id -> counters, dots, (visited)
+//      - big per instance overhead
+//
+//   replica_id
+//      (instance_id, counter)
+//      (instance_id, dot, key)
+//      - instances merged together
+//
+// dot_kernel
+//      8 instance_id
+//      8 replicas_*
+//      8 values_;
+//
+
 namespace crdt
 {
     template < typename Key, typename Value, typename Allocator, typename Container, typename Tag > class dot_kernel
@@ -36,6 +75,7 @@ namespace crdt
         using dot_kernel_value_type = dot_kernel_value< Key, Value, Allocator, dot_context_type, dot_kernel_type >;
 
     #if defined(DOTKERNEL_BTREE)
+        // TODO: use pointer for value
         using values_type = btree::map_base< Key, dot_kernel_value_type >;
     #else
         using values_type = flat::map_base< Key, Value, dot_kernel_value_type >;
@@ -67,6 +107,7 @@ namespace crdt
         };
         
     #if defined(DOTKERNEL_BTREE)
+        // TODO: use pointer for replica
         using replicas_type = btree::map_base< replica_id_type, replica_data >;
     #else
         using replicas_type = flat::map_base< replica_id_type, replica_data >;

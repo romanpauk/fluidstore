@@ -20,8 +20,9 @@
 namespace crdt
 {
     template < typename Key, typename Value, typename Allocator, typename Container, typename Tag, 
-        typename Metadata = detail::metadata< Key, Tag, Allocator, detail::metadata_local > > 
+        typename Metadata = detail::metadata< Key, Tag, Allocator, detail::tag_local > > 
     class dot_kernel
+        : public detail::metadata_base< Container, Metadata >
     {
         template < typename KeyT, typename ValueT, typename AllocatorT, typename ContainerT, typename TagT, typename Metadata > friend class dot_kernel;
 
@@ -77,7 +78,7 @@ namespace crdt
 
             void register_erase(const dot_type& dot) 
             {                
-                metadata_.erase_counter(allocator_, dot.replica_id, dot.counter);
+                metadata_.erase_dot(allocator_, dot.replica_id, dot.counter);
             }
 
         private:
@@ -104,7 +105,7 @@ namespace crdt
             }
             values_.clear(allocator);
 
-            metadata_.clear(allocator);            
+            get_metadata().clear(allocator);            
         }
 
         template < typename DotKernel >
@@ -124,6 +125,8 @@ namespace crdt
             // TODO: this is added to make replica_data smaller, but it has a price as we need to search for it twice.
             // btree::map< replica_id_type, btree::set_base< counter_type >, std::less< replica_id_type >, decltype(tmp) > rvisited(tmp);         
 
+            auto& meta = get_metadata();
+
             // Merge values
             for (const auto& [rkey, rvalue] : other.get_values())
             {
@@ -134,7 +137,7 @@ namespace crdt
             #endif
                 auto& lvalue = *lpb.first;
 
-                value_context value_ctx(allocator, metadata_);
+                value_context value_ctx(allocator, get_metadata());
             #if defined(DOTKERNEL_BTREE)
                 lvalue.second.merge(allocator, rvalue, value_ctx);
             #else
@@ -148,13 +151,13 @@ namespace crdt
                     // TODO: better insert
                     //rvisited[replica_id].insert(tmp, rdots.counters_.begin(), rdots.counters_.end());
 
-                    auto& ldata = metadata_.get_replica_data(allocator, replica_id); // replica_.emplace(allocator, replica_id, replica_data()).first->second;
+                    auto& ldata = meta.get_replica_data(allocator, replica_id); // replica_.emplace(allocator, replica_id, replica_data()).first->second;
                     ldata.visited.insert(tmp, rdots.counters_.begin(), rdots.counters_.end());
 
                     for (const auto& counter : rdots.counters_)
                     {
                         // Create dot -> key link
-                        ldata.dots.emplace(allocator, counter, rkey);
+                        meta.add_dot(allocator, ldata, counter, rkey);
                     }
                 }
 
@@ -166,9 +169,10 @@ namespace crdt
             for (auto& [replica_id, rdata] : other.get_replica_map())
             {
                 // Merge global counters
-                auto& ldata = metadata_.get_replica_data(allocator, replica_id);
-                ldata.counters.merge(allocator, replica_id, rdata.counters);
-
+                auto& ldata = meta.get_replica_data(allocator, replica_id);
+                
+                meta.merge_counters(allocator, ldata, replica_id, rdata);
+                
                 const auto& rdata_counters = rdata.counters.counters_;
 
                 // Determine deleted values (those are the ones we have not visited in a loop over values).
@@ -233,7 +237,7 @@ namespace crdt
                             ctx.register_erase(it);
                         }
 
-                        ldata.dots.erase(allocator, counter_it);
+                        meta.erase_dot(allocator, ldata, counter_it);
                     }
                 }
             }
@@ -275,14 +279,14 @@ namespace crdt
             auto allocator = static_cast<Container*>(this)->get_allocator();
             for (auto& [replica_id, counters] : dots)
             {                
-                metadata_.get_replica_data(allocator, replica_id).counters.insert(allocator, counters);
+                get_metadata().get_replica_data(allocator, replica_id).counters.insert(allocator, counters);
             }
         }
 
         void add_counter_dot(const dot_type& dot)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
-            metadata_.get_replica_data(allocator, dot.replica_id).counters.emplace(allocator, dot.counter);
+            get_metadata().get_replica_data(allocator, dot.replica_id).counters.emplace(allocator, dot.counter);
         }
 
         // TODO: const
@@ -290,7 +294,7 @@ namespace crdt
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
             auto replica_id = allocator.get_replica().get_id();
-            return { replica_id, metadata_.get_counter(replica_id) + 1 };
+            return { replica_id, get_metadata().get_counter(replica_id) + 1 };
         }
 
         void add_value(const Key& key, const dot_type& dot)
@@ -318,12 +322,11 @@ namespace crdt
             data.second.value.merge(value);
         }
                 
-        const auto& get_replica_map() const { return metadata_.get_replica_map(); }
+        const auto& get_replica_map() const { return get_metadata().get_replica_map(); }
 
         const values_type& get_values() const { return values_; }
 
     private:
         values_type values_;
-        metadata_type metadata_;
     };
 }

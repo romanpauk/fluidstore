@@ -54,15 +54,21 @@ namespace crdt
 {
     namespace detail 
     {
-        struct metadata_local {};
-        struct metadata_shared {};
+        struct tag_local {};
+        struct tag_shared {};
 
         // template < typename ReplicaId, typename InstanceId, typename Counter, typename Tag > struct metadata;
 
         template < typename Key, typename Tag, typename Allocator, typename MetadataTag > struct metadata;
 
+        // TODO: Shared metadata will use shared allocator
+        //  Local metadata should local allocator.
+        // 
+        // What to do with Key/Tag? Replica that will own metadata for shared will not know them.
+        // Shared metadata will need to have support for dynamic creation of keys/tags sets.
+
         template < typename Key, typename Tag, typename Allocator > struct metadata
-            < Key, Tag, Allocator, metadata_shared >
+            < Key, Tag, Allocator, tag_shared >
         {
             // Instance ids
             //InstanceId acquire_instance_id();
@@ -93,10 +99,12 @@ namespace crdt
             // Values (note that this is per-Instance-per-Key)
             //btree::map_base< std::pair< InstanceId, Key >, dot_counters_base< Counter, Tag >* > value_counters;
         };
-
+                
         template <  typename Key, typename Tag, typename Allocator > struct metadata
-            < Key, Tag, Allocator, metadata_local >
+            < Key, Tag, Allocator, tag_local >
         {
+            using metadata_tag_type = tag_local;
+
             using allocator_type = Allocator;
             using replica_type = typename allocator_type::replica_type;
             using replica_id_type = typename replica_type::replica_id_type;
@@ -115,7 +123,7 @@ namespace crdt
             };
 
             replica_data& get_replica_data(Allocator& allocator, replica_id_type id)
-            {                
+            {
                 return replica_.emplace(allocator, id, replica_data()).first->second;
             }
 
@@ -137,13 +145,28 @@ namespace crdt
                 return counter;
             }
 
-            void erase_counter(Allocator& allocator, replica_id_type id, counter_type counter)
+            template < typename ReplicaData > void merge_counters(Allocator& allocator, replica_data& lhs, replica_id_type id, ReplicaData& rhs)
+            {
+                lhs.counters.merge(allocator, id, rhs.counters);
+            }
+
+            template < typename Key > void add_dot(Allocator& allocator, replica_data& replica, counter_type counter, Key key)
+            {
+                replica.dots.emplace(allocator, counter, key);
+            }
+
+            void erase_dot(Allocator& allocator, replica_id_type id, counter_type counter)
             {
                 auto replica = get_replica_data(id);
                 if (replica)
                 {
                     replica->dots.erase(allocator, counter);
                 }
+            }
+
+            void erase_dot(Allocator& allocator, replica_data& replica, typename btree::map_base< counter_type, Key >::iterator it)
+            {
+                replica.dots.erase(allocator, it);
             }
 
             const btree::map_base < replica_id_type, replica_data >& get_replica_map() const { return replica_; }
@@ -158,12 +181,29 @@ namespace crdt
                 }
                 replica_.clear(allocator);
             }
-
+                        
         private:
             btree::map_base < replica_id_type, replica_data > replica_;
 
             // Values (note that this is per-Instance-per-Key)
             //btree::map_base< Key, dot_counters_base< Counter, Tag >* > value_counters;
+        };
+
+        template < typename Container, typename Metadata, typename MetadataTag = typename Metadata::metadata_tag_type > struct metadata_base;
+        
+        template < typename Container, typename Metadata > struct metadata_base< Container, Metadata, tag_local >
+        {            
+            Metadata& get_metadata() { return metadata_; }
+            const Metadata& get_metadata() const { return metadata_; }
+
+        private:
+            Metadata metadata_;
+        };
+        
+        template < typename Container, typename Metadata > struct metadata_base< Container, Metadata, tag_shared >
+        {
+            Metadata& get_metadata() { return static_cast< Container* >(this)->get_replica().get_metadata(); }
+            const Metadata& get_metadata() const { return return static_cast<Container*>(this)->get_replica().get_metadata(); }
         };
 
         template < typename T, typename Id > struct instance_base

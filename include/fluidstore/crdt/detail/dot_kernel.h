@@ -7,6 +7,7 @@
 #include <fluidstore/crdt/detail/dot_kernel_allocator.h>
 #include <fluidstore/crdt/detail/dot_kernel_iterator.h>
 #include <fluidstore/crdt/detail/dot_kernel_value.h>
+#include <fluidstore/crdt/detail/metadata.h>
 
 #include <fluidstore/crdt/allocator.h>
 #include <fluidstore/allocators/arena_allocator.h>
@@ -18,19 +19,22 @@
 
 namespace crdt
 {
-    template < typename Key, typename Value, typename Allocator, typename Container, typename Tag > class dot_kernel
+    template < typename Key, typename Value, typename Allocator, typename Container, typename Tag, 
+        typename Metadata = detail::metadata< Key, Tag, Allocator, detail::metadata_local > > 
+    class dot_kernel
     {
-        template < typename KeyT, typename ValueT, typename AllocatorT, typename ContainerT, typename TagT > friend class dot_kernel;
+        template < typename KeyT, typename ValueT, typename AllocatorT, typename ContainerT, typename TagT, typename Metadata > friend class dot_kernel;
 
     public:
         using allocator_type = Allocator;           
-    
+        using metadata_type = Metadata;
+
         using replica_type = typename allocator_type::replica_type;
         using replica_id_type = typename replica_type::replica_id_type;
         using counter_type = typename replica_type::counter_type;
 
         using dot_type = dot< replica_id_type, counter_type >;
-        using dot_kernel_type = dot_kernel< Key, Value, allocator_type, Container, Tag >;
+        using dot_kernel_type = dot_kernel< Key, Value, allocator_type, Container, Tag, Metadata >;
         using dot_context_type = dot_context< dot_type, Tag >;
         
         using dot_kernel_value_type = dot_kernel_value< Key, Value, Allocator, dot_context_type, dot_kernel_type >;
@@ -44,36 +48,7 @@ namespace crdt
 
         using iterator = dot_kernel_iterator< typename values_type::iterator, Key, typename dot_kernel_value_type::value_type >;
         using const_iterator = dot_kernel_iterator< typename values_type::const_iterator, Key, typename dot_kernel_value_type::value_type >;
-                
-        struct replica_data
-        {
-            dot_counters_base< counter_type, Tag > counters;
-
-        #if defined(DOTKERNEL_BTREE)
-            btree::map_base< counter_type, Key > dots;
-        #else
-            flat::map_base< counter_type, Key > dots;            
-        #endif       
-
-            // TODO: this either needs to go (ideally), or it needs to become much smaller. 
-            // But there is some practicality on it being here as in all places where we need this, we 
-            // we already are searching for replica_data.
-        #if defined(DOTCOUNTERS_BTREE)
-            // Temporary merge data
-            btree::set_base< counter_type > visited;
-        #else
-            // Temporary merge data
-            flat::set_base< counter_type > visited;
-        #endif
-        };
-        
-    #if defined(DOTKERNEL_BTREE)
-        // TODO: use pointer for replica
-        using replicas_type = btree::map_base< replica_id_type, replica_data >;
-    #else
-        using replicas_type = flat::map_base< replica_id_type, replica_data >;
-    #endif
-
+               
         struct context
         {
             void register_insert(std::pair< typename values_type::iterator, bool >) {}
@@ -93,25 +68,25 @@ namespace crdt
             size_t count = 0;
         };
 
-        template < typename AllocatorT, typename ReplicaMap > struct value_context
+        template < typename AllocatorT, typename MetadataT > struct value_context
         {
-            value_context(AllocatorT& allocator, ReplicaMap& replica)
+            value_context(AllocatorT& allocator, MetadataT& metadata)
                 : allocator_(allocator)
-                , replica_(replica)
+                , metadata_(metadata)
             {}
 
             void register_erase(const dot_type& dot) 
-            { 
-                auto it = replica_.find(dot.replica_id);
-                if (it != replica_.end())
+            {                
+                auto replica = metadata_.get_replica_data(dot.replica_id);
+                if (replica)
                 {
-                    it->second.dots.erase(allocator_, dot.counter);
+                    replica->dots.erase(allocator_, dot.counter);
                 }
             }
 
         private:
-            Allocator& allocator_;
-            ReplicaMap& replica_;
+            AllocatorT& allocator_;
+            MetadataT& metadata_;
         };
            
         dot_kernel() = default;
@@ -133,12 +108,7 @@ namespace crdt
             }
             values_.clear(allocator);
 
-            for (auto& [replica_id, data] : replica_)
-            {
-                data.counters.clear(allocator);
-                data.dots.clear(allocator);
-            }
-            replica_.clear(allocator);
+            metadata_.clear(allocator);            
         }
 
         template < typename DotKernel >
@@ -168,7 +138,7 @@ namespace crdt
             #endif
                 auto& lvalue = *lpb.first;
 
-                value_context value_ctx(allocator, replica_);
+                value_context value_ctx(allocator, metadata_);
             #if defined(DOTKERNEL_BTREE)
                 lvalue.second.merge(allocator, rvalue, value_ctx);
             #else
@@ -182,7 +152,7 @@ namespace crdt
                     // TODO: better insert
                     //rvisited[replica_id].insert(tmp, rdots.counters_.begin(), rdots.counters_.end());
 
-                    auto& ldata = replica_.emplace(allocator, replica_id, replica_data()).first->second;
+                    auto& ldata = metadata_.get_replica_data(allocator, replica_id); // replica_.emplace(allocator, replica_id, replica_data()).first->second;
                     ldata.visited.insert(tmp, rdots.counters_.begin(), rdots.counters_.end());
 
                     for (const auto& counter : rdots.counters_)
@@ -197,10 +167,11 @@ namespace crdt
             }
 
             // Merge replicas
-            for (auto& [replica_id, rdata] : other.get_replica())
+            for (auto& [replica_id, rdata] : other.get_replica_map())
             {
                 // Merge global counters
-                auto& ldata = replica_.emplace(allocator, replica_id, replica_data()).first->second;
+                // auto& ldata = replica_.emplace(allocator, replica_id, replica_data()).first->second;
+                auto& ldata = metadata_.get_replica_data(allocator, replica_id);
                 ldata.counters.merge(allocator, replica_id, rdata.counters);
 
                 const auto& rdata_counters = rdata.counters.counters_;
@@ -308,26 +279,28 @@ namespace crdt
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
             for (auto& [replica_id, counters] : dots)
-            {
-                replica_.emplace(allocator, replica_id, replica_data()).first->second.counters.insert(allocator, counters);
+            {                
+                metadata_.get_replica_data(allocator, replica_id).counters.insert(allocator, counters);
             }
         }
 
         void add_counter_dot(const dot_type& dot)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
-            replica_.emplace(allocator, dot.replica_id, replica_data()).first->second.counters.emplace(allocator, dot.counter);
+            metadata_.get_replica_data(allocator, dot.replica_id).counters.emplace(allocator, dot.counter);
         }
 
         // TODO: const
         dot_type get_next_dot()
         {
-            auto replica_id = static_cast<Container*>(this)->get_allocator().get_replica().get_id();
+            auto allocator = static_cast<Container*>(this)->get_allocator();
+            auto replica_id = allocator.get_replica().get_id();
             counter_type counter = 1;
-            auto it = replica_.find(replica_id);
-            if (it != replica_.end())
+            
+            auto replica = metadata_.get_replica_data(replica_id);
+            if (replica)
             {
-                counter = it->second.counters.get() + 1;
+                counter = replica->counters.get() + 1;
             }
             
             return { replica_id, counter };
@@ -357,12 +330,13 @@ namespace crdt
         #endif
             data.second.value.merge(value);
         }
+                
+        const auto& get_replica_map() const { return metadata_.get_replica_map(); }
 
-        const replicas_type& get_replica() const { return replica_; }
         const values_type& get_values() const { return values_; }
 
     private:
         values_type values_;
-        replicas_type replica_;
+        metadata_type metadata_;
     };
 }

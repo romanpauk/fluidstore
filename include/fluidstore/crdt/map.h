@@ -184,7 +184,7 @@ namespace crdt
             using dot_kernel_type::end;
 
             using dot_kernel_type::merge;
-            using dot_kernel_type::get_replica;
+            using dot_kernel_type::get_replica_map;
             using dot_kernel_type::get_values;
 
         private:

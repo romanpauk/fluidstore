@@ -77,11 +77,7 @@ namespace crdt
 
             void register_erase(const dot_type& dot) 
             {                
-                auto replica = metadata_.get_replica_data(dot.replica_id);
-                if (replica)
-                {
-                    replica->dots.erase(allocator_, dot.counter);
-                }
+                metadata_.erase_counter(allocator_, dot.replica_id, dot.counter);
             }
 
         private:
@@ -170,7 +166,6 @@ namespace crdt
             for (auto& [replica_id, rdata] : other.get_replica_map())
             {
                 // Merge global counters
-                // auto& ldata = replica_.emplace(allocator, replica_id, replica_data()).first->second;
                 auto& ldata = metadata_.get_replica_data(allocator, replica_id);
                 ldata.counters.merge(allocator, replica_id, rdata.counters);
 
@@ -295,15 +290,7 @@ namespace crdt
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
             auto replica_id = allocator.get_replica().get_id();
-            counter_type counter = 1;
-            
-            auto replica = metadata_.get_replica_data(replica_id);
-            if (replica)
-            {
-                counter = replica->counters.get() + 1;
-            }
-            
-            return { replica_id, counter };
+            return { replica_id, metadata_.get_counter(replica_id) + 1 };
         }
 
         void add_value(const Key& key, const dot_type& dot)

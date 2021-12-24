@@ -125,6 +125,27 @@ namespace crdt
                 return it != replica_.end() ? &it->second : nullptr;
             }
 
+            counter_type get_counter(replica_id_type id)
+            {
+                counter_type counter = counter_type();
+                auto replica = get_replica_data(id);
+                if (replica)
+                {
+                    counter = replica->counters.get();
+                }
+
+                return counter;
+            }
+
+            void erase_counter(Allocator& allocator, replica_id_type id, counter_type counter)
+            {
+                auto replica = get_replica_data(id);
+                if (replica)
+                {
+                    replica->dots.erase(allocator, counter);
+                }
+            }
+
             const btree::map_base < replica_id_type, replica_data >& get_replica_map() const { return replica_; }
             btree::map_base < replica_id_type, replica_data >& get_replica_map() { return replica_; }
 

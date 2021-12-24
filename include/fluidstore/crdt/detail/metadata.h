@@ -1,5 +1,7 @@
 #pragma once
 
+#include <fluidstore/btree/set.h>
+#include <fluidstore/btree/map.h>
 
 //
 // dot_kernel_value
@@ -52,7 +54,9 @@ namespace crdt
 {
     namespace detail 
     {
-        template < typename ReplicaId, typename InstanceId, typename Counter, typename Tag > struct metadata
+        // template < typename ReplicaId, typename InstanceId, typename Counter, typename Tag > struct metadata;
+
+        template < typename Allocator, typename ReplicaId, typename InstanceId, typename Counter, typename Key, typename Tag > struct metadata_shared
         {
             // Instance ids
             InstanceId acquire_instance_id();
@@ -61,14 +65,46 @@ namespace crdt
             // Replicas
             struct replica_data
             {
+                // TODO: this should be rewriten using InstanceId, Counter
                 btree::map_base< InstanceId, dot_counters_base< Counter, Tag >* > counters;
                 btree::map_base< std::pair< InstanceId, Counter >, Key > dots;
+            };
+
+            replica_data& get_replica_data(ReplicaId);
+            
+            void add_dot(replica_data::dots_type&, InstanceId, Counter, Key);
+            replica_data::dots_type::iterator find_dot(replica_data::dots_type&, InstanceId, Counter);
+            auto erase_dot(replica_data::dots_type::iterator);
+            Key get_key(replica_data::dots_type::iterator);
+
+            void merge_counters(replica_data::counters_type&, InstanceId);
+            
+            void clear_instance(InstanceId);
+
+        private:
+            btree::map_base< ReplicaId, replica_data > replicas;
+
+            // Values (note that this is per-Instance-per-Key)
+            btree::map_base< std::pair< InstanceId, Key >, dot_counters_base< Counter, Tag >* > value_counters;
+        };
+
+        template < typename ReplicaId, typename InstanceId, typename Counter, typename Key, typename Tag > struct metadata_local
+        {
+            // Instance ids
+            // InstanceId acquire_instance_id();
+            // void release_instance_id(InstanceId);
+
+            // Replicas
+            struct replica_data
+            {
+                dot_counters_base< Counter, Tag > counters;
+                btree::map_base< Counter, Key > dots;
             };
 
             btree::map_base< ReplicaId, replica_data > replicas;
 
             // Values (note that this is per-Instance-per-Key)
-            btree::map_base< std::pair< InstanceId, Key >, dot_counters_base* > value_counters;
+            btree::map_base< Key, dot_counters_base< Counter, Tag >* > value_counters;
         };
 
         template < typename T, typename Id > struct instance_base

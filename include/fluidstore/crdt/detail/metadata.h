@@ -41,6 +41,8 @@
 //      8 instance_id
 //      8 metadata_*
 //      8 values_*;
+//   maybe 8 keyids_*
+//
 //
 // how to get there:
 //      replica will provide next id to crdt upon creation lazily, crdts will return it when done
@@ -77,9 +79,19 @@ namespace crdt
             // Replicas
             struct replica_data
             {
-                // TODO: this should be rewriten using InstanceId, Counter
-                //btree::map_base< InstanceId, dot_counters_base< Counter, Tag >* > counters;
-                //btree::map_base< std::pair< InstanceId, Counter >, Key > dots;
+                // What to do with Key type?
+                // 1. can have map from incrementing global id to Key on crdt struct
+                //   (that will always append). This way, key stay in topmost layer.
+                //   Price to pay is another non-shareable map per crdt instance.
+                //   But it might help me going forward and get shared metadata working quicker.
+                // 2. can be dynamically allocated in shared map, keyed by Key type.
+                //    each Key type will get int assigned and each value will be
+                //    pointer to concrete map. it will have to be virtual to be deleted.
+                
+                // TODO: will need a view over range fixed by InstanceId.
+                //btree::set_base< std::tuple< InstanceId, Counter > > counters;
+                //btree::map_base< std::tuple< InstanceId, Counter >, Key > dots;
+                //btree::set_base< std::tuple< Key, InstanceId, ReplicaId, Counter > > value_dots;
             };
 
             //replica_data& get_replica_data(ReplicaId);
@@ -117,8 +129,12 @@ namespace crdt
             // Replicas
             struct replica_data
             {
+                // TODO:
+                // this is btree::set_base< counter_type >, tag is for algorithm
                 dot_counters_base< counter_type, Tag > counters;
+
                 btree::map_base< counter_type, Key > dots;
+                
                 btree::set_base< counter_type > visited;
             };
 
@@ -185,8 +201,11 @@ namespace crdt
         private:
             btree::map_base < replica_id_type, replica_data > replica_;
 
-            // Values (note that this is per-Instance-per-Key)
-            //btree::map_base< Key, dot_counters_base< Counter, Tag >* > value_counters;
+            // TODO:
+            // dot_counters_base need to be modeled by (ReplicaId, Counter) and the whole map as
+            // btree::set< std::tuple< Key, ReplicaId, Counter > > value_dots;
+            //
+            // btree::map_base< Key, dot_context< dot_type, Tag >* > value_dots;
         };
 
         template < typename Container, typename Metadata, typename MetadataTag = typename Metadata::metadata_tag_type > struct metadata_base;

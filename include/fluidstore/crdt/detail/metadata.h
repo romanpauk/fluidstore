@@ -50,7 +50,11 @@
 //      delta mutations cannot share metadata with persistent ones!!!
 //      -> I will need to abstract metadata access and parametrize it. Deltas will hold 'local metadata',
 //          while persistent structs will share them
-//
+//      get rid of dot_counters_base, have just set and write algorithm elsewhere
+//          when btree::set of tuples will create SoA, it will be possible to work with slice of the set
+//          effectively (will work just with different SoA level).
+//          btree::set< tuple< ReplicaId, Counter > > x;
+//          btree::slice::set< decltype(x), 1, Counter > xx(x, replica_id);
 
 namespace crdt
 {
@@ -91,7 +95,7 @@ namespace crdt
                 // TODO: will need a view over range fixed by InstanceId.
                 //btree::set_base< std::tuple< InstanceId, Counter > > counters;
                 //btree::map_base< std::tuple< InstanceId, Counter >, Key > dots;
-                //btree::set_base< std::tuple< Key, InstanceId, ReplicaId, Counter > > value_dots;
+                //btree::set_base< std::tuple< InstanceId, Key, ReplicaId, Counter > > value_dots;
             };
 
             //replica_data& get_replica_data(ReplicaId);
@@ -107,9 +111,6 @@ namespace crdt
 
         private:
             //btree::map_base< ReplicaId, replica_data > replicas;
-
-            // Values (note that this is per-Instance-per-Key)
-            //btree::map_base< std::pair< InstanceId, Key >, dot_counters_base< Counter, Tag >* > value_counters;
         };
                 
         template <  typename Key, typename Tag, typename Allocator > struct metadata

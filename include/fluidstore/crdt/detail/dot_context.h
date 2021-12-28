@@ -34,9 +34,23 @@ namespace crdt
         static_assert(std::is_trivially_copyable_v< Dot >);
         static_assert(std::is_trivially_move_assignable_v< Dot >);
         static_assert(std::is_trivially_move_constructible_v< Dot >);
-                        
+
     public:
-        dot_context() = default;
+    #if defined(DOTCONTEXT_BTREE)
+        // TODO: use pointer for value
+        using counters_type = btree::map_base < replica_id_type, typename dot_counters_base< counter_type, Tag, size_type >::counters_type >;
+    #else
+        using counters_type = flat::map_base<
+            replica_id_type, dot_counters_base< counter_type, Tag, size_type >,
+            flat::map_node< replica_id_type, dot_counters_base< counter_type, Tag, size_type >::counters_type >,
+            size_type
+        >;
+    #endif
+
+        dot_context(counters_type& counters)
+            : counters_(counters)
+        {}
+    
         dot_context(dot_context&&) = default;
         ~dot_context() = default;
 
@@ -96,7 +110,7 @@ namespace crdt
 
         template < typename Allocator, typename DotContextT, typename Context > void merge(Allocator& allocator, const DotContextT& other, Context& context)
         {
-            for (auto& [replica_id, rcounters] : other.counters_)
+            for (auto& [replica_id, rcounters] : other)
             {
                 auto& counters = counters_.emplace(allocator, replica_id, dot_counters_base< counter_type, Tag, size_type >::counters_type()).first->second;
                 dot_counters_base< counter_type, Tag, size_type > values(counters);
@@ -167,15 +181,6 @@ namespace crdt
 
     private:
         // TODO: constness
-    #if defined(DOTCONTEXT_BTREE)
-        // TODO: use pointer for value
-        mutable btree::map_base < replica_id_type, typename dot_counters_base< counter_type, Tag, size_type >::counters_type > counters_;
-    #else
-        mutable flat::map_base< 
-            replica_id_type, dot_counters_base< counter_type, Tag, size_type >, 
-            flat::map_node< replica_id_type, dot_counters_base< counter_type, Tag, size_type >::counters_type >,
-            size_type 
-        > counters_;
-    #endif
+        counters_type& counters_;
     };
 }

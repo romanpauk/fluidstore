@@ -20,7 +20,7 @@ namespace crdt
             nested_value(nested_value&& other) = default;
 
             DotKernel* parent;
-            DotContext dots;
+            typename DotContext::counters_type dots;
             value_type value;
         };
 
@@ -77,7 +77,7 @@ namespace crdt
         template < typename AllocatorT, typename DotKernelValue, typename Context > void merge(AllocatorT& allocator, const DotKernelValue& other, Context& context)
         {
         #if defined(DOTKERNEL_BTREE)
-            dots.merge(allocator, other.dots, context);
+            DotContext(dots).merge(allocator, other.dots, context);
             value.merge(other.value);
         #else
             second.dots.merge(allocator, other.dots, context);
@@ -104,7 +104,7 @@ namespace crdt
 
     #if defined(DOTKERNEL_BTREE)
         DotKernel* parent;
-        DotContext dots;
+        typename DotContext::counters_type dots;
         value_type value;
     #else
         nested_value second;
@@ -132,7 +132,7 @@ namespace crdt
         template < typename AllocatorT, typename DotKernelValue, typename Context > void merge(AllocatorT& allocator, const DotKernelValue& other, Context& context)
         {
         #if defined(DOTKERNEL_BTREE)
-            dots.merge(allocator, other.dots, context);
+            DotContext(dots).merge(allocator, other.dots, context);
         #else
             second.dots.merge(allocator, other.dots, context);
         #endif
@@ -150,7 +150,7 @@ namespace crdt
         Key first;
 
     #if defined(DOTKERNEL_BTREE)
-        DotContext dots;
+        typename DotContext::counters_type dots;
     #else
         struct nested_value
         {

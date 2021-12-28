@@ -9,7 +9,8 @@ BOOST_AUTO_TEST_CASE(dot_context)
     typedef crdt::dot< uint64_t, uint64_t > dot;
    
     std::allocator< dot > allocator;
-    crdt::dot_context< dot, crdt::tag_delta > counters;
+    crdt::dot_context< dot, crdt::tag_delta >::counters_type data;
+    crdt::dot_context< dot, crdt::tag_delta > counters(data);
 
     counters.emplace(allocator, dot{ 2u, 1u });
     counters.emplace(allocator, dot{ 2u, 3u });
@@ -34,7 +35,8 @@ BOOST_AUTO_TEST_CASE(dot_context)
 
     counters.emplace(allocator, dot{ 3u, 3u });
     {
-        crdt::dot_context< crdt::dot< uint64_t, uint64_t >, crdt::tag_delta > counters2;
+        crdt::dot_context< crdt::dot< uint64_t, uint64_t >, crdt::tag_delta >::counters_type data2;
+        crdt::dot_context< crdt::dot< uint64_t, uint64_t >, crdt::tag_delta > counters2(data2);
         counters2.emplace(allocator, dot{ 3u, 2u });
         counters2.emplace(allocator, dot{ 3u, 4u });
         counters.merge(allocator, counters2);
@@ -53,7 +55,8 @@ BOOST_AUTO_TEST_CASE(dot_context_move)
     typedef crdt::dot< uint64_t, uint64_t > dot;
 
     std::allocator< dot > allocator;
-    crdt::dot_context< dot, crdt::tag_delta > counters;
+    crdt::dot_context< dot, crdt::tag_delta >::counters_type data;
+    crdt::dot_context< dot, crdt::tag_delta > counters(data);
 
     //static_assert(std::is_move_assignable_v< decltype(counters) >);
     static_assert(std::is_move_constructible_v< decltype(counters) >);

@@ -226,7 +226,7 @@ namespace crdt
                     {
                         auto& lkey = counter_it->second;
                         auto values_it = values_.find(lkey);
-                        values_it->second.dots.erase(allocator, dot_type{ replica_id, counter });
+                        dot_context_type(values_it->second.dots).erase(allocator, dot_type{ replica_id, counter });
 
                         if (values_it->second.dots.empty())
                         {
@@ -304,7 +304,7 @@ namespace crdt
         #else
             auto& data = *values_.emplace(allocator, allocator, key, nullptr).first;
         #endif
-            data.second.dots.emplace(allocator, dot);
+            dot_context_type(data.second.dots).emplace(allocator, dot);
         }
 
         template < typename ValueT > void add_value(const Key& key, const dot_type& dot, ValueT&& value)
@@ -313,10 +313,10 @@ namespace crdt
             
         #if defined(DOTKERNEL_BTREE)
             auto& data = *values_.emplace(allocator, key, dot_kernel_value_type(allocator, key, nullptr)).first;
-            data.second.dots.emplace(allocator, dot);
+            dot_context_type(data.second.dots).emplace(allocator, dot);
         #else
             auto& data = *values_.emplace(allocator, allocator, key, nullptr).first;
-            data.second.dots.emplace(allocator, dot);
+            dot_context_type(data.second.dots).emplace(allocator, dot);
         #endif
             data.second.value.merge(value);
         }

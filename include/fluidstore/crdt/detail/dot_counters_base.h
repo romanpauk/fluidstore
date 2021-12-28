@@ -27,9 +27,18 @@ namespace crdt
         {
             template < typename T > void register_erase(const T&) {}
         };
-
+            
     public:
-        dot_counters_base() = default;
+    #if defined(DOTCOUNTERS_BTREE)
+        using counters_type = btree::set_base< counter_type >;
+    #else
+        using counters_type = flat::set_base< counter_type, size_type >;
+    #endif
+
+        dot_counters_base(counters_type& counters) :
+            counters_(counters)
+        {}
+
         dot_counters_base(dot_counters_base&& other) = default;
         ~dot_counters_base() = default;
 
@@ -87,7 +96,7 @@ namespace crdt
 
             // assert(counters.counters_.size() == 1);  // delta variant can have more than 1 element
 
-            counters_.insert(allocator, counters.counters_.begin(), counters.counters_.end());
+            counters_.insert(allocator, counters.begin(), counters.end());
         }
 
         size_type size() const
@@ -133,12 +142,12 @@ namespace crdt
             if (counters_.size() == 0)
             {
                 // Trivial append
-                counters_.insert(allocator, rcounters.counters_.begin(), rcounters.counters_.end());
+                counters_.insert(allocator, rcounters.begin(), rcounters.end());
             }
             else if (counters_.size() == 1 && rcounters.size() == 1)
             {
                 // Maybe in-place replace
-                if (*counters_.begin() + 1 == *rcounters.counters_.begin())
+                if (*counters_.begin() + 1 == *rcounters.begin())
                 {
                     auto counter = *counters_.begin();
 
@@ -158,13 +167,13 @@ namespace crdt
                 }
                 else
                 {
-                    counters_.insert(allocator, rcounters.counters_.begin(), rcounters.counters_.end());
+                    counters_.insert(allocator, rcounters.begin(), rcounters.end());
                 }
             }
             else
             {
                 // TODO: two sets merge
-                counters_.insert(allocator, rcounters.counters_.begin(), rcounters.counters_.end());
+                counters_.insert(allocator, rcounters.begin(), rcounters.end());
             }
 
             if (std::is_same_v< Tag, tag_state >)
@@ -185,10 +194,6 @@ namespace crdt
             counters_.clear(allocator);
         }
             
-    #if defined(DOTCOUNTERS_BTREE)
-        btree::set_base< counter_type > counters_;
-    #else
-        flat::set_base< counter_type, size_type > counters_;
-    #endif
+        counters_type& counters_;
     };
 }

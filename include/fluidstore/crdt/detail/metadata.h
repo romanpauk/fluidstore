@@ -129,13 +129,9 @@ namespace crdt
 
             // Replicas
             struct replica_data
-            {
-                // TODO:
-                // this is btree::set_base< counter_type >, tag is for algorithm
-                dot_counters_base< counter_type, Tag > counters;
-
+            {                   
+                btree::set_base< counter_type > counters;
                 btree::map_base< counter_type, Key > dots;
-                
                 btree::set_base< counter_type > visited;
             };
 
@@ -156,7 +152,7 @@ namespace crdt
                 auto replica = get_replica_data(id);
                 if (replica)
                 {
-                    counter = replica->counters.get();
+                    counter = dot_counters_base< counter_type, Tag, size_t >(replica->counters).get();
                 }
 
                 return counter;
@@ -164,7 +160,7 @@ namespace crdt
 
             template < typename ReplicaData > void merge_counters(Allocator& allocator, replica_data& lhs, replica_id_type id, ReplicaData& rhs)
             {
-                lhs.counters.merge(allocator, id, rhs.counters);
+                dot_counters_base< counter_type, Tag, size_t >(lhs.counters).merge(allocator, id, rhs.counters);
             }
 
             template < typename Key > void add_dot(Allocator& allocator, replica_data& replica, counter_type counter, Key key)

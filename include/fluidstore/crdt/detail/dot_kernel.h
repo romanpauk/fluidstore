@@ -37,7 +37,8 @@ namespace crdt
         using dot_type = dot< replica_id_type, counter_type >;
         using dot_kernel_type = dot_kernel< Key, Value, allocator_type, Container, Tag, Metadata >;
         using dot_context_type = dot_context< dot_type, Tag >;
-        
+        using dot_counters_type = dot_counters_base< counter_type, Tag, size_t >;
+
         using dot_kernel_value_type = dot_kernel_value< Key, Value, Allocator, dot_context_type, dot_kernel_type >;
 
     #if defined(DOTKERNEL_BTREE)
@@ -152,9 +153,9 @@ namespace crdt
                     //rvisited[replica_id].insert(tmp, rdots.counters_.begin(), rdots.counters_.end());
 
                     auto& ldata = meta.get_replica_data(allocator, replica_id); // replica_.emplace(allocator, replica_id, replica_data()).first->second;
-                    ldata.visited.insert(tmp, rdots.counters_.begin(), rdots.counters_.end());
+                    ldata.visited.insert(tmp, rdots.begin(), rdots.end());
 
-                    for (const auto& counter : rdots.counters_)
+                    for (const auto& counter : rdots)
                     {
                         // Create dot -> key link
                         meta.add_dot(allocator, ldata, counter, rkey);
@@ -172,9 +173,7 @@ namespace crdt
                 auto& ldata = meta.get_replica_data(allocator, replica_id);
                 
                 meta.merge_counters(allocator, ldata, replica_id, rdata);
-                
-                const auto& rdata_counters = rdata.counters.counters_;
-
+                                
                 // Determine deleted values (those are the ones we have not visited in a loop over values).
 
                 // TODO: deque
@@ -182,7 +181,7 @@ namespace crdt
 
                 //*                
                 std::set_difference(
-                    rdata_counters.begin(), rdata_counters.end(),
+                    rdata.counters.begin(), rdata.counters.end(),
                     ldata.visited.begin(), ldata.visited.end(),
                     std::back_inserter(rdotsvalueless)
                 );
@@ -279,14 +278,14 @@ namespace crdt
             auto allocator = static_cast<Container*>(this)->get_allocator();
             for (auto& [replica_id, counters] : dots)
             {                
-                get_metadata().get_replica_data(allocator, replica_id).counters.insert(allocator, counters);
+                dot_counters_type(get_metadata().get_replica_data(allocator, replica_id).counters).insert(allocator, counters);
             }
         }
 
         void add_counter_dot(const dot_type& dot)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
-            get_metadata().get_replica_data(allocator, dot.replica_id).counters.emplace(allocator, dot.counter);
+            dot_counters_type(get_metadata().get_replica_data(allocator, dot.replica_id).counters).emplace(allocator, dot.counter);
         }
 
         // TODO: const

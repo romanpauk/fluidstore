@@ -47,16 +47,20 @@ namespace crdt
 
         template < typename Allocator, typename... Args > void emplace(Allocator& allocator, const dot_type& dot)
         {
-            auto pairb = counters_.emplace(allocator, dot.replica_id, dot_counters_base< counter_type, Tag, size_type >());
-            pairb.first->second.emplace(allocator, dot.counter);
+            auto& counters = counters_.emplace(allocator, dot.replica_id, dot_counters_base< counter_type, Tag, size_type >::counters_type()).first->second;
+
+            dot_counters_base< counter_type, Tag, size_type > values(counters);
+            values.emplace(allocator, dot.counter);
         }
 
         template < typename Allocator, typename TagT, typename SizeTypeT > void insert(Allocator& allocator, const dot_context< Dot, TagT, SizeTypeT >& dots)
         {
             for (auto& [replica_id, counters] : dots)
             {
-                auto it = counters_.emplace(allocator, replica_id, dot_counters_base< counter_type, Tag, size_type >());
-                it.first->second.insert(allocator, counters);
+                auto& counters = counters_.emplace(allocator, replica_id, dot_counters_base< counter_type, Tag, size_type >::counters_type()).first->second;
+
+                dot_counters_base< counter_type, Tag, size_type > values(it->second);
+                values.insert(allocator, counters);
             }
         }
 
@@ -65,7 +69,8 @@ namespace crdt
             auto it = counters_.find(replica_id);
             if (it != counters_.end())
             {
-                return it->second.get();
+                dot_counters_base< counter_type, Tag, size_type > values(it->second);
+                return values.get();
             }
 
             return counter_type();
@@ -76,7 +81,8 @@ namespace crdt
             auto it = counters_.find(dot.replica_id);
             if (it != counters_.end())
             {
-                return it->second.has(dot.counter);
+                dot_counters_base< counter_type, Tag, size_type > values(it->second);
+                return values.has(dot.counter);
             }
 
             return false;
@@ -92,8 +98,9 @@ namespace crdt
         {
             for (auto& [replica_id, rcounters] : other.counters_)
             {
-                auto& counters = counters_.emplace(allocator, replica_id, dot_counters_base< counter_type, Tag, size_type >()).first->second;
-                counters.update(allocator, replica_id, rcounters, context);
+                auto& counters = counters_.emplace(allocator, replica_id, dot_counters_base< counter_type, Tag, size_type >::counters_type()).first->second;
+                dot_counters_base< counter_type, Tag, size_type > values(counters);
+                values.update(allocator, replica_id, rcounters, context);
             }
         }
 
@@ -114,7 +121,8 @@ namespace crdt
         {
             for (auto& [replica_id, counters] : counters_)
             {
-                counters.collapse(allocator, replica_id, context);
+                dot_counters_base< counter_type, Tag, size_type > values(counters);
+                values.collapse(allocator, replica_id, context);
             }
         }
 
@@ -128,10 +136,10 @@ namespace crdt
         }
 
         template < typename Allocator > void erase(Allocator& allocator, const dot_type& dot) 
-        { 
+        {      
             auto it = counters_.find(dot.replica_id);
             if (it != counters_.end())
-            {
+            {                
                 it->second.erase(allocator, dot.counter);
                 if (it->second.empty())
                 {
@@ -146,7 +154,8 @@ namespace crdt
             size_type count = 0;
             for (const auto& [replica_id, counters]: counters_)
             {
-                count += counters.size();
+                dot_counters_base< counter_type, Tag, size_type > values(counters);
+                count += values.size();
             }
 
             return count;
@@ -160,11 +169,11 @@ namespace crdt
         // TODO: constness
     #if defined(DOTCONTEXT_BTREE)
         // TODO: use pointer for value
-        mutable btree::map_base < replica_id_type, dot_counters_base< counter_type, Tag, size_type > > counters_;
+        mutable btree::map_base < replica_id_type, typename dot_counters_base< counter_type, Tag, size_type >::counters_type > counters_;
     #else
         mutable flat::map_base< 
             replica_id_type, dot_counters_base< counter_type, Tag, size_type >, 
-            flat::map_node< replica_id_type, dot_counters_base< counter_type, Tag, size_type > >,
+            flat::map_node< replica_id_type, dot_counters_base< counter_type, Tag, size_type >::counters_type >,
             size_type 
         > counters_;
     #endif

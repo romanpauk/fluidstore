@@ -158,6 +158,16 @@ namespace crdt
                 return counter;
             }
 
+            void add_counter(Allocator& allocator, replica_id_type id, counter_type counter)
+            {
+                dot_counters_base< counter_type, Tag, size_t >(get_replica_data(allocator, id).counters).emplace(allocator, counter);
+            }
+
+            template < typename Counters > void add_counters(Allocator& allocator, replica_id_type id, Counters& counters)
+            {
+                dot_counters_base< counter_type, Tag, size_t >(get_replica_data(allocator, id).counters).insert(allocator, counters);
+            }
+
             template < typename ReplicaData > void merge_counters(Allocator& allocator, replica_data& lhs, replica_id_type id, ReplicaData& rhs)
             {
                 dot_counters_base< counter_type, Tag, size_t >(lhs.counters).merge(allocator, id, rhs.counters);

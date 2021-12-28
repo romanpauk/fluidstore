@@ -12,10 +12,14 @@
 #include <fluidstore/crdt/allocator.h>
 #include <fluidstore/allocators/arena_allocator.h>
 
-#include <fluidstore/flat/map.h>
-
+#if defined(DOTKERNEL_BTREE)
 #include <fluidstore/btree/map.h>
 #include <fluidstore/btree/set.h>
+#else
+#include <fluidstore/flat/map.h>
+#endif
+
+#include <fluidstore/flat/vector.h> // TODO
 
 namespace crdt
 {
@@ -37,8 +41,7 @@ namespace crdt
         using dot_type = dot< replica_id_type, counter_type >;
         using dot_kernel_type = dot_kernel< Key, Value, allocator_type, Container, Tag, Metadata >;
         using dot_context_type = dot_context< dot_type, Tag >;
-        using dot_counters_type = dot_counters_base< counter_type, Tag, size_t >;
-
+        
         using dot_kernel_value_type = dot_kernel_value< Key, Value, Allocator, dot_context_type, dot_kernel_type >;
 
     #if defined(DOTKERNEL_BTREE)
@@ -278,14 +281,14 @@ namespace crdt
             auto allocator = static_cast<Container*>(this)->get_allocator();
             for (auto& [replica_id, counters] : dots)
             {                
-                dot_counters_type(get_metadata().get_replica_data(allocator, replica_id).counters).insert(allocator, counters);
+                get_metadata().add_counters(allocator, replica_id, counters);
             }
         }
 
         void add_counter_dot(const dot_type& dot)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
-            dot_counters_type(get_metadata().get_replica_data(allocator, dot.replica_id).counters).emplace(allocator, dot.counter);
+            get_metadata().add_counter(allocator, dot.replica_id, dot.counter);
         }
 
         // TODO: const

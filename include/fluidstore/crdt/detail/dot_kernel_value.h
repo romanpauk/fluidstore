@@ -2,11 +2,11 @@
 
 namespace crdt
 {
-    template < typename Key, typename Value, typename Allocator, typename DotContext, typename DotKernel > class dot_kernel_value
+    template < typename Key, typename Value, typename Allocator, typename DotContextCounters, typename DotKernel > class dot_kernel_value
     {
     public:
         using allocator_type = Allocator;
-        using dot_kernel_value_type = dot_kernel_value< Key, Value, Allocator, DotContext, DotKernel >;
+        using dot_kernel_value_type = dot_kernel_value< Key, Value, Allocator, DotContextCounters, DotKernel >;
         using value_allocator_type = dot_kernel_allocator< Allocator, dot_kernel_value_type >;
         using value_type = typename Value::template rebind_t< value_allocator_type >;
 
@@ -20,7 +20,7 @@ namespace crdt
             nested_value(nested_value&& other) = default;
 
             DotKernel* parent;
-            typename DotContext::counters_type dots;
+            DotContextCounters dots;
             value_type value;
         };
 
@@ -77,10 +77,8 @@ namespace crdt
         template < typename AllocatorT, typename DotKernelValue, typename Context > void merge(AllocatorT& allocator, const DotKernelValue& other, Context& context)
         {
         #if defined(DOTKERNEL_BTREE)
-            DotContext(dots).merge(allocator, other.dots, context);
             value.merge(other.value);
         #else
-            second.dots.merge(allocator, other.dots, context);
             second.value.merge(other.value);
         #endif
         }
@@ -104,19 +102,19 @@ namespace crdt
 
     #if defined(DOTKERNEL_BTREE)
         DotKernel* parent;
-        typename DotContext::counters_type dots;
+        DotContextCounters dots;
         value_type value;
     #else
         nested_value second;
     #endif
     };
 
-    template < typename Key, typename Allocator, typename DotContext, typename DotKernel > class dot_kernel_value< Key, void, Allocator, DotContext, DotKernel >
+    template < typename Key, typename Allocator, typename DotContextCounters, typename DotKernel > class dot_kernel_value< Key, void, Allocator, DotContextCounters, DotKernel >
     {
     public:
         using allocator_type = Allocator;
         using value_type = void;
-        using dot_kernel_value_type = dot_kernel_value< Key, void, Allocator, DotContext, DotKernel >;
+        using dot_kernel_value_type = dot_kernel_value< Key, void, Allocator, DotContextCounters, DotKernel >;
 
         template < typename AllocatorT > dot_kernel_value(AllocatorT&, Key key, DotKernel*)
             : first(key)
@@ -130,13 +128,7 @@ namespace crdt
         dot_kernel_value_type& operator = (const dot_kernel_value_type&) = delete;
 
         template < typename AllocatorT, typename DotKernelValue, typename Context > void merge(AllocatorT& allocator, const DotKernelValue& other, Context& context)
-        {
-        #if defined(DOTKERNEL_BTREE)
-            DotContext(dots).merge(allocator, other.dots, context);
-        #else
-            second.dots.merge(allocator, other.dots, context);
-        #endif
-        }
+        {}
 
         void update() {}
 
@@ -150,7 +142,7 @@ namespace crdt
         Key first;
 
     #if defined(DOTKERNEL_BTREE)
-        typename DotContext::counters_type dots;
+        DotContextCounters dots;
     #else
         struct nested_value
         {

@@ -123,6 +123,11 @@ namespace crdt
             using replica_id_type = typename replica_type::replica_id_type;
             using counter_type = typename replica_type::counter_type;
 
+            using value_type_dots_type = btree::map_base < replica_id_type, btree::set_base< counter_type > >;
+            using dot_context_type = dot_context< dot< replica_id_type, counter_type >, Tag >;
+
+            template < typename Key, typename Value > using values_map_type = btree::map_base< Key, Value >;
+
             // Instance ids
             // InstanceId acquire_instance_id();
             // void release_instance_id(InstanceId);
@@ -190,6 +195,21 @@ namespace crdt
             void erase_dot(Allocator& allocator, replica_data& replica, typename btree::map_base< counter_type, Key >::iterator it)
             {
                 replica.dots.erase(allocator, it);
+            }
+
+            template < typename Dots, typename Context > void merge_value_dots(Allocator& allocator, value_type_dots_type& ldots, const Dots& rdots, Context& context)
+            {
+                dot_context_type(ldots).merge(allocator, rdots, context);
+            }
+
+            void emplace_value_dot(Allocator& allocator, value_type_dots_type& ldots, dot< replica_id_type, counter_type > dot)
+            {
+                dot_context_type(ldots).emplace(allocator, dot);
+            }
+
+            void erase_value_dot(Allocator& allocator, value_type_dots_type& ldots, dot< replica_id_type, counter_type > dot)
+            {
+                dot_context_type(ldots).erase(allocator, dot);
             }
 
             const btree::map_base < replica_id_type, replica_data >& get_replica_map() const { return replica_; }

@@ -40,13 +40,11 @@ namespace crdt
 
         using dot_type = dot< replica_id_type, counter_type >;
         using dot_kernel_type = dot_kernel< Key, Value, allocator_type, Container, Tag, Metadata >;
-        using dot_context_type = dot_context< dot_type, Tag >;
-        
-        using dot_kernel_value_type = dot_kernel_value< Key, Value, Allocator, dot_context_type, dot_kernel_type >;
+                        
+        using dot_kernel_value_type = dot_kernel_value < Key, Value, allocator_type, typename Metadata::value_type_dots_type, dot_kernel_type > ;
 
     #if defined(DOTKERNEL_BTREE)
-        // TODO: use pointer for value
-        using values_type = btree::map_base< Key, dot_kernel_value_type >;
+        using values_type = typename Metadata::template values_map_type< Key, dot_kernel_value_type >;
     #else
         using values_type = flat::map_base< Key, Value, dot_kernel_value_type >;
     #endif
@@ -135,6 +133,7 @@ namespace crdt
             for (const auto& [rkey, rvalue] : other.get_values())
             {
             #if defined(DOTKERNEL_BTREE)
+                // meta.values_emplace(allocator, rkey, dot_kernel_value_type(allocator, rkey, this));
                 auto lpb = values_.emplace(allocator, rkey, dot_kernel_value_type(allocator, rkey, this));
             #else
                 auto lpb = values_.emplace(allocator, allocator, rkey, this);
@@ -143,8 +142,10 @@ namespace crdt
 
                 value_context value_ctx(allocator, get_metadata());
             #if defined(DOTKERNEL_BTREE)
+                meta.merge_value_dots(allocator, lvalue.second.dots, rvalue.dots, value_ctx);
                 lvalue.second.merge(allocator, rvalue, value_ctx);
             #else
+                meta.merge_value_dots(allocator, lvalue.dots, rvalue.dots, value_ctx);
                 lvalue.merge(allocator, rvalue, value_ctx);
             #endif
 
@@ -224,12 +225,14 @@ namespace crdt
 
                 for (const auto& counter : rdotsvalueless)
                 {
+                    // auto counter_it = meta.find_value_dot(counter);
                     auto counter_it = ldata.dots.find(counter);
                     if (counter_it != ldata.dots.end())
                     {
                         auto& lkey = counter_it->second;
                         auto values_it = values_.find(lkey);
-                        dot_context_type(values_it->second.dots).erase(allocator, dot_type{ replica_id, counter });
+                        
+                        meta.erase_value_dot(allocator, values_it->second.dots, dot_type{ replica_id, counter });
 
                         if (values_it->second.dots.empty())
                         {
@@ -306,8 +309,8 @@ namespace crdt
             auto& data = *values_.emplace(allocator, key, dot_kernel_value_type(allocator, key, nullptr)).first;
         #else
             auto& data = *values_.emplace(allocator, allocator, key, nullptr).first;
-        #endif
-            dot_context_type(data.second.dots).emplace(allocator, dot);
+        #endif            
+            get_metadata().emplace_value_dot(allocator, data.second.dots, dot);
         }
 
         template < typename ValueT > void add_value(const Key& key, const dot_type& dot, ValueT&& value)
@@ -316,10 +319,10 @@ namespace crdt
             
         #if defined(DOTKERNEL_BTREE)
             auto& data = *values_.emplace(allocator, key, dot_kernel_value_type(allocator, key, nullptr)).first;
-            dot_context_type(data.second.dots).emplace(allocator, dot);
+            get_metadata().emplace_value_dot(allocator, data.second.dots, dot);
         #else
             auto& data = *values_.emplace(allocator, allocator, key, nullptr).first;
-            dot_context_type(data.second.dots).emplace(allocator, dot);
+            get_metadata().emplace_value_dot(allocator, data.second.dots, dot);
         #endif
             data.second.value.merge(value);
         }

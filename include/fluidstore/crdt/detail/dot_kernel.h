@@ -133,8 +133,7 @@ namespace crdt
             for (const auto& [rkey, rvalue] : other.get_values())
             {
             #if defined(DOTKERNEL_BTREE)
-                // meta.values_emplace(allocator, rkey, dot_kernel_value_type(allocator, rkey, this));
-                auto lpb = values_.emplace(allocator, rkey, dot_kernel_value_type(allocator, rkey, this));
+                auto lpb = meta.emplace_value(allocator, values_, rkey, dot_kernel_value_type(allocator, rkey, this));
             #else
                 auto lpb = values_.emplace(allocator, allocator, rkey, this);
             #endif
@@ -306,7 +305,7 @@ namespace crdt
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
         #if defined(DOTKERNEL_BTREE)
-            auto& data = *values_.emplace(allocator, key, dot_kernel_value_type(allocator, key, nullptr)).first;
+            auto& data = *get_metadata().emplace_value(allocator, values_, key, dot_kernel_value_type(allocator, key, nullptr)).first;
         #else
             auto& data = *values_.emplace(allocator, allocator, key, nullptr).first;
         #endif            
@@ -318,7 +317,7 @@ namespace crdt
             auto allocator = static_cast<Container*>(this)->get_allocator();
             
         #if defined(DOTKERNEL_BTREE)
-            auto& data = *values_.emplace(allocator, key, dot_kernel_value_type(allocator, key, nullptr)).first;
+            auto& data = *get_metadata().emplace_value(allocator, values_, key, dot_kernel_value_type(allocator, key, nullptr)).first;
             get_metadata().emplace_value_dot(allocator, data.second.dots, dot);
         #else
             auto& data = *values_.emplace(allocator, allocator, key, nullptr).first;

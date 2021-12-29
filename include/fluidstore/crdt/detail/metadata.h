@@ -212,6 +212,11 @@ namespace crdt
                 dot_context_type(ldots).erase(allocator, dot);
             }
 
+            template < typename Values, typename Key, typename Value > auto emplace_value(Allocator& allocator, Values& values, const Key& key, Value&& value)
+            {
+                return values.emplace(allocator, key, std::forward< Value >(value));
+            }
+
             const btree::map_base < replica_id_type, replica_data >& get_replica_map() const { return replica_; }
             btree::map_base < replica_id_type, replica_data >& get_replica_map() { return replica_; }
 

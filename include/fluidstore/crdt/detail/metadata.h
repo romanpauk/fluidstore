@@ -197,6 +197,11 @@ namespace crdt
                 replica.dots.erase(allocator, it);
             }
 
+            auto find_dot(replica_data& replica, counter_type counter)
+            {
+                return replica.dots.find(counter);
+            }
+
             template < typename Dots, typename Context > void merge_value_dots(Allocator& allocator, value_type_dots_type& ldots, const Dots& rdots, Context& context)
             {
                 dot_context_type(ldots).merge(allocator, rdots, context);
@@ -215,6 +220,16 @@ namespace crdt
             template < typename Values, typename Key, typename Value > auto emplace_value(Allocator& allocator, Values& values, const Key& key, Value&& value)
             {
                 return values.emplace(allocator, key, std::forward< Value >(value));
+            }
+
+            template < typename Values > auto find_value(Values& values, const Key& key)
+            {
+                return values.find(key);
+            }
+
+            template < typename Values > auto erase_value(Allocator& allocator, Values& values, typename Values::iterator it)
+            {
+                return values.erase(allocator, it);
             }
 
             const btree::map_base < replica_id_type, replica_data >& get_replica_map() const { return replica_; }

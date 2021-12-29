@@ -224,20 +224,18 @@ namespace crdt
 
                 for (const auto& counter : rdotsvalueless)
                 {
-                    // auto counter_it = meta.find_value_dot(counter);
-                    auto counter_it = ldata.dots.find(counter);
+                    auto counter_it = meta.find_dot(ldata, counter);
                     if (counter_it != ldata.dots.end())
                     {
                         auto& lkey = counter_it->second;
-                        auto values_it = values_.find(lkey);
-                        
+                 
+                        auto values_it = meta.find_value(values_, lkey);       
                         meta.erase_value_dot(allocator, values_it->second.dots, dot_type{ replica_id, counter });
 
                         if (values_it->second.dots.empty())
                         {
-                            auto it = values_.erase(allocator, values_it);
-
                             // Support for erase iterator return value
+                            auto it = meta.erase_value(allocator, values_, values_it);                         
                             ctx.register_erase(it);
                         }
 

@@ -3,11 +3,7 @@
 #include <fluidstore/crdt/detail/dot.h>
 #include <fluidstore/crdt/tags.h>
 
-#if defined(DOTCOUNTERS_BTREE)
 #include <fluidstore/btree/set.h>
-#else
-#include <fluidstore/flat/set.h>
-#endif
 
 namespace crdt
 {
@@ -29,11 +25,7 @@ namespace crdt
         };
             
     public:
-    #if defined(DOTCOUNTERS_BTREE)
         using counters_type = btree::set_base< counter_type >;
-    #else
-        using counters_type = flat::set_base< counter_type, size_type >;
-    #endif
 
         dot_counters_base(counters_type& counters) :
             counters_(counters)
@@ -151,15 +143,10 @@ namespace crdt
                 {
                     auto counter = *counters_.begin();
 
-                #if defined(DOTCOUNTERS_BTREE)
                     // TODO: in-place update
                     counters_.insert(allocator, *counters_.begin() + 1);
                     counters_.erase(allocator, counters_.begin());
-                #else
-                    // TODO: test missing, crude hack to change set element without erase/insert
-                    counters_.update(counters_.begin(), *counters_.begin() + 1);
-                #endif
-
+                
                     // No need to collapse here, but have to notify upper layer about removal
                     context.register_erase(dot< ReplicaId, counter_type >{ replica_id, counter });
 

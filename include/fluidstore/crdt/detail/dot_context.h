@@ -3,11 +3,7 @@
 #include <fluidstore/crdt/detail/dot.h>
 #include <fluidstore/crdt/detail/dot_counters_base.h>
 
-#if defined(DOTCONTEXT_BTREE)
 #include <fluidstore/btree/map.h>
-#else
-#include <fluidstore/flat/map.h>
-#endif
 
 namespace crdt
 {
@@ -36,17 +32,9 @@ namespace crdt
         static_assert(std::is_trivially_move_constructible_v< Dot >);
 
     public:
-    #if defined(DOTCONTEXT_BTREE)
         // TODO: use pointer for value
         using counters_type = btree::map_base < replica_id_type, typename dot_counters_base< counter_type, Tag, size_type >::counters_type >;
-    #else
-        using counters_type = flat::map_base<
-            replica_id_type, dot_counters_base< counter_type, Tag, size_type >,
-            flat::map_node< replica_id_type, dot_counters_base< counter_type, Tag, size_type >::counters_type >,
-            size_type
-        >;
-    #endif
-
+    
         dot_context(counters_type& counters)
             : counters_(counters)
         {}

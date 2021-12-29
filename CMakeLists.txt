@@ -71,9 +71,7 @@ if(Boost_FOUND)
     )
     add_test(fluidstoretest COMMAND fluidstoretest)
     target_link_libraries(fluidstoretest fluidstore Boost::boost)
-    target_precompile_headers(fluidstoretest PRIVATE src/tests/pch.h)
-
-    target_compile_definitions(fluidstoretest PRIVATE DOTKERNEL_BTREE DOTCONTEXT_BTREE DOTCOUNTERS_BTREE)
+    target_precompile_headers(fluidstoretest PRIVATE src/tests/pch.h)    
     
     if(WIN32)
         group_sources(src)

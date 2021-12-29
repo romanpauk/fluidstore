@@ -32,64 +32,39 @@ namespace crdt
 
         template < typename AllocatorT > dot_kernel_value(AllocatorT& allocator, Key key, DotKernel* p)
             : first(key)
-        #if defined(DOTKERNEL_BTREE)
             , value(value_allocator_type(allocator, this))
             , parent(p)
-        #else
-            , second(value_allocator_type(allocator, this), p)
-        #endif
         {}
 
         dot_kernel_value(dot_kernel_value_type&& other)
             : first(std::move(other.first))
-        #if defined(DOTKERNEL_BTREE)
             , value(std::move(other.value))
             , dots(std::move(other.dots))
             , parent(other.parent)
-        #else
-            , second(std::move(other.second))
-        #endif
         {
-        #if defined(DOTKERNEL_BTREE)
             value.get_allocator().set_container(this);
-        #else
-            second.value.get_allocator().set_container(this);
-        #endif
         }
 
         dot_kernel_value_type& operator = (dot_kernel_value_type&& other)
         {
             std::swap(first, other.first);
 
-        #if defined(DOTKERNEL_BTREE)
             std::swap(value, other.value);
             std::swap(dots, other.dots);
             std::swap(parent, other.parent);
             value.get_allocator().set_container(this);
-        #else
-            std::swap(second, other.second);
-            second.value.get_allocator().set_container(this);
-        #endif
-
+        
             return *this;
         }
 
         template < typename AllocatorT, typename DotKernelValue, typename Context > void merge(AllocatorT& allocator, const DotKernelValue& other, Context& context)
         {
-        #if defined(DOTKERNEL_BTREE)
             value.merge(other.value);
-        #else
-            second.value.merge(other.value);
-        #endif
         }
 
         void update()
         {
-        #if defined(DOTKERNEL_BTREE)
             parent->update(first);
-        #else
-            second.parent->update(first);
-        #endif
         }
 
         bool operator == (const Key& other) const { return first == other; }
@@ -100,13 +75,9 @@ namespace crdt
 
         Key first;
 
-    #if defined(DOTKERNEL_BTREE)
         DotKernel* parent;
         DotContextCounters dots;
         value_type value;
-    #else
-        nested_value second;
-    #endif
     };
 
     template < typename Key, typename Allocator, typename DotContextCounters, typename DotKernel > class dot_kernel_value< Key, void, Allocator, DotContextCounters, DotKernel >
@@ -141,15 +112,6 @@ namespace crdt
         // TODO: need a way how to determine key from value without storing duplicate key (if is not small enough).
         Key first;
 
-    #if defined(DOTKERNEL_BTREE)
-        DotContextCounters dots;
-    #else
-        struct nested_value
-        {
-            DotContext dots;
-        };
-
-        nested_value second;
-    #endif
+         DotContextCounters dots;
     };
 }

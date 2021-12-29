@@ -12,12 +12,8 @@
 #include <fluidstore/crdt/allocator.h>
 #include <fluidstore/allocators/arena_allocator.h>
 
-#if defined(DOTKERNEL_BTREE)
 #include <fluidstore/btree/map.h>
 #include <fluidstore/btree/set.h>
-#else
-#include <fluidstore/flat/map.h>
-#endif
 
 #include <fluidstore/flat/vector.h> // TODO
 
@@ -42,13 +38,9 @@ namespace crdt
         using dot_kernel_type = dot_kernel< Key, Value, allocator_type, Container, Tag, Metadata >;
                         
         using dot_kernel_value_type = dot_kernel_value < Key, Value, allocator_type, typename Metadata::value_type_dots_type, dot_kernel_type > ;
-
-    #if defined(DOTKERNEL_BTREE)
+    
         using values_type = typename Metadata::template values_map_type< Key, dot_kernel_value_type >;
-    #else
-        using values_type = flat::map_base< Key, Value, dot_kernel_value_type >;
-    #endif
-
+    
         using iterator = dot_kernel_iterator< typename values_type::iterator, Key, typename dot_kernel_value_type::value_type >;
         using const_iterator = dot_kernel_iterator< typename values_type::const_iterator, Key, typename dot_kernel_value_type::value_type >;
                
@@ -132,22 +124,13 @@ namespace crdt
             // Merge values
             for (const auto& [rkey, rvalue] : other.get_values())
             {
-            #if defined(DOTKERNEL_BTREE)
                 auto lpb = meta.emplace_value(allocator, values_, rkey, dot_kernel_value_type(allocator, rkey, this));
-            #else
-                auto lpb = values_.emplace(allocator, allocator, rkey, this);
-            #endif
                 auto& lvalue = *lpb.first;
 
                 value_context value_ctx(allocator, get_metadata());
-            #if defined(DOTKERNEL_BTREE)
                 meta.merge_value_dots(allocator, lvalue.second.dots, rvalue.dots, value_ctx);
                 lvalue.second.merge(allocator, rvalue, value_ctx);
-            #else
-                meta.merge_value_dots(allocator, lvalue.dots, rvalue.dots, value_ctx);
-                lvalue.merge(allocator, rvalue, value_ctx);
-            #endif
-
+            
                 for (const auto& [replica_id, rdots] : rvalue.dots)
                 {
                     // Track visited dots
@@ -302,11 +285,7 @@ namespace crdt
         void add_value(const Key& key, const dot_type& dot)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
-        #if defined(DOTKERNEL_BTREE)
             auto& data = *get_metadata().emplace_value(allocator, values_, key, dot_kernel_value_type(allocator, key, nullptr)).first;
-        #else
-            auto& data = *values_.emplace(allocator, allocator, key, nullptr).first;
-        #endif            
             get_metadata().emplace_value_dot(allocator, data.second.dots, dot);
         }
 
@@ -314,13 +293,8 @@ namespace crdt
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
             
-        #if defined(DOTKERNEL_BTREE)
             auto& data = *get_metadata().emplace_value(allocator, values_, key, dot_kernel_value_type(allocator, key, nullptr)).first;
             get_metadata().emplace_value_dot(allocator, data.second.dots, dot);
-        #else
-            auto& data = *values_.emplace(allocator, allocator, key, nullptr).first;
-            get_metadata().emplace_value_dot(allocator, data.second.dots, dot);
-        #endif
             data.second.value.merge(value);
         }
                 

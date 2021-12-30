@@ -129,7 +129,7 @@ namespace crdt
                 auto& lvalue = *lpb.first;
 
                 value_context value_ctx(allocator, get_metadata());
-                meta.merge_value_dots(allocator, lvalue.second.dots, rvalue.dots, value_ctx);
+                merge_value_dots(allocator, lvalue.second.dots, rvalue.dots, value_ctx);
                 lvalue.second.merge(allocator, rvalue, value_ctx);
             
                 for (const auto& [replica_id, rdots] : rvalue.dots)
@@ -391,6 +391,18 @@ namespace crdt
                 {
                     break;
                 }
+            }
+        }
+
+        template < typename Allocator, typename Dots, typename Context > void merge_value_dots(Allocator& allocator, typename Metadata::value_type_dots_type& ldots, const Dots& rdots, Context& context)
+        {
+            for (auto& [replica_id, rcounters] : rdots)
+            {
+                auto& counters = ldots.emplace(allocator, replica_id, btree::set_base< counter_type >()).first->second;
+
+                // TODO: use merge counters
+                dot_counters_base< btree::set_base< counter_type >, Tag > values(counters);
+                values.update(allocator, replica_id, rcounters, context);
             }
         }
 

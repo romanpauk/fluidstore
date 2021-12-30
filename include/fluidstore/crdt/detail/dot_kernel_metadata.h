@@ -121,9 +121,7 @@ namespace crdt
             using counter_type = typename replica_type::counter_type;
 
             using counters_type = btree::set_base< counter_type >;
-            using value_type_dots_type = btree::map_base < replica_id_type, counters_type >;
-
-            using dot_context_type = dot_context< btree::map_base < replica_id_type, counters_type >, dot< replica_id_type, counter_type >, Tag >;
+            using value_type_dots_type = btree::map_base < replica_id_type, counters_type >;            
 
             template < typename Key, typename Value > using values_map_type = btree::map_base< Key, Value >;
 
@@ -164,7 +162,7 @@ namespace crdt
 
                 get_replica_data(allocator, id).counters.emplace(allocator, counter);
             }
-
+                        
             template < typename Counters > void add_counters(Allocator& allocator, replica_id_type id, Counters& counters)
             {
                 if (std::is_same_v< Tag, tag_state >)
@@ -199,14 +197,17 @@ namespace crdt
                 return replica.dots.find(counter);
             }
 
+            /*
             template < typename Dots, typename Context > void merge_value_dots(Allocator& allocator, value_type_dots_type& ldots, const Dots& rdots, Context& context)
             {
                 dot_context_type(ldots).merge(allocator, rdots, context);
             }
+            */
 
             void emplace_value_dot(Allocator& allocator, value_type_dots_type& ldots, dot< replica_id_type, counter_type > dot)
             {
-                dot_context_type(ldots).emplace(allocator, dot);
+                auto& counters = ldots.emplace(allocator, dot.replica_id, btree::set_base< counter_type >()).first->second;
+                counters.emplace(allocator, dot.counter);
             }
 
             void erase_value_dot(Allocator& allocator, value_type_dots_type& ldots, dot< replica_id_type, counter_type > dot)

@@ -3,6 +3,7 @@
 #include <fluidstore/btree/set.h>
 #include <fluidstore/btree/map.h>
 
+#include <fluidstore/crdt/detail/dot.h>
 #include <fluidstore/crdt/detail/metadata.h>
 
 //

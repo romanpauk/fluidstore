@@ -3,7 +3,7 @@
 // Merge algorithm is based on the article "An Optimized Conflict-free Replicated Set"
 // https://pages.lip6.fr/Marek.Zawirski/papers/RR-8083.pdf
 
-#include <fluidstore/crdt/detail/dot_context.h>
+#include <fluidstore/crdt/tags.h>
 #include <fluidstore/crdt/detail/dot_kernel_allocator.h>
 #include <fluidstore/crdt/detail/dot_kernel_iterator.h>
 #include <fluidstore/crdt/detail/dot_kernel_value.h>
@@ -81,6 +81,11 @@ namespace crdt
             MetadataT& metadata_;
         };
            
+        struct counters_context
+        {
+            void register_erase(const dot_type&) {}
+        };
+
         dot_kernel() = default;
         dot_kernel(dot_kernel_type&& other) = default;             
         dot_kernel_type& operator = (dot_kernel_type&& other) = default;
@@ -159,7 +164,7 @@ namespace crdt
                 // Merge global counters
                 auto& ldata = meta.get_replica_data(allocator, replica_id);
                 
-                merge_counters(allocator, ldata, replica_id, rdata);
+                merge_counters(allocator, ldata.counters, replica_id, rdata.counters, counters_context());
                                 
                 // Determine deleted values (those are the ones we have not visited in a loop over values).
 
@@ -316,13 +321,8 @@ namespace crdt
             return counter;
         }
                 
-        struct counters_context
-        {
-            template < typename T > void register_erase(const T&) {}
-        };
-
-        // TODO: this should work with counters and not replica_data
-        template < typename Allocator, typename ReplicaData > void merge_counters(Allocator& allocator, typename Metadata::replica_data& ldata, replica_id_type replica_id, ReplicaData& rdata)
+                
+        template < typename Allocator, typename LCounters, typename RCounters, typename Context > void merge_counters(Allocator& allocator, LCounters& lcounters, replica_id_type replica_id, RCounters& rcounters, Context& context)
         {
             if (std::is_same_v< Tag, tag_state >)
             {
@@ -335,21 +335,21 @@ namespace crdt
             // 
             // assert(rcounters.size() == 1);   // delta variant can have N elements, and merging two state variants does not make sense
 
-            if (ldata.counters.size() == 0)
+            if (lcounters.size() == 0)
             {
                 // Trivial append
-                ldata.counters.insert(allocator, rdata.counters.begin(), rdata.counters.end());
+                lcounters.insert(allocator, rcounters.begin(), rcounters.end());
             }
-            else if (ldata.counters.size() == 1 && rdata.counters.size() == 1)
+            else if (lcounters.size() == 1 && rcounters.size() == 1)
             {
                 // Maybe in-place replace
-                if (*ldata.counters.begin() + 1 == *rdata.counters.begin())
+                if (*lcounters.begin() + 1 == *rcounters.begin())
                 {
-                    auto counter = *ldata.counters.begin();
+                    auto counter = *lcounters.begin();
 
                     // TODO: in-place update
-                    ldata.counters.insert(allocator, *ldata.counters.begin() + 1);
-                    ldata.counters.erase(allocator, ldata.counters.begin());
+                    lcounters.insert(allocator, *lcounters.begin() + 1);
+                    lcounters.erase(allocator, lcounters.begin());
 
                     // No need to collapse here, but have to notify upper layer about removal
                     // context.register_erase(dot< ReplicaId, counter_type >{ replica_id, counter });
@@ -358,19 +358,18 @@ namespace crdt
                 }
                 else
                 {
-                    ldata.counters.insert(allocator, rdata.counters.begin(), rdata.counters.end());
+                    lcounters.insert(allocator, rcounters.begin(), rcounters.end());
                 }
             }
             else
             {
                 // TODO: two sets merge
-                ldata.counters.insert(allocator, rdata.counters.begin(), rdata.counters.end());
+                lcounters.insert(allocator, rcounters.begin(), rcounters.end());
             }
 
             if (std::is_same_v< Tag, tag_state >)
             {
-                counters_context context;
-                collapse_counters(allocator, ldata.counters, replica_id, context);
+                collapse_counters(allocator, lcounters, replica_id, context);
             }
         }
 
@@ -383,7 +382,7 @@ namespace crdt
                 if (*next == *prev + 1)
                 {
                     // TODO: we should find a largest block to erase, not erase single element and continue
-                    //context.register_erase(dot< ReplicaId, counter_type >{ replica_id, * prev });
+                    context.register_erase(dot< replica_id_type, counter_type >{ replica_id, *prev });
                     next = counters.erase(allocator, prev);
                     prev = next++;
                 }
@@ -398,11 +397,10 @@ namespace crdt
         {
             for (auto& [replica_id, rcounters] : rdots)
             {
-                auto& counters = ldots.emplace(allocator, replica_id, btree::set_base< counter_type >()).first->second;
-
-                // TODO: use merge counters
-                dot_counters_base< btree::set_base< counter_type >, Tag > values(counters);
-                values.update(allocator, replica_id, rcounters, context);
+                // TODO: move to metadata
+                auto& lcounters = ldots.emplace(allocator, replica_id, btree::set_base< counter_type >()).first->second;
+                // auto& lcounters = metadata.get_value_dots(allocator, replica_id);
+                merge_counters(allocator, lcounters, replica_id, rcounters, context);
             }
         }
 

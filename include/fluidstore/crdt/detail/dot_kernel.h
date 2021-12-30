@@ -280,7 +280,7 @@ namespace crdt
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
             auto replica_id = allocator.get_replica().get_id();
-            return { replica_id, get_metadata().get_counter(replica_id) + 1 };
+            return { replica_id, get_counter(replica_id) + 1 };
         }
 
         void add_value(const Key& key, const dot_type& dot)
@@ -304,6 +304,18 @@ namespace crdt
         const values_type& get_values() const { return values_; }
 
     private:
+        counter_type get_counter(replica_id_type id)
+        {
+            counter_type counter = counter_type();
+            auto replica = get_metadata().get_replica_data(id);
+            if (replica)
+            {
+                counter = get_metadata().get_counter(*replica);
+            }
+
+            return counter;
+        }
+
         values_type values_;
     };
 }

@@ -150,16 +150,9 @@ namespace crdt
                 return it != replica_.end() ? &it->second : nullptr;
             }
 
-            counter_type get_counter(replica_id_type id)
+            counter_type get_counter(replica_data& replica)
             {
-                counter_type counter = counter_type();
-                auto replica = get_replica_data(id);
-                if (replica)
-                {
-                    counter = dot_counters_base< counters_type, Tag >(replica->counters).get();
-                }
-
-                return counter;
+                return !replica.counters.empty() ? *--replica.counters.end() : counter_type();
             }
 
             void add_counter(Allocator& allocator, replica_id_type id, counter_type counter)

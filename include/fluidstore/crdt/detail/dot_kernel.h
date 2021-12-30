@@ -159,7 +159,7 @@ namespace crdt
                 // Merge global counters
                 auto& ldata = meta.get_replica_data(allocator, replica_id);
                 
-                meta.merge_counters(allocator, ldata, replica_id, rdata);
+                merge_counters(allocator, ldata, replica_id, rdata);
                                 
                 // Determine deleted values (those are the ones we have not visited in a loop over values).
 
@@ -314,6 +314,84 @@ namespace crdt
             }
 
             return counter;
+        }
+                
+        struct counters_context
+        {
+            template < typename T > void register_erase(const T&) {}
+        };
+
+        // TODO: this should work with counters and not replica_data
+        template < typename Allocator, typename ReplicaData > void merge_counters(Allocator& allocator, typename Metadata::replica_data& ldata, replica_id_type replica_id, ReplicaData& rdata)
+        {
+            if (std::is_same_v< Tag, tag_state >)
+            {
+                // TODO: investigate
+                // assert(counters_.size() <= 1);      // state variant should have 0 or 1 elements
+            }
+
+            // TODO: this assert should really by true. The issue is in map::insert with value_mv - it is not delta there.
+            //static_assert(std::is_same_v< RCounters::tag_type, tag_delta >);
+            // 
+            // assert(rcounters.size() == 1);   // delta variant can have N elements, and merging two state variants does not make sense
+
+            if (ldata.counters.size() == 0)
+            {
+                // Trivial append
+                ldata.counters.insert(allocator, rdata.counters.begin(), rdata.counters.end());
+            }
+            else if (ldata.counters.size() == 1 && rdata.counters.size() == 1)
+            {
+                // Maybe in-place replace
+                if (*ldata.counters.begin() + 1 == *rdata.counters.begin())
+                {
+                    auto counter = *ldata.counters.begin();
+
+                    // TODO: in-place update
+                    ldata.counters.insert(allocator, *ldata.counters.begin() + 1);
+                    ldata.counters.erase(allocator, ldata.counters.begin());
+
+                    // No need to collapse here, but have to notify upper layer about removal
+                    // context.register_erase(dot< ReplicaId, counter_type >{ replica_id, counter });
+
+                    return;
+                }
+                else
+                {
+                    ldata.counters.insert(allocator, rdata.counters.begin(), rdata.counters.end());
+                }
+            }
+            else
+            {
+                // TODO: two sets merge
+                ldata.counters.insert(allocator, rdata.counters.begin(), rdata.counters.end());
+            }
+
+            if (std::is_same_v< Tag, tag_state >)
+            {
+                counters_context context;
+                collapse_counters(allocator, ldata.counters, replica_id, context);
+            }
+        }
+
+        template < typename Allocator, typename Counters, typename Context > void collapse_counters(Allocator& allocator, Counters& counters, replica_id_type replica_id, Context& context)
+        {
+            auto next = counters.begin();
+            auto prev = next++;
+            for (; next != counters.end();)
+            {
+                if (*next == *prev + 1)
+                {
+                    // TODO: we should find a largest block to erase, not erase single element and continue
+                    //context.register_erase(dot< ReplicaId, counter_type >{ replica_id, * prev });
+                    next = counters.erase(allocator, prev);
+                    prev = next++;
+                }
+                else
+                {
+                    break;
+                }
+            }
         }
 
         values_type values_;

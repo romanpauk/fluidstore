@@ -173,12 +173,7 @@ namespace crdt
                 }
 
                 get_replica_data(allocator, id).counters.insert(allocator, counters.begin(), counters.end());                
-            }
-
-            template < typename ReplicaData > void merge_counters(Allocator& allocator, replica_data& lhs, replica_id_type id, ReplicaData& rhs)
-            {
-                dot_counters_base< counters_type, Tag >(lhs.counters).merge(allocator, id, rhs.counters);
-            }
+            }            
 
             template < typename Key > void add_dot(Allocator& allocator, replica_data& replica, counter_type counter, Key key)
             {
@@ -216,7 +211,15 @@ namespace crdt
 
             void erase_value_dot(Allocator& allocator, value_type_dots_type& ldots, dot< replica_id_type, counter_type > dot)
             {
-                dot_context_type(ldots).erase(allocator, dot);
+                auto it = ldots.find(dot.replica_id);
+                if (it != ldots.end())
+                {
+                    it->second.erase(allocator, dot.counter);
+                    if (it->second.empty())
+                    {
+                        ldots.erase(allocator, it);
+                    }
+                }                
             }
 
             template < typename Values, typename Key, typename Value > auto emplace_value(Allocator& allocator, Values& values, const Key& key, Value&& value)

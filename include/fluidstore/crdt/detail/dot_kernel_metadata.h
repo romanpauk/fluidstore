@@ -157,12 +157,22 @@ namespace crdt
 
             void add_counter(Allocator& allocator, replica_id_type id, counter_type counter)
             {
-                dot_counters_base< counters_type, Tag >(get_replica_data(allocator, id).counters).emplace(allocator, counter);
+                if (std::is_same_v< Tag, tag_state >)
+                {
+                    assert(get_replica_data(allocator, id).counters.empty());
+                }
+
+                get_replica_data(allocator, id).counters.emplace(allocator, counter);
             }
 
             template < typename Counters > void add_counters(Allocator& allocator, replica_id_type id, Counters& counters)
             {
-                dot_counters_base< counters_type, Tag >(get_replica_data(allocator, id).counters).insert(allocator, counters);
+                if (std::is_same_v< Tag, tag_state >)
+                {
+                    assert(get_replica_data(allocator, id).counters.empty());
+                }
+
+                get_replica_data(allocator, id).counters.insert(allocator, counters.begin(), counters.end());                
             }
 
             template < typename ReplicaData > void merge_counters(Allocator& allocator, replica_data& lhs, replica_id_type id, ReplicaData& rhs)

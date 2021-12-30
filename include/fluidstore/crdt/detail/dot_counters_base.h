@@ -11,12 +11,12 @@ namespace crdt
     //  delta variant keeps sorted set
     //  state variant keeps just the latest. This is true after the merge, but not during the merge.
 
-    template < typename CounterType, typename Tag, typename SizeType = uint32_t > class dot_counters_base
+    template < typename CountersType, typename Tag > class dot_counters_base
     {
-        template < typename CounterTypeT, typename TagT, typename SizeTypeT > friend class dot_counters_base;
+        template < typename CounterTypeT, typename TagT > friend class dot_counters_base;
 
-        using counter_type = CounterType;
-        using size_type = SizeType;
+        using counter_type = typename CountersType::value_type;
+        using size_type = typename CountersType::size_type;
         using tag_type = Tag;
 
         struct default_context
@@ -25,7 +25,7 @@ namespace crdt
         };
             
     public:
-        using counters_type = btree::set_base< counter_type >;
+        using counters_type = CountersType;
 
         dot_counters_base(counters_type& counters) :
             counters_(counters)
@@ -34,10 +34,10 @@ namespace crdt
         dot_counters_base(dot_counters_base&& other) = default;
         ~dot_counters_base() = default;
 
-        dot_counters_base< CounterType, Tag, SizeType >& operator = (dot_counters_base< CounterType, Tag, SizeType >&&) = default;
+        dot_counters_base< CountersType, Tag >& operator = (dot_counters_base< CountersType, Tag >&&) = default;
 
         dot_counters_base(const dot_counters_base&) = delete;
-        dot_counters_base< CounterType, Tag, SizeType >& operator = (const dot_counters_base< CounterType, Tag, SizeType >&) = delete;
+        dot_counters_base< CountersType, Tag >& operator = (const dot_counters_base< CountersType, Tag >&) = delete;
 
         counter_type get() const
         {
@@ -181,6 +181,7 @@ namespace crdt
             counters_.clear(allocator);
         }
             
+    private:
         counters_type& counters_;
     };
 }

@@ -7,15 +7,13 @@
 
 namespace crdt
 {
-    template < typename Dot, typename Tag, typename SizeType = uint32_t > class dot_context
+    template < typename CountersType, typename Dot, typename Tag > class dot_context
     {
-        template < typename DotT, typename TagT, typename SizeTypeT > friend class dot_context;
+        template < typename CountersTypeT, typename DotT, typename TagT > friend class dot_context;
 
         using dot_type = Dot;
         using replica_id_type = typename dot_type::replica_id_type;
-        using counter_type = typename dot_type::counter_type;
-
-        using size_type = SizeType;
+        using counter_type = typename dot_type::counter_type;       
 
         struct default_context
         {
@@ -33,8 +31,9 @@ namespace crdt
 
     public:
         // TODO: use pointer for value
-        using counters_type = btree::map_base < replica_id_type, typename dot_counters_base< counter_type, Tag, size_type >::counters_type >;
-    
+        using counters_type = CountersType; 
+        using size_type = typename CountersType::size_type;
+
         dot_context(counters_type& counters)
             : counters_(counters)
         {}
@@ -49,19 +48,19 @@ namespace crdt
 
         template < typename Allocator, typename... Args > void emplace(Allocator& allocator, const dot_type& dot)
         {
-            auto& counters = counters_.emplace(allocator, dot.replica_id, dot_counters_base< counter_type, Tag, size_type >::counters_type()).first->second;
+            auto& counters = counters_.emplace(allocator, dot.replica_id, btree::set_base< counter_type >()).first->second;
 
-            dot_counters_base< counter_type, Tag, size_type > values(counters);
+            dot_counters_base< btree::set_base< counter_type >, Tag > values(counters);
             values.emplace(allocator, dot.counter);
         }
 
-        template < typename Allocator, typename TagT, typename SizeTypeT > void insert(Allocator& allocator, const dot_context< Dot, TagT, SizeTypeT >& dots)
+        template < typename Allocator, typename TagT, typename SizeTypeT > void insert(Allocator& allocator, const dot_context< CountersType, Dot, TagT >& dots)
         {
             for (auto& [replica_id, counters] : dots)
             {
-                auto& counters = counters_.emplace(allocator, replica_id, dot_counters_base< counter_type, Tag, size_type >::counters_type()).first->second;
+                auto& counters = counters_.emplace(allocator, replica_id, btree::set_base< counter_type >()).first->second;
 
-                dot_counters_base< counter_type, Tag, size_type > values(it->second);
+                dot_counters_base< btree::set_base< counter_type >, Tag > values(it->second);
                 values.insert(allocator, counters);
             }
         }
@@ -71,7 +70,7 @@ namespace crdt
             auto it = counters_.find(replica_id);
             if (it != counters_.end())
             {
-                dot_counters_base< counter_type, Tag, size_type > values(it->second);
+                dot_counters_base< btree::set_base< counter_type >, Tag > values(it->second);
                 return values.get();
             }
 
@@ -83,7 +82,7 @@ namespace crdt
             auto it = counters_.find(dot.replica_id);
             if (it != counters_.end())
             {
-                dot_counters_base< counter_type, Tag, size_type > values(it->second);
+                dot_counters_base< btree::set_base< counter_type >, Tag > values(it->second);
                 return values.has(dot.counter);
             }
 
@@ -100,8 +99,8 @@ namespace crdt
         {
             for (auto& [replica_id, rcounters] : other)
             {
-                auto& counters = counters_.emplace(allocator, replica_id, dot_counters_base< counter_type, Tag, size_type >::counters_type()).first->second;
-                dot_counters_base< counter_type, Tag, size_type > values(counters);
+                auto& counters = counters_.emplace(allocator, replica_id, btree::set_base< counter_type >()).first->second;
+                dot_counters_base< btree::set_base< counter_type >, Tag > values(counters);
                 values.update(allocator, replica_id, rcounters, context);
             }
         }
@@ -123,7 +122,7 @@ namespace crdt
         {
             for (auto& [replica_id, counters] : counters_)
             {
-                dot_counters_base< counter_type, Tag, size_type > values(counters);
+                dot_counters_base< btree::set_base< counter_type >, Tag > values(counters);
                 values.collapse(allocator, replica_id, context);
             }
         }
@@ -156,7 +155,7 @@ namespace crdt
             size_type count = 0;
             for (const auto& [replica_id, counters]: counters_)
             {
-                dot_counters_base< counter_type, Tag, size_type > values(counters);
+                dot_counters_base< btree::set_base< counter_type >, Tag > values(counters);
                 count += values.size();
             }
 

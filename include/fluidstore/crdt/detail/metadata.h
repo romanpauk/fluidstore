@@ -123,9 +123,11 @@ namespace crdt
             using replica_id_type = typename replica_type::replica_id_type;
             using counter_type = typename replica_type::counter_type;
 
-            using value_type_dots_type = btree::map_base < replica_id_type, btree::set_base< counter_type > >;
-            using dot_context_type = dot_context< dot< replica_id_type, counter_type >, Tag >;
-
+            using counters_type = btree::set_base< counter_type >;
+            using value_type_dots_type = btree::map_base < replica_id_type, counters_type >;
+            
+            using dot_context_type = dot_context< btree::map_base < replica_id_type, counters_type >, dot< replica_id_type, counter_type >, Tag >;
+            
             template < typename Key, typename Value > using values_map_type = btree::map_base< Key, Value >;
 
             // Instance ids
@@ -157,7 +159,7 @@ namespace crdt
                 auto replica = get_replica_data(id);
                 if (replica)
                 {
-                    counter = dot_counters_base< counter_type, Tag, size_t >(replica->counters).get();
+                    counter = dot_counters_base< counters_type, Tag >(replica->counters).get();
                 }
 
                 return counter;
@@ -165,17 +167,17 @@ namespace crdt
 
             void add_counter(Allocator& allocator, replica_id_type id, counter_type counter)
             {
-                dot_counters_base< counter_type, Tag, size_t >(get_replica_data(allocator, id).counters).emplace(allocator, counter);
+                dot_counters_base< counters_type, Tag >(get_replica_data(allocator, id).counters).emplace(allocator, counter);
             }
 
             template < typename Counters > void add_counters(Allocator& allocator, replica_id_type id, Counters& counters)
             {
-                dot_counters_base< counter_type, Tag, size_t >(get_replica_data(allocator, id).counters).insert(allocator, counters);
+                dot_counters_base< counters_type, Tag >(get_replica_data(allocator, id).counters).insert(allocator, counters);
             }
 
             template < typename ReplicaData > void merge_counters(Allocator& allocator, replica_data& lhs, replica_id_type id, ReplicaData& rhs)
             {
-                dot_counters_base< counter_type, Tag, size_t >(lhs.counters).merge(allocator, id, rhs.counters);
+                dot_counters_base< counters_type, Tag >(lhs.counters).merge(allocator, id, rhs.counters);
             }
 
             template < typename Key > void add_dot(Allocator& allocator, replica_data& replica, counter_type counter, Key key)

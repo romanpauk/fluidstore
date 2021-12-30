@@ -200,7 +200,7 @@ BOOST_AUTO_TEST_CASE(vector_dot_context)
     crdt::arena< 32768 > arena;
     crdt::arena_allocator< int > allocator(arena);
 
-    crdt::flat::vector_base< crdt::dot_context< crdt::dot< int, int >, crdt::tag_state >::counters_type > dots;
+    crdt::flat::vector_base< crdt::dot_context< btree::map_base < uint64_t, btree::set_base< uint64_t > >, crdt::dot< int, int >, crdt::tag_state >::counters_type > dots;
     //crdt::flat::vector_base< crdt::dot< int, int > > dots;
     
     //static_assert(std::is_trivially_copyable_v< crdt::flat::vector_base< int > >);

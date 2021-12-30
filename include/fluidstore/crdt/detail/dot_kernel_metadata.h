@@ -205,6 +205,12 @@ namespace crdt
             }
             */
 
+            auto& get_value_dots(Allocator& allocator, value_type_dots_type& ldots, replica_id_type id)
+            {
+                auto& counters = ldots.emplace(allocator, id, btree::set_base< counter_type >()).first->second;
+                return counters;
+            }
+
             void emplace_value_dot(Allocator& allocator, value_type_dots_type& ldots, dot< replica_id_type, counter_type > dot)
             {
                 auto& counters = ldots.emplace(allocator, dot.replica_id, btree::set_base< counter_type >()).first->second;

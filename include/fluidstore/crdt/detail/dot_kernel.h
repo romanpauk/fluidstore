@@ -397,9 +397,7 @@ namespace crdt
         {
             for (auto& [replica_id, rcounters] : rdots)
             {
-                // TODO: move to metadata
-                auto& lcounters = ldots.emplace(allocator, replica_id, btree::set_base< counter_type >()).first->second;
-                // auto& lcounters = metadata.get_value_dots(allocator, replica_id);
+                auto& lcounters = get_metadata().get_value_dots(allocator, ldots, replica_id);
                 merge_counters(allocator, lcounters, replica_id, rcounters, context);
             }
         }

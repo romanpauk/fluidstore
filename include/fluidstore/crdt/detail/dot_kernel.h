@@ -21,7 +21,7 @@
 namespace crdt
 {
     template < typename Key, typename Value, typename Allocator, typename Container, typename Tag, 
-        typename Metadata = detail::dot_kernel_metadata< Key, Tag, Allocator, detail::tag_local > > 
+        typename Metadata = detail::dot_kernel_metadata< Key, Tag, Allocator, detail::tag_local_btree > > 
     class dot_kernel
         : public detail::metadata_base< Container, Metadata >
     {
@@ -98,13 +98,7 @@ namespace crdt
         void reset()
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
-
-            for (auto& value : values_)
-            {
-                value.second.dots.clear(allocator);
-            }
-            values_.clear(allocator);
-
+            get_metadata().values_clear(allocator, values_);
             get_metadata().clear(allocator);            
         }
 
@@ -145,7 +139,7 @@ namespace crdt
                     //rvisited[replica_id].insert(tmp, rdots.counters_.begin(), rdots.counters_.end());
 
                     auto& ldata = meta.get_replica_data(allocator, replica_id); // replica_.emplace(allocator, replica_id, replica_data()).first->second;
-                    ldata.visited.insert(tmp, rdots.begin(), rdots.end());
+                    meta.counters_insert(tmp, ldata.visited, rdots.begin(), rdots.end());
 
                     for (const auto& counter : rdots)
                     {
@@ -178,7 +172,7 @@ namespace crdt
                     std::back_inserter(rdotsvalueless)
                 );
                 
-                ldata.visited.clear(tmp);
+                meta.counters_clear(tmp, ldata.visited);
                 //*/
 
                 /*

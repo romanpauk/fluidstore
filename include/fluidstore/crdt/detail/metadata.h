@@ -4,12 +4,14 @@ namespace crdt
 {
     namespace detail 
     {
-        struct tag_local {};
+        struct tag_local_btree {};
+        struct tag_local_stl {};
+
         struct tag_shared {};
 
         template < typename Container, typename Metadata, typename MetadataTag = typename Metadata::metadata_tag_type > struct metadata_base;
         
-        template < typename Container, typename Metadata > struct metadata_base< Container, Metadata, tag_local >
+        template < typename Container, typename Metadata > struct metadata_base< Container, Metadata, tag_local_btree >
         {            
             Metadata& get_metadata() { return metadata_; }
             const Metadata& get_metadata() const { return metadata_; }
@@ -18,6 +20,15 @@ namespace crdt
             Metadata metadata_;
         };
         
+        template < typename Container, typename Metadata > struct metadata_base< Container, Metadata, tag_local_stl >
+        {
+            Metadata& get_metadata() { return metadata_; }
+            const Metadata& get_metadata() const { return metadata_; }
+
+        private:
+            Metadata metadata_;
+        };
+
         template < typename Container, typename Metadata > struct metadata_base< Container, Metadata, tag_shared >
         {
             Metadata& get_metadata() { return static_cast< Container* >(this)->get_replica().get_metadata(); }

@@ -73,7 +73,7 @@ namespace crdt
 
             void register_erase(const dot_type& dot) 
             {                
-                metadata_.erase_dot(allocator_, dot.replica_id, dot.counter);
+                metadata_.replica_dots_erase(allocator_, dot.replica_id, dot.counter);
             }
 
         private:
@@ -130,11 +130,11 @@ namespace crdt
             // Merge values
             for (const auto& [rkey, rvalue] : other.get_values())
             {
-                auto lpb = meta.emplace_value(allocator, values_, rkey, dot_kernel_value_type(allocator, rkey, this));
+                auto lpb = meta.values_emplace(allocator, values_, rkey, dot_kernel_value_type(allocator, rkey, this));
                 auto& lvalue = *lpb.first;
 
                 value_context value_ctx(allocator, get_metadata());
-                merge_value_dots(allocator, lvalue.second.dots, rvalue.dots, value_ctx);
+                value_dots_merge(allocator, lvalue.second.dots, rvalue.dots, value_ctx);
                 lvalue.second.merge(allocator, rvalue, value_ctx);
             
                 for (const auto& [replica_id, rdots] : rvalue.dots)
@@ -150,7 +150,7 @@ namespace crdt
                     for (const auto& counter : rdots)
                     {
                         // Create dot -> key link
-                        meta.add_dot(allocator, ldata, counter, rkey);
+                        meta.replica_dots_add(allocator, ldata, counter, rkey);
                     }
                 }
 
@@ -159,12 +159,12 @@ namespace crdt
             }
 
             // Merge replicas
-            for (auto& [replica_id, rdata] : other.get_replica_map())
+            for (const auto& [replica_id, rdata] : other.get_replica_map())
             {
                 // Merge global counters
                 auto& ldata = meta.get_replica_data(allocator, replica_id);
                 
-                merge_counters(allocator, ldata.counters, replica_id, rdata.counters, counters_context());
+                counters_merge(allocator, ldata.counters, replica_id, rdata.counters, counters_context());
                                 
                 // Determine deleted values (those are the ones we have not visited in a loop over values).
 
@@ -213,22 +213,22 @@ namespace crdt
 
                 for (const auto& counter : rdotsvalueless)
                 {
-                    auto counter_it = meta.find_dot(ldata, counter);
+                    auto counter_it = meta.replica_dots_find(ldata, counter);
                     if (counter_it != ldata.dots.end())
                     {
                         auto& lkey = counter_it->second;
                  
-                        auto values_it = meta.find_value(values_, lkey);       
-                        meta.erase_value_dot(allocator, values_it->second.dots, dot_type{ replica_id, counter });
+                        auto value_it = meta.values_find(values_, lkey);       
+                        meta.value_counters_erase(allocator, value_it->second.dots, dot_type{ replica_id, counter });
 
-                        if (values_it->second.dots.empty())
+                        if (value_it->second.dots.empty())
                         {
                             // Support for erase iterator return value
-                            auto it = meta.erase_value(allocator, values_, values_it);                         
+                            auto it = meta.values_erase(allocator, values_, value_it);                         
                             ctx.register_erase(it);
                         }
 
-                        meta.erase_dot(allocator, ldata, counter_it);
+                        meta.replica_dots_erase(allocator, ldata, counter_it);
                     }
                 }
             }
@@ -271,14 +271,14 @@ namespace crdt
             auto& meta = get_metadata();
             for (auto& [replica_id, counters] : dots)
             {                
-                meta.add_counters(allocator, replica_id, counters);
+                meta.replica_counters_add(allocator, replica_id, counters);
             }
         }
 
         void add_counter_dot(const dot_type& dot)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
-            get_metadata().add_counter(allocator, dot.replica_id, dot.counter);
+            get_metadata().replica_counters_add(allocator, dot.replica_id, dot.counter);
         }
 
         // TODO: const
@@ -286,23 +286,23 @@ namespace crdt
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
             auto replica_id = allocator.get_replica().get_id();
-            return { replica_id, get_counter(replica_id) + 1 };
+            return { replica_id, replica_counters_get(replica_id) + 1 };
         }
 
         void add_value(const Key& key, const dot_type& dot)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
             auto& meta = get_metadata();
-            auto& data = *meta.emplace_value(allocator, values_, key, dot_kernel_value_type(allocator, key, nullptr)).first;
-            meta.emplace_value_dot(allocator, data.second.dots, dot);
+            auto& data = *meta.values_emplace(allocator, values_, key, dot_kernel_value_type(allocator, key, nullptr)).first;
+            meta.value_counters_emplace(allocator, data.second.dots, dot);
         }
 
         template < typename ValueT > void add_value(const Key& key, const dot_type& dot, ValueT&& value)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
             auto& meta = get_metadata();
-            auto& data = *meta.emplace_value(allocator, values_, key, dot_kernel_value_type(allocator, key, nullptr)).first;
-            meta.emplace_value_dot(allocator, data.second.dots, dot);
+            auto& data = *meta.values_emplace(allocator, values_, key, dot_kernel_value_type(allocator, key, nullptr)).first;
+            meta.value_counters_emplace(allocator, data.second.dots, dot);
             data.second.value.merge(value);
         }
                 
@@ -311,20 +311,21 @@ namespace crdt
         const values_type& get_values() const { return values_; }
 
     private:
-        counter_type get_counter(replica_id_type id)
+        counter_type replica_counters_get(replica_id_type id)
         {
             counter_type counter = counter_type();
-            auto replica = get_metadata().get_replica_data(id);
+            auto& meta = get_metadata();
+            auto replica = meta.get_replica_data(id);
             if (replica)
             {
-                counter = get_metadata().get_counter(*replica);
+                counter = meta.replica_counters_get(*replica);
             }
 
             return counter;
         }
                 
                 
-        template < typename Allocator, typename LCounters, typename RCounters, typename Context > void merge_counters(Allocator& allocator, LCounters& lcounters, replica_id_type replica_id, RCounters& rcounters, Context& context)
+        template < typename Allocator, typename LCounters, typename RCounters, typename Context > void counters_merge(Allocator& allocator, LCounters& lcounters, replica_id_type replica_id, RCounters& rcounters, Context& context)
         {
             if (std::is_same_v< Tag, tag_state >)
             {
@@ -345,7 +346,7 @@ namespace crdt
                 if (*lcounters.begin() + 1 == *rcounters.begin())
                 {
                     auto counter = *lcounters.begin();
-                    meta.update_counter(allocator, lcounters, lcounters.begin(), counter + 1);
+                    meta.counters_update(allocator, lcounters, lcounters.begin(), counter + 1);
 
                     // No need to collapse here, but have to notify upper layer about removal
                     context.register_erase(dot_type{ replica_id, counter });
@@ -354,15 +355,15 @@ namespace crdt
                 }
             }
 
-            meta.insert_counter(allocator, lcounters, rcounters.begin(), rcounters.end());
+            meta.counters_insert(allocator, lcounters, rcounters.begin(), rcounters.end());
 
             if (std::is_same_v< Tag, tag_state >)
             {
-                collapse_counters(allocator, lcounters, replica_id, context);
+                counters_collapse(allocator, lcounters, replica_id, context);
             }
         }
 
-        template < typename Allocator, typename Counters, typename Context > void collapse_counters(Allocator& allocator, Counters& counters, replica_id_type replica_id, Context& context)
+        template < typename Allocator, typename Counters, typename Context > void counters_collapse(Allocator& allocator, Counters& counters, replica_id_type replica_id, Context& context)
         {
             auto& meta = get_metadata();
             auto next = counters.begin();
@@ -373,7 +374,7 @@ namespace crdt
                 {
                     // TODO: we should find a largest block to erase, not erase single element and continue
                     context.register_erase(dot_type{ replica_id, *prev });
-                    next = meta.erase_counter(allocator, counters, prev);
+                    next = meta.counters_erase(allocator, counters, prev);
                     prev = next++;
                 }
                 else
@@ -383,13 +384,13 @@ namespace crdt
             }
         }
 
-        template < typename Allocator, typename Dots, typename Context > void merge_value_dots(Allocator& allocator, typename Metadata::value_type_dots_type& ldots, const Dots& rdots, Context& context)
+        template < typename Allocator, typename Dots, typename Context > void value_dots_merge(Allocator& allocator, typename Metadata::value_type_dots_type& ldots, const Dots& rdots, Context& context)
         {
             auto& meta = get_metadata();
             for (auto& [replica_id, rcounters] : rdots)
             {
-                auto& lcounters = meta.get_value_dots(allocator, ldots, replica_id);
-                merge_counters(allocator, lcounters, replica_id, rcounters, context);
+                auto& lcounters = meta.value_counters_fetch(allocator, ldots, replica_id);
+                counters_merge(allocator, lcounters, replica_id, rcounters, context);
             }
         }
 

@@ -149,12 +149,12 @@ namespace crdt
                 return it != replica_.end() ? &it->second : nullptr;
             }
 
-            counter_type get_counter(replica_data& replica)
+            counter_type replica_counters_get(replica_data& replica)
             {
                 return !replica.counters.empty() ? *--replica.counters.end() : counter_type();
             }
 
-            void add_counter(Allocator& allocator, replica_id_type id, counter_type counter)
+            void replica_counters_add(Allocator& allocator, replica_id_type id, counter_type counter)
             {
                 if (std::is_same_v< Tag, tag_state >)
                 {
@@ -164,7 +164,7 @@ namespace crdt
                 get_replica_data(allocator, id).counters.emplace(allocator, counter);
             }
                         
-            template < typename Counters > void add_counters(Allocator& allocator, replica_id_type id, Counters& counters)
+            template < typename Counters > void replica_counters_add(Allocator& allocator, replica_id_type id, Counters& counters)
             {
                 if (std::is_same_v< Tag, tag_state >)
                 {
@@ -174,29 +174,29 @@ namespace crdt
                 get_replica_data(allocator, id).counters.insert(allocator, counters.begin(), counters.end());                
             }            
 
-            auto erase_counter(Allocator& allocator, counters_type& counters, typename counters_type::iterator it)
+            auto counters_erase(Allocator& allocator, counters_type& counters, typename counters_type::iterator it)
             {
                 return counters.erase(allocator, it);
             }
 
-            void update_counter(Allocator& allocator, counters_type& counters, typename counters_type::iterator it, counter_type value)
+            void counters_update(Allocator& allocator, counters_type& counters, typename counters_type::iterator it, counter_type value)
             {
                 // TODO: in-place update, this should not change the tree layout
                 counters.insert(allocator, it, value);
                 counters.erase(allocator, it);
             }
 
-            template < typename It > void insert_counter(Allocator& allocator, counters_type& counters, It begin, It end)
+            template < typename It > void counters_insert(Allocator& allocator, counters_type& counters, It begin, It end)
             {
                 counters.insert(allocator, begin, end);
             }
 
-            template < typename Key > void add_dot(Allocator& allocator, replica_data& replica, counter_type counter, Key key)
+            template < typename Key > void replica_dots_add(Allocator& allocator, replica_data& replica, counter_type counter, Key key)
             {
                 replica.dots.emplace(allocator, counter, key);
             }
 
-            void erase_dot(Allocator& allocator, replica_id_type id, counter_type counter)
+            void replica_dots_erase(Allocator& allocator, replica_id_type id, counter_type counter)
             {
                 auto replica = get_replica_data(id);
                 if (replica)
@@ -205,36 +205,29 @@ namespace crdt
                 }
             }
 
-            void erase_dot(Allocator& allocator, replica_data& replica, typename btree::map_base< counter_type, Key >::iterator it)
+            void replica_dots_erase(Allocator& allocator, replica_data& replica, typename btree::map_base< counter_type, Key >::iterator it)
             {
                 replica.dots.erase(allocator, it);
             }
 
-            auto find_dot(replica_data& replica, counter_type counter)
+            auto replica_dots_find(replica_data& replica, counter_type counter)
             {
                 return replica.dots.find(counter);
             }
 
-            /*
-            template < typename Dots, typename Context > void merge_value_dots(Allocator& allocator, value_type_dots_type& ldots, const Dots& rdots, Context& context)
-            {
-                dot_context_type(ldots).merge(allocator, rdots, context);
-            }
-            */
-
-            auto& get_value_dots(Allocator& allocator, value_type_dots_type& ldots, replica_id_type id)
+            auto& value_counters_fetch(Allocator& allocator, value_type_dots_type& ldots, replica_id_type id)
             {
                 auto& counters = ldots.emplace(allocator, id, btree::set_base< counter_type >()).first->second;
                 return counters;
             }
 
-            void emplace_value_dot(Allocator& allocator, value_type_dots_type& ldots, dot< replica_id_type, counter_type > dot)
+            void value_counters_emplace(Allocator& allocator, value_type_dots_type& ldots, dot< replica_id_type, counter_type > dot)
             {
                 auto& counters = ldots.emplace(allocator, dot.replica_id, btree::set_base< counter_type >()).first->second;
                 counters.emplace(allocator, dot.counter);
             }
 
-            void erase_value_dot(Allocator& allocator, value_type_dots_type& ldots, dot< replica_id_type, counter_type > dot)
+            void value_counters_erase(Allocator& allocator, value_type_dots_type& ldots, dot< replica_id_type, counter_type > dot)
             {
                 auto it = ldots.find(dot.replica_id);
                 if (it != ldots.end())
@@ -247,17 +240,17 @@ namespace crdt
                 }                
             }
 
-            template < typename Values, typename Key, typename Value > auto emplace_value(Allocator& allocator, Values& values, const Key& key, Value&& value)
+            template < typename Values, typename Key, typename Value > auto values_emplace(Allocator& allocator, Values& values, const Key& key, Value&& value)
             {
                 return values.emplace(allocator, key, std::forward< Value >(value));
             }
 
-            template < typename Values > auto find_value(Values& values, const Key& key)
+            template < typename Values > auto values_find(Values& values, const Key& key)
             {
                 return values.find(key);
             }
 
-            template < typename Values > auto erase_value(Allocator& allocator, Values& values, typename Values::iterator it)
+            template < typename Values > auto values_erase(Allocator& allocator, Values& values, typename Values::iterator it)
             {
                 return values.erase(allocator, it);
             }

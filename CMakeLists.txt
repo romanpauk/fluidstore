@@ -7,6 +7,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/MP>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/bigobj>")
 add_link_options("$<$<CXX_COMPILER_ID:MSVC>:LINKER:/DEBUG:FASTLINK>")
+add_link_options("$<$<CXX_COMPILER_ID:Clang>:-static-libstdc++>")
 enable_testing()
 
 add_library(fluidstore INTERFACE)

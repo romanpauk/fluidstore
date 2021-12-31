@@ -4,10 +4,12 @@ namespace btree::detail
 {
     template < typename T > struct is_fixed_vector_trivial
     {
-        static const bool value =
-            std::is_trivially_copy_constructible<T>::value &&
-            std::is_trivially_move_constructible<T>::value &&
-            std::is_trivially_destructible<T>::value;
+        enum {
+            value = 
+                std::is_trivially_copy_constructible<T>::value &&
+                std::is_trivially_move_constructible<T>::value &&
+                std::is_trivially_destructible<T>::value
+        };
     };
 
     // TODO:

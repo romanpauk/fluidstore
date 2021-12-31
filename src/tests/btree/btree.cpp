@@ -9,8 +9,10 @@
 #include <boost/container/flat_map.hpp>
 #include <iomanip>
 
+#if defined(_WIN32)
 #include <windows.h>
 #include <profileapi.h>
+#endif
 
 //_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF | _CRTDBG_CHECK_ALWAYS_DF);
 //_CrtSetBreakAlloc(6668782);
@@ -522,9 +524,11 @@ template < typename Fn > double measure(size_t loops, Fn&& fn)
 
 static bool setup = []
 {
+#if defined(_WIN32)
     DWORD mask = 1;
     SetProcessAffinityMask(GetCurrentProcess(), (DWORD_PTR)&mask);
     SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
+#endif
     return true;
 }();
 
@@ -823,7 +827,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_perf_insert_arena, T, btree_perf_insert_
             results[i] = measure([&]
             {
                 crdt::arena< ArenaSize > arena;
-                crdt::arena_allocator< T > arenaallocator(arena);
+                crdt::arena_allocator< std::pair< T, T > > arenaallocator(arena);
                 boost::container::flat_map< T, T, std::less< T >, decltype(arenaallocator) > c(arenaallocator);
                 insertion_test_map(c, data, i);
             });

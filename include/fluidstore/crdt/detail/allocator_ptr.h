@@ -29,12 +29,7 @@ namespace crdt
         {
             assert(!ptr_);
 
-        #if defined(__clang__)
-            typename Allocator::template rebind< T >::other alloc(allocator);
-        #else
-            auto alloc = std::allocator_traits< Allocator >::template rebind_alloc< T >(allocator);
-        #endif
-
+            auto alloc = typename std::allocator_traits< Allocator >::template rebind_alloc< T >(allocator);
             reset(alloc);
 
             ptr_ = alloc.allocate(1);
@@ -42,7 +37,7 @@ namespace crdt
         }
 
         T& operator*() { assert(ptr_); return *ptr_; }
-        const T& operator*() const { assert(ptr); return *ptr_; }
+        const T& operator*() const { assert(ptr_); return *ptr_; }
         T* operator->() { assert(ptr_); return ptr_; }
         const T* operator->() const { assert(ptr_); return ptr_; }
 
@@ -53,12 +48,7 @@ namespace crdt
         {
             if (ptr_)
             {
-            #if defined(__clang__)
-                typename Allocator::template rebind< T >::other alloc(allocator);
-            #else
-                auto alloc = std::allocator_traits< Allocator >::template rebind_alloc< T >(allocator);
-            #endif
-
+                auto alloc = typename std::allocator_traits< Allocator >::template rebind_alloc< T >(allocator);
                 std::allocator_traits< decltype(alloc) >::destroy(alloc, ptr_);
                 std::allocator_traits< decltype(alloc) >::deallocate(alloc, ptr_, 1);
                 ptr_ = nullptr;
@@ -81,7 +71,7 @@ namespace crdt
 
         template < typename... Args > void emplace(Args&&... args)
         {
-            assert(!ptr_);
+            assert(!this->ptr_);
             reset(allocator_);
             emplace(allocator_, std::forward< Args >(args)...);
         }

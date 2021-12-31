@@ -217,7 +217,13 @@ namespace btree::detail
         struct iterator
         {
             friend container_type;
-
+            
+            using iterator_category = std::bidirectional_iterator_tag;
+            using difference_type = std::ptrdiff_t;
+            using value_type = value_type;
+            using pointer = value_type*;
+            using reference = reference;
+            
             iterator() = default;
             iterator(const iterator&) = default;
 

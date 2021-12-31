@@ -16,7 +16,7 @@
 #include <fluidstore/btree/map.h>
 #include <fluidstore/btree/set.h>
 
-#include <fluidstore/flat/vector.h> // TODO
+#include <deque>
 
 namespace crdt
 {
@@ -163,7 +163,7 @@ namespace crdt
                 // Determine deleted values (those are the ones we have not visited in a loop over values).
 
                 // TODO: deque
-                flat::vector < counter_type, decltype(tmp) > rdotsvalueless(tmp);
+                std::deque< counter_type, decltype(tmp) > rdotsvalueless(tmp);
 
                 //*                
                 std::set_difference(

@@ -72,36 +72,36 @@ namespace btree::detail
         {}
 
         fixed_vector(Descriptor desc, size_type size)
-            : : fixed_vector_base< T, Descriptor >(desc, size)
+            : fixed_vector_base< T, Descriptor >(desc, size)
         {}     
 
         template < typename Allocator, typename... Args > void emplace_back(Allocator& alloc, Args&&... args)
         {
-            emplace(alloc, end(), std::forward< Args >(args)...);
+            emplace(alloc, this->end(), std::forward< Args >(args)...);
         }
 
         template < typename Allocator > iterator erase(Allocator& alloc, iterator index)
         {
-            assert(begin() <= index && index < end());
+            assert(this->begin() <= index && index < this->end());
 
-            bool last = index == end() - 1;
-            std::move(index + 1, end(), index);
-            destroy(alloc, end() - 1, end());
+            bool last = index == this->end() - 1;
+            std::move(index + 1, this->end(), index);
+            destroy(alloc, this->end() - 1, this->end());
 
-            desc_.set_size(size() - 1);
+            this->desc_.set_size(this->size() - 1);
 
-            return last ? end() : index;
+            return last ? this->end() : index;
         }
 
         template < typename Allocator > void erase(Allocator& alloc, iterator from, iterator to)
         {
-            assert(begin() <= from && from <= to);
-            assert(from <= to && to <= end());
+            assert(this->begin() <= from && from <= to);
+            assert(from <= to && to <= this->end());
 
-            if (to == end())
+            if (to == this->end())
             {
                 destroy(alloc, from, to);
-                desc_.set_size(size() - static_cast<size_type>(to - from));
+                this->desc_.set_size(this->size() - static_cast<size_type>(to - from));
             }
             else
             {
@@ -111,19 +111,19 @@ namespace btree::detail
                
         template < typename Allocator > void clear(Allocator& alloc)
         {
-            destroy(alloc, begin(), end());
-            desc_.set_size(0);
+            destroy(alloc, this->begin(), this->end());
+            this->desc_.set_size(0);
         }       
 
         template < typename Allocator, typename... Args > void emplace(Allocator& alloc, iterator it, Args&&... args)
         {
-            assert(size() < capacity());
-            assert(it >= begin());
-            assert(it <= end());
+            assert(this->size() < this->capacity());
+            assert(it >= this->begin());
+            assert(it <= this->end());
 
-            if (it < end())
+            if (it < this->end())
             {
-                move_backward(alloc, it, end(), end() + 1);
+                move_backward(alloc, it, this->end(), this->end() + 1);
 
                 // TODO: does this make sense?
                 if constexpr (std::is_move_assignable_v< T >)
@@ -141,21 +141,21 @@ namespace btree::detail
                 std::allocator_traits< Allocator >::construct(alloc, it, std::forward< Args >(args)...);
             }
 
-            desc_.set_size(desc_.size() + 1);
+            this->desc_.set_size(this->desc_.size() + 1);
         }
 
         template < typename Allocator, typename U > void insert(Allocator& alloc, iterator it, U from, U to)
         {
-            assert(begin() <= it && it <= end());
-            assert((uintptr_t)(to - from + it - begin()) <= capacity());
+            assert(this->begin() <= it && it <= this->end());
+            assert((uintptr_t)(to - from + it - this->begin()) <= this->capacity());
 
-            if (it < end())
+            if (it < this->end())
             {
-                move_backward(alloc, it, end(), end() + (to - from));
+                move_backward(alloc, it, this->end(), this->end() + (to - from));
             }
 
             copy(alloc, from, to, it);
-            desc_.set_size(size() + static_cast<size_type>(to - from));
+            this->desc_.set_size(this->size() + static_cast<size_type>(to - from));
         }
 
     private:
@@ -182,9 +182,9 @@ namespace btree::detail
             }
             else
             {
-                if (dest > end())
+                if (dest > this->end())
                 {
-                    size_type uninitialized_count = static_cast<size_type>(std::min(last - first, dest - end()));
+                    size_type uninitialized_count = static_cast<size_type>(std::min(last - first, dest - this->end()));
                     while (uninitialized_count--)
                     {
                         std::allocator_traits< Allocator >::construct(alloc, --dest, std::move(*--last));
@@ -206,9 +206,9 @@ namespace btree::detail
             else
             {
                 size_type cnt = 0;
-                if (dest < end())
+                if (dest < this->end())
                 {
-                    cnt = static_cast<size_type>(std::min(last - first, end() - dest));
+                    cnt = static_cast<size_type>(std::min(last - first, this->end() - dest));
                     std::copy(first, first + cnt, dest);
                 }
 
@@ -234,48 +234,48 @@ namespace btree::detail
         
         template < typename Allocator > void clear(Allocator& alloc)
         {
-            desc_.set_size(0);
+            this->desc_.set_size(0);
         }
 
         template < typename Allocator, typename... Args > void emplace_back(Allocator& alloc, Args&&... args)
         {
-            emplace(alloc, end(), std::forward< Args >(args)...);
+            emplace(alloc, this->end(), std::forward< Args >(args)...);
         }
 
         template < typename Allocator, typename... Args > void emplace(Allocator&, iterator it, Args&&... args)
         {
-            assert(size() < capacity());
-            assert(it >= begin());
-            assert(it <= end());
+            assert(this->size() < this->capacity());
+            assert(it >= this->begin());
+            assert(it <= this->end());
 
-            if (it < end())
+            if (it < this->end())
             {
-                move(it + 1, it, static_cast< size_type >(end() - it));
+                move(it + 1, it, static_cast< size_type >(this->end() - it));
             }
 
             new (it) T(std::forward< Args >(args)...);
 
-            desc_.set_size(size() + 1);
+            this->desc_.set_size(this->size() + 1);
         }
 
         template < typename Allocator > iterator erase(Allocator&, iterator it)
         {
-            assert(begin() <= it && it < end());
+            assert(this->begin() <= it && it < this->end());
 
-            bool last = it == end() - 1;
-            copy(it, it + 1, static_cast< size_type >(end() - it - 1)); 
-            desc_.set_size(size() - 1);
-            return last ? end() : it;
+            bool last = it == this->end() - 1;
+            copy(it, it + 1, static_cast< size_type >(this->end() - it - 1));
+            this->desc_.set_size(this->size() - 1);
+            return last ? this->end() : it;
         }
 
         template < typename Allocator > void erase(Allocator&, iterator from, iterator to)
         {
-            assert(begin() <= from && from <= to);
-            assert(from <= to && to <= end());
+            assert(this->begin() <= from && from <= to);
+            assert(from <= to && to <= this->end());
 
-            if (to == end())
+            if (to == this->end())
             {                
-                desc_.set_size(size() - static_cast<size_type>(to - from));
+                this->desc_.set_size(this->size() - static_cast<size_type>(to - from));
             }
             else
             {
@@ -290,19 +290,19 @@ namespace btree::detail
 
         template < typename Allocator, typename U > void insert(Allocator&, iterator it, U from, U to)
         {
-            assert(begin() <= it && it <= end());
-            assert((uintptr_t)(to - from + it - begin()) <= capacity());
+            assert(this->begin() <= it && it <= this->end());
+            assert((uintptr_t)(to - from + it - this->begin()) <= this->capacity());
 
             const auto count = static_cast<size_type>(to - from);
 
-            if (it < end())
+            if (it < this->end())
             {                
                 move(it + count, it, count);
             }
 
             copy(it, from, count);
                         
-            desc_.set_size(size() + count);
+            this->desc_.set_size(this->size() + count);
         }       
 
     private:

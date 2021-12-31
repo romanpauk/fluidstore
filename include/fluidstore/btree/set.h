@@ -84,7 +84,7 @@ namespace btree
         using value_type = typename base_type::value_type;
         using iterator = typename base_type::iterator;
 
-        set(Allocator& allocator = Allocator())
+        set(const Allocator& allocator = Allocator())
             : allocator_(allocator)
         {}
 

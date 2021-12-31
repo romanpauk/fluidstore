@@ -28,7 +28,8 @@ namespace crdt::flat
         }
         else
         {
-            static_assert(false);
+            std::abort();
+            // static_assert(false);
         }
 
         destroy(allocator, source, count);

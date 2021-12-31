@@ -26,7 +26,7 @@ namespace crdt
 
             template < typename AllocatorT, typename TagT = tag_delta, template <typename, typename, typename> typename HookT = Hook > using rebind_t = map< Key, typename Value::template rebind_t< AllocatorT, TagT, HookT >, AllocatorT, TagT, HookT >;
 
-            map(allocator_type& allocator)
+            template < typename AllocatorT > map(AllocatorT&& allocator)
                 : hook_default< void, Allocator, void >(allocator)
             {}
 
@@ -64,7 +64,7 @@ namespace crdt
                         if (lvalue_it != instance.end())
                         {
                             auto& lvalue = (*lvalue_it).second;
-                            std::remove_reference_t< decltype(lvalue) >::delta_extractor extractor;
+                            typename std::remove_reference_t< decltype(lvalue) >::delta_extractor extractor;
                             rvalue.merge(lvalue.extract_delta());
                             extractor.apply(lvalue, rvalue);
                         }
@@ -76,7 +76,7 @@ namespace crdt
 
             using delta_type = rebind_t< Allocator, tag_delta, crdt::hook_default >;
 
-            map(allocator_type& allocator)
+            template < typename AllocatorT > map(AllocatorT&& allocator)
                 : hook_type(allocator)
             {}
 
@@ -91,20 +91,20 @@ namespace crdt
            
             template < typename ValueT > std::pair< typename dot_kernel_type::iterator, bool > insert(const Key& key, const ValueT& value)
             {
-                auto allocator = get_allocator();
+                auto allocator = this->get_allocator();
                 arena< 8192 > arena;
                 crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arena);
 
-                typename delta_type::rebind_t< decltype(deltaallocator) > delta(deltaallocator);
+                typename delta_type::template rebind_t< decltype(deltaallocator) > delta(deltaallocator);
 
                 // TODO: move value
-                auto dot = get_next_dot();
+                auto dot = this->get_next_dot();
                 delta.add_counter_dot(dot);
                 delta.add_value(key, dot, value);
 
-                insert_context context;
+                typename dot_kernel_type::insert_context context;
                 merge(delta, context);
-                commit_delta(delta);
+                this->commit_delta(delta);
                 return { context.result.first, context.result.second };
             }
 
@@ -145,21 +145,21 @@ namespace crdt
             {
                 if (!empty())
                 {
-                    auto allocator = get_allocator();
+                    auto allocator = this->get_allocator();
                     arena< 8192 > arena;
                     crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arena);
 
-                    typename delta_type::rebind_t< decltype(deltaallocator) > delta(deltaallocator);
+                    typename delta_type::template rebind_t< decltype(deltaallocator) > delta(deltaallocator);
                     clear(delta);
 
                     merge(delta);
-                    commit_delta(std::move(delta));
+                    this->commit_delta(std::move(delta));
                 }
             }
 
             iterator erase(iterator it)
             {
-                erase_context context;
+                typename dot_kernel_type::erase_context context;
                 erase(it, context);
                 return context.iterator;
             }
@@ -169,7 +169,7 @@ namespace crdt
                 auto it = find(key);
                 if (it != end())
                 {
-                    erase_context context;
+                    typename dot_kernel_type::erase_context context;
                     erase(it, context);
                     return context.count;
                 }
@@ -192,18 +192,18 @@ namespace crdt
 
             void update(const Key& key)
             {
-                auto allocator = get_allocator();
+                auto allocator = this->get_allocator();
                 arena< 8192 > arena;
                 crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arena);
 
-                typename delta_type::rebind_t< decltype(deltaallocator) > delta(deltaallocator);
+                typename delta_type::template rebind_t< decltype(deltaallocator) > delta(deltaallocator);
 
-                auto dot = get_next_dot();
+                auto dot = this->get_next_dot();
                 delta.add_counter_dot(dot);
                 delta.add_value(key, dot);
 
                 merge(delta);
-                commit_delta(std::move(delta));
+                this->commit_delta(std::move(delta));
             }
 
             template < typename Delta > void clear(Delta& delta)
@@ -213,17 +213,17 @@ namespace crdt
 
             void erase(iterator it, typename dot_kernel_type::erase_context& context)
             {
-                auto allocator = get_allocator();
+                auto allocator = this->get_allocator();
                 arena< 8192 > arena;
                 crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arena);
 
-                typename delta_type::rebind_t< decltype(deltaallocator) > delta(deltaallocator);
+                typename delta_type::template rebind_t< decltype(deltaallocator) > delta(deltaallocator);
 
                 // TODO: this can move dots
                 delta.add_counter_dots(it.it_->second.dots);
 
                 merge(delta, context);
-                commit_delta(std::move(delta));
+                this->commit_delta(std::move(delta));
             }
         };
     }

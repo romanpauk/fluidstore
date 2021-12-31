@@ -96,7 +96,7 @@ namespace btree
         using value_type = typename base_type::value_type;
         using iterator = typename base_type::iterator;
 
-        map(Allocator& allocator = Allocator())
+        map(const Allocator& allocator = Allocator())
             : allocator_(allocator)
         {}
 

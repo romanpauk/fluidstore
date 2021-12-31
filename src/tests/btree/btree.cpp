@@ -323,7 +323,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_range_for, T, btree_range_for_types)
         }
 
         int k = 0;
-        for (auto& v : c)
+        for (auto&& v : c)
         {
             BOOST_REQUIRE(v.first == value<T>(k));
             BOOST_REQUIRE(v.second == value<T>(k++));

@@ -34,7 +34,7 @@ namespace crdt
             };
 
             template < typename AllocatorT > set(AllocatorT&& allocator)
-                : hook_default< void, Allocator, void >(allocator)
+                : hook_default< void, Allocator, void >(std::forward< AllocatorT >(allocator))
             {}
 
             set(set< Key, Allocator, tag_delta, Hook >&& other) = default;
@@ -71,7 +71,7 @@ namespace crdt
             };
 
             template < typename AllocatorT > set(AllocatorT&& allocator)
-                : hook_type(allocator)
+                : hook_type(std::forward< AllocatorT >(allocator))
             {}
 
             set(set< Key, Allocator, tag_state, Hook >&&) = default;
@@ -179,8 +179,8 @@ namespace crdt
         : public detail::set< Key, Allocator, Tag, Hook >
     {
     public:
-        set(Allocator& allocator)
-            : detail::set< Key, Allocator, Tag, Hook >(allocator)
+        template < typename AllocatorT > set(AllocatorT&& allocator)
+            : detail::set< Key, Allocator, Tag, Hook >(std::forward< AllocatorT >(allocator))
         {}
     };
 

@@ -22,7 +22,7 @@ namespace crdt
             template < typename AllocatorT, typename TagT = tag_delta, template <typename, typename, typename> typename HookT = hook_default > using rebind_t = value_mv< Value, AllocatorT, TagT, HookT >;
 
             template < typename AllocatorT > value_mv(AllocatorT&& allocator)
-                : values_(allocator)
+                : values_(std::forward< AllocatorT >(allocator))
             {}
 
             template < typename ValueMv > void merge(const ValueMv& other)
@@ -68,7 +68,7 @@ namespace crdt
             };
 
             template < typename AllocatorT > value_mv(AllocatorT&& allocator)
-                : Hook < value_mv< Value, Allocator, tag_state, Hook >, Allocator, value_mv< Value, Allocator, tag_delta > >(allocator)
+                : Hook < value_mv< Value, Allocator, tag_state, Hook >, Allocator, value_mv< Value, Allocator, tag_delta > >(std::forward< AllocatorT >(allocator))
                 , values_(this->get_allocator())
             {}
 
@@ -156,8 +156,8 @@ namespace crdt
         : public detail::value_mv < typename detail::rebind_value_t< Value, Allocator, Tag, Hook, is_crdt_type< Value >::value >, Allocator, Tag, Hook >
     {
     public:
-        value_mv(Allocator& allocator)
-            : detail::value_mv< typename detail::rebind_value_t< Value, Allocator, Tag, Hook, is_crdt_type< Value >::value >, Allocator, Tag, Hook >(allocator)
+        template < typename AllocatorT > value_mv(AllocatorT&& allocator)
+            : detail::value_mv< typename detail::rebind_value_t< Value, Allocator, Tag, Hook, is_crdt_type< Value >::value >, Allocator, Tag, Hook >(std::forward< AllocatorT >(allocator))
         {}
     };
 

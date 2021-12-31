@@ -28,8 +28,11 @@ namespace crdt::flat
         }
         else
         {
+        #if defined(__clang__)
             std::abort();
-            // static_assert(false);
+        #else
+            static_assert(false);
+        #endif            
         }
 
         destroy(allocator, source, count);

@@ -27,7 +27,7 @@ namespace crdt
             template < typename AllocatorT, typename TagT = tag_delta, template <typename, typename, typename> typename HookT = Hook > using rebind_t = map< Key, typename Value::template rebind_t< AllocatorT, TagT, HookT >, AllocatorT, TagT, HookT >;
 
             template < typename AllocatorT > map(AllocatorT&& allocator)
-                : hook_default< void, Allocator, void >(allocator)
+                : hook_default< void, Allocator, void >(std::forward< AllocatorT >(allocator))
             {}
 
             map(map< Key, Value, Allocator, tag_delta, Hook >&&) = default;
@@ -77,7 +77,7 @@ namespace crdt
             using delta_type = rebind_t< Allocator, tag_delta, crdt::hook_default >;
 
             template < typename AllocatorT > map(AllocatorT&& allocator)
-                : hook_type(allocator)
+                : hook_type(std::forward< AllocatorT >(allocator))
             {}
 
             map(map< Key, Value, Allocator, tag_state, Hook >&&) = default;
@@ -235,8 +235,8 @@ namespace crdt
         using base_type = detail::map < Key, typename Value::template rebind_t< Allocator, Tag, Hook >, Allocator, Tag, Hook >;
 
     public:
-        map(Allocator& allocator)
-            : detail::map< Key, typename Value::template rebind_t< Allocator, tag_state, Hook >, Allocator, Tag, Hook >(allocator)
+        template < typename AllocatorT > map(AllocatorT&& allocator)
+            : detail::map< Key, typename Value::template rebind_t< Allocator, tag_state, Hook >, Allocator, Tag, Hook >(std::forward< AllocatorT >(allocator))
         {}
 
         map(map< Key, Value, Allocator, Tag, Hook >&&) = default;

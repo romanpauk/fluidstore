@@ -29,8 +29,12 @@ namespace crdt
         {
             assert(!ptr_);
 
-            // auto alloc = std::allocator_traits< Allocator >::template rebind_alloc< T >(allocator);
+        #if defined(__clang__)
             typename Allocator::template rebind< T >::other alloc(allocator);
+        #else
+            auto alloc = std::allocator_traits< Allocator >::template rebind_alloc< T >(allocator);
+        #endif
+
             reset(alloc);
 
             ptr_ = alloc.allocate(1);
@@ -49,9 +53,12 @@ namespace crdt
         {
             if (ptr_)
             {
-                //auto alloc = std::allocator_traits< Allocator >::template rebind_alloc< T >(allocator);
-                //auto alloc = std::allocator_traits< Allocator >::rebind< T >(allocator);
+            #if defined(__clang__)
                 typename Allocator::template rebind< T >::other alloc(allocator);
+            #else
+                auto alloc = std::allocator_traits< Allocator >::template rebind_alloc< T >(allocator);
+            #endif
+
                 std::allocator_traits< decltype(alloc) >::destroy(alloc, ptr_);
                 std::allocator_traits< decltype(alloc) >::deallocate(alloc, ptr_, 1);
                 ptr_ = nullptr;

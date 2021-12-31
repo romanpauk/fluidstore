@@ -174,6 +174,23 @@ namespace crdt
                 get_replica_data(allocator, id).counters.insert(allocator, counters.begin(), counters.end());                
             }            
 
+            auto erase_counter(Allocator& allocator, counters_type& counters, typename counters_type::iterator it)
+            {
+                return counters.erase(allocator, it);
+            }
+
+            void update_counter(Allocator& allocator, counters_type& counters, typename counters_type::iterator it, counter_type value)
+            {
+                // TODO: in-place update, this should not change the tree layout
+                counters.insert(allocator, it, value);
+                counters.erase(allocator, it);
+            }
+
+            template < typename It > void insert_counter(Allocator& allocator, counters_type& counters, It begin, It end)
+            {
+                counters.insert(allocator, begin, end);
+            }
+
             template < typename Key > void add_dot(Allocator& allocator, replica_data& replica, counter_type counter, Key key)
             {
                 replica.dots.emplace(allocator, counter, key);

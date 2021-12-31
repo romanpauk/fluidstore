@@ -268,9 +268,10 @@ namespace crdt
         template < typename Dots > void add_counter_dots(const Dots& dots)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
+            auto& meta = get_metadata();
             for (auto& [replica_id, counters] : dots)
             {                
-                get_metadata().add_counters(allocator, replica_id, counters);
+                meta.add_counters(allocator, replica_id, counters);
             }
         }
 
@@ -291,16 +292,17 @@ namespace crdt
         void add_value(const Key& key, const dot_type& dot)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
-            auto& data = *get_metadata().emplace_value(allocator, values_, key, dot_kernel_value_type(allocator, key, nullptr)).first;
-            get_metadata().emplace_value_dot(allocator, data.second.dots, dot);
+            auto& meta = get_metadata();
+            auto& data = *meta.emplace_value(allocator, values_, key, dot_kernel_value_type(allocator, key, nullptr)).first;
+            meta.emplace_value_dot(allocator, data.second.dots, dot);
         }
 
         template < typename ValueT > void add_value(const Key& key, const dot_type& dot, ValueT&& value)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
-            
-            auto& data = *get_metadata().emplace_value(allocator, values_, key, dot_kernel_value_type(allocator, key, nullptr)).first;
-            get_metadata().emplace_value_dot(allocator, data.second.dots, dot);
+            auto& meta = get_metadata();
+            auto& data = *meta.emplace_value(allocator, values_, key, dot_kernel_value_type(allocator, key, nullptr)).first;
+            meta.emplace_value_dot(allocator, data.second.dots, dot);
             data.second.value.merge(value);
         }
                 
@@ -335,37 +337,24 @@ namespace crdt
             // 
             // assert(rcounters.size() == 1);   // delta variant can have N elements, and merging two state variants does not make sense
 
-            if (lcounters.size() == 0)
-            {
-                // Trivial append
-                lcounters.insert(allocator, rcounters.begin(), rcounters.end());
-            }
-            else if (lcounters.size() == 1 && rcounters.size() == 1)
+            auto& meta = get_metadata();
+
+            if (lcounters.size() == 1 && rcounters.size() == 1)
             {
                 // Maybe in-place replace
                 if (*lcounters.begin() + 1 == *rcounters.begin())
                 {
                     auto counter = *lcounters.begin();
-
-                    // TODO: in-place update
-                    lcounters.insert(allocator, *lcounters.begin() + 1);
-                    lcounters.erase(allocator, lcounters.begin());
+                    meta.update_counter(allocator, lcounters, lcounters.begin(), counter + 1);
 
                     // No need to collapse here, but have to notify upper layer about removal
-                    // context.register_erase(dot< ReplicaId, counter_type >{ replica_id, counter });
+                    context.register_erase(dot_type{ replica_id, counter });
 
                     return;
                 }
-                else
-                {
-                    lcounters.insert(allocator, rcounters.begin(), rcounters.end());
-                }
             }
-            else
-            {
-                // TODO: two sets merge
-                lcounters.insert(allocator, rcounters.begin(), rcounters.end());
-            }
+
+            meta.insert_counter(allocator, lcounters, rcounters.begin(), rcounters.end());
 
             if (std::is_same_v< Tag, tag_state >)
             {
@@ -375,6 +364,7 @@ namespace crdt
 
         template < typename Allocator, typename Counters, typename Context > void collapse_counters(Allocator& allocator, Counters& counters, replica_id_type replica_id, Context& context)
         {
+            auto& meta = get_metadata();
             auto next = counters.begin();
             auto prev = next++;
             for (; next != counters.end();)
@@ -382,8 +372,8 @@ namespace crdt
                 if (*next == *prev + 1)
                 {
                     // TODO: we should find a largest block to erase, not erase single element and continue
-                    context.register_erase(dot< replica_id_type, counter_type >{ replica_id, *prev });
-                    next = counters.erase(allocator, prev);
+                    context.register_erase(dot_type{ replica_id, *prev });
+                    next = meta.erase_counter(allocator, counters, prev);
                     prev = next++;
                 }
                 else
@@ -395,9 +385,10 @@ namespace crdt
 
         template < typename Allocator, typename Dots, typename Context > void merge_value_dots(Allocator& allocator, typename Metadata::value_type_dots_type& ldots, const Dots& rdots, Context& context)
         {
+            auto& meta = get_metadata();
             for (auto& [replica_id, rcounters] : rdots)
             {
-                auto& lcounters = get_metadata().get_value_dots(allocator, ldots, replica_id);
+                auto& lcounters = meta.get_value_dots(allocator, ldots, replica_id);
                 merge_counters(allocator, lcounters, replica_id, rcounters, context);
             }
         }

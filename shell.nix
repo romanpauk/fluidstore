@@ -9,4 +9,7 @@
     buildInputs = with pkgs; [
       boost.dev
     ];
+    shellHook = ''
+      export LD_LIBRARY_PATH=$(nix eval --raw nixpkgs.stdenv.cc.cc.lib)/lib:$LD_LIBRARY_PATH
+    '';
 }

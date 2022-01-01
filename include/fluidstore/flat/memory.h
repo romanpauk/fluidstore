@@ -102,7 +102,11 @@ namespace crdt::flat
         }
         else
         {
+        #if defined(__clang__)
+            std::abort();
+        #else
             static_assert(false);
+        #endif
         }
     }
 }

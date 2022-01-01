@@ -18,7 +18,7 @@
 namespace crdt
 {
     template < typename Key, typename Value, typename Allocator, typename Container, typename Tag, 
-        typename Metadata = detail::dot_kernel_metadata< Key, Tag, Allocator, detail::metadata_tag_btree_local > > 
+        typename Metadata = detail::dot_kernel_metadata< Key, Tag, Allocator, detail::metadata_tag_stl_local > > 
     class dot_kernel
         : public detail::dot_kernel_metadata_base< Container, Metadata >
     {
@@ -125,7 +125,7 @@ namespace crdt
             for (const auto& [rkey, rvalue] : other.get_values())
             {
                 auto lpb = meta.values_emplace(allocator, values_, rkey, dot_kernel_value_type(allocator, rkey, this));
-                auto& lvalue = *lpb.first;
+                auto&& lvalue = *lpb.first;
 
                 value_context value_ctx(allocator, get_metadata());
                 value_dots_merge(allocator, lvalue.second.dots, rvalue.dots, value_ctx);

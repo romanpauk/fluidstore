@@ -120,7 +120,7 @@ namespace crdt
 
         template < typename Allocator, typename Context > void collapse(Allocator& allocator, Context& context)
         {
-            for (auto& [replica_id, counters] : counters_)
+            for (auto&& [replica_id, counters] : counters_)
             {
                 dot_counters_base< btree::set_base< counter_type >, Tag > values(counters);
                 values.collapse(allocator, replica_id, context);
@@ -129,7 +129,7 @@ namespace crdt
 
         template < typename Allocator > void clear(Allocator& allocator)
         {
-            for (auto& [replica_id, counters] : counters_)
+            for (auto&& [replica_id, counters] : counters_)
             {
                 counters.clear(allocator);
             }

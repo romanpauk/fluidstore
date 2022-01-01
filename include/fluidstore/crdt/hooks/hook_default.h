@@ -4,8 +4,8 @@ namespace crdt
 {
     template < typename Container, typename Allocator, typename Delta > struct hook_default
     {
-        hook_default(Allocator& allocator)
-            : allocator_(allocator)
+        template < typename AllocatorT > hook_default(AllocatorT&& allocator)
+            : allocator_(std::forward< AllocatorT >(allocator))
         {}
 
         hook_default(hook_default< Container, Allocator, Delta >&&) = default;

@@ -29,7 +29,7 @@ namespace crdt
                     // id_ = static_cast<T*>(this)->get_allocator().get_replica().acquire_instance_id();
                 }
 
-                return id;
+                return id_;
             }
 
         private:

@@ -56,12 +56,12 @@ namespace crdt
 
         template < typename Allocator, typename TagT, typename SizeTypeT > void insert(Allocator& allocator, const dot_context< CountersType, Dot, TagT >& dots)
         {
-            for (auto& [replica_id, counters] : dots)
+            for (auto& [replica_id, rcounters] : dots)
             {
-                auto& counters = counters_.emplace(allocator, replica_id, btree::set_base< counter_type >()).first->second;
+                auto& lcounters = counters_.emplace(allocator, replica_id, btree::set_base< counter_type >()).first->second;
 
-                dot_counters_base< btree::set_base< counter_type >, Tag > values(it->second);
-                values.insert(allocator, counters);
+                dot_counters_base< btree::set_base< counter_type >, Tag > values(lcounters);
+                values.insert(allocator, rcounters);
             }
         }
 

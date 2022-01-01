@@ -164,7 +164,7 @@ namespace crdt
                 auto it = visited.find(replica_id);
                 if (it != visited.end())
                 {
-                    std::deque< counter_type, decltype(tmp) > rdotsvalueless(tmp);
+                    std::deque< counter_type, typename std::allocator_traits< decltype(tmp) >::template rebind_alloc< counter_type > > rdotsvalueless(tmp);
 
                     auto& rdata_visited = (*it).second;
                     std::set_difference(

@@ -264,6 +264,12 @@ namespace crdt
             {
                 for (auto& value : values)
                 {
+                    // TODO: this should not run if we have trivially destructible elements.
+                    for (auto&& [replica_id, dots] : value.second.dots)
+                    {
+                        dots.clear(allocator);
+                    }
+
                     value.second.dots.clear(allocator);
                 }
                 values.clear(allocator);
@@ -278,18 +284,13 @@ namespace crdt
                 {
                     data.counters.clear(allocator);
                     data.dots.clear(allocator);
+                    assert(data.visited.empty());
                 }
                 replica_.clear(allocator);
             }
 
         private:
             btree::map_base < replica_id_type, replica_data > replica_;
-
-            // TODO:
-            // dot_counters_base need to be modeled by (ReplicaId, Counter) and the whole map as
-            // btree::set< std::tuple< Key, ReplicaId, Counter > > value_dots;
-            //
-            // btree::map_base< Key, dot_context< dot_type, Tag >* > value_dots;
         };
 
         template <  typename Key, typename Tag, typename Allocator > struct dot_kernel_metadata
@@ -453,12 +454,6 @@ namespace crdt
 
         private:
             std::map < replica_id_type, replica_data > replica_;
-
-            // TODO:
-            // dot_counters_base need to be modeled by (ReplicaId, Counter) and the whole map as
-            // btree::set< std::tuple< Key, ReplicaId, Counter > > value_dots;
-            //
-            // btree::map_base< Key, dot_context< dot_type, Tag >* > value_dots;
         };
     }
 }

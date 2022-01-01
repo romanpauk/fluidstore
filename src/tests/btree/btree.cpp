@@ -9,15 +9,20 @@
 #include <boost/container/flat_map.hpp>
 #include <iomanip>
 
+#if defined(_WIN32)
 #include <windows.h>
 #include <profileapi.h>
+#endif
 
 //_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF | _CRTDBG_CHECK_ALWAYS_DF);
 //_CrtSetBreakAlloc(6668782);
 
+#if !defined(_DEBUG)
 static int Iters = 20;
 static int Max = 32768;
 static const int ArenaSize = 65536 * 2;
+#endif
+
 static const int Count = 10;
 
 template < typename T, size_t N > struct descriptor
@@ -82,8 +87,6 @@ BOOST_AUTO_TEST_CASE(btree_fixed_split_vector)
     c.begin();
     //c.erase(a, c.begin());
     c.emplace_back(a, std::make_tuple(std::string("a"), std::string("b")));
-    auto x = c[0];
-
     c2.emplace_back(a, std::make_tuple("c", "d"));
 
     //c.insert(a, c.begin(), c2.begin(), c2.end());
@@ -323,7 +326,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_range_for, T, btree_range_for_types)
         }
 
         int k = 0;
-        for (auto& v : c)
+        for (auto&& v : c)
         {
             BOOST_REQUIRE(v.first == value<T>(k));
             BOOST_REQUIRE(v.second == value<T>(k++));
@@ -521,9 +524,11 @@ template < typename Fn > double measure(size_t loops, Fn&& fn)
 
 static bool setup = []
 {
+#if defined(_WIN32)
     DWORD mask = 1;
     SetProcessAffinityMask(GetCurrentProcess(), (DWORD_PTR)&mask);
     SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
+#endif
     return true;
 }();
 
@@ -822,7 +827,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_perf_insert_arena, T, btree_perf_insert_
             results[i] = measure([&]
             {
                 crdt::arena< ArenaSize > arena;
-                crdt::arena_allocator< T > arenaallocator(arena);
+                crdt::arena_allocator< std::pair< T, T > > arenaallocator(arena);
                 boost::container::flat_map< T, T, std::less< T >, decltype(arenaallocator) > c(arenaallocator);
                 insertion_test_map(c, data, i);
             });
@@ -836,7 +841,7 @@ template < typename Container > void iteration_test(Container& c)
     volatile size_t x = 0;
     for (auto&& v : c)
     {
-        //volatile auto p = &v;
+        (void)v;
         ++x;
     }
 }
@@ -916,6 +921,7 @@ template < typename Container, typename TestData > void find_test(Container& c, 
     for (size_t i = 0; i < count; ++i)
     {
         volatile bool x = c.find(data[i]) == c.end();
+        (x);
     }
 }
 

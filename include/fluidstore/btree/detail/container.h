@@ -17,13 +17,13 @@
     #define BTREE_CHECK(code) \
         do { \
             (code); \
-            checktree(); \
+            this->checktree(); \
         } while(0)
 
     #define BTREE_CHECK_RETURN(code) \
         do { \
             auto result = (code); \
-            checktree(); \
+            this->checktree(); \
             return result; \
         } while(0)
 #else
@@ -217,7 +217,13 @@ namespace btree::detail
         struct iterator
         {
             friend container_type;
-
+            
+            using iterator_category = std::bidirectional_iterator_tag;
+            using difference_type = std::ptrdiff_t;
+            using value_type = value_type;
+            using pointer = value_type*;
+            using reference = reference;
+            
             iterator() = default;
             iterator(const iterator&) = default;
 
@@ -272,14 +278,14 @@ namespace btree::detail
             iterator& operator--()
             {
                 assert(node_);
-
-                auto node = node_descriptor< value_node* >(node_);
+                                
                 if (kindex_ == 0)
                 {
                 #if defined(BTREE_VALUE_NODE_LR)
                     assert(node_->left);
                     node_ = node_->left;
                 #else
+                    auto node = node_descriptor< value_node* >(node_);
                     std::tie(node_, tmp) = get_left(node, get_index(node), true);
                 #endif
                     kindex_ = node_descriptor< value_node* >(node_).get_keys().size() - 1;
@@ -641,7 +647,7 @@ namespace btree::detail
 
         template< typename AllocatorT, typename Node > void remove_node(AllocatorT& allocator, size_type depth, node_descriptor< internal_node* > parent, const node_descriptor< Node* > n, node_size_type nindex, node_size_type kindex)
         {
-            auto pchildren = parent.get_children< node* >();
+            auto pchildren = parent.template get_children< node* >();
             pchildren.erase(allocator, pchildren.begin() + nindex);
 
             auto pkeys = parent.get_keys();
@@ -785,7 +791,7 @@ namespace btree::detail
             assert(n);
             while (--depth)
             {
-                n = desc(node_cast<internal_node*>(n)).get_children< node* >()[0];
+                n = desc(node_cast<internal_node*>(n)).template get_children< node* >()[0];
             }
 
             return node_cast<Node>(n);
@@ -797,7 +803,7 @@ namespace btree::detail
             assert(depth > 0);
             while (--depth)
             {
-                auto children = desc(node_cast<internal_node*>(n)).get_children< node* >();
+                auto children = desc(node_cast<internal_node*>(n)).template get_children< node* >();
                 n = children[children.size() - 1];
             }
 
@@ -860,8 +866,8 @@ namespace btree::detail
             {
                 auto pkeys = target.get_parent().get_keys();
 
-                auto schildren = source.get_children< node* >();
-                auto tchildren = target.get_children< node* >();
+                auto schildren = source.template get_children< node* >();
+                auto tchildren = target.template get_children< node* >();
 
                 if (tindex > sindex)
                 {
@@ -959,8 +965,8 @@ namespace btree::detail
 
                 assert(depth_ >= depth + 1);
 
-                auto schildren = source.get_children< node* >();
-                auto tchildren = target.get_children< node* >();
+                auto schildren = source.template get_children< node* >();
+                auto tchildren = target.template get_children< node* >();
 
                 if (tindex < sindex)
                 {
@@ -1142,7 +1148,7 @@ namespace btree::detail
             size_type depth = 1;
             while (p)
             {
-                auto children = p.get_children< Node >();
+                auto children = p.template get_children< Node >();
                 if (index + 1 < children.size())
                 {
                     if (depth == 1)
@@ -1186,7 +1192,7 @@ namespace btree::detail
             size_type depth = 1;
             while (p)
             {
-                auto children = p.get_children< Node >();
+                auto children = p.template get_children< Node >();
                 if (index > 0)
                 {
                     if (depth == 1)
@@ -1350,7 +1356,7 @@ namespace btree::detail
 
                 // Child/parent relationship check
 
-                auto children = desc(in).get_children< node* >();
+                auto children = desc(in).template get_children< node* >();
                 for (auto child : children)
                 {
                     if (depth + 1 == depth_)

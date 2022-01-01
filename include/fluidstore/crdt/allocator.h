@@ -19,20 +19,20 @@ namespace crdt
     public:
         typedef Replica replica_type;
 
-        /*
+        //*
         template< typename U > struct rebind
         {
             using other = allocator< Replica, U, typename Allocator::template rebind< U >::other >;
         };
-        */
+        //*/
 
         allocator(Replica& replica)
-            : replica_(replica)
+            : replica_(&replica)
         {}
 
         template < typename Al > allocator(Replica& replica, Al&& al)
             : Allocator(std::forward<Al>(al))
-            , replica_(replica)
+            , replica_(&replica)
         {}
                 
         template < typename ReplicaU, typename U, typename AllocatorU > allocator(
@@ -59,11 +59,11 @@ namespace crdt
             return *this;
         }
 
-        auto& get_replica() const { return replica_; }
+        auto& get_replica() const { return *replica_; }
 
         void update() {}
 
     private:
-        Replica& replica_;
+        Replica* replica_;
     };
 }

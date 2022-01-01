@@ -124,13 +124,13 @@ namespace crdt
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
 
-            for (auto& value : values_)
+            for (auto&& value : values_)
             {
                 value.second.dots.clear(allocator);
             }
             values_.clear(allocator);
 
-            for (auto& [replica_id, data] : replica_)
+            for (auto&& [replica_id, data] : replica_)
             {
                 data.counters.clear(allocator);
                 data.dots.clear(allocator);
@@ -169,9 +169,9 @@ namespace crdt
             #else
                 auto lpb = values_.emplace(allocator, allocator, rkey, this);
             #endif
-                auto& lvalue = *lpb.first;
+                auto&& lvalue = *lpb.first;
 
-                value_context value_ctx(allocator, replica_);
+                value_context< decltype(allocator), decltype(replica_) > value_ctx(allocator, replica_);
             #if defined(DOTKERNEL_BTREE)
                 lvalue.second.merge(allocator, rvalue, value_ctx);
             #else
@@ -196,7 +196,7 @@ namespace crdt
                 ctx.register_insert(lpb);
             }
 
-            for (auto& [replica_id, rdata] : other.get_replica())
+            for (auto&& [replica_id, rdata] : other.get_replica())
             {
                 auto replica_it = replica_.find(replica_id);
                 if (replica_it != replica_.end())
@@ -273,7 +273,7 @@ namespace crdt
         template < typename Dots > void add_counter_dots(const Dots& dots)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
-            for (auto& [replica_id, counters] : dots)
+            for (auto&& [replica_id, counters] : dots)
             {
                 replica_.emplace(allocator, replica_id, replica_data()).first->second.counters.insert(allocator, counters);
             }
@@ -303,9 +303,9 @@ namespace crdt
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
         #if defined(DOTKERNEL_BTREE)
-            auto& data = *values_.emplace(allocator, key, dot_kernel_value_type(allocator, key, nullptr)).first;
+            auto&& data = *values_.emplace(allocator, key, dot_kernel_value_type(allocator, key, nullptr)).first;
         #else
-            auto& data = *values_.emplace(allocator, allocator, key, nullptr).first;
+            auto&& data = *values_.emplace(allocator, allocator, key, nullptr).first;
         #endif
             data.second.dots.emplace(allocator, dot);
         }
@@ -315,10 +315,10 @@ namespace crdt
             auto allocator = static_cast<Container*>(this)->get_allocator();
             
         #if defined(DOTKERNEL_BTREE)
-            auto& data = *values_.emplace(allocator, key, dot_kernel_value_type(allocator, key, nullptr)).first;
+            auto&& data = *values_.emplace(allocator, key, dot_kernel_value_type(allocator, key, nullptr)).first;
             data.second.dots.emplace(allocator, dot);
         #else
-            auto& data = *values_.emplace(allocator, allocator, key, nullptr).first;
+            auto&& data = *values_.emplace(allocator, allocator, key, nullptr).first;
             data.second.dots.emplace(allocator, dot);
         #endif
             data.second.value.merge(value);

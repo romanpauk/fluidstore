@@ -6,8 +6,8 @@ namespace crdt
 {
     template < typename Container, typename Allocator, typename Delta > struct hook_extract
     {
-        hook_extract(Allocator& allocator)
-            : allocator_(allocator)
+        template < typename AllocatorT > hook_extract(AllocatorT&& allocator)
+            : allocator_(std::forward< AllocatorT >(allocator))
         {}
 
         ~hook_extract()

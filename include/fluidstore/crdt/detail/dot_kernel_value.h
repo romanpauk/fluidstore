@@ -13,8 +13,8 @@ namespace crdt
         struct nested_value
         {
             nested_value(value_allocator_type& allocator, DotKernel* parent)
-                : value(allocator)
-                , parent(parent)
+                : parent(parent)
+                , value(allocator)
             {}
 
             nested_value(nested_value&& other) = default;
@@ -33,8 +33,8 @@ namespace crdt
         template < typename AllocatorT > dot_kernel_value(AllocatorT& allocator, Key key, DotKernel* p)
             : first(key)
         #if defined(DOTKERNEL_BTREE)
-            , value(value_allocator_type(allocator, this))
             , parent(p)
+            , value(value_allocator_type(allocator, this))
         #else
             , second(value_allocator_type(allocator, this), p)
         #endif
@@ -43,9 +43,9 @@ namespace crdt
         dot_kernel_value(dot_kernel_value_type&& other)
             : first(std::move(other.first))
         #if defined(DOTKERNEL_BTREE)
-            , value(std::move(other.value))
-            , dots(std::move(other.dots))
             , parent(other.parent)
+            , dots(std::move(other.dots))
+            , value(std::move(other.value))
         #else
             , second(std::move(other.second))
         #endif

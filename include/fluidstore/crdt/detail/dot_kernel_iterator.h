@@ -31,8 +31,8 @@ namespace crdt
             : dot_kernel_iterator_base< Iterator, dot_kernel_iterator< Iterator, Key, Value > >(it)
         {}
 
-        std::pair< const Key&, Value& > operator *() { return { it_->first, it_->second.value }; }
-        std::pair< const Key&, const Value& > operator *() const { return { it_->first, it_->second.value }; }
+        std::pair< const Key&, Value& > operator *() { return { this->it_->first, this->it_->second.value }; }
+        std::pair< const Key&, const Value& > operator *() const { return { this->it_->first, this->it_->second.value }; }
     };
 
     template < typename Iterator, typename Key > class dot_kernel_iterator< Iterator, Key, void >

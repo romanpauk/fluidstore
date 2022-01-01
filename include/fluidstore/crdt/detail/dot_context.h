@@ -90,7 +90,7 @@ namespace crdt
 
         template < typename Allocator, typename DotContextT, typename Context > void merge(Allocator& allocator, const DotContextT& other, Context& context)
         {
-            for (auto& [replica_id, rcounters] : other.counters_)
+            for (auto&& [replica_id, rcounters] : other.counters_)
             {
                 auto& counters = counters_.emplace(allocator, replica_id, dot_counters_base< counter_type, Tag, size_type >()).first->second;
                 counters.update(allocator, replica_id, rcounters, context);
@@ -112,7 +112,7 @@ namespace crdt
 
         template < typename Allocator, typename Context > void collapse(Allocator& allocator, Context& context)
         {
-            for (auto& [replica_id, counters] : counters_)
+            for (auto&& [replica_id, counters] : counters_)
             {
                 counters.collapse(allocator, replica_id, context);
             }
@@ -120,7 +120,7 @@ namespace crdt
 
         template < typename Allocator > void clear(Allocator& allocator)
         {
-            for (auto& [replica_id, counters] : counters_)
+            for (auto&& [replica_id, counters] : counters_)
             {
                 counters.clear(allocator);
             }

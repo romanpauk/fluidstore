@@ -21,8 +21,8 @@ namespace crdt
 
             template < typename AllocatorT, typename TagT = tag_delta, template <typename, typename, typename> typename HookT = hook_default > using rebind_t = value_mv< Value, AllocatorT, TagT, HookT >;
 
-            value_mv(allocator_type& allocator)
-                : values_(allocator)
+            template < typename AllocatorT > value_mv(AllocatorT&& allocator)
+                : values_(std::forward< AllocatorT >(allocator))
             {}
 
             template < typename ValueMv > void merge(const ValueMv& other)
@@ -67,9 +67,9 @@ namespace crdt
                 }
             };
 
-            value_mv(allocator_type& allocator)
-                : Hook < value_mv< Value, Allocator, tag_state, Hook >, Allocator, value_mv< Value, Allocator, tag_delta > >(allocator)
-                , values_(get_allocator())
+            template < typename AllocatorT > value_mv(AllocatorT&& allocator)
+                : Hook < value_mv< Value, Allocator, tag_state, Hook >, Allocator, value_mv< Value, Allocator, tag_delta > >(std::forward< AllocatorT >(allocator))
+                , values_(this->get_allocator())
             {}
 
             Value get_one() const
@@ -90,17 +90,17 @@ namespace crdt
 
             void set(Value value)
             {
-                auto allocator = get_allocator();
+                auto allocator = this->get_allocator();
                 arena< 8192 > arena;
                 crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arena);
 
-                typename delta_type::rebind_t< decltype(deltaallocator) > delta(deltaallocator);
+                typename delta_type::template rebind_t< decltype(deltaallocator) > delta(deltaallocator);
 
                 values_.delta_clear(delta.values_);
                 values_.delta_insert(delta.values_, value);
                 values_.merge(delta.values_);
 
-                commit_delta(std::move(delta));
+                this->commit_delta(std::move(delta));
             }
 
             template < typename ValueMv > void merge(const ValueMv& other)
@@ -156,8 +156,8 @@ namespace crdt
         : public detail::value_mv < typename detail::rebind_value_t< Value, Allocator, Tag, Hook, is_crdt_type< Value >::value >, Allocator, Tag, Hook >
     {
     public:
-        value_mv(Allocator& allocator)
-            : detail::value_mv< typename detail::rebind_value_t< Value, Allocator, Tag, Hook, is_crdt_type< Value >::value >, Allocator, Tag, Hook >(allocator)
+        template < typename AllocatorT > value_mv(AllocatorT&& allocator)
+            : detail::value_mv< typename detail::rebind_value_t< Value, Allocator, Tag, Hook, is_crdt_type< Value >::value >, Allocator, Tag, Hook >(std::forward< AllocatorT >(allocator))
         {}
     };
 

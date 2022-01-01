@@ -3,8 +3,6 @@
 // Merge algorithm is based on the article "An Optimized Conflict-free Replicated Set"
 // https://pages.lip6.fr/Marek.Zawirski/papers/RR-8083.pdf
 
-#define DOTKERNEL_VISITED_LOCAL
-
 #include <fluidstore/crdt/tags.h>
 #include <fluidstore/crdt/detail/dot_kernel_allocator.h>
 #include <fluidstore/crdt/detail/dot_kernel_iterator.h>
@@ -118,11 +116,9 @@ namespace crdt
             auto allocator = static_cast<Container*>(this)->get_allocator();
             arena< 8192 > arena;
             crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > tmp(allocator.get_replica(), arena);
-                        
-        #if defined(DOTKERNEL_VISITED_LOCAL)
+                       
             typename Metadata::visited_map_type< decltype(tmp) > visited(tmp);
-        #endif
-
+        
             auto& meta = get_metadata();
 
             // Merge values
@@ -141,12 +137,8 @@ namespace crdt
                                         
                     auto& ldata = meta.get_replica_data(allocator, replica_id); // replica_.emplace(allocator, replica_id, replica_data()).first->second;
                                         
-                #if defined(DOTKERNEL_VISITED_LOCAL)
                     meta.counters_insert(tmp, visited[replica_id], rdots.begin(), rdots.end());
-                #else
-                    meta.counters_insert(tmp, ldata.visited, rdots.begin(), rdots.end());
-                #endif
-
+        
                     for (const auto& counter : rdots)
                     {
                         // Create dot -> key link
@@ -168,7 +160,6 @@ namespace crdt
                                 
                 // Determine deleted values (those are the ones we have not visited in a loop over values).
 
-            #if defined(DOTKERNEL_VISITED_LOCAL)
                 auto it = visited.find(replica_id);
                 if (it != visited.end())
                 {
@@ -189,25 +180,6 @@ namespace crdt
                 {                   
                     merge_valueless_clear(allocator, ctx, ldata, rdata.counters, replica_id);
                 }
-            #else
-                if (!ldata.visited.empty())
-                {
-                    std::deque< counter_type, decltype(tmp) > rdotsvalueless(tmp);
-
-                    std::set_difference(
-                        rdata.counters.begin(), rdata.counters.end(),
-                        ldata.visited.begin(), ldata.visited.end(),
-                        std::back_inserter(rdotsvalueless)
-                    );
-
-                    meta.counters_clear(tmp, ldata.visited);
-                    merge_valueless_clear(allocator, ctx, ldata, rdotsvalueless, replica_id);
-                }
-                else
-                {
-                    merge_valueless_clear(allocator, ctx, ldata, rdata.counters, replica_id);
-                }                
-            #endif                
             }
         }
 

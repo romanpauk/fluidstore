@@ -51,16 +51,10 @@ namespace crdt
                 template< typename AllocatorT > replica_data(AllocatorT&& allocator)
                     : counters(allocator)
                     , dots(allocator)
-                #if !defined(DOTKERNEL_VISITED_LOCAL)
-                    , visited(allocator)
-                #endif
                 {}
 
                 std::set< counter_type, std::less< counter_type >, counters_allocator_type > counters;
                 std::map< counter_type, Key, std::less< counter_type >, dots_allocator_type > dots;
-            #if !defined(DOTKERNEL_VISITED_LOCAL)
-                std::set< counter_type, std::less< counter_type >, counters_allocator_type > visited;
-            #endif
             };
 
             using replica_map_allocator_type = typename std::allocator_traits< Allocator >::template rebind_alloc < std::pair< const replica_id_type, replica_data > >;

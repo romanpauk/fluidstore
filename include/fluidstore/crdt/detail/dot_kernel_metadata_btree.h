@@ -35,9 +35,6 @@ namespace crdt
             {
                 btree::set_base< counter_type > counters;
                 btree::map_base< counter_type, Key > dots;
-            #if !defined(DOTKERNEL_VISITED_LOCAL)
-                btree::set_base< counter_type > visited;
-            #endif
             };
 
             replica_data& get_replica_data(Allocator& allocator, replica_id_type id)

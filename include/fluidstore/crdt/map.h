@@ -14,8 +14,8 @@ namespace crdt
 
         template < typename Key, typename Value, typename Allocator, template <typename, typename, typename> typename Hook >
         class map< Key, Value, Allocator, tag_delta, Hook >
-            : public dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, tag_delta, Hook >, tag_delta >
-            , public hook_default< void, Allocator, void >
+            : public hook_default< void, Allocator, void >
+            , public dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, tag_delta, Hook >, tag_delta >
         {
             using dot_kernel_type = dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, tag_delta, Hook >, tag_delta >;
             using hook_type = hook_default< void, Allocator, void >;
@@ -42,8 +42,8 @@ namespace crdt
 
         template < typename Key, typename Value, typename Allocator, template <typename, typename, typename> typename Hook >
         class map< Key, Value, Allocator, tag_state, Hook >
-            : private dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, tag_state, Hook >, tag_state >
-            , public Hook < map< Key, Value, Allocator, tag_state, Hook >, Allocator, map < Key, Value, Allocator, tag_delta > >
+            : public Hook < map< Key, Value, Allocator, tag_state, Hook >, Allocator, map < Key, Value, Allocator, tag_delta > >
+            , private dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, tag_state, Hook >, tag_state >
         {
             using hook_type = Hook < map< Key, Value, Allocator, tag_state, Hook >, Allocator, map < Key, Value, Allocator, tag_delta > >;
             using dot_kernel_type = dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, tag_state, Hook >, tag_state >;

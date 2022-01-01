@@ -75,6 +75,9 @@ namespace btree
 
     public:
         using allocator_type = Allocator;
+
+        map_base() = default;
+        map_base(Allocator&) {}
     };
 
     template <

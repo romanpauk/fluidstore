@@ -22,6 +22,10 @@ namespace crdt
         
         template < typename Container, typename Metadata > struct metadata_base< Container, Metadata, tag_local_stl >
         {
+            metadata_base()
+                : metadata_(static_cast<Container*>(this)->get_allocator())
+            {}
+
             Metadata& get_metadata() { return metadata_; }
             const Metadata& get_metadata() const { return metadata_; }
 

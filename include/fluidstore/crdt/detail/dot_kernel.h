@@ -22,13 +22,13 @@ namespace crdt
 {
     template < typename Key, typename Value, typename Allocator, typename Container, typename Tag, 
         typename Metadata = detail::dot_kernel_metadata< Key, Tag, Allocator, detail::tag_local_btree > > 
-    class dot_kernel
+        class dot_kernel
         : public detail::metadata_base< Container, Metadata >
     {
         template < typename KeyT, typename ValueT, typename AllocatorT, typename ContainerT, typename TagT, typename Metadata > friend class dot_kernel;
 
     public:
-        using allocator_type = Allocator;           
+        using allocator_type = Allocator;
         using metadata_type = Metadata;
 
         using replica_type = typename allocator_type::replica_type;
@@ -37,27 +37,27 @@ namespace crdt
 
         using dot_type = dot< replica_id_type, counter_type >;
         using dot_kernel_type = dot_kernel< Key, Value, allocator_type, Container, Tag, Metadata >;
-                        
-        using dot_kernel_value_type = dot_kernel_value < Key, Value, allocator_type, typename Metadata::value_type_dots_type, dot_kernel_type > ;
-    
+
+        using dot_kernel_value_type = dot_kernel_value < Key, Value, allocator_type, typename Metadata::value_type_dots_type, dot_kernel_type >;
+
         using values_type = typename Metadata::template values_map_type< Key, dot_kernel_value_type >;
-    
+
         using iterator = dot_kernel_iterator< typename values_type::iterator, Key, typename dot_kernel_value_type::value_type >;
         using const_iterator = dot_kernel_iterator< typename values_type::const_iterator, Key, typename dot_kernel_value_type::value_type >;
-               
+
         struct context
         {
             void register_insert(std::pair< typename values_type::iterator, bool >) {}
             void register_erase(typename values_type::iterator) {}
         };
 
-        struct insert_context: public context
+        struct insert_context : public context
         {
             void register_insert(std::pair< typename values_type::iterator, bool > pb) { result = pb; }
             std::pair< typename values_type::iterator, bool > result;
         };
 
-        struct erase_context: public context
+        struct erase_context : public context
         {
             void register_erase(typename values_type::iterator it) { iterator = it; ++count; }
             typename values_type::iterator iterator;
@@ -71,8 +71,8 @@ namespace crdt
                 , metadata_(metadata)
             {}
 
-            void register_erase(const dot_type& dot) 
-            {                
+            void register_erase(const dot_type& dot)
+            {
                 metadata_.replica_dots_erase(allocator_, dot.replica_id, dot.counter);
             }
 
@@ -80,13 +80,17 @@ namespace crdt
             AllocatorT& allocator_;
             MetadataT& metadata_;
         };
-           
+
         struct counters_context
         {
             void register_erase(const dot_type&) {}
         };
 
-        dot_kernel() = default;
+        // TODO: values_ belong to metadata.
+        dot_kernel()
+            : values_(typename values_type::allocator_type(static_cast< Container* >(this)->get_allocator()))
+        {}
+
         dot_kernel(dot_kernel_type&& other) = default;             
         dot_kernel_type& operator = (dot_kernel_type&& other) = default;
         

@@ -305,8 +305,10 @@ namespace crdt
 
             using counters_type = std::set< counter_type >;
             using value_type_dots_type = std::map < replica_id_type, counters_type >;
-
-            template < typename Key, typename Value > using values_map_type = std::map< Key, Value >;
+                        
+            template < typename Key, typename Value > using values_map_type = std::map< Key, Value, std::less< Key >
+                , typename std::allocator_traits< Allocator >::template rebind_alloc< std::pair< const Key, Value > >
+            >;                
 
             // Instance ids
             // InstanceId acquire_instance_id();
@@ -315,14 +317,31 @@ namespace crdt
             // Replicas
             struct replica_data
             {
-                std::set< counter_type > counters;
-                std::map< counter_type, Key > dots;
-                std::set< counter_type > visited;
+                using allocator_type = Allocator;
+                using counters_allocator_type = typename std::allocator_traits< Allocator >::template rebind_alloc< counter_type >;
+                using dots_allocator_type = typename std::allocator_traits< Allocator >::template rebind_alloc< std::pair< const counter_type, Key > >;
+
+                template< typename AllocatorT > replica_data(AllocatorT&& allocator)
+                    : counters(allocator)
+                    , visited(allocator)
+                    , dots(allocator)
+                {}
+
+                std::set< counter_type, std::less< counter_type >, counters_allocator_type > counters;
+                std::map< counter_type, Key, std::less< counter_type >, dots_allocator_type > dots;
+                std::set< counter_type, std::less< counter_type >, counters_allocator_type > visited;
             };
+
+            using replica_map_allocator_type = typename std::allocator_traits< Allocator >::template rebind_alloc < std::pair< const replica_id_type, replica_data > >;
+            using replica_map_type = std::map < replica_id_type, replica_data, std::less< replica_id_type >, replica_map_allocator_type >;
+
+            dot_kernel_metadata(Allocator& allocator)
+                : replica_(replica_map_allocator_type(allocator))
+            {}
 
             replica_data& get_replica_data(Allocator&, replica_id_type id)
             {
-                return replica_.emplace(id, replica_data()).first->second;
+                return replica_.emplace(id, replica_data(replica_.get_allocator())).first->second;
             }
 
             replica_data* get_replica_data(replica_id_type id)
@@ -356,24 +375,24 @@ namespace crdt
                 get_replica_data(allocator, id).counters.insert(counters.begin(), counters.end());
             }
 
-            auto counters_erase(Allocator&, counters_type& counters, typename counters_type::iterator it)
+            template < typename Counters > auto counters_erase(Allocator&, Counters& counters, typename counters_type::iterator it)
             {
                 return counters.erase(it);
             }
 
-            void counters_update(Allocator& , counters_type& counters, typename counters_type::iterator it, counter_type value)
+            template < typename Counters > void counters_update(Allocator&, Counters& counters, typename Counters::iterator it, counter_type value)
             {
                 // TODO: in-place update, this should not change the tree layout
                 counters.insert(it, value);
                 counters.erase(it);
             }
 
-            template < typename AllocatorT, typename It > void counters_insert(AllocatorT&, counters_type& counters, It begin, It end)
+            template < typename AllocatorT, typename Counters, typename It > void counters_insert(AllocatorT&, Counters& counters, It begin, It end)
             {
                 counters.insert(begin, end);
             }
 
-            template < typename AllocatorT > void counters_clear(AllocatorT&, counters_type& counters)
+            template < typename AllocatorT, typename Counters > void counters_clear(AllocatorT&, Counters& counters)
             {
                 counters.clear();
             }
@@ -444,8 +463,8 @@ namespace crdt
 
             template < typename Values > void values_clear(Allocator&, Values&) {}
 
-            const std::map < replica_id_type, replica_data >& get_replica_map() const { return replica_; }
-            std::map < replica_id_type, replica_data >& get_replica_map() { return replica_; }
+            const replica_map_type& get_replica_map() const { return replica_; }
+            replica_map_type& get_replica_map() { return replica_; }
 
             void clear(Allocator&)
             {
@@ -453,7 +472,7 @@ namespace crdt
             }
 
         private:
-            std::map < replica_id_type, replica_data > replica_;
+            replica_map_type replica_;
         };
     }
 }

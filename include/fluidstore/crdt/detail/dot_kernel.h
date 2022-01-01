@@ -7,23 +7,20 @@
 #include <fluidstore/crdt/detail/dot_kernel_allocator.h>
 #include <fluidstore/crdt/detail/dot_kernel_iterator.h>
 #include <fluidstore/crdt/detail/dot_kernel_value.h>
-#include <fluidstore/crdt/detail/dot_kernel_metadata.h>
-#include <fluidstore/crdt/detail/metadata.h>
+#include <fluidstore/crdt/detail/dot_kernel_metadata_btree.h>
+#include <fluidstore/crdt/detail/dot_kernel_metadata_stl.h>
 
 #include <fluidstore/crdt/allocator.h>
 #include <fluidstore/allocators/arena_allocator.h>
-
-#include <fluidstore/btree/map.h>
-#include <fluidstore/btree/set.h>
 
 #include <deque>
 
 namespace crdt
 {
     template < typename Key, typename Value, typename Allocator, typename Container, typename Tag, 
-        typename Metadata = detail::dot_kernel_metadata< Key, Tag, Allocator, detail::tag_local_btree > > 
-        class dot_kernel
-        : public detail::metadata_base< Container, Metadata >
+        typename Metadata = detail::dot_kernel_metadata< Key, Tag, Allocator, detail::metadata_tag_btree_local > > 
+    class dot_kernel
+        : public detail::dot_kernel_metadata_base< Container, Metadata >
     {
         template < typename KeyT, typename ValueT, typename AllocatorT, typename ContainerT, typename TagT, typename Metadata > friend class dot_kernel;
 

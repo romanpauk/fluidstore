@@ -43,7 +43,7 @@ namespace crdt
         template < typename Key, typename Value, typename Allocator, template <typename, typename, typename> typename Hook >
         class map< Key, Value, Allocator, tag_state, Hook >
             : public Hook < map< Key, Value, Allocator, tag_state, Hook >, Allocator, map < Key, Value, Allocator, tag_delta > >
-            , private dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, tag_state, Hook >, tag_state >
+            , public dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, tag_state, Hook >, tag_state >
         {
             using hook_type = Hook < map< Key, Value, Allocator, tag_state, Hook >, Allocator, map < Key, Value, Allocator, tag_delta > >;
             using dot_kernel_type = dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, tag_state, Hook >, tag_state >;

@@ -27,11 +27,11 @@ namespace crdt
             using counters_type = std::set< counter_type >;
             using value_type_dots_type = std::map < replica_id_type, counters_type >;
                         
-            template < typename Key, typename Value > using values_map_type = std::map< 
-                Key, 
-                Value, 
-                std::less< Key >,
-                typename std::allocator_traits< Allocator >::template rebind_alloc< std::pair< const Key, Value > >
+            template < typename KeyT, typename ValueT > using values_map_type = std::map< 
+                KeyT, 
+                ValueT, 
+                std::less< KeyT >,
+                typename std::allocator_traits< Allocator >::template rebind_alloc< std::pair< const KeyT, ValueT > >
             >;                
 
             template < typename AllocatorT > using visited_map_type = std::map<
@@ -122,7 +122,7 @@ namespace crdt
                 counters.clear();
             }
 
-            template < typename Key > void replica_dots_add(Allocator&, replica_data& replica, counter_type counter, Key key)
+            void replica_dots_add(Allocator&, replica_data& replica, counter_type counter, Key key)
             {
                 replica.dots.emplace(counter, key);
             }
@@ -171,12 +171,12 @@ namespace crdt
                 }
             }
 
-            template < typename Values, typename Key, typename Value > auto values_emplace(Allocator&, Values& values, const Key& key, Value&& value)
+            template < typename Values, typename ValueT > auto values_emplace(Allocator&, Values& values, Key key, ValueT&& value)
             {
-                return values.emplace(key, std::forward< Value >(value));
+                return values.emplace(key, std::forward< ValueT >(value));
             }
 
-            template < typename Values > auto values_find(Values& values, const Key& key)
+            template < typename Values > auto values_find(Values& values, Key key)
             {
                 return values.find(key);
             }

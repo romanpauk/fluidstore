@@ -27,7 +27,7 @@ namespace crdt
             using counters_type = btree::set_base< counter_type >;
             using value_type_dots_type = btree::map_base < replica_id_type, counters_type >;            
 
-            template < typename Key, typename Value > using values_map_type = btree::map_base< Key, Value >;
+            template < typename KeyT, typename ValueT > using values_map_type = btree::map_base< KeyT, ValueT >;
             template < typename AllocatorT > using visited_map_type = btree::map< replica_id_type, btree::set_base< counter_type >, std::less< replica_id_type >, AllocatorT >;
 
             // Replicas
@@ -95,7 +95,7 @@ namespace crdt
                 counters.clear(allocator);
             }
 
-            template < typename Key > void replica_dots_add(Allocator& allocator, replica_data& replica, counter_type counter, Key key)
+            void replica_dots_add(Allocator& allocator, replica_data& replica, counter_type counter, Key key)
             {
                 replica.dots.emplace(allocator, counter, key);
             }
@@ -144,7 +144,7 @@ namespace crdt
                 }                
             }
 
-            template < typename Values, typename Key, typename Value > auto values_emplace(Allocator& allocator, Values& values, const Key& key, Value&& value)
+            template < typename Values, typename Value > auto values_emplace(Allocator& allocator, Values& values, const Key& key, Value&& value)
             {
                 return values.emplace(allocator, key, std::forward< Value >(value));
             }
@@ -161,7 +161,7 @@ namespace crdt
 
             template < typename Values > void values_clear(Allocator& allocator, Values& values)
             {
-                for (auto& value : values)
+                for (auto&& value : values)
                 {
                     // TODO: this should not run if we have trivially destructible elements.
                     for (auto&& [replica_id, dots] : value.second.dots)
@@ -179,7 +179,7 @@ namespace crdt
 
             void clear(Allocator& allocator)
             {
-                for (auto& [replica_id, data] : replica_)
+                for (auto&& [replica_id, data] : replica_)
                 {
                     data.counters.clear(allocator);
                     data.dots.clear(allocator);

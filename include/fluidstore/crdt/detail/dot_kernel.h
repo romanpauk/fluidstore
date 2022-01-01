@@ -18,11 +18,11 @@
 namespace crdt
 {
     template < typename Key, typename Value, typename Allocator, typename Container, typename Tag, 
-        typename Metadata = detail::dot_kernel_metadata< Key, Tag, Allocator, detail::metadata_tag_stl_local > > 
+        typename Metadata = detail::dot_kernel_metadata< Key, Tag, Allocator, detail::metadata_tag_btree_local > > 
     class dot_kernel
         : public detail::dot_kernel_metadata_base< Container, Metadata >
     {
-        template < typename KeyT, typename ValueT, typename AllocatorT, typename ContainerT, typename TagT, typename Metadata > friend class dot_kernel;
+        template < typename KeyT, typename ValueT, typename AllocatorT, typename ContainerT, typename TagT, typename MetadataT > friend class dot_kernel;
 
     public:
         using allocator_type = Allocator;
@@ -99,8 +99,9 @@ namespace crdt
         void reset()
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
-            get_metadata().values_clear(allocator, values_);
-            get_metadata().clear(allocator);            
+            auto& meta = this->get_metadata();
+            meta.values_clear(allocator, values_);
+            meta.clear(allocator);            
         }
 
         template < typename DotKernel >
@@ -117,9 +118,9 @@ namespace crdt
             arena< 8192 > arena;
             crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > tmp(allocator.get_replica(), arena);
                        
-            typename Metadata::visited_map_type< decltype(tmp) > visited(tmp);
+            typename Metadata::template visited_map_type< decltype(tmp) > visited(tmp);
         
-            auto& meta = get_metadata();
+            auto& meta = this->get_metadata();
 
             // Merge values
             for (const auto& [rkey, rvalue] : other.get_values())
@@ -127,7 +128,7 @@ namespace crdt
                 auto lpb = meta.values_emplace(allocator, values_, rkey, dot_kernel_value_type(allocator, rkey, this));
                 auto&& lvalue = *lpb.first;
 
-                value_context value_ctx(allocator, get_metadata());
+                value_context < decltype(allocator), Metadata > value_ctx(allocator, meta);
                 value_dots_merge(allocator, lvalue.second.dots, rvalue.dots, value_ctx);
                 lvalue.second.merge(allocator, rvalue, value_ctx);
             
@@ -187,7 +188,7 @@ namespace crdt
             Allocator& allocator, Context& ctx, LData& ldata, Counters& counters, replica_id_type replica_id
         )
         {
-            auto& meta = get_metadata();
+            auto& meta = this->get_metadata();
 
             for (const auto& counter : counters)
             {
@@ -245,8 +246,8 @@ namespace crdt
         template < typename Dots > void add_counter_dots(const Dots& dots)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
-            auto& meta = get_metadata();
-            for (auto& [replica_id, counters] : dots)
+            auto& meta = this->get_metadata();
+            for (auto&& [replica_id, counters] : dots)
             {                
                 meta.replica_counters_add(allocator, replica_id, counters);
             }
@@ -255,7 +256,7 @@ namespace crdt
         void add_counter_dot(const dot_type& dot)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
-            get_metadata().replica_counters_add(allocator, dot.replica_id, dot.counter);
+            this->get_metadata().replica_counters_add(allocator, dot.replica_id, dot.counter);
         }
 
         // TODO: const
@@ -269,21 +270,21 @@ namespace crdt
         void add_value(const Key& key, const dot_type& dot)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
-            auto& meta = get_metadata();
-            auto& data = *meta.values_emplace(allocator, values_, key, dot_kernel_value_type(allocator, key, nullptr)).first;
+            auto& meta = this->get_metadata();
+            auto&& data = *meta.values_emplace(allocator, values_, key, dot_kernel_value_type(allocator, key, nullptr)).first;
             meta.value_counters_emplace(allocator, data.second.dots, dot);
         }
 
         template < typename ValueT > void add_value(const Key& key, const dot_type& dot, ValueT&& value)
         {
             auto allocator = static_cast<Container*>(this)->get_allocator();
-            auto& meta = get_metadata();
-            auto& data = *meta.values_emplace(allocator, values_, key, dot_kernel_value_type(allocator, key, nullptr)).first;
+            auto& meta = this->get_metadata();
+            auto&& data = *meta.values_emplace(allocator, values_, key, dot_kernel_value_type(allocator, key, nullptr)).first;
             meta.value_counters_emplace(allocator, data.second.dots, dot);
             data.second.value.merge(value);
         }
                 
-        const auto& get_replica_map() const { return get_metadata().get_replica_map(); }
+        const auto& get_replica_map() const { return this->get_metadata().get_replica_map(); }
 
         const values_type& get_values() const { return values_; }
 
@@ -291,7 +292,7 @@ namespace crdt
         counter_type replica_counters_get(replica_id_type id)
         {
             counter_type counter = counter_type();
-            auto& meta = get_metadata();
+            auto& meta = this->get_metadata();
             auto replica = meta.get_replica_data(id);
             if (replica)
             {
@@ -302,7 +303,7 @@ namespace crdt
         }
                 
                 
-        template < typename Allocator, typename LCounters, typename RCounters, typename Context > void counters_merge(Allocator& allocator, LCounters& lcounters, replica_id_type replica_id, RCounters& rcounters, Context& context)
+        template < typename AllocatorT, typename LCounters, typename RCounters, typename Context > void counters_merge(AllocatorT& allocator, LCounters& lcounters, replica_id_type replica_id, RCounters& rcounters, Context&& context)
         {
             if (std::is_same_v< Tag, tag_state >)
             {
@@ -315,7 +316,7 @@ namespace crdt
             // 
             // assert(rcounters.size() == 1);   // delta variant can have N elements, and merging two state variants does not make sense
 
-            auto& meta = get_metadata();
+            auto& meta = this->get_metadata();
 
             if (lcounters.size() == 1 && rcounters.size() == 1)
             {
@@ -340,9 +341,9 @@ namespace crdt
             }
         }
 
-        template < typename Allocator, typename Counters, typename Context > void counters_collapse(Allocator& allocator, Counters& counters, replica_id_type replica_id, Context& context)
+        template < typename AllocatorT, typename Counters, typename Context > void counters_collapse(AllocatorT& allocator, Counters& counters, replica_id_type replica_id, Context& context)
         {
-            auto& meta = get_metadata();
+            auto& meta = this->get_metadata();
             auto next = counters.begin();
             auto prev = next++;
             for (; next != counters.end();)
@@ -361,10 +362,10 @@ namespace crdt
             }
         }
 
-        template < typename Allocator, typename Dots, typename Context > void value_dots_merge(Allocator& allocator, typename Metadata::value_type_dots_type& ldots, const Dots& rdots, Context& context)
+        template < typename AllocatorT, typename Dots, typename Context > void value_dots_merge(AllocatorT& allocator, typename Metadata::value_type_dots_type& ldots, const Dots& rdots, Context& context)
         {
-            auto& meta = get_metadata();
-            for (auto& [replica_id, rcounters] : rdots)
+            auto& meta = this->get_metadata();
+            for (auto&& [replica_id, rcounters] : rdots)
             {
                 auto& lcounters = meta.value_counters_fetch(allocator, ldots, replica_id);
                 counters_merge(allocator, lcounters, replica_id, rcounters, context);

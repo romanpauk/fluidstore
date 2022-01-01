@@ -62,10 +62,7 @@ BOOST_AUTO_TEST_CASE(dot_context_move)
 }
 
 BOOST_AUTO_TEST_CASE(dot_counters_base)
-{
-    typedef crdt::dot< uint64_t, uint64_t > dot;
-        
-    std::allocator< dot > allocator;
+{    
     crdt::dot_counters_base< btree::set_base< uint64_t >, crdt::tag_delta >::counters_type data;
     crdt::dot_counters_base< btree::set_base< uint64_t >, crdt::tag_delta > counters(data);
 

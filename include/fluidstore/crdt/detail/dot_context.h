@@ -97,7 +97,7 @@ namespace crdt
 
         template < typename Allocator, typename DotContextT, typename Context > void merge(Allocator& allocator, const DotContextT& other, Context& context)
         {
-            for (auto& [replica_id, rcounters] : other)
+            for (auto&& [replica_id, rcounters] : other)
             {
                 auto& counters = counters_.emplace(allocator, replica_id, btree::set_base< counter_type >()).first->second;
                 dot_counters_base< btree::set_base< counter_type >, Tag > values(counters);

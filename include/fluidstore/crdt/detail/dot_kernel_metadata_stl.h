@@ -27,14 +27,20 @@ namespace crdt
             using counters_type = std::set< counter_type >;
             using value_type_dots_type = std::map < replica_id_type, counters_type >;
                         
-            template < typename Key, typename Value > using values_map_type = std::map< Key, Value, std::less< Key >
-                , typename std::allocator_traits< Allocator >::template rebind_alloc< std::pair< const Key, Value > >
+            template < typename Key, typename Value > using values_map_type = std::map< 
+                Key, 
+                Value, 
+                std::less< Key >,
+                typename std::allocator_traits< Allocator >::template rebind_alloc< std::pair< const Key, Value > >
             >;                
 
-            // Instance ids
-            // InstanceId acquire_instance_id();
-            // void release_instance_id(InstanceId);
-
+            template < typename AllocatorT > using visited_map_type = std::map<
+                replica_id_type,
+                std::set< counter_type >,
+                std::less< replica_id_type >,
+                typename std::allocator_traits< AllocatorT >::template rebind_alloc< std::pair< const replica_id_type, std::set< counter_type > > >
+            >;
+                        
             // Replicas
             struct replica_data
             {
@@ -44,13 +50,17 @@ namespace crdt
 
                 template< typename AllocatorT > replica_data(AllocatorT&& allocator)
                     : counters(allocator)
-                    , visited(allocator)
                     , dots(allocator)
+                #if !defined(DOTKERNEL_VISITED_LOCAL)
+                    , visited(allocator)
+                #endif
                 {}
 
                 std::set< counter_type, std::less< counter_type >, counters_allocator_type > counters;
                 std::map< counter_type, Key, std::less< counter_type >, dots_allocator_type > dots;
+            #if !defined(DOTKERNEL_VISITED_LOCAL)
                 std::set< counter_type, std::less< counter_type >, counters_allocator_type > visited;
+            #endif
             };
 
             using replica_map_allocator_type = typename std::allocator_traits< Allocator >::template rebind_alloc < std::pair< const replica_id_type, replica_data > >;

@@ -99,8 +99,10 @@ namespace btree
         using value_type = typename base_type::value_type;
         using iterator = typename base_type::iterator;
 
-        map(Allocator& allocator = Allocator())
-            : allocator_(allocator)
+        map() = default;
+
+        template < typename AllocatorT > map(AllocatorT&& allocator)
+            : allocator_(std::forward< AllocatorT >(allocator))
         {}
 
         map(map< Key, Value, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >&& other) = default;

@@ -28,13 +28,16 @@ namespace crdt
             using value_type_dots_type = btree::map_base < replica_id_type, counters_type >;            
 
             template < typename Key, typename Value > using values_map_type = btree::map_base< Key, Value >;
-         
+            template < typename AllocatorT > using visited_map_type = btree::map< replica_id_type, btree::set_base< counter_type >, std::less< replica_id_type >, AllocatorT >;
+
             // Replicas
             struct replica_data
             {
                 btree::set_base< counter_type > counters;
                 btree::map_base< counter_type, Key > dots;
+            #if !defined(DOTKERNEL_VISITED_LOCAL)
                 btree::set_base< counter_type > visited;
+            #endif
             };
 
             replica_data& get_replica_data(Allocator& allocator, replica_id_type id)

@@ -489,6 +489,43 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_erase_loop, T, test_types)
     }
 }
 
+BOOST_AUTO_TEST_CASE(btree_lower_bound)
+{
+    btree::set< int > c;
+    BOOST_TEST((c.lower_bound(0) == c.end()));
+    c.insert(1);
+    BOOST_TEST((c.lower_bound(0) == c.find(1)));
+    BOOST_TEST((c.lower_bound(1) == c.find(1)));
+    c.insert(2);
+    BOOST_TEST((c.lower_bound(2) == c.find(2)));
+}
+
+BOOST_AUTO_TEST_CASE(btree_lower_bound_loop)
+{
+    btree::set< int > c;
+    for (int i = 2; i < 1000; i += 2)
+    {
+        c.insert(i);
+        BOOST_TEST((c.lower_bound(i - 1) == c.find(i)));
+    }
+}
+
+BOOST_AUTO_TEST_CASE(btree_lower_bound_pair)
+{
+    btree::set< std::pair< int, int > > counters;
+
+    counters.insert({ 0, 1 });
+    counters.insert({ 1, 1 });
+
+    BOOST_TEST((counters.lower_bound({ 0, 0 }) == counters.find({ 0, 1 })));
+    BOOST_TEST((counters.lower_bound({ 0, 1 }) == counters.find({ 0, 1 })));
+    BOOST_TEST((counters.lower_bound({ 0, 2 }) == counters.find({ 1, 1 })));
+    BOOST_TEST((counters.lower_bound({ 0, std::numeric_limits< int >::max() }) == counters.find({ 1, 1 })));
+    BOOST_TEST((counters.lower_bound({ 1, 0 }) == counters.find({ 1, 1 })));
+    BOOST_TEST((counters.lower_bound({ 1, 1 }) == counters.find({ 1, 1 })));
+    BOOST_TEST((counters.lower_bound({ 1, 2 }) == counters.end()));
+}
+
 #if !defined(_DEBUG)
 
 template < typename Fn > double measure(size_t loops, Fn&& fn)

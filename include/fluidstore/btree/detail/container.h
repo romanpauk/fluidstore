@@ -152,6 +152,8 @@ namespace btree::detail
         template < typename T > static reference* reference_address(T&& p)
         {
             // TODO: this traits pair< Key&, Value& > as POD. Needed to return address of temporary pair< Key&, Value& > for iterator::operator ->().
+            // This can back fire as multiple calls to -> will overwrite the reference.
+            
             static thread_local std::aligned_storage_t< sizeof(reference) > storage;
             new (&storage) reference(std::forward< T >(p));
             return reinterpret_cast<reference*>(&storage);
@@ -375,6 +377,11 @@ namespace btree::detail
             return root_ ? find(root_, key) : end();
         }
 
+        iterator lower_bound(const key_type& key) const
+        {
+            return root_ ? lower_bound(root_, key) : end();
+        }
+
         template < typename AllocatorT > std::pair< iterator, bool > insert(AllocatorT& allocator, const value_type& value)
         {
             return emplace_hint(allocator, nullptr, value);
@@ -480,7 +487,7 @@ namespace btree::detail
         iterator begin() const { return iterator(first_node_, 0); }
         iterator end() const { return iterator(last_node_, last_node_ ? last_node_->size : 0); }
 
-        //private:
+    protected:
         value_node* hint_node(iterator* it) const
         {
             if (it)
@@ -576,6 +583,7 @@ namespace btree::detail
 
         iterator find(node* n, const key_type& key) const
         {
+            // TODO: implement find using lower_bound
             auto [vn, vnindex] = find_value_node(n, nullptr, key);
             assert(vn);
 
@@ -590,6 +598,25 @@ namespace btree::detail
                 return end();
             }
         }
+
+        iterator lower_bound(node* n, const key_type& key) const
+        {
+            auto [vn, vnindex] = find_value_node(n, nullptr, key);
+            assert(vn);
+
+            auto nkeys = vn.get_keys();
+            auto kindex = find_key_index(nkeys, key);
+            if (kindex < nkeys.size())
+            {
+                return iterator(vn, kindex);
+            }
+            else
+            {
+                return end();
+            }
+        }
+
+        // TODO: upper_bound
 
         template < typename AllocatorT, typename T > std::pair< iterator, bool > insert(AllocatorT& allocator, node_descriptor< value_node* > n, node_size_type nindex, T&& value)
         {
@@ -633,7 +660,6 @@ namespace btree::detail
         template < typename Node, typename Descriptor > static auto find_node_index(const fixed_vector< Node*, Descriptor >& nodes, const node* n)
         {
             // TODO: better search, this should use vector with tombstone so we can iterate over capacity() and unroll the iteration.
-            // The code will count number of elements smaller than n (equals to index of n).
             for (decltype(nodes.size()) i = 0; i < nodes.size(); ++i)
             {
                 if (nodes[i] == n)
@@ -1140,8 +1166,7 @@ namespace btree::detail
         #endif
             return { n, nindex };
         }
-
-    public:
+            
         template< typename Node > static std::tuple< node_descriptor< Node >, node_size_type > get_right(node_descriptor< Node > n, node_size_type index, bool recursive = false)
         {
             node_descriptor< internal_node* > p(n.get_parent());

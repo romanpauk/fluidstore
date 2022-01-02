@@ -201,11 +201,10 @@ namespace crdt
             Metadata metadata_;
         };
 
-        /*
         template <  typename Key, typename Tag, typename Allocator > struct dot_kernel_metadata
             < Key, Tag, Allocator, metadata_tag_btree_test >
         {
-            using metadata_tag_type = tag_local_btree;
+            using metadata_tag_type = metadata_tag_btree_test;
 
             using allocator_type = Allocator;
             using replica_type = typename allocator_type::replica_type;
@@ -221,27 +220,27 @@ namespace crdt
             // InstanceId acquire_instance_id();
             // void release_instance_id(InstanceId);
 
+            btree::set_base< std::pair< replica_id_type, counter_type > > counters;
+            btree::map_base< std::pair< replica_id_type, counter_type >, Key > dots;
+
             // Replicas
             struct replica_data
-            {
-                btree::set_base< counter_type > counters;
-                btree::map_base< counter_type, Key > dots;
-                btree::set_base< counter_type > visited;
-            };
+            {};
 
-            replica_data& get_replica_data(Allocator& allocator, replica_id_type id)
+            replica_id_type get_replica_data(Allocator&, replica_id_type id)
             {
-                return replica_.emplace(allocator, id, replica_data()).first->second;
+                return id;
             }
 
-            replica_data* get_replica_data(replica_id_type id)
+            replica_id_type* get_replica_data(replica_id_type id)
             {
-                auto it = replica_.find(id);
-                return it != replica_.end() ? &it->second : nullptr;
+                // TODO
+                return &id;
             }
 
-            counter_type replica_counters_get(replica_data& replica)
+            counter_type replica_counters_get(replica_id_type id)
             {
+                // TODO: needs lower_bound, upper_bound.
                 return !replica.counters.empty() ? *--replica.counters.end() : counter_type();
             }
 
@@ -249,66 +248,67 @@ namespace crdt
             {
                 if (std::is_same_v< Tag, tag_state >)
                 {
-                    assert(get_replica_data(allocator, id).counters.empty());
+                    // TODO
+                    //assert(get_replica_data(allocator, id).counters.empty());
                 }
 
-                get_replica_data(allocator, id).counters.emplace(allocator, counter);
+                counters.emplace(allocator, { id, counter });
             }
 
             template < typename Counters > void replica_counters_add(Allocator& allocator, replica_id_type id, Counters& counters)
             {
                 if (std::is_same_v< Tag, tag_state >)
                 {
-                    assert(get_replica_data(allocator, id).counters.empty());
+                    // TODO
+                    //assert(get_replica_data(allocator, id).counters.empty());
                 }
 
-                get_replica_data(allocator, id).counters.insert(allocator, counters.begin(), counters.end());
+                for (auto&& counter : counters)
+                {
+                    counters.emplace(allocator, { id, counter });
+                }                                
             }
 
-            auto counters_erase(Allocator& allocator, counters_type& counters, typename counters_type::iterator it)
+            template < typename Counters > auto counters_erase(Allocator& allocator, Counters& counters, typename Counters::iterator it)
             {
                 return counters.erase(allocator, it);
             }
 
-            void counters_update(Allocator& allocator, counters_type& counters, typename counters_type::iterator it, counter_type value)
+            template < typename Counters > void counters_update(Allocator& allocator, Counters& counters, typename Counters::iterator it, counter_type value)
             {
                 // TODO: in-place update, this should not change the tree layout
                 counters.insert(allocator, it, value);
                 counters.erase(allocator, it);
             }
 
-            template < typename AllocatorT, typename It > void counters_insert(AllocatorT& allocator, counters_type& counters, It begin, It end)
+            template < typename AllocatorT, typename Counters, typename It > void counters_insert(AllocatorT& allocator, Counters& counters, It begin, It end)
             {
                 counters.insert(allocator, begin, end);
             }
 
-            template < typename AllocatorT > void counters_clear(AllocatorT& allocator, counters_type& counters)
+            template < typename AllocatorT, typename Counters > void counters_clear(AllocatorT& allocator, Counters& counters)
             {
                 counters.clear(allocator);
             }
 
-            template < typename Key > void replica_dots_add(Allocator& allocator, replica_data& replica, counter_type counter, Key key)
+            template < typename Key > void replica_dots_add(Allocator& allocator, replica_id_type id, counter_type counter, Key key)
             {
-                replica.dots.emplace(allocator, counter, key);
+                dots.emplace(allocator, { id, counter }, key);
             }
 
             void replica_dots_erase(Allocator& allocator, replica_id_type id, counter_type counter)
             {
-                auto replica = get_replica_data(id);
-                if (replica)
-                {
-                    replica->dots.erase(allocator, counter);
-                }
+                dots.erase(allocator, { id, counter });
             }
 
-            void replica_dots_erase(Allocator& allocator, replica_data& replica, typename btree::map_base< counter_type, Key >::iterator it)
+            void replica_dots_erase(Allocator& allocator, replica_id_type id, typename btree::map_base< std::pair< replica_id_type, counter_type >, Key >::iterator it)
             {
-                replica.dots.erase(allocator, it);
+                dots.erase(allocator, it);
             }
 
-            auto replica_dots_find(replica_data& replica, counter_type counter)
+            auto replica_dots_find(replica_id_type id, counter_type counter)
             {
-                return replica.dots.find(counter);
+                return dots.find({ id, counter });
             }
 
             auto& value_counters_fetch(Allocator& allocator, value_type_dots_type& ldots, replica_id_type id)
@@ -383,7 +383,16 @@ namespace crdt
         private:
             btree::map_base < replica_id_type, replica_data > replica_;
         };
-        */
+        
+        template < typename Container, typename Metadata > struct dot_kernel_metadata_base< Container, Metadata, metadata_tag_btree_test >
+        {
+            Metadata& get_metadata() { return metadata_; }
+            const Metadata& get_metadata() const { return metadata_; }
+
+        private:
+            Metadata metadata_;
+        };
+
 
         /*
         template < typename Container, typename Metadata > struct dot_kernel_metadata_base< Container, Metadata, tag_shared >

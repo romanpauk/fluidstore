@@ -183,7 +183,6 @@ namespace crdt
                 {
                     data.counters.clear(allocator);
                     data.dots.clear(allocator);
-                    assert(data.visited.empty());
                 }
                 replica_.clear(allocator);
             }
@@ -201,6 +200,7 @@ namespace crdt
             Metadata metadata_;
         };
 
+        /*
         template <  typename Key, typename Tag, typename Allocator > struct dot_kernel_metadata
             < Key, Tag, Allocator, metadata_tag_btree_test >
         {
@@ -219,6 +219,9 @@ namespace crdt
             // Instance ids
             // InstanceId acquire_instance_id();
             // void release_instance_id(InstanceId);
+            
+            // TODO: we need to know about all replicas.
+            btree::set_base < replica_id_type > replicas;
 
             btree::set_base< std::pair< replica_id_type, counter_type > > counters;
             btree::map_base< std::pair< replica_id_type, counter_type >, Key > dots;
@@ -240,8 +243,14 @@ namespace crdt
 
             counter_type replica_counters_get(replica_id_type id)
             {
-                // TODO: needs lower_bound, upper_bound.
-                return !replica.counters.empty() ? *--replica.counters.end() : counter_type();
+                auto counter = counter_type();
+                auto begin = counters.lower_bound({ id, 0 });
+                auto end = counters.lower_bound({ id, std::numeric_limits< counter_type >::max() });
+                while (begin != end)
+                {
+                    counter = begin++->second;
+                }
+                return counter;
             }
 
             void replica_counters_add(Allocator& allocator, replica_id_type id, counter_type counter)
@@ -392,7 +401,7 @@ namespace crdt
         private:
             Metadata metadata_;
         };
-
+        */
 
         /*
         template < typename Container, typename Metadata > struct dot_kernel_metadata_base< Container, Metadata, tag_shared >

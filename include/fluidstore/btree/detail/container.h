@@ -7,7 +7,6 @@
 
 #define BTREE_VALUE_NODE_LR
 //#define BTREE_VALUE_NODE_APPEND
-//#define BTREE_VALUE_NODE_HINT
 
 #if defined(_DEBUG)
     //#define BTREE_CHECK_VECTOR_INVARIANTS
@@ -300,6 +299,13 @@ namespace btree::detail
                 return *this;
             }
 
+            iterator operator--(int)
+            {
+                iterator it = *this;
+                --* this;
+                return it;
+            }
+
         private:
             value_node* node_;
             node_size_type kindex_;
@@ -384,17 +390,12 @@ namespace btree::detail
 
         template < typename AllocatorT > std::pair< iterator, bool > insert(AllocatorT& allocator, const value_type& value)
         {
-            return emplace_hint(allocator, nullptr, value);
-        }
+            return emplace(allocator, value);
+        }      
 
-        template < typename AllocatorT, typename... Args > std::pair< iterator, bool > emplace(AllocatorT& allocator, Args&&... args)
+        template < typename AllocatorT > std::pair< iterator, bool > insert(AllocatorT& allocator, const_iterator hint, const value_type& value)
         {
-            return emplace_hint(allocator, nullptr, std::forward< Args >(args)...);
-        }
-
-        template < typename AllocatorT > std::pair< iterator, bool > insert(AllocatorT& allocator, iterator hint, const value_type& value)
-        {
-            return emplace_hint(allocator, &hint, value);
+            return emplace_hint(allocator, hint, value);
         }
 
         template < typename AllocatorT, typename It > void insert(AllocatorT& allocator, It begin, It end)
@@ -405,7 +406,7 @@ namespace btree::detail
             }
         }
 
-        template < typename AllocatorT, typename It > void insert(AllocatorT& allocator, iterator pos, It begin, It end)
+        template < typename AllocatorT, typename It > void insert(AllocatorT& allocator, const_iterator pos, It begin, It end)
         {
             while (begin != end)
             {
@@ -493,19 +494,8 @@ namespace btree::detail
 
         iterator begin() const { return iterator(first_node_, 0); }
         iterator end() const { return iterator(last_node_, last_node_ ? last_node_->size : 0); }
-
-    protected:
-        value_node* hint_node(iterator* it) const
-        {
-            if (it)
-            {
-                return *it == end() ? last_node_ : it->node_;
-            }
-
-            return nullptr;
-        }
-
-        template < typename AllocatorT, typename... Args > std::pair< iterator, bool > emplace_hint(AllocatorT& allocator, iterator* hint, Args&&... args)
+        
+        template < typename AllocatorT, typename... Args > std::pair< iterator, bool > emplace(AllocatorT& allocator, Args&&... args)
         {
             value_type value{ std::forward< Args >(args)... };
 
@@ -519,92 +509,85 @@ namespace btree::detail
             }
 
             const auto& key = value_type_traits_type::get_key(value);
-
-        #if defined(BTREE_VALUE_NODE_HINT)
-            // hint is an iterator to an element that we are going to insert BEFORE.
-            assert(!empty());
-            assert(*hint != begin());
-
-            if(hint && *hint != begin())
-            {
-                if(*hint == end())
-                {
-                    if(!(value_type_traits_type::get_key(*(*hint - 1)) < key))
-                    {
-                        goto hint_invalid;
-                    }
-                } 
-                else
-                {
-                    if(!(value_type_traits_type::get_key(*(*hint - 1)) < key &&
-                        value_type_traits_type::get_key(**hint) > key))
-                    {
-                        goto hint_invalid;
-                    }
-                }
-
-                if(!full(hint->node_))
-                {
-                    return insert(allocator, hint->node_, hint->nindex_, hint->kindex_, std::move(value));
-                }
-                else
-                {
-                    if (n.get_parent())
-                    {
-                        std::tie(n, nindex) = rebalance_insert(allocator, depth_, hint->node_, hint->nindex_, key);
-                        return insert(allocator, n, nindex, std::move(value));
-                    }
-                    else
-                    {
-                        std::tie(n, nindex) = rebalance_insert(allocator, depth_, hint->node_, key);
-                        return insert(allocator, n, nindex, std::move(value));
-                    }
-                }    
-            }
-        hint_invalid:
-            auto [n, nindex] = find_value_node(root_, nullptr, key);   
-        #else
-            auto [n, nindex] = find_value_node(root_, nullptr, key);
-        #endif
+            auto [n, nindex] = find_value_node(root_, key);
             if (!full(n))
             {
-                return insert(allocator, n, nindex, std::move(value));
+                return insert(allocator, n, std::move(value));
             }
             else
             {
                 if (n.get_parent())
                 {
                     std::tie(n, nindex) = rebalance_insert(allocator, depth_, n, nindex, key);
-                    return insert(allocator, n, nindex, std::move(value));
+                    return insert(allocator, n, std::move(value));
                 }
                 else
                 {
                     std::tie(n, nindex) = rebalance_insert(allocator, depth_, n, key);
-                    return insert(allocator, n, nindex, std::move(value));
+                    return insert(allocator, n, std::move(value));
                 }
             }
         }
 
-        std::tuple< node_descriptor< value_node* >, node_size_type > find_value_node(node* n, value_node* hint, const key_type& key) const
+        template < typename AllocatorT, typename... Args > std::pair< iterator, bool > emplace_hint(AllocatorT& allocator, const_iterator hint, Args&&... args)
         {
-        #if defined(BTREE_VALUE_NODE_HINT)
-            if (hint)
+            if (empty())
             {
-                if (hint->get_parent())
+                return emplace(allocator, std::forward< Args >(args)...);
+            }
+
+            // hint is an iterator to an element that we are going to insert BEFORE.
+            assert(!empty());
+            assert(hint != begin());
+                        
+            value_type value{ std::forward< Args >(args)... };
+            const auto& key = value_type_traits_type::get_key(value);
+
+            iterator prev = hint;
+            --prev;
+            if(hint == end())
+            {
+                if(!(value_type_traits_type::get_key(*prev) < key))
                 {
-                    auto hkeys = hint->get_keys();
-                    if (!hkeys.empty() && compare_lte(hkeys[0], key))
-                    {
-                        return { hint, get_index(desc(hint)) };
-                    }
+                    assert(false);
+                    return emplace(allocator, std::move(value));
+                }
+            } 
+            else
+            {
+                if(!(value_type_traits_type::get_key(*prev) < key &&
+                    value_type_traits_type::get_key(*hint) > key))
+                {
+                    assert(false);
+                    return emplace(allocator, std::move(value));
+                }
+            }
+
+            auto n = desc(hint.node_);
+            node_size_type nindex = 0;
+
+            if(!full(n))
+            {
+                return insert(allocator, n, hint.kindex_, std::move(value));
+            }
+            else
+            {
+                if (n.get_parent())
+                {
+                    std::tie(n, nindex) = rebalance_insert(allocator, depth_, n, get_index(n), key);
+                    return insert(allocator, n, std::move(value));
                 }
                 else
                 {
-                    assert(hint == root_);
-                    return { hint, 0 };
+                    std::tie(n, nindex) = rebalance_insert(allocator, depth_, n, key);
+                    return insert(allocator, n, std::move(value));
                 }
-            }
-        #endif                
+            }    
+        }
+
+    protected:
+        std::tuple< node_descriptor< value_node* >, node_size_type > find_value_node(node* n, const key_type& key) const
+        {
             size_type depth = depth_;
             node_size_type nindex = 0;
             assert(depth_ > 0);
@@ -632,7 +615,7 @@ namespace btree::detail
         iterator find(node* n, const key_type& key) const
         {
             // TODO: implement find using lower_bound
-            auto [vn, vnindex] = find_value_node(n, nullptr, key);
+            auto [vn, vnindex] = find_value_node(n, key);
             assert(vn);
 
             auto nkeys = vn.get_keys();
@@ -649,7 +632,7 @@ namespace btree::detail
 
         iterator lower_bound(node* n, const key_type& key) const
         {
-            auto [vn, vnindex] = find_value_node(n, nullptr, key);
+            auto [vn, vnindex] = find_value_node(n, key);
             assert(vn);
 
             auto nkeys = vn.get_keys();
@@ -666,7 +649,7 @@ namespace btree::detail
 
         // TODO: upper_bound
 
-        template < typename AllocatorT, typename T > std::pair< iterator, bool > insert(AllocatorT& allocator, node_descriptor< value_node* > n, node_size_type nindex, T&& value)
+        template < typename AllocatorT, typename T > std::pair< iterator, bool > insert(AllocatorT& allocator, node_descriptor< value_node* > n, T&& value)
         {
             assert(!full(n));
 
@@ -680,11 +663,11 @@ namespace btree::detail
             }
             else
             {
-                return insert(allocator, n, nindex, kindex, std::forward< T >(value));
+                return insert(allocator, n, kindex, std::forward< T >(value));
             }
         }
 
-        template < typename AllocatorT, typename T > std::pair< iterator, bool > insert(AllocatorT& allocator, node_descriptor< value_node* > n, node_size_type nindex, node_size_type kindex, T&& value)
+        template < typename AllocatorT, typename T > std::pair< iterator, bool > insert(AllocatorT& allocator, node_descriptor< value_node* > n, node_size_type kindex, T&& value)
         {
             assert(!full(n));
 
@@ -813,10 +796,13 @@ namespace btree::detail
             auto ldata = lnode.get_data();
 
         #if defined(BTREE_VALUE_NODE_APPEND)
+            // In case of appending to the right-most node, we will allow rnode to be empty as there might be more appends comming.
+            // The tree will be very slightly disbalanced on its right edge but that is ok, it does not impact the overall complexity.
+            // The node needs to be properly split and items distributed if there is a right node or the operation is not an append.
             auto [right, rindex] = get_right(lnode, lindex);
             if (right || compare_lte(key, lkeys.back()))
             {
-            #endif
+        #endif
                 auto rdata = rnode.get_data();
 
                 auto begin = ldata.begin() + value_node::N;
@@ -827,7 +813,7 @@ namespace btree::detail
                 assert(ldata.size() == value_node::N);
                 assert(rdata.size() == value_node::N);
 
-            #if defined(BTREE_VALUE_NODE_APPEND)
+        #if defined(BTREE_VALUE_NODE_APPEND)
             }
         #endif
 
@@ -1161,6 +1147,7 @@ namespace btree::detail
                 {
                 #if defined(BTREE_VALUE_NODE_APPEND)
                     // TODO: investigate - right was 0, so possibly rigthtmost node append optimization?
+                    //assert(n.get_keys().size() > n.get_keys().capacity() / 2);
                 #else
                     assert(n.get_keys().size() > n.get_keys().capacity() / 2);
                 #endif
@@ -1258,7 +1245,7 @@ namespace btree::detail
         }
 
     #if defined(BTREE_VALUE_NODE_LR)
-        static std::tuple< node_descriptor< value_node* >, node_size_type > get_right(node_descriptor< value_node* > n, node_size_type index, bool)
+        static std::tuple< node_descriptor< value_node* >, node_size_type > get_right(node_descriptor< value_node* > n, node_size_type index)
         {
             return { n.node()->right, n.node()->right ? get_index(desc(n.node()->right)) : 0 };
         }
@@ -1302,9 +1289,9 @@ namespace btree::detail
         }
 
     #if defined(BTREE_VALUE_NODE_LR)
-        static std::tuple< node_descriptor< value_node* >, node_size_type > get_left(node_descriptor< value_node* > n, node_size_type index, bool)
+        static std::tuple< node_descriptor< value_node* >, node_size_type > get_left(node_descriptor< value_node* > n, node_size_type index)
         {
-            return { n.node()->left, n.node()->left ? get_index(n.node()->left) : 0 };
+            return { n.node()->left, n.node()->left ? get_index(desc(n.node()->left)) : 0 };
         }
     #endif
 
@@ -1422,6 +1409,7 @@ namespace btree::detail
 
         void checktree(node* n, internal_node* parent, node_size_type depth)
         {
+            // TODO: assert element count in N-2N.
             if (depth_ == depth)
             {
                 auto vn = node_cast<value_node*>(n);

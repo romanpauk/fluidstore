@@ -97,7 +97,12 @@ namespace btree
 
         std::pair< iterator, bool > insert(const value_type& value)
         {
-            BTREE_CHECK_RETURN(base_type::emplace_hint(allocator_, nullptr, value));
+            BTREE_CHECK_RETURN(base_type::emplace(allocator_, value));
+        }
+
+        std::pair< iterator, bool > insert(iterator hint, const value_type& value)
+        {
+            BTREE_CHECK_RETURN(base_type::emplace_hint(allocator_, hint, value));
         }
 
         template < typename It > void insert(It begin, It end)

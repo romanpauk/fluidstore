@@ -6,6 +6,8 @@
 #include <iterator>
 
 #define BTREE_VALUE_NODE_LR
+
+// TODO: append optimization has a lot of issues...
 //#define BTREE_VALUE_NODE_APPEND
 
 #if defined(_DEBUG)
@@ -555,6 +557,9 @@ namespace btree::detail
             } 
             else
             {
+                assert(!empty());
+                assert(hint != begin());
+
                 if(!(value_type_traits_type::get_key(*prev) < key &&
                     value_type_traits_type::get_key(*hint) > key))
                 {
@@ -799,6 +804,7 @@ namespace btree::detail
             // In case of appending to the right-most node, we will allow rnode to be empty as there might be more appends comming.
             // The tree will be very slightly disbalanced on its right edge but that is ok, it does not impact the overall complexity.
             // The node needs to be properly split and items distributed if there is a right node or the operation is not an append.
+            // TODO: this needs equivalent fixes for erase as the code is not used to unbalanced nodes.
             auto [right, rindex] = get_right(lnode, lindex);
             if (right || compare_lte(key, lkeys.back()))
             {

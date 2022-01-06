@@ -19,7 +19,7 @@
 
 #if !defined(_DEBUG)
 static int Iters = 20;
-static int Max = 32768*2;
+static int Max = 32768*4;
 static const int ArenaSize = 65536 * 2;
 #endif
 
@@ -272,10 +272,6 @@ BOOST_AUTO_TEST_CASE(btree_set_insert_hint)
     btree::set< int > c;
     for (int i = 0; i < 1000; ++i)
     {
-        if (i == 32)
-        {
-            int a(1);
-        }
         c.insert(c.end(), i);
     }
 }
@@ -623,7 +619,7 @@ void print_results(const std::map< int, double >& results, const std::map< int, 
 
 template < typename T > T tr(T value)
 {
-    return value;
+    return ~value;
 }
 
 template < typename T > std::vector< T > get_vector_data(size_t count)
@@ -653,6 +649,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_perf_insert, T, btree_perf_insert_types)
 {
     std::map< int, double > base; 
     auto data = get_vector_data< T >(Max);
+    std::sort(data.begin(), data.end());
 
     for (size_t i = 1; i < Max; i *= 2)
     {
@@ -702,9 +699,10 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_perf_insert_hint, T, btree_perf_insert_t
     for (size_t i = 1; i < Max; i *= 2)
     {
         base[i] = measure([&]
-            {
-                std::set< T > c;
-                insertion_test_hint(c, data, i);
+            {                
+                //std::set< T > c;      
+                btree::set< T > c;
+                insertion_test(c, data, i);
             });
     }
 

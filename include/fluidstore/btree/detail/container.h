@@ -8,7 +8,7 @@
 #define BTREE_VALUE_NODE_LR
 
 // TODO: append optimization has a lot of issues...
-#define BTREE_VALUE_NODE_APPEND
+//#define BTREE_VALUE_NODE_APPEND
 
 #if defined(_DEBUG)
     //#define BTREE_CHECK_VECTOR_INVARIANTS
@@ -541,43 +541,48 @@ namespace btree::detail
          
             // hint is an iterator to an element that we are going to insert BEFORE.
             assert(!empty());
-            assert(hint != begin());
-                        
+                                    
             value_type value{ std::forward< Args >(args)... };
             const auto& key = value_type_traits_type::get_key(value);
-/*
+
+            Compare compare;
             iterator prev = hint;
-            --prev;
+
+            // check hint validity
             if(hint == end())
             {
-                if(!(value_type_traits_type::get_key(*prev) < key))
+                --prev;
+
+                if(!compare(value_type_traits_type::get_key(*prev), key))
                 {
                     assert(false);
                     return emplace(allocator, std::move(value));
                 }
             } 
-            else
+            else if (hint == begin())
             {
-                assert(!empty());
-                assert(hint != begin());
-
-                if(!(value_type_traits_type::get_key(*prev) < key &&
-                    value_type_traits_type::get_key(*hint) > key))
+                if (!compare(key, value_type_traits_type::get_key(*hint)))
                 {
                     assert(false);
                     return emplace(allocator, std::move(value));
                 }
             }
-*/
+            else
+            {
+                --prev;
+
+                assert(!empty());
+                assert(hint != begin());
+
+                if(!(compare(value_type_traits_type::get_key(*prev), key) && compare(key, value_type_traits_type::get_key(*hint))))
+                {
+                    assert(false);
+                    return emplace(allocator, std::move(value));
+                }
+            }
+            
             auto n = desc(hint.node_);
             node_size_type nindex = 0;
-
-            auto nkeys = n.get_keys();
-            auto kindex = find_key_index(nkeys, key);
-            if(kindex != hint.kindex_)
-            {
-                return emplace(allocator, std::move(value));
-            }
 
             if(!full(n))
             {
@@ -585,16 +590,8 @@ namespace btree::detail
             }
             else
             {
-                if (n.get_parent())
-                {
-                    std::tie(n, nindex) = rebalance_insert(allocator, depth_, n, get_index(n), key);
-                    return insert(allocator, n, std::move(value));
-                }
-                else
-                {
-                    std::tie(n, nindex) = rebalance_insert(allocator, depth_, n, key);
-                    return insert(allocator, n, std::move(value));
-                }
+                std::tie(n, nindex) = rebalance_insert(allocator, depth_, n, key);
+                return insert(allocator, n, std::move(value));
             }    
         }
 

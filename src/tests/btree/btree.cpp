@@ -267,12 +267,21 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_insert, T, test_types)
     BOOST_TEST((c.find(value<T>(1)) != c.end()));
 }
 
-BOOST_AUTO_TEST_CASE(btree_set_insert_hint)
+BOOST_AUTO_TEST_CASE(btree_set_insert_end_hint)
 {
     btree::set< int > c;
     for (int i = 0; i < 1000; ++i)
     {
         c.insert(c.end(), i);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(btree_set_insert_begin_hint)
+{
+    btree::set< int > c;
+    for (int i = 1000; i > 0; --i)
+    {
+        c.insert(c.begin(), i);
     }
 }
 

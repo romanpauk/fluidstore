@@ -6,8 +6,6 @@
 #include <iterator>
 
 #define BTREE_VALUE_NODE_LR
-
-// TODO: append optimization has a lot of issues...
 #define BTREE_VALUE_NODE_APPEND
 
 #if defined(_DEBUG)
@@ -543,56 +541,32 @@ namespace btree::detail
             assert(!empty());
                                     
             value_type value{ std::forward< Args >(args)... };
-            const auto& key = value_type_traits_type::get_key(value);
 
-            Compare compare;
-            iterator prev = hint;
-
-            // check hint validity
-            if(hint == end())
+            if (hint == end())
             {
-                --prev;
+                auto n = desc(hint.node_);
+                node_size_type nindex = 0;
 
-                if(!compare(value_type_traits_type::get_key(*prev), key))
-                {
-                    assert(false);
-                    return emplace(allocator, std::move(value));
-                }
-            } 
-            else if (hint == begin())
-            {
-                if (!compare(key, value_type_traits_type::get_key(*hint)))
-                {
-                    assert(false);
-                    return emplace(allocator, std::move(value));
-                }
-            }
-            else
-            {
-                --prev;
+                auto keys = n.get_keys();
+                Compare compare;
 
-                assert(!empty());
-                assert(hint != begin());
-
-                if(!(compare(value_type_traits_type::get_key(*prev), key) && compare(key, value_type_traits_type::get_key(*hint))))
+                const auto key = value_type_traits_type::get_key(value);
+                if (compare(keys[hint.kindex_ - 1], key))
                 {
-                    assert(false);
-                    return emplace(allocator, std::move(value));
+                    if (!full(n))
+                    {
+                        return insert(allocator, n, hint.kindex_, std::move(value));
+                    }
+                    else
+                    {
+                        std::tie(n, nindex) = rebalance_insert(allocator, depth_, n, key);
+                        return insert(allocator, n, std::move(value));
+                    }
                 }
             }
-            
-            auto n = desc(hint.node_);
-            node_size_type nindex = 0;
 
-            if(!full(n))
-            {
-                return insert(allocator, n, hint.kindex_, std::move(value));
-            }
-            else
-            {
-                std::tie(n, nindex) = rebalance_insert(allocator, depth_, n, key);
-                return insert(allocator, n, std::move(value));
-            }    
+            assert(false);
+            return emplace(allocator, std::move(value));
         }
 
     protected:

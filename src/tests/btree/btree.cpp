@@ -276,15 +276,6 @@ BOOST_AUTO_TEST_CASE(btree_set_insert_end_hint)
     }
 }
 
-BOOST_AUTO_TEST_CASE(btree_set_insert_begin_hint)
-{
-    btree::set< int > c;
-    for (int i = 1000; i > 0; --i)
-    {
-        c.insert(c.begin(), i);
-    }
-}
-
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_insert, T, test_types)
 {
     btree::map< T, T > c;
@@ -709,8 +700,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_perf_insert_hint, T, btree_perf_insert_t
     {
         base[i] = measure([&]
             {                
-                //std::set< T > c;      
-                btree::set< T > c;
+                std::set< T > c;      
+                //btree::set< T > c;
                 insertion_test(c, data, i);
             });
     }

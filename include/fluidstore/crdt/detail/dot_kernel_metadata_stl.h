@@ -87,7 +87,8 @@ namespace crdt
                     assert(get_replica_data(allocator, id).counters.empty());
                 }
 
-                get_replica_data(allocator, id).counters.emplace(counter);
+                auto& counters = get_replica_data(allocator, id).counters;
+                counters.emplace_hint(counters.end(), counter);
             }
 
             template < typename Counters > void replica_counters_add(Allocator& allocator, replica_id_type id, Counters& counters)
@@ -97,7 +98,8 @@ namespace crdt
                     assert(get_replica_data(allocator, id).counters.empty());
                 }
 
-                get_replica_data(allocator, id).counters.insert(counters.begin(), counters.end());
+                auto& lcounters = get_replica_data(allocator, id).counters;
+                lcounters.insert(counters.begin(), counters.end());
             }
 
             template < typename Counters > auto counters_erase(Allocator&, Counters& counters, typename counters_type::iterator it)
@@ -124,7 +126,7 @@ namespace crdt
 
             void replica_dots_add(Allocator&, replica_data& replica, counter_type counter, Key key)
             {
-                replica.dots.emplace(counter, key);
+                replica.dots.emplace_hint(replica.dots.end(), counter, key);
             }
 
             void replica_dots_erase(Allocator&, replica_id_type id, counter_type counter)
@@ -155,7 +157,7 @@ namespace crdt
             void value_counters_emplace(Allocator&, value_type_dots_type& ldots, dot< replica_id_type, counter_type > dot)
             {
                 auto& counters = ldots.emplace(dot.replica_id, std::set< counter_type >()).first->second;
-                counters.emplace(dot.counter);
+                counters.emplace_hint(counters.end(), dot.counter);
             }
 
             void value_counters_erase(Allocator&, value_type_dots_type& ldots, dot< replica_id_type, counter_type > dot)

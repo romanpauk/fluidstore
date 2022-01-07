@@ -6,6 +6,8 @@
 #include <fluidstore/crdt/detail/dot.h>
 #include <fluidstore/crdt/detail/dot_kernel_metadata.h>
 
+// #define DOTKERNEL_METADATA_HINT
+
 namespace crdt
 {
     namespace detail
@@ -60,7 +62,12 @@ namespace crdt
                     assert(get_replica_data(allocator, id).counters.empty());
                 }
 
-                get_replica_data(allocator, id).counters.emplace(allocator, counter);
+                auto& counters = get_replica_data(allocator, id).counters;
+            #if defined(DOTKERNEL_METADATA_HINT)
+                counters.emplace_hint(allocator, counters.end(), counter);
+            #else
+                counters.emplace(allocator, counter);
+            #endif
             }
                         
             template < typename Counters > void replica_counters_add(Allocator& allocator, replica_id_type id, Counters& counters)
@@ -97,7 +104,11 @@ namespace crdt
 
             void replica_dots_add(Allocator& allocator, replica_data& replica, counter_type counter, Key key)
             {
+            #if defined(DOTKERNEL_METADATA_HINT)
+                replica.dots.emplace_hint(allocator, replica.dots.end(), counter, key);
+            #else
                 replica.dots.emplace(allocator, counter, key);
+            #endif
             }
 
             void replica_dots_erase(Allocator& allocator, replica_id_type id, counter_type counter)
@@ -128,7 +139,11 @@ namespace crdt
             void value_counters_emplace(Allocator& allocator, value_type_dots_type& ldots, dot< replica_id_type, counter_type > dot)
             {
                 auto& counters = ldots.emplace(allocator, dot.replica_id, btree::set_base< counter_type >()).first->second;
+            #if defined(DOTKERNEL_METADATA_HINT)
+                counters.emplace_hint(allocator, counters.end(), dot.counter);
+            #else
                 counters.emplace(allocator, dot.counter);
+            #endif
             }
 
             void value_counters_erase(Allocator& allocator, value_type_dots_type& ldots, dot< replica_id_type, counter_type > dot)
@@ -146,7 +161,11 @@ namespace crdt
 
             template < typename Values, typename Value > auto values_emplace(Allocator& allocator, Values& values, const Key& key, Value&& value)
             {
+            #if defined(DOTKERNEL_METADATA_HINT)
+                return values.emplace_hint(allocator, values.end(), key, std::forward< Value >(value));
+            #else
                 return values.emplace(allocator, key, std::forward< Value >(value));
+            #endif
             }
 
             template < typename Values > auto values_find(Values& values, const Key& key)

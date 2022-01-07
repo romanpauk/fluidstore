@@ -267,6 +267,15 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_insert, T, test_types)
     BOOST_TEST((c.find(value<T>(1)) != c.end()));
 }
 
+BOOST_AUTO_TEST_CASE(btree_set_insert_end_hint)
+{
+    btree::set< int > c;
+    for (int i = 0; i < 1000; ++i)
+    {
+        c.insert(c.end(), i);
+    }
+}
+
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_insert, T, test_types)
 {
     btree::map< T, T > c;
@@ -575,15 +584,7 @@ template < typename Fn > double measure(Fn&& fn)
     return measure(loops, std::forward< Fn >(fn));
 }
 
-template < typename Container, typename TestData > void insertion_test_set(Container& c, const TestData& data, size_t count)
-{
-    for (size_t i = 0; i < count; ++i)
-    {
-        c.insert(data[i]);
-    }
-}
-
-template < typename Container, typename TestData > void insertion_test_map(Container& c, const TestData& data, size_t count)
+template < typename Container, typename TestData > void insertion_test(Container& c, const TestData& data, size_t count)
 {
     for (size_t i = 0; i < count; ++i)
     {
@@ -648,13 +649,14 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_perf_insert, T, btree_perf_insert_types)
 {
     std::map< int, double > base; 
     auto data = get_vector_data< T >(Max);
+    std::sort(data.begin(), data.end());
 
     for (size_t i = 1; i < Max; i *= 2)
     {
         base[i] = measure([&]
         {
             std::set< T > c;
-            insertion_test_set(c, data, i);
+            insertion_test(c, data, i);
         });
     }
     
@@ -666,7 +668,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_perf_insert, T, btree_perf_insert_types)
             results[i] = measure([&]
             {
                 btree::set< T > c;
-                insertion_test_set(c, data, i);
+                insertion_test(c, data, i);
             });
         }
         print_results(results, base);
@@ -680,8 +682,54 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_perf_insert, T, btree_perf_insert_types)
             results[i] = measure([&]
             {
                 boost::container::flat_set< T > c;
-                insertion_test_set(c, data, i);
+                insertion_test(c, data, i);
             });
+        }
+        print_results(results, base);
+    }
+}
+
+typedef boost::mpl::list < uint32_t > btree_perf_insert_types;
+BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_perf_insert_hint, T, btree_perf_insert_types)
+{
+    std::map< int, double > base;
+    auto data = get_vector_data< T >(Max);
+    std::sort(data.begin(), data.end());
+
+    for (size_t i = 1; i < Max; i *= 2)
+    {
+        base[i] = measure([&]
+            {                
+                std::set< T > c;      
+                //btree::set< T > c;
+                insertion_test(c, data, i);
+            });
+    }
+
+    {
+        std::cout << "btree::set " << get_type_name<T>() << " insertion with hint" << std::endl;
+        std::map< int, double > results;
+        for (size_t i = 1; i < Max; i *= 2)
+        {
+            results[i] = measure([&]
+                {
+                    btree::set< T > c;
+                    insertion_test_hint(c, data, i);
+                });
+        }
+        print_results(results, base);
+    }
+
+    {
+        std::cout << "boost::container::flat_set " << get_type_name<T>() << " insertion with hint" << std::endl;
+        std::map<int, double > results;
+        for (size_t i = 1; i < Max; i *= 2)
+        {
+            results[i] = measure([&]
+                {
+                    boost::container::flat_set< T > c;
+                    insertion_test_hint(c, data, i);
+                });
         }
         print_results(results, base);
     }
@@ -697,7 +745,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_perf_insert, T, btree_perf_insert_types)
         base[i] = measure([&]
         {
             std::map< T, T > c;
-            insertion_test_map(c, data, i);
+            insertion_test(c, data, i);
         });
     }
 
@@ -709,7 +757,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_perf_insert, T, btree_perf_insert_types)
             results[i] = measure([&]
             {
                 btree::map< T, T > c;
-                insertion_test_map(c, data, i);
+                insertion_test(c, data, i);
             });
         }
         print_results(results, base);
@@ -723,7 +771,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_perf_insert, T, btree_perf_insert_types)
             results[i] = measure([&]
             {
                 boost::container::flat_map< T, T > c;
-                insertion_test_map(c, data, i);
+                insertion_test(c, data, i);
             });
         }
         print_results(results, base);
@@ -787,7 +835,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_perf_insert_arena, T, btree_perf_insert_
             crdt::arena< ArenaSize > arena;
             crdt::arena_allocator< T > arenaallocator(arena);
             std::set< T, std::less< T >, decltype(arenaallocator) > c(arenaallocator);
-            insertion_test_set(c, data, i);
+            insertion_test(c, data, i);
         });
     }
 
@@ -801,7 +849,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_perf_insert_arena, T, btree_perf_insert_
                 crdt::arena< ArenaSize > arena;
                 crdt::arena_allocator< void > arenaallocator(arena);
                 btree::set< T, std::less< T >, decltype(arenaallocator) > c(arenaallocator);
-                insertion_test_set(c, data, i);
+                insertion_test(c, data, i);
             });
         }
         print_results(results, base);
@@ -817,7 +865,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_perf_insert_arena, T, btree_perf_insert_
                 crdt::arena< ArenaSize > arena;
                 crdt::arena_allocator< T > arenaallocator(arena);
                 boost::container::flat_set< T, std::less< T >, decltype(arenaallocator) > c(arenaallocator);
-                insertion_test_set(c, data, i);
+                insertion_test(c, data, i);
             });
         }
         print_results(results, base);
@@ -836,7 +884,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_perf_insert_arena, T, btree_perf_insert_
             crdt::arena< ArenaSize > arena;
             crdt::arena_allocator< T > arenaallocator(arena);
             std::map< T, T, std::less< T >, decltype(arenaallocator) > c(arenaallocator);
-            insertion_test_map(c, data, i);
+            insertion_test(c, data, i);
         });
     }
 
@@ -850,7 +898,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_perf_insert_arena, T, btree_perf_insert_
                 crdt::arena< ArenaSize > arena;
                 crdt::arena_allocator< void > arenaallocator(arena);
                 btree::map< T, T, std::less< T >, decltype(arenaallocator) > c(arenaallocator);
-                insertion_test_map(c, data, i);
+                insertion_test(c, data, i);
             });
         }
         print_results(results, base);
@@ -866,7 +914,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_perf_insert_arena, T, btree_perf_insert_
                 crdt::arena< ArenaSize > arena;
                 crdt::arena_allocator< std::pair< T, T > > arenaallocator(arena);
                 boost::container::flat_map< T, T, std::less< T >, decltype(arenaallocator) > c(arenaallocator);
-                insertion_test_map(c, data, i);
+                insertion_test(c, data, i);
             });
         }
         print_results(results, base);

@@ -9,6 +9,7 @@
 #include <fluidstore/crdt/detail/dot_kernel_value.h>
 #include <fluidstore/crdt/detail/dot_kernel_metadata_btree.h>
 #include <fluidstore/crdt/detail/dot_kernel_metadata_stl.h>
+#include <fluidstore/crdt/detail/dot_kernel_metadata_flat.h>
 
 #include <fluidstore/crdt/allocator.h>
 #include <fluidstore/allocators/arena_allocator.h>

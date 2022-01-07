@@ -8,7 +8,7 @@
 #define BTREE_VALUE_NODE_LR
 
 // TODO: append optimization has a lot of issues...
-//#define BTREE_VALUE_NODE_APPEND
+#define BTREE_VALUE_NODE_APPEND
 
 #if defined(_DEBUG)
     //#define BTREE_CHECK_VECTOR_INVARIANTS
@@ -535,16 +535,17 @@ namespace btree::detail
         {
             if (empty())
             {
+                assert(hint == end());
                 return emplace(allocator, std::forward< Args >(args)...);
             }
-
+         
             // hint is an iterator to an element that we are going to insert BEFORE.
             assert(!empty());
             assert(hint != begin());
                         
             value_type value{ std::forward< Args >(args)... };
             const auto& key = value_type_traits_type::get_key(value);
-
+/*
             iterator prev = hint;
             --prev;
             if(hint == end())
@@ -567,9 +568,16 @@ namespace btree::detail
                     return emplace(allocator, std::move(value));
                 }
             }
-
+*/
             auto n = desc(hint.node_);
             node_size_type nindex = 0;
+
+            auto nkeys = n.get_keys();
+            auto kindex = find_key_index(nkeys, key);
+            if(kindex != hint.kindex_)
+            {
+                return emplace(allocator, std::move(value));
+            }
 
             if(!full(n))
             {

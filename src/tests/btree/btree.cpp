@@ -19,7 +19,7 @@
 
 #if !defined(_DEBUG)
 static int Iters = 20;
-static int Max = 32768*4;
+static int Max = 32768;
 static const int ArenaSize = 65536 * 2;
 #endif
 

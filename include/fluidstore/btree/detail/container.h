@@ -8,7 +8,7 @@
 #define BTREE_VALUE_NODE_LR
 
 // TODO: append optimization has a lot of issues...
-//#define BTREE_VALUE_NODE_APPEND
+#define BTREE_VALUE_NODE_APPEND
 
 #if defined(_DEBUG)
     //#define BTREE_CHECK_VECTOR_INVARIANTS
@@ -895,11 +895,10 @@ namespace btree::detail
 
             auto sdata = source.get_data();
             auto tdata = target.get_data();
+            auto pkeys = target.get_parent().get_keys();
 
             if (sdata.size() > value_node::N && tdata.size() < 2 * value_node::N)
             {
-                auto pkeys = target.get_parent().get_keys();
-
                 if (tindex > sindex)
                 {
                     // Right-most key from the left node
@@ -918,6 +917,25 @@ namespace btree::detail
                     sdata.erase(allocator, key);
 
                     pkeys[tindex] = target.get_keys().back();
+                }
+
+                return true;
+            }
+
+            if (source.node() == last_node_ && !sdata.empty())
+            {
+                // Left-most key from the right node
+                auto key = sdata.begin();
+                tdata.emplace(allocator, tdata.end(), std::move(*key));
+                sdata.erase(allocator, key);
+
+                pkeys[tindex] = target.get_keys().back();
+
+                // TODO: not a good place for this
+                if (sdata.empty())
+                {
+                    last_node_ = target;
+                    target.node()->right = nullptr;
                 }
 
                 return true;
@@ -1172,6 +1190,11 @@ namespace btree::detail
                 {
                 #if defined(BTREE_VALUE_NODE_APPEND)
                     // TODO: investigate - right was 0, so possibly rigthtmost node append optimization?
+                    if (right.get_keys().empty())
+                    {                        
+                        remove_node(allocator, depth, n.get_parent(), right, rindex, nindex);
+                        deallocate_node(allocator, right);
+                    }
                 #else
                     assert(n.get_keys().size() > n.get_keys().capacity() / 2);
                 #endif

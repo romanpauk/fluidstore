@@ -6,7 +6,7 @@
 #include <fluidstore/crdt/detail/dot.h>
 #include <fluidstore/crdt/detail/dot_kernel_metadata.h>
 
-// #define DOTKERNEL_METADATA_HINT
+#define DOTKERNEL_METADATA_HINT
 
 namespace crdt
 {
@@ -88,8 +88,13 @@ namespace crdt
             void counters_update(Allocator& allocator, counters_type& counters, typename counters_type::iterator it, counter_type value)
             {
                 // TODO: in-place update, this should not change the tree layout
-                counters.insert(allocator, it, value);
-                counters.erase(allocator, it);
+
+                //counters.insert(allocator, it, value);  
+                //counters.erase(allocator, it);
+                //const_cast< counter_type& >(*it) = value;
+
+                auto pos = counters.erase(allocator, it);
+                counters.insert(allocator, pos, value);  
             }
 
             template < typename AllocatorT, typename It > void counters_insert(AllocatorT& allocator, counters_type& counters, It begin, It end)

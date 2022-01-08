@@ -110,8 +110,8 @@ namespace crdt
             template < typename Counters > void counters_update(Allocator&, Counters& counters, typename Counters::iterator it, counter_type value)
             {
                 // TODO: in-place update, this should not change the tree layout
-                counters.insert(it, value);
-                counters.erase(it);
+                auto pos = counters.erase(it);
+                counters.insert(pos, value);
             }
 
             template < typename AllocatorT, typename Counters, typename It > void counters_insert(AllocatorT&, Counters& counters, It begin, It end)

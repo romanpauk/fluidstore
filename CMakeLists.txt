@@ -72,9 +72,11 @@ if(Boost_FOUND)
         src/tests/flat/flat.cpp
         src/tests/testmodule.cpp
         src/tests/pch.h
+        src/tests/bench.h
     )
     add_test(fluidstoretest COMMAND fluidstoretest)
     target_link_libraries(fluidstoretest fluidstore Boost::boost)
+    target_include_directories(fluidstoretest PRIVATE src/tests)
     target_precompile_headers(fluidstoretest PRIVATE src/tests/pch.h)    
     
     if(WIN32)

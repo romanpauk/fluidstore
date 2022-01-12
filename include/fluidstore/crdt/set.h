@@ -9,15 +9,15 @@ namespace crdt
 {
     namespace detail
     {
-        template < typename Key, typename Allocator, typename Tag = crdt::tag_state, template <typename, typename, typename> typename Hook = hook_default >
+        template < typename Key, typename Allocator, typename Tag, typename MetadataTag, template <typename, typename, typename> typename Hook = hook_default >
         class set;
 
-        template < typename Key, typename Allocator, template <typename, typename, typename> typename Hook >
-        class set< Key, Allocator, tag_delta, Hook >
+        template < typename Key, typename Allocator, typename MetadataTag, template <typename, typename, typename> typename Hook >
+        class set< Key, Allocator, tag_delta, MetadataTag, Hook >
             : public hook_default< void, Allocator, void >
-            , public dot_kernel< Key, void, Allocator, set< Key, Allocator, tag_delta, Hook >, tag_delta >
+            , public dot_kernel< Key, void, Allocator, set< Key, Allocator, tag_delta, MetadataTag, Hook >, tag_delta, MetadataTag >
         {
-            using dot_kernel_type = dot_kernel< Key, void, Allocator, set< Key, Allocator, tag_delta, Hook >, tag_delta >;
+            using dot_kernel_type = dot_kernel< Key, void, Allocator, set< Key, Allocator, tag_delta, MetadataTag, Hook >, tag_delta, MetadataTag >;
             using hook_type = hook_default< void, Allocator, void >;
 
         public:
@@ -26,7 +26,7 @@ namespace crdt
 
             using iterator = typename dot_kernel_type::iterator;
 
-            template < typename AllocatorT, typename TagT = tag_delta, template <typename, typename, typename> typename HookT = Hook > using rebind_t = set< Key, AllocatorT, TagT, HookT >;
+            template < typename AllocatorT, typename TagT = tag_delta, typename MetadataTagT = MetadataTag, template <typename, typename, typename> typename HookT = Hook > using rebind_t = set< Key, AllocatorT, TagT, MetadataTagT, HookT >;
 
             struct delta_extractor
             {
@@ -37,9 +37,9 @@ namespace crdt
                 : hook_default< void, Allocator, void >(std::forward< AllocatorT >(allocator))
             {}
 
-            set(set< Key, Allocator, tag_delta, Hook >&& other) = default;
+            set(set< Key, Allocator, tag_delta, MetadataTag, Hook >&& other) = default;
 
-            set< Key, Allocator, tag_delta, Hook >& operator = (set< Key, Allocator, tag_delta, Hook > && other)
+            set< Key, Allocator, tag_delta, MetadataTag, Hook >& operator = (set< Key, Allocator, tag_delta, MetadataTag, Hook > && other)
             {
                 std::swap(static_cast<hook_type&>(*this), static_cast<hook_type&>(other));
                 std::swap(static_cast<dot_kernel_type&>(*this), static_cast<dot_kernel_type&>(other));
@@ -47,13 +47,13 @@ namespace crdt
             };
         };
 
-        template < typename Key, typename Allocator, template <typename, typename, typename> typename Hook >
-        class set< Key, Allocator, tag_state, Hook >
-            : public Hook < set< Key, Allocator, tag_state, Hook >, Allocator, set< Key, Allocator, tag_delta > >
-            , public dot_kernel< Key, void, Allocator, set< Key, Allocator, tag_state, Hook >, tag_state >
+        template < typename Key, typename Allocator, typename MetadataTag, template <typename, typename, typename> typename Hook >
+        class set< Key, Allocator, tag_state, MetadataTag, Hook >
+            : public Hook < set< Key, Allocator, tag_state, MetadataTag, Hook >, Allocator, set< Key, Allocator, tag_delta, MetadataTag > >
+            , public dot_kernel< Key, void, Allocator, set< Key, Allocator, tag_state, MetadataTag, Hook >, tag_state, MetadataTag >
         {
-            using dot_kernel_type = dot_kernel< Key, void, Allocator, set< Key, Allocator, tag_state, Hook >, tag_state >;
-            using hook_type = Hook < set< Key, Allocator, tag_state, Hook >, Allocator, set< Key, Allocator, tag_delta > >;
+            using dot_kernel_type = dot_kernel< Key, void, Allocator, set< Key, Allocator, tag_state, MetadataTag, Hook >, tag_state, MetadataTag >;
+            using hook_type = Hook < set< Key, Allocator, tag_state, MetadataTag, Hook >, Allocator, set< Key, Allocator, tag_delta, MetadataTag > >;
 
         public:
             using allocator_type = Allocator;
@@ -61,9 +61,9 @@ namespace crdt
 
             using iterator = typename dot_kernel_type::iterator;
 
-            template < typename AllocatorT, typename TagT = tag_state, template <typename, typename, typename> typename HookT = Hook > using rebind_t = set< Key, AllocatorT, TagT, HookT >;
+            template < typename AllocatorT, typename TagT = tag_state, typename MetadataTagT = MetadataTag, template <typename, typename, typename> typename HookT = Hook > using rebind_t = set< Key, AllocatorT, TagT, MetadataTagT, HookT >;
 
-            using delta_type = rebind_t< allocator_type, tag_delta, crdt::hook_default >;
+            using delta_type = rebind_t< allocator_type, tag_delta, MetadataTag, crdt::hook_default >;
 
             struct delta_extractor
             {
@@ -74,9 +74,9 @@ namespace crdt
                 : hook_type(std::forward< AllocatorT >(allocator))
             {}
 
-            set(set< Key, Allocator, tag_state, Hook >&&) = default;
+            set(set< Key, Allocator, tag_state, MetadataTag, Hook >&&) = default;
             
-            set< Key, Allocator, tag_state, Hook >& operator = (set< Key, Allocator, tag_state, Hook > && other)
+            set< Key, Allocator, tag_state, MetadataTag, Hook >& operator = (set< Key, Allocator, tag_state, MetadataTag, Hook > && other)
             {
                 std::swap(static_cast<hook_type&>(*this), static_cast<hook_type&>(other));
                 std::swap(static_cast<dot_kernel_type&>(*this), static_cast<dot_kernel_type&>(other));
@@ -145,7 +145,7 @@ namespace crdt
             using dot_kernel_type::get_values;
 
         private:
-            template < typename ValueT, typename AllocatorT, typename TagT, template <typename, typename, typename> typename HookT > friend class value_mv;
+            template < typename ValueT, typename AllocatorT, typename TagT, typename MetadataTagT, template <typename, typename, typename> typename HookT > friend class value_mv;
 
             template < typename Delta > void delta_clear(Delta& delta)
             {
@@ -174,22 +174,22 @@ namespace crdt
         };
     }
 
-    template < typename Key, typename Allocator = void, typename Tag = void, template <typename, typename, typename> typename Hook = hook_default >
+    template < typename Key, typename Allocator = void, typename Tag = void, typename MetadataTag = void, template <typename, typename, typename> typename Hook = hook_default >
     class set
-        : public detail::set< Key, Allocator, Tag, Hook >
+        : public detail::set< Key, Allocator, Tag, MetadataTag, Hook >
     {
     public:
         template < typename AllocatorT > set(AllocatorT&& allocator)
-            : detail::set< Key, Allocator, Tag, Hook >(std::forward< AllocatorT >(allocator))
+            : detail::set< Key, Allocator, Tag, MetadataTag, Hook >(std::forward< AllocatorT >(allocator))
         {}
     };
 
-    template < typename Key, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook > struct is_crdt_type < set< Key, Allocator, Tag, Hook > > : std::true_type {};
+    template < typename Key, typename Allocator, typename Tag, typename MetadataTag, template <typename, typename, typename> typename Hook > struct is_crdt_type < set< Key, Allocator, Tag, MetadataTag, Hook > > : std::true_type {};
 
     template < typename Key >
-    class set< Key, void, void, hook_default >
+    class set< Key, void, void, void, hook_default >
     {
     public:
-        template < typename AllocatorT, typename TagT = void, template <typename, typename, typename> typename HookT = hook_default > using rebind_t = set< Key, AllocatorT, TagT, HookT >;
+        template < typename AllocatorT, typename TagT = void, typename MetadataTagT = void, template <typename, typename, typename> typename HookT = hook_default > using rebind_t = set< Key, AllocatorT, TagT, MetadataTagT, HookT >;
     };
 }

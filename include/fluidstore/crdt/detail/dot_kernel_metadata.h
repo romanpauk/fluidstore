@@ -9,6 +9,6 @@ namespace crdt
     {
         template < typename Key, typename Tag, typename Allocator, typename MetadataTag > struct dot_kernel_metadata;
 
-        template < typename Container, typename Metadata, typename MetadataTag = typename Metadata::metadata_tag_type > struct dot_kernel_metadata_base;
+        template < typename Container, typename Metadata, typename MetadataTag > struct dot_kernel_metadata_base;
     }
 }

@@ -9,30 +9,30 @@ namespace crdt
 {
     namespace detail
     {
-        template < typename Key, typename Value, typename Allocator, typename Tag = crdt::tag_state, template <typename, typename, typename> typename Hook = hook_default >
+        template < typename Key, typename Value, typename Allocator, typename Tag, typename MetadataTag, template <typename, typename, typename> typename Hook = hook_default >
         class map;
 
-        template < typename Key, typename Value, typename Allocator, template <typename, typename, typename> typename Hook >
-        class map< Key, Value, Allocator, tag_delta, Hook >
+        template < typename Key, typename Value, typename Allocator, typename MetadataTag, template <typename, typename, typename> typename Hook >
+        class map< Key, Value, Allocator, tag_delta, MetadataTag, Hook >
             : public hook_default< void, Allocator, void >
-            , public dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, tag_delta, Hook >, tag_delta >
+            , public dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, tag_delta, MetadataTag, Hook >, tag_delta, MetadataTag >
         {
-            using dot_kernel_type = dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, tag_delta, Hook >, tag_delta >;
+            using dot_kernel_type = dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, tag_delta, MetadataTag, Hook >, tag_delta >;
             using hook_type = hook_default< void, Allocator, void >;
 
         public:
             using allocator_type = Allocator;
             using tag_type = tag_delta;
 
-            template < typename AllocatorT, typename TagT = tag_delta, template <typename, typename, typename> typename HookT = Hook > using rebind_t = map< Key, typename Value::template rebind_t< AllocatorT, TagT, HookT >, AllocatorT, TagT, HookT >;
+            template < typename AllocatorT, typename TagT = tag_delta, typename MetadataTagT = MetadataTag, template <typename, typename, typename> typename HookT = Hook > using rebind_t = map< Key, typename Value::template rebind_t< AllocatorT, TagT, MetadataTagT, HookT >, AllocatorT, TagT, MetadataTagT, HookT >;
 
             template < typename AllocatorT > map(AllocatorT&& allocator)
                 : hook_default< void, Allocator, void >(std::forward< AllocatorT >(allocator))
             {}
 
-            map(map< Key, Value, Allocator, tag_delta, Hook >&&) = default;
+            map(map< Key, Value, Allocator, tag_delta, MetadataTag, Hook >&&) = default;
 
-            map< Key, Value, Allocator, tag_delta, Hook >& operator = (map< Key, Value, Allocator, tag_delta, Hook > && other)
+            map< Key, Value, Allocator, tag_delta, MetadataTag, Hook >& operator = (map< Key, Value, Allocator, tag_delta, MetadataTag, Hook > && other)
             {
                 std::swap(static_cast<hook_type&>(*this), static_cast<hook_type&>(other));
                 std::swap(static_cast<dot_kernel_type&>(*this), static_cast<dot_kernel_type&>(other));
@@ -40,13 +40,13 @@ namespace crdt
             }
         };
 
-        template < typename Key, typename Value, typename Allocator, template <typename, typename, typename> typename Hook >
-        class map< Key, Value, Allocator, tag_state, Hook >
-            : public Hook < map< Key, Value, Allocator, tag_state, Hook >, Allocator, map < Key, Value, Allocator, tag_delta > >
-            , public dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, tag_state, Hook >, tag_state >
+        template < typename Key, typename Value, typename Allocator, typename MetadataTag, template <typename, typename, typename> typename Hook >
+        class map< Key, Value, Allocator, tag_state, MetadataTag, Hook >
+            : public Hook < map< Key, Value, Allocator, tag_state, MetadataTag, Hook >, Allocator, map < Key, Value, Allocator, tag_delta, MetadataTag > >
+            , public dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, tag_state, MetadataTag, Hook >, tag_state, MetadataTag >
         {
-            using hook_type = Hook < map< Key, Value, Allocator, tag_state, Hook >, Allocator, map < Key, Value, Allocator, tag_delta > >;
-            using dot_kernel_type = dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, tag_state, Hook >, tag_state >;
+            using hook_type = Hook < map< Key, Value, Allocator, tag_state, MetadataTag, Hook >, Allocator, map < Key, Value, Allocator, tag_delta, MetadataTag > >;
+            using dot_kernel_type = dot_kernel< Key, Value, Allocator, map< Key, Value, Allocator, tag_state, MetadataTag, Hook >, tag_state, MetadataTag >;
 
         public:
             using allocator_type = Allocator;
@@ -72,17 +72,17 @@ namespace crdt
                 }
             };
 
-            template < typename AllocatorT, typename TagT = tag_state, template <typename, typename, typename> typename HookT = Hook > using rebind_t = map< Key, typename Value::template rebind_t< AllocatorT, TagT, HookT >, AllocatorT, TagT, HookT >;
+            template < typename AllocatorT, typename TagT = tag_state, typename MetadataTagT = MetadataTag, template <typename, typename, typename> typename HookT = Hook > using rebind_t = map< Key, typename Value::template rebind_t< AllocatorT, TagT, MetadataTagT, HookT >, AllocatorT, TagT, MetadataTagT, HookT >;
 
-            using delta_type = rebind_t< Allocator, tag_delta, crdt::hook_default >;
+            using delta_type = rebind_t< Allocator, tag_delta, MetadataTag, crdt::hook_default >;
 
             template < typename AllocatorT > map(AllocatorT&& allocator)
                 : hook_type(std::forward< AllocatorT >(allocator))
             {}
 
-            map(map< Key, Value, Allocator, tag_state, Hook >&&) = default;
+            map(map< Key, Value, Allocator, tag_state, MetadataTag, Hook >&&) = default;
 
-            map< Key, Value, Allocator, tag_state, Hook >& operator = (map< Key, Value, Allocator, tag_state, Hook > && other)
+            map< Key, Value, Allocator, tag_state, MetadataTag,Hook >& operator = (map< Key, Value, Allocator, tag_state, MetadataTag, Hook > && other)
             {
                 std::swap(static_cast<hook_type&>(*this), static_cast<hook_type&>(other));
                 std::swap(static_cast<dot_kernel_type&>(*this), static_cast<dot_kernel_type&>(other));
@@ -228,32 +228,32 @@ namespace crdt
         };
     }
 
-    template < typename Key, typename Value, typename Allocator = void, typename Tag = void, template <typename, typename, typename> typename Hook = hook_default >
+    template < typename Key, typename Value, typename Allocator = void, typename Tag = void, typename MetadataTag = void, template <typename, typename, typename> typename Hook = hook_default >
     class map
-        : public detail::map < Key, typename Value::template rebind_t< Allocator, Tag, Hook >, Allocator, Tag, Hook >
+        : public detail::map < Key, typename Value::template rebind_t< Allocator, Tag, MetadataTag, Hook >, Allocator, Tag, MetadataTag, Hook >
     {
-        using base_type = detail::map < Key, typename Value::template rebind_t< Allocator, Tag, Hook >, Allocator, Tag, Hook >;
+        using base_type = detail::map < Key, typename Value::template rebind_t< Allocator, Tag, MetadataTag, Hook >, Allocator, Tag, MetadataTag, Hook >;
 
     public:
         template < typename AllocatorT > map(AllocatorT&& allocator)
-            : detail::map< Key, typename Value::template rebind_t< Allocator, tag_state, Hook >, Allocator, Tag, Hook >(std::forward< AllocatorT >(allocator))
+            : detail::map< Key, typename Value::template rebind_t< Allocator, tag_state, MetadataTag, Hook >, Allocator, Tag, MetadataTag, Hook >(std::forward< AllocatorT >(allocator))
         {}
 
-        map(map< Key, Value, Allocator, Tag, Hook >&&) = default;
+        map(map< Key, Value, Allocator, Tag, MetadataTag, Hook >&&) = default;
 
-        map< Key, Value, Allocator, Tag, Hook >& operator = (map< Key, Value, Allocator, Tag, Hook > && other)
+        map< Key, Value, Allocator, Tag, MetadataTag, Hook >& operator = (map< Key, Value, Allocator, Tag, MetadataTag, Hook > && other)
         {
             std::swap(static_cast<base_type&>(*this), static_cast<base_type&>(other));
             return *this;
         }
     };
 
-    template < typename Key, typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook > struct is_crdt_type < map< Key, Value, Allocator, Tag, Hook > > : std::true_type {};
+    template < typename Key, typename Value, typename Allocator, typename Tag, typename MetadataTag, template <typename, typename, typename> typename Hook > struct is_crdt_type < map< Key, Value, Allocator, Tag, MetadataTag, Hook > > : std::true_type {};
 
     template < typename Key, typename Value >
-    class map< Key, Value, void, void, hook_default >
+    class map< Key, Value, void, void, void, hook_default >
     {
     public:
-        template < typename AllocatorT, typename TagT = void, template <typename, typename, typename> typename HookT = hook_default > using rebind_t = map< Key, Value, AllocatorT, TagT, HookT >;
+        template < typename AllocatorT, typename TagT = void, typename MetadataTagT = void, template <typename, typename, typename> typename HookT = hook_default > using rebind_t = map< Key, Value, AllocatorT, TagT, MetadataTagT, HookT >;
     };
 }

@@ -19,11 +19,12 @@
 namespace crdt
 {
     template < typename Key, typename Value, typename Allocator, typename Container, typename Tag, 
-        typename Metadata = detail::dot_kernel_metadata< Key, Tag, Allocator, detail::metadata_tag_btree_local > > 
+        typename MetadataTag = detail::metadata_tag_btree_local,
+        typename Metadata = detail::dot_kernel_metadata< Key, Tag, Allocator, MetadataTag > > 
     class dot_kernel
-        : public detail::dot_kernel_metadata_base< Container, Metadata >
+        : public detail::dot_kernel_metadata_base< Container, Metadata, MetadataTag >
     {
-        template < typename KeyT, typename ValueT, typename AllocatorT, typename ContainerT, typename TagT, typename MetadataT > friend class dot_kernel;
+        template < typename KeyT, typename ValueT, typename AllocatorT, typename ContainerT, typename TagT, typename MetadataTagT, typename MetadataT > friend class dot_kernel;
 
     public:
         using allocator_type = Allocator;
@@ -34,7 +35,7 @@ namespace crdt
         using counter_type = typename replica_type::counter_type;
 
         using dot_type = dot< replica_id_type, counter_type >;
-        using dot_kernel_type = dot_kernel< Key, Value, allocator_type, Container, Tag, Metadata >;
+        using dot_kernel_type = dot_kernel< Key, Value, allocator_type, Container, Tag, MetadataTag, Metadata >;
 
         using dot_kernel_value_type = dot_kernel_value < Key, Value, allocator_type, typename Metadata::value_type_dots_type, dot_kernel_type >;
 

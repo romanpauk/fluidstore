@@ -97,6 +97,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(crdt_set_insert, T, crdt_set_insert_types)
         print_results(results, base);
     }
 
+#if defined(_WIN32)
     {
         std::cout << "crdt::set<" << get_type_name<T>() << ", flat>" << " insertion " << std::endl;
         std::map< int, double > results;
@@ -113,6 +114,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(crdt_set_insert, T, crdt_set_insert_types)
         }
         print_results(results, base);
     }
+#endif
 }
 
 

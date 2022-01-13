@@ -553,7 +553,7 @@ template < typename Container, typename TestData > void insertion_test_hint(Cont
 }
 
 template< typename T > static const char* get_type_name() { return typeid(T).name(); }
-template<> static const char* get_type_name<std::string>() { return "std::string"; }
+template<> const char* get_type_name<std::string>() { return "std::string"; }
 
 template < typename T > T tr(T value)
 {

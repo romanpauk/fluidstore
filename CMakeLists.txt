@@ -22,8 +22,6 @@ target_sources(fluidstore INTERFACE
     include/fluidstore/crdt/allocator.h
     include/fluidstore/crdt/detail/allocator_ptr.h
     include/fluidstore/crdt/detail/dot.h
-    include/fluidstore/crdt/detail/dot_context.h
-    include/fluidstore/crdt/detail/dot_counters_base.h
     include/fluidstore/crdt/detail/dot_kernel.h
     include/fluidstore/crdt/detail/dot_kernel_allocator.h
     include/fluidstore/crdt/detail/dot_kernel_iterator.h

@@ -305,6 +305,31 @@ namespace crdt::flat
             assert(!empty());
             *data_->get(it.index_) = std::forward< Ty >(value);
         }
+                
+        const T operator [](size_type index) const 
+        {
+            // TODO: needs test
+            return *data_->get(index);
+        }
+
+        template < typename Other > bool operator == (const Other& other) const
+        {
+            // TODO: terrible
+            // TODO: needs test
+
+            if (size() == other.size())
+            {
+                for (size_type i = 0; i < size(); ++i)
+                {
+                    if ((*this)[i] != other[i])
+                        return false;
+                }
+
+                return true;
+            }
+
+            return false;            
+        }
 
     private:
         vector_data* data_;
@@ -344,6 +369,8 @@ namespace crdt::flat
         using vector_base_type::end;
         using vector_base_type::size;
         using vector_base_type::empty;
+        using vector_base_type::operator ==;
+        using vector_base_type::operator [];
 
     private:
         Allocator& allocator_;

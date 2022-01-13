@@ -61,9 +61,12 @@ namespace btree
         : public detail::container_base< Key, void, Compare, Allocator, NodeSizeType, InternalNodeType, ValueNodeType >
     {
         using base_type = detail::container_base< Key, void, Compare, Allocator, NodeSizeType, InternalNodeType, ValueNodeType >;
-
+                
     public:
         using allocator_type = Allocator;
+
+        set_base() = default;
+        set_base(Allocator&) {}
     };
 
     template <

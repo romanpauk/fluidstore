@@ -27,6 +27,10 @@ target_sources(fluidstore INTERFACE
     include/fluidstore/crdt/detail/dot_kernel.h
     include/fluidstore/crdt/detail/dot_kernel_allocator.h
     include/fluidstore/crdt/detail/dot_kernel_iterator.h
+    include/fluidstore/crdt/detail/dot_kernel_metadata.h
+    include/fluidstore/crdt/detail/dot_kernel_metadata_btree.h
+    include/fluidstore/crdt/detail/dot_kernel_metadata_flat.h
+    include/fluidstore/crdt/detail/dot_kernel_metadata_stl.h
     include/fluidstore/crdt/detail/dot_kernel_value.h
     include/fluidstore/crdt/detail/traits.h
     include/fluidstore/crdt/hooks/hook_default.h
@@ -60,7 +64,6 @@ if(Boost_FOUND)
     add_executable(fluidstoretest 
         src/tests/btree/btree.cpp
         src/tests/btree/fixed_vector.cpp
-        src/tests/crdt/dot.cpp
         src/tests/crdt/map.cpp
         src/tests/crdt/performance.cpp
         src/tests/crdt/set.cpp
@@ -68,12 +71,12 @@ if(Boost_FOUND)
         src/tests/flat/flat.cpp
         src/tests/testmodule.cpp
         src/tests/pch.h
+        src/tests/bench.h
     )
     add_test(fluidstoretest COMMAND fluidstoretest)
     target_link_libraries(fluidstoretest fluidstore Boost::boost)
-    target_precompile_headers(fluidstoretest PRIVATE src/tests/pch.h)
-
-    target_compile_definitions(fluidstoretest PRIVATE DOTKERNEL_BTREE DOTCONTEXT_BTREE DOTCOUNTERS_BTREE)
+    target_include_directories(fluidstoretest PRIVATE src/tests)
+    target_precompile_headers(fluidstoretest PRIVATE src/tests/pch.h)    
     
     if(WIN32)
         group_sources(src)

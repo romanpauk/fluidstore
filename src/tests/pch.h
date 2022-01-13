@@ -18,6 +18,8 @@
         // Use _CrtSetBreakAlloc(x);
     #endif
 
+    #include <windows.h>
+    #include <profileapi.h>
 #endif
 
 #include <set>
@@ -30,6 +32,7 @@
 #include <chrono>
 #include <tuple>
 #include <functional>
+#include <iomanip>
 
 #include <boost/mpl/list.hpp>
 #include <boost/lexical_cast.hpp>

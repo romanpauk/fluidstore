@@ -75,6 +75,9 @@ namespace btree
 
     public:
         using allocator_type = Allocator;
+
+        map_base() = default;
+        template < typename AllocatorT > map_base(AllocatorT&&) {}
     };
 
     template <
@@ -96,8 +99,10 @@ namespace btree
         using value_type = typename base_type::value_type;
         using iterator = typename base_type::iterator;
 
-        map(const Allocator& allocator = Allocator())
-            : allocator_(allocator)
+        map() = default;
+
+        template < typename AllocatorT > map(AllocatorT&& allocator)
+            : allocator_(std::forward< AllocatorT >(allocator))
         {}
 
         map(map< Key, Value, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >&& other) = default;
@@ -126,6 +131,13 @@ namespace btree
         {
             // TODO: missing test
             BTREE_CHECK(base_type::clear(allocator_));
+        }
+
+        Value& operator[](const Key& key)
+        {
+            // TODO: missing test
+            // TODO: missing BTREE_CHECK_RETURN as it requires move
+            return (*base_type::emplace(allocator_, key, Value()).first).second;
         }
 
     private:

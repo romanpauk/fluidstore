@@ -7,19 +7,19 @@ namespace crdt
 {
     namespace detail 
     {
-        template < typename Value, typename Allocator, typename Tag = crdt::tag_state, template <typename, typename, typename> typename Hook = hook_default >
+        template < typename Value, typename Allocator, typename Tag, typename MetadataTag, template <typename, typename, typename> typename Hook = hook_default >
         class value_mv;
 
-        template < typename Value, typename Allocator, template <typename, typename, typename> typename Hook >
-        class value_mv< Value, Allocator, tag_delta, Hook >
+        template < typename Value, typename Allocator, typename MetadataTag, template <typename, typename, typename> typename Hook >
+        class value_mv< Value, Allocator, tag_delta, MetadataTag, Hook >
         {
-            template < typename ValueT, typename AllocatorT, typename TagT, template <typename, typename, typename> typename HookT > friend class value_mv;
+            template < typename ValueT, typename AllocatorT, typename TagT, typename MetadataTagT, template <typename, typename, typename> typename HookT > friend class value_mv;
 
         public:
             using allocator_type = Allocator;
             using tag_type = tag_delta;
 
-            template < typename AllocatorT, typename TagT = tag_delta, template <typename, typename, typename> typename HookT = hook_default > using rebind_t = value_mv< Value, AllocatorT, TagT, HookT >;
+            template < typename AllocatorT, typename TagT = tag_delta, typename MetadataTagT = MetadataTag, template <typename, typename, typename> typename HookT = hook_default > using rebind_t = value_mv< Value, AllocatorT, TagT, MetadataTagT, HookT >;
 
             template < typename AllocatorT > value_mv(AllocatorT&& allocator)
                 : values_(std::forward< AllocatorT >(allocator))
@@ -41,23 +41,23 @@ namespace crdt
             }
 
         private:
-            crdt::set< Value, Allocator, tag_delta, Hook > values_;
+            crdt::set< Value, Allocator, tag_delta, MetadataTag, Hook > values_;
         };
 
-        template < typename Value, typename Allocator, template <typename, typename, typename> typename Hook >
-        class value_mv< Value, Allocator, tag_state, Hook >
-            : public Hook < value_mv< Value, Allocator, tag_state, Hook >, Allocator, value_mv< Value, Allocator, tag_delta > >
+        template < typename Value, typename Allocator, typename MetadataTag, template <typename, typename, typename> typename Hook >
+        class value_mv< Value, Allocator, tag_state, MetadataTag, Hook >
+            : public Hook < value_mv< Value, Allocator, tag_state, MetadataTag, Hook >, Allocator, value_mv< Value, Allocator, tag_delta, MetadataTag > >
         {
-            template < typename ValueT, typename AllocatorT, typename TagT, template <typename, typename, typename> typename HookT > friend class value_mv;
+            template < typename ValueT, typename AllocatorT, typename TagT, typename MetadataTagT, template <typename, typename, typename> typename HookT > friend class value_mv;
 
         public:
             using allocator_type = Allocator;
             using tag_type = tag_state;
             using value_type = Value;
 
-            template < typename AllocatorT, typename TagT = tag_state, template <typename, typename, typename> typename HookT = Hook > using rebind_t = value_mv< Value, AllocatorT, TagT, HookT >;
+            template < typename AllocatorT, typename TagT = tag_state, typename MetadataTagT = MetadataTag, template <typename, typename, typename> typename HookT = Hook > using rebind_t = value_mv< Value, AllocatorT, TagT, MetadataTagT, HookT >;
 
-            using delta_type = rebind_t< Allocator, tag_delta, crdt::hook_default >;
+            using delta_type = rebind_t< Allocator, tag_delta, MetadataTag, crdt::hook_default >;
 
             struct delta_extractor
             {
@@ -68,7 +68,7 @@ namespace crdt
             };
 
             template < typename AllocatorT > value_mv(AllocatorT&& allocator)
-                : Hook < value_mv< Value, Allocator, tag_state, Hook >, Allocator, value_mv< Value, Allocator, tag_delta > >(std::forward< AllocatorT >(allocator))
+                : Hook < value_mv< Value, Allocator, tag_state, MetadataTag, Hook >, Allocator, value_mv< Value, Allocator, tag_delta, MetadataTag > >(std::forward< AllocatorT >(allocator))
                 , values_(this->get_allocator())
             {}
 
@@ -133,41 +133,41 @@ namespace crdt
             }
 
         private:
-            crdt::set< Value, Allocator, tag_state, Hook > values_;
+            crdt::set< Value, Allocator, tag_state, MetadataTag, Hook > values_;
         };
 
-        template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook, bool > struct rebind_value;
+        template < typename Value, typename Allocator, typename Tag, typename MetadataTag, template <typename, typename, typename> typename Hook, bool > struct rebind_value;
 
-        template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook > struct rebind_value< Value, Allocator, Tag, Hook, true >
+        template < typename Value, typename Allocator, typename Tag, typename MetadataTag, template <typename, typename, typename> typename Hook > struct rebind_value< Value, Allocator, Tag, MetadataTag, Hook, true >
         {
-            using type = typename Value::template rebind_t< Allocator, Tag, Hook >;
+            using type = typename Value::template rebind_t< Allocator, Tag, MetadataTag, Hook >;
         };
 
-        template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook > struct rebind_value< Value, Allocator, Tag, Hook, false >
+        template < typename Value, typename Allocator, typename Tag, typename MetadataTag, template <typename, typename, typename> typename Hook > struct rebind_value< Value, Allocator, Tag, MetadataTag, Hook, false >
         {
             using type = Value;
         };
 
-        template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook, bool > using rebind_value_t = typename detail::rebind_value< Value, Allocator, Tag, Hook, false >::type;
+        template < typename Value, typename Allocator, typename Tag, typename MetadataTag, template <typename, typename, typename> typename Hook, bool > using rebind_value_t = typename detail::rebind_value< Value, Allocator, Tag, MetadataTag, Hook, false >::type;
     }  
             
-    template < typename Value, typename Allocator = void, typename Tag = void, template <typename, typename, typename> typename Hook = hook_default >
+    template < typename Value, typename Allocator = void, typename Tag = void, typename MetadataTag = void, template <typename, typename, typename> typename Hook = hook_default >
     class value_mv
-        : public detail::value_mv < typename detail::rebind_value_t< Value, Allocator, Tag, Hook, is_crdt_type< Value >::value >, Allocator, Tag, Hook >
+        : public detail::value_mv < typename detail::rebind_value_t< Value, Allocator, Tag, MetadataTag, Hook, is_crdt_type< Value >::value >, Allocator, Tag, MetadataTag, Hook >
     {
     public:
         template < typename AllocatorT > value_mv(AllocatorT&& allocator)
-            : detail::value_mv< typename detail::rebind_value_t< Value, Allocator, Tag, Hook, is_crdt_type< Value >::value >, Allocator, Tag, Hook >(std::forward< AllocatorT >(allocator))
+            : detail::value_mv< typename detail::rebind_value_t< Value, Allocator, Tag, MetadataTag, Hook, is_crdt_type< Value >::value >, Allocator, Tag, MetadataTag, Hook >(std::forward< AllocatorT >(allocator))
         {}
     };
 
-    template < typename Value, typename Allocator, typename Tag, template <typename, typename, typename> typename Hook > struct is_crdt_type < value_mv< Value, Allocator, Tag, Hook > > : std::true_type {};
+    template < typename Value, typename Allocator, typename Tag, typename MetadataTag, template <typename, typename, typename> typename Hook > struct is_crdt_type < value_mv< Value, Allocator, Tag, MetadataTag, Hook > > : std::true_type {};
         
     template < typename Value >
-    class value_mv< Value, void, void, hook_default >
+    class value_mv< Value, void, void, void, hook_default >
     {
     public:
-        template < typename AllocatorT, typename TagT = void, template <typename, typename, typename> typename HookT = hook_default > using rebind_t = value_mv< Value, AllocatorT, TagT, HookT >;
+        template < typename AllocatorT, typename TagT = void, typename MetadataTagT = void, template <typename, typename, typename> typename HookT = hook_default > using rebind_t = value_mv< Value, AllocatorT, TagT, MetadataTagT, HookT >;
     };
 
 

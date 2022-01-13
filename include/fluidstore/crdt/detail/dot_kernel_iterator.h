@@ -4,7 +4,7 @@ namespace crdt
 {
     template < typename Iterator, typename Outer > class dot_kernel_iterator_base
     {
-        template < typename Key, typename Value, typename Allocator, typename Container, typename Tag > friend class dot_kernel;
+        // template < typename Key, typename Value, typename Allocator, typename Container, typename Tag, typename Metadata, typename MetadataTag > friend class dot_kernel;
 
     public:
         dot_kernel_iterator_base(Iterator it)

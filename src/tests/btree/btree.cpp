@@ -9,13 +9,7 @@
 #include <boost/container/flat_map.hpp>
 #include <iomanip>
 
-#if defined(_WIN32)
-#include <windows.h>
-#include <profileapi.h>
-#endif
-
-//_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF | _CRTDBG_CHECK_ALWAYS_DF);
-//_CrtSetBreakAlloc(6668782);
+#include "bench.h"
 
 #if !defined(_DEBUG)
 static int Iters = 20;
@@ -98,7 +92,7 @@ BOOST_AUTO_TEST_CASE(btree_fixed_split_vector)
     c2 = std::move(c);
 }
 
-template < typename T > T value(size_t);
+template < typename T > static T value(size_t);
 
 template <> uint8_t value<uint8_t>(size_t i) { return static_cast<uint8_t>(i); }
 template <> uint16_t value<uint16_t>(size_t i) { return static_cast<uint16_t>(i); }
@@ -536,48 +530,6 @@ BOOST_AUTO_TEST_CASE(btree_lower_bound_pair)
 }
 
 #if !defined(_DEBUG)
-
-template < typename Fn > double measure(size_t loops, Fn&& fn)
-{
-    // https://uwaterloo.ca/embedded-software-group/sites/ca.embedded-software-group/files/uploads/files/ieee-esl-precise-measurements.pdf
-
-    using namespace std::chrono;
-
-    double total = 0;
-    for (size_t i = 0; i < loops; ++i)
-    {
-        auto t1 = high_resolution_clock::now();
-        fn();
-        auto t2 = high_resolution_clock::now();
-        fn();
-        fn();
-        auto t3 = high_resolution_clock::now();
-
-        auto m1 = duration_cast<duration<double>>(t2 - t1).count();
-        auto m2 = duration_cast<duration<double>>(t3 - t2).count();
-        if (m2 > m1)
-        {
-            total += m2 - m1;
-        }
-        else
-        {
-            ++loops;
-        } 
-    }
-    total /= loops;
-    return total;
-}
-
-static bool setup = []
-{
-#if defined(_WIN32)
-    DWORD mask = 1;
-    SetProcessAffinityMask(GetCurrentProcess(), (DWORD_PTR)&mask);
-    SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
-#endif
-    return true;
-}();
-
 template < typename Fn > double measure(Fn&& fn)
 {
     size_t loops = Iters;
@@ -600,22 +552,8 @@ template < typename Container, typename TestData > void insertion_test_hint(Cont
     }
 }
 
-template< typename T > const char* get_type_name() { return typeid(T).name(); }
+template< typename T > static const char* get_type_name() { return typeid(T).name(); }
 template<> const char* get_type_name<std::string>() { return "std::string"; }
-
-void print_results(const std::map< int, double >& results, const std::map< int, double >& base)
-{
-    for (auto& [i, t] : results)
-    {
-        std::cout << "\t" << i;
-    }
-    std::cout << std::endl;
-    for (auto& [i, t] : results)
-    {
-        std::cout << "\t" << std::setprecision(2) << t/base.at(i);
-    }
-    std::cout << std::endl;
-}
 
 template < typename T > T tr(T value)
 {
@@ -647,6 +585,8 @@ template < typename T > std::vector< std::pair< T, T > > get_vector_data_pair(si
 typedef boost::mpl::list < uint32_t > btree_perf_insert_types;
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_perf_insert, T, btree_perf_insert_types)
 {
+    set_realtime_priority();
+
     std::map< int, double > base; 
     auto data = get_vector_data< T >(Max);
     std::sort(data.begin(), data.end());
@@ -692,6 +632,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_perf_insert, T, btree_perf_insert_types)
 typedef boost::mpl::list < uint32_t > btree_perf_insert_types;
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_perf_insert_hint, T, btree_perf_insert_types)
 {
+    set_realtime_priority();
+
     std::map< int, double > base;
     auto data = get_vector_data< T >(Max);
     std::sort(data.begin(), data.end());
@@ -737,6 +679,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_perf_insert_hint, T, btree_perf_insert_t
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_perf_insert, T, btree_perf_insert_types)
 {
+    set_realtime_priority();
+
     std::map< int, double > base;
     auto data = get_vector_data_pair< T >(Max);
 
@@ -825,6 +769,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_perf_insert_hint, T, btree_perf_insert_types
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_perf_insert_arena, T, btree_perf_insert_types)
 {
+    set_realtime_priority();
+
     std::map< int, double > base;
     auto data = get_vector_data< T >(Max);
 
@@ -874,6 +820,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_perf_insert_arena, T, btree_perf_insert_
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_perf_insert_arena, T, btree_perf_insert_types)
 {
+    set_realtime_priority();
+
     std::map< int, double > base;
     auto data = get_vector_data_pair< T >(Max);
 
@@ -933,6 +881,8 @@ template < typename Container > void iteration_test(Container& c)
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_perf_iteration, T, btree_perf_insert_types)
 {
+    set_realtime_priority();
+
     std::map< int, double > base;
     auto data = get_vector_data< T >(Max);
 
@@ -968,6 +918,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_perf_iteration, T, btree_perf_insert_typ
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_perf_iteration, T, btree_perf_insert_types)
 {
+    set_realtime_priority();
+
     std::map< int, double > base;
     auto data = get_vector_data_pair< T >(Max);
 
@@ -1012,6 +964,8 @@ template < typename Container, typename TestData > void find_test(Container& c, 
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_set_find, T, btree_perf_insert_types)
 {
+    set_realtime_priority();
+
     std::map< int, double > base;
     auto data = get_vector_data< T >(Max);
 

@@ -64,7 +64,6 @@ if(Boost_FOUND)
     add_executable(fluidstoretest 
         src/tests/btree/btree.cpp
         src/tests/btree/fixed_vector.cpp
-        src/tests/crdt/dot.cpp
         src/tests/crdt/map.cpp
         src/tests/crdt/performance.cpp
         src/tests/crdt/set.cpp

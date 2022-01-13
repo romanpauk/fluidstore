@@ -14,36 +14,27 @@ In a nutshell, CRDT type needs to hold additional metadata related to operations
 
 Any operation on CRDT data type is done through 'merging' of CRDT types.
 
-Lets say we want to add an element E to the set S: we create an empty set D (delta) and add element E there. We merge set S with D. S now contains E. This allows us to distribute the delta D to other replicas that will perform the same merge operation. We can distribute it now or later, but the modifications comming from single replica needs to be ordered. This approach allows for buffering the changes naturally, we simply do all modifications to D and when we are done, we just merge (again, does not matter if we merge localy or on remote replicas) with latest version of D. So if ten elements are added, five of them deleted, final version that will be distributed will contain just the remaining five elements. If we add millions of elements and delete them all, we will distribute just the 'deletion', not the addition, as the effect of the deletion hides the effect of the addition. The erasure works similarily: we create empty set D, perform erasure of E, merge with S. S now does not have element E.
+Lets say we want to add an element E to the set S: we create an empty set D (delta) and add element E there. We merge set S with D. S now contains E. This allows us to distribute the delta D to other replicas that will perform the same merge operation. We can distribute it now or later, but the modifications comming from single replica needs to be ordered. This approach allows for buffering the changes naturally, we simply do all modifications to D and when we are done, we just merge (again, does not matter if we merge localy or on remote replicas) with latest version of D. So if ten elements are added, five of them deleted, final version that will be distributed will contain just the remaining five elements. If we add millions of elements and delete them all, we will distribute just the 'deletion', not the addition, as the effect of the deletion hides the effect of the addition. The erasure works similarily: we create empty set D, perform erasure of E, merge with S. S now does not have the element E.
 
-# Design Decisions
+# Design Description
 
-The code is using templates to keep core algorithm in one place yet detaches it from the actual storage - set S and set D can be implemented differently, each having different lifetime. D used in the above example can be fully stack-based without any heap usage, while S can be on the heap as it lives longer (this is currently used for all merging operations so they are cheaper). The general idea is that we will receive data from network, deserialize it into temporary D that lives on stack and merge it with S that lives in database. Or with cached S' that lives in RAM, that will be merged with database S later. All this through the same code, just by parametrizing the algorithm.
+Algorithm for conflict-free merging and base implementation for stl-like containers is in [crdtr::detail::dot_kernel](include/fluidstore/crdt/detail/dot_kernel.h). This allows types that have different implementations to be merged together. The dot_kernel class uses tags to select concrete representation for convenience. Currently, set and map operations are implemented as merges with stack-based temporary crdt types and different implementations exist for performance testing:
 
-Lets look at how crdt::set looks like with respect to inheritance and map/sets usage:
+ - [crdt::detail::dot_kernel_metadata_stl](include/fluidstore/crdt/detail/dot_kernel_metadata_stl.h) - implemented using std::set and std::map
+ - [crdt::detail::dot_kernel_metadata_btree](include/fluidstore/crdt/detail/dot_kernel_metadata_btree.h) - implemented using [btree::set](include/fluidstore/btree/set.h) and [btree::map](include/fluidstore/btree/map.h)
+ - [crdt::detail::dot_kernel_metadata_flat](include/fluidstore/crdt/detail/dot_kernel_metadata_flat.h) - implemented using boost's flat_set and flat_map.
 
-- [crdt::set](include/fluidstore/crdt/set.h) - two specializations, delta one for gathering mutations and state one for preserving full state
-    - [crtd::dot_kernel](include/fluidstore/crdt/detail/dot_kernel.h), the core of the containers, shared between map and set implementation
-        - map with keys/values and additional data
-            - [crdt::dot_context](include/fluidstore/crdt/detail/dot_context.h) is tracking dot data for each replica, for each value, for associative container version
-                - using map of [crdt::dot_counters_base](include/fluidstore/crdt/detail/dot_counters_base.h)
-        - map with per-replica data
-            - [crdt::dot_counters_base](include/fluidstore/crdt/detail/dot_counters_base.h)
-                - using set
-            - temporary sets for merge operations
+The general idea is that it should be possible to merge in-memory crdt type with on-disk crdt type efficiently and using the same algorithm, without imposing restrictions on size of the data.
 
-Sets and maps are based on b+tree container, see [btree::map](include/fluidstore/btree/map.h) and [btree::set](include/fluidstore/btree/set.h). The b+tree code avoids using virtual functions for internal /value nodes so those can be mapped from a file one day. As it is a tree, the performance for large number of elements does not suffer as much as with flat arrays.
+# Implemented Data Types
 
-To add to the fun, the merge algorithm very slightly differs for delta/non-delta variants (D and S) in a most inner class, crdt::dot_counters_base. 
-
-Different data types implemented:    
 - [crdt::set](include/fluidstore/crdt/set.h) - stl-like set
 - [crdt::map](include/fluidstore/crdt/map.h) - stl-like map
 - [crdt::value_mv](include/fluidstore/crdt/value_mv.h) - multi-value register
 
-# Performance
+# Performance 
 
-The performance of the current implementation of crdt::map/crdt::set is roughly 10x slower compared to std::map/std::set.
+It is hard to put here any numbers right now as there are some unexplained and quite significant differences between msvc/clang compilers and windows/linux systems, yet fastest crdt implementation seems to be the one based on btree and the performance of crdt::set with btree is 5x-10x slower than the one of std::set.
 
 # Tests
 
@@ -54,36 +45,6 @@ Sure, [here](src/tests) they are.
 Thank you, interested reader. 
 
 As the structures are recursive and the combination of CRDT structures is again a CRDT structure, graphs emerge naturally, or one can imagine json documents, all having the deterministic merging ability on all their fields, perhaps defined by user-selected merge strategy (observed remove, last write wins, etc), mapped from the persistent storage.
-
-What is possible right now is something like this (more can be seen in tests):
-
-```
-{
-    // on PC 1:
-
-    crdt::map< int, crdt::map< int, crdt::set < int > > > data;
-    data[1][2].insert(33);
-    auto delta = data.extract_delta();
-
-    // the extracted delta will contain what is required to add 33 to data[1][2]
-    // serialize delta, as the types look 'normal', using boost::serialization should work
-    // send to PC 2
-}
-
-{
-    // on PC 2:
-
-    crdt::map< int, crdt::map< int, crdt::set < int > > > data;
-    
-    // deserialize delta
-    data.merge(delta);
-    // and there is now 33 in data[1][2]
-}
-
-{
-    // More examples, and especially examples that resolve conflicts, can be found in the tests.
-}
-```
 
 
 

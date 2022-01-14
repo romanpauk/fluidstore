@@ -11,7 +11,7 @@
 
 #include "bench.h"
 
-static int Max = 32768;
+static int Max = 8192;
 static int Iters = 20;
 
 #if !defined(_DEBUG)
@@ -46,6 +46,14 @@ template < typename Container, typename TestData > void insertion_test(Container
     }
 }
 
+template < typename Container, typename TestData > void insertion_test_end(Container& c, const TestData& data, size_t count)
+{
+    for (size_t i = 0; i < count; ++i)
+    {
+        c.insert(c.end(), data[i]);
+    }
+}
+
 typedef boost::mpl::list < uint32_t > crdt_set_insert_types;
 BOOST_AUTO_TEST_CASE_TEMPLATE(crdt_set_insert, T, crdt_set_insert_types)
 {
@@ -53,7 +61,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(crdt_set_insert, T, crdt_set_insert_types)
 
     std::map< int, double > base;
     auto data = get_vector_data< T >(Max);
-    
+    std::sort(data.begin(), data.end());
+
     for (size_t i = 1; i < Max; i *= 2)
     {
         base[i] = measure(Iters, [&]
@@ -64,7 +73,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(crdt_set_insert, T, crdt_set_insert_types)
     }
 
     {
-        std::cout << "crdt::set<" << get_type_name<T>() << ", btree>" << " insertion " << std::endl;
+        std::cout << "crdt::set<" << get_type_name<T>() << ", btree, default>" << " insertion " << std::endl;
         std::map< int, double > results;
         for (size_t i = 1; i < Max; i *= 2)
         {
@@ -72,7 +81,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(crdt_set_insert, T, crdt_set_insert_types)
                 {
                     crdt::replica<> replica(0);
                     crdt::allocator< crdt::replica<> > allocator(replica);
-                    crdt::set< size_t, decltype(allocator), crdt::tag_state, crdt::detail::metadata_tag_btree_local, crdt::hook_default/*, crdt::hook_extract*/ > c(allocator);
+                    crdt::set< size_t, decltype(allocator), crdt::tag_state, crdt::detail::metadata_tag_btree_local, crdt::hook_default > c(allocator);
                                         
                     insertion_test(c, data, i);
                 });
@@ -81,7 +90,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(crdt_set_insert, T, crdt_set_insert_types)
     }
 
     {
-        std::cout << "crdt::set<" << get_type_name<T>() << ", stl>" << " insertion " << std::endl;
+        std::cout << "crdt::set<" << get_type_name<T>() << ", btree, extract>" << " insertion " << std::endl;
         std::map< int, double > results;
         for (size_t i = 1; i < Max; i *= 2)
         {
@@ -89,7 +98,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(crdt_set_insert, T, crdt_set_insert_types)
                 {
                     crdt::replica<> replica(0);
                     crdt::allocator< crdt::replica<> > allocator(replica);
-                    crdt::set< size_t, decltype(allocator), crdt::tag_state, crdt::detail::metadata_tag_stl_local, crdt::hook_default/*, crdt::hook_extract*/ > c(allocator);
+                    crdt::set< size_t, decltype(allocator), crdt::tag_state, crdt::detail::metadata_tag_btree_local, crdt::hook_extract > c(allocator);
 
                     insertion_test(c, data, i);
                 });
@@ -98,7 +107,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(crdt_set_insert, T, crdt_set_insert_types)
     }
 
     {
-        std::cout << "crdt::set<" << get_type_name<T>() << ", flat>" << " insertion " << std::endl;
+        std::cout << "crdt::set<" << get_type_name<T>() << ", stl, default>" << " insertion " << std::endl;
         std::map< int, double > results;
         for (size_t i = 1; i < Max; i *= 2)
         {
@@ -106,7 +115,58 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(crdt_set_insert, T, crdt_set_insert_types)
                 {
                     crdt::replica<> replica(0);
                     crdt::allocator< crdt::replica<> > allocator(replica);
-                    crdt::set< size_t, decltype(allocator), crdt::tag_state, crdt::detail::metadata_tag_flat_local, crdt::hook_default/*, crdt::hook_extract*/ > c(allocator);
+                    crdt::set< size_t, decltype(allocator), crdt::tag_state, crdt::detail::metadata_tag_stl_local, crdt::hook_default > c(allocator);
+
+                    insertion_test(c, data, i);
+                });
+        }
+        print_results(results, base);
+    }
+
+    {
+        std::cout << "crdt::set<" << get_type_name<T>() << ", stl, extract>" << " insertion " << std::endl;
+        std::map< int, double > results;
+        for (size_t i = 1; i < Max; i *= 2)
+        {
+            results[i] = measure(Iters, [&]
+                {
+                    crdt::replica<> replica(0);
+                    crdt::allocator< crdt::replica<> > allocator(replica);
+                    crdt::set< size_t, decltype(allocator), crdt::tag_state, crdt::detail::metadata_tag_stl_local, crdt::hook_extract > c(allocator);
+
+                    insertion_test(c, data, i);
+                });
+        }
+        print_results(results, base);
+    }
+
+    {
+        std::cout << "crdt::set<" << get_type_name<T>() << ", flat, default>" << " insertion " << std::endl;
+        std::map< int, double > results;
+        for (size_t i = 1; i < Max; i *= 2)
+        {
+            results[i] = measure(Iters, [&]
+                {
+                    crdt::replica<> replica(0);
+                    crdt::allocator< crdt::replica<> > allocator(replica);
+                    crdt::set< size_t, decltype(allocator), crdt::tag_state, crdt::detail::metadata_tag_flat_local, crdt::hook_default > c(allocator);
+
+                    insertion_test(c, data, i);
+                });
+        }
+        print_results(results, base);
+    }
+
+    {
+        std::cout << "crdt::set<" << get_type_name<T>() << ", flat, extract>" << " insertion " << std::endl;
+        std::map< int, double > results;
+        for (size_t i = 1; i < Max; i *= 2)
+        {
+            results[i] = measure(Iters, [&]
+                {
+                    crdt::replica<> replica(0);
+                    crdt::allocator< crdt::replica<> > allocator(replica);
+                    crdt::set< size_t, decltype(allocator), crdt::tag_state, crdt::detail::metadata_tag_flat_local, crdt::hook_extract > c(allocator);
 
                     insertion_test(c, data, i);
                 });
@@ -115,5 +175,59 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(crdt_set_insert, T, crdt_set_insert_types)
     }
 }
 
+BOOST_AUTO_TEST_CASE_TEMPLATE(set_insert, T, crdt_set_insert_types)
+{
+    const int N = 1000000;
+
+    {
+        auto data = get_vector_data< T >(N);
+
+        {
+            auto t = measure(Iters, [&]
+                {
+                    std::set< T > c;
+                    insertion_test(c, data, N);
+                });
+
+            std::cout << "std::set<" << get_type_name<T>() << ">" << " random insertions per second: " << int(N / t) << std::endl;
+        }
+
+        {
+            auto t = measure(Iters, [&]
+                {
+                    btree::set< T > c;
+                    insertion_test(c, data, N);
+                });
+
+            std::cout << "btree::set<" << get_type_name<T>() << ">" << " random insertions per second: " << int(N / t) << std::endl;
+        }
+    }
+
+    {
+        auto data = get_vector_data< T >(N);
+        std::sort(data.begin(), data.end());
+
+        {
+            auto t = measure(Iters, [&]
+                {
+                    std::set< T > c;
+                    insertion_test_end(c, data, N);
+                });
+
+            std::cout << "std::set<" << get_type_name<T>() << ">" << " append insertions per second: " << int(N / t) << std::endl;
+        }
+
+        {
+            auto t = measure(Iters, [&]
+                {
+                    btree::set< T > c;
+                    insertion_test_end(c, data, N);
+                });
+
+            std::cout << "btree::set<" << get_type_name<T>() << ">" << " append insertions per second: " << int(N / t) << std::endl;
+        }
+    }
+
+}
 
 #endif

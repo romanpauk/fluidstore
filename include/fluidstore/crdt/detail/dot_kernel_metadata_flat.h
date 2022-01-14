@@ -31,14 +31,14 @@ namespace crdt
                 KeyT, 
                 ValueT, 
                 std::less< KeyT >,
-                typename std::allocator_traits< Allocator >::template rebind_alloc< std::pair< const KeyT, ValueT > >
+                typename std::allocator_traits< Allocator >::template rebind_alloc< std::pair< KeyT, ValueT > >
             >;                
 
             template < typename AllocatorT > using visited_map_type = boost::container::flat_map<
                 replica_id_type,
                 boost::container::flat_set< counter_type >,
                 std::less< replica_id_type >,
-                typename std::allocator_traits< AllocatorT >::template rebind_alloc< std::pair< const replica_id_type, boost::container::flat_set< counter_type > > >
+                typename std::allocator_traits< AllocatorT >::template rebind_alloc< std::pair< replica_id_type, boost::container::flat_set< counter_type > > >
             >;
                         
             // Replicas
@@ -46,7 +46,7 @@ namespace crdt
             {
                 using allocator_type = Allocator;
                 using counters_allocator_type = typename std::allocator_traits< Allocator >::template rebind_alloc< counter_type >;
-                using dots_allocator_type = typename std::allocator_traits< Allocator >::template rebind_alloc< std::pair< const counter_type, Key > >;
+                using dots_allocator_type = typename std::allocator_traits< Allocator >::template rebind_alloc< std::pair< counter_type, Key > >;
 
                 template< typename AllocatorT > replica_data(AllocatorT&& allocator)
                     : counters(allocator)
@@ -57,7 +57,7 @@ namespace crdt
                 boost::container::flat_map< counter_type, Key, std::less< counter_type >, dots_allocator_type > dots;
             };
 
-            using replica_map_allocator_type = typename std::allocator_traits< Allocator >::template rebind_alloc < std::pair< const replica_id_type, replica_data > >;
+            using replica_map_allocator_type = typename std::allocator_traits< Allocator >::template rebind_alloc < std::pair< replica_id_type, replica_data > >;
             using replica_map_type = boost::container::flat_map < replica_id_type, replica_data, std::less< replica_id_type >, replica_map_allocator_type >;
 
             dot_kernel_metadata(Allocator& allocator)

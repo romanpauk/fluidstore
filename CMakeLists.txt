@@ -14,7 +14,6 @@ add_library(fluidstore INTERFACE)
 target_include_directories(fluidstore INTERFACE include)
 
 target_sources(fluidstore INTERFACE
-    include/fluidstore/allocators/arena_allocator.h
     include/fluidstore/btree/detail/container.h
     include/fluidstore/btree/detail/fixed_vector.h
     include/fluidstore/btree/map.h
@@ -42,6 +41,7 @@ target_sources(fluidstore INTERFACE
     include/fluidstore/flat/memory.h
     include/fluidstore/flat/set.h
     include/fluidstore/flat/vector.h
+    include/fluidstore/memory/buffer_allocator.h
     readme.md
 )
 
@@ -59,7 +59,7 @@ endmacro()
 
 find_package(Boost)
 if(Boost_FOUND)
-    add_executable(fluidstoretest 
+    add_executable(fluidstoretest
         src/tests/btree/btree.cpp
         src/tests/btree/fixed_vector.cpp
         src/tests/crdt/map.cpp
@@ -67,6 +67,7 @@ if(Boost_FOUND)
         src/tests/crdt/set.cpp
         src/tests/crdt/value_mv.cpp
         src/tests/flat/flat.cpp
+        src/tests/memory/buffer_allocator.cpp
         src/tests/testmodule.cpp
         src/tests/pch.h
         src/tests/bench.h

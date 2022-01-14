@@ -86,8 +86,10 @@ namespace crdt
             std::pair< typename dot_kernel_type::iterator, bool > insert(const Key& key)
             {
                 auto allocator = this->get_allocator();
-                arena< 8192 > arena;
-                crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arena);
+                
+                memory::static_buffer< temporary_buffer_size > buffer;
+                memory::buffer_allocator< void, decltype(buffer) > buffer_allocator(buffer);
+                crdt::allocator< typename decltype(allocator)::replica_type, void, decltype(buffer_allocator) > deltaallocator(allocator.get_replica(), buffer_allocator);
 
                 typename delta_type::template rebind_t< decltype(deltaallocator) > delta(deltaallocator);
                 delta_insert(delta, key);
@@ -123,8 +125,10 @@ namespace crdt
                 if (!empty())
                 {
                     auto allocator = this->get_allocator();
-                    arena< 8192 > arena;
-                    crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arena);
+
+                    memory::static_buffer< temporary_buffer_size > buffer;
+                    memory::buffer_allocator< void, decltype(buffer) > buffer_allocator(buffer);
+                    crdt::allocator< typename decltype(allocator)::replica_type, void, decltype(buffer_allocator) > deltaallocator(allocator.get_replica(), buffer_allocator);
 
                     typename delta_type::template rebind_t< decltype(deltaallocator) > delta(deltaallocator);
                     delta_clear(delta);
@@ -162,8 +166,10 @@ namespace crdt
             void erase(iterator it, typename dot_kernel_type::erase_context& context)
             {
                 auto allocator = this->get_allocator();
-                arena< 8192 > arena;
-                crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arena);
+
+                memory::static_buffer< temporary_buffer_size > buffer;
+                memory::buffer_allocator< void, decltype(buffer) > buffer_allocator(buffer);
+                crdt::allocator< typename decltype(allocator)::replica_type, void, decltype(buffer_allocator) > deltaallocator(allocator.get_replica(), buffer_allocator);
 
                 typename delta_type::template rebind_t< decltype(deltaallocator) > delta(deltaallocator);
                 delta.add_counter_dots(it.it_->second.dots);

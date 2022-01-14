@@ -1,7 +1,7 @@
 #include <fluidstore/btree/map.h>
 #include <fluidstore/btree/set.h>
 #include <fluidstore/flat/set.h>
-#include <fluidstore/allocators/arena_allocator.h>
+#include <fluidstore/memory/buffer_allocator.h>
 
 #include <boost/test/unit_test.hpp>
 #include <boost/mpl/list.hpp>
@@ -769,18 +769,21 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_perf_insert_hint, T, btree_perf_insert_types
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_perf_insert_arena, T, btree_perf_insert_types)
 {
+    const int preallocated = 1 << 24;
+
     set_realtime_priority();
 
     std::map< int, double > base;
     auto data = get_vector_data< T >(Max);
 
     for (size_t i = 1; i < Max; i *= 2)
-    {
-        base[i] = measure([&]
-        {
-            crdt::arena< ArenaSize > arena;
-            crdt::arena_allocator< T > arenaallocator(arena);
-            std::set< T, std::less< T >, decltype(arenaallocator) > c(arenaallocator);
+    {    
+        memory::dynamic_buffer<> buffer(preallocated);
+        memory::buffer_allocator< T, decltype(buffer) > allocator(buffer);
+
+        base[i] = measure([&, allocator]
+        {            
+            std::set< T, std::less< T >, decltype(allocator) > c(allocator);
             insertion_test(c, data, i);
         });
     }
@@ -790,11 +793,12 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_perf_insert_arena, T, btree_perf_insert_
         std::map< int, double > results;
         for (size_t i = 1; i < Max; i *= 2)
         {
-            results[i] = measure([&]
+            memory::dynamic_buffer<> buffer(preallocated);
+            memory::buffer_allocator< T, decltype(buffer) > allocator(buffer);
+
+            results[i] = measure([&, allocator]
             {
-                crdt::arena< ArenaSize > arena;
-                crdt::arena_allocator< void > arenaallocator(arena);
-                btree::set< T, std::less< T >, decltype(arenaallocator) > c(arenaallocator);
+                btree::set< T, std::less< T >, decltype(allocator) > c(allocator);
                 insertion_test(c, data, i);
             });
         }
@@ -806,11 +810,12 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_perf_insert_arena, T, btree_perf_insert_
         std::map< int, double> results;
         for (size_t i = 1; i < Max; i *= 2)
         {
-            results[i] = measure([&]
+            memory::dynamic_buffer<> buffer(preallocated);
+            memory::buffer_allocator< T, decltype(buffer) > allocator(buffer);
+
+            results[i] = measure([&, allocator]
             {
-                crdt::arena< ArenaSize > arena;
-                crdt::arena_allocator< T > arenaallocator(arena);
-                boost::container::flat_set< T, std::less< T >, decltype(arenaallocator) > c(arenaallocator);
+                boost::container::flat_set< T, std::less< T >, decltype(allocator) > c(allocator);
                 insertion_test(c, data, i);
             });
         }
@@ -820,6 +825,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_perf_insert_arena, T, btree_perf_insert_
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_perf_insert_arena, T, btree_perf_insert_types)
 {
+    const int preallocated = 1 << 24;
+
     set_realtime_priority();
 
     std::map< int, double > base;
@@ -827,11 +834,12 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_perf_insert_arena, T, btree_perf_insert_
 
     for (size_t i = 1; i < Max; i *= 2)
     {
-        base[i] = measure([&]
+        memory::dynamic_buffer<> buffer(preallocated);
+        memory::buffer_allocator< T, decltype(buffer) > allocator(buffer);
+
+        base[i] = measure([&, allocator]
         {
-            crdt::arena< ArenaSize > arena;
-            crdt::arena_allocator< T > arenaallocator(arena);
-            std::map< T, T, std::less< T >, decltype(arenaallocator) > c(arenaallocator);
+            std::map< T, T, std::less< T >, decltype(allocator) > c(allocator);
             insertion_test(c, data, i);
         });
     }
@@ -841,11 +849,12 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_perf_insert_arena, T, btree_perf_insert_
         std::map< int, double > results;
         for (size_t i = 1; i < Max; i *= 2)
         {
-            results[i] = measure([&]
+            memory::dynamic_buffer<> buffer(preallocated);
+            memory::buffer_allocator< T, decltype(buffer) > allocator(buffer);
+
+            results[i] = measure([&, allocator]
             {
-                crdt::arena< ArenaSize > arena;
-                crdt::arena_allocator< void > arenaallocator(arena);
-                btree::map< T, T, std::less< T >, decltype(arenaallocator) > c(arenaallocator);
+                btree::map< T, T, std::less< T >, decltype(allocator) > c(allocator);
                 insertion_test(c, data, i);
             });
         }
@@ -857,11 +866,12 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_perf_insert_arena, T, btree_perf_insert_
         std::map< int, double> results;
         for (size_t i = 1; i < Max; i *= 2)
         {
-            results[i] = measure([&]
+            memory::dynamic_buffer<> buffer(preallocated);
+            memory::buffer_allocator< T, decltype(buffer) > allocator(buffer);
+
+            results[i] = measure([&, allocator]
             {
-                crdt::arena< ArenaSize > arena;
-                crdt::arena_allocator< std::pair< T, T > > arenaallocator(arena);
-                boost::container::flat_map< T, T, std::less< T >, decltype(arenaallocator) > c(arenaallocator);
+                boost::container::flat_map< T, T, std::less< T >, decltype(allocator) > c(allocator);
                 insertion_test(c, data, i);
             });
         }

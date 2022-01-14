@@ -6,6 +6,10 @@
 
 namespace crdt
 {
+    enum {
+        temporary_buffer_size = 8192,
+    };
+
     template <
         typename Replica = replica<>
         , typename T = unsigned char
@@ -22,10 +26,10 @@ namespace crdt
         //*
         template< typename U > struct rebind
         {
-            using other = allocator< Replica, U, typename Allocator::template rebind< U >::other >;
+            using other = allocator < Replica, U, typename std::allocator_traits< Allocator >::template rebind_alloc< U > > ;
         };
         //*/
-
+         
         allocator(Replica& replica)
             : replica_(&replica)
         {}

@@ -6,7 +6,7 @@
 #include <fluidstore/crdt/detail/dot.h>
 #include <fluidstore/crdt/detail/dot_kernel_metadata.h>
 
-#define DOTKERNEL_METADATA_HINT
+// #define DOTKERNEL_METADATA_HINT
 
 namespace crdt
 {

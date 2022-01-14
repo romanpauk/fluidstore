@@ -92,10 +92,11 @@ namespace crdt
             template < typename ValueT > std::pair< typename dot_kernel_type::iterator, bool > insert(const Key& key, const ValueT& value)
             {
                 auto allocator = this->get_allocator();
-                arena< 8192 > arena;
-                crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arena);
+                memory::static_buffer< temporary_buffer_size > buffer;
+                memory::buffer_allocator< void, decltype(buffer) > buffer_allocator(buffer);
+                crdt::allocator< typename decltype(allocator)::replica_type, void, decltype(buffer_allocator) > tmp(allocator.get_replica(), buffer_allocator);
 
-                typename delta_type::template rebind_t< decltype(deltaallocator) > delta(deltaallocator);
+                typename delta_type::template rebind_t< decltype(tmp) > delta(tmp);
 
                 // TODO: move value
                 auto dot = this->get_next_dot();
@@ -146,10 +147,12 @@ namespace crdt
                 if (!empty())
                 {
                     auto allocator = this->get_allocator();
-                    arena< 8192 > arena;
-                    crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arena);
 
-                    typename delta_type::template rebind_t< decltype(deltaallocator) > delta(deltaallocator);
+                    memory::static_buffer< temporary_buffer_size > buffer;
+                    memory::buffer_allocator< void, decltype(buffer) > buffer_allocator(buffer);
+                    crdt::allocator< typename decltype(allocator)::replica_type, void, decltype(buffer_allocator) > tmp(allocator.get_replica(), buffer_allocator);
+
+                    typename delta_type::template rebind_t< decltype(tmp) > delta(tmp);
                     clear(delta);
 
                     merge(delta);
@@ -193,10 +196,11 @@ namespace crdt
             void update(const Key& key)
             {
                 auto allocator = this->get_allocator();
-                arena< 8192 > arena;
-                crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arena);
-
-                typename delta_type::template rebind_t< decltype(deltaallocator) > delta(deltaallocator);
+                memory::static_buffer< temporary_buffer_size > buffer;
+                memory::buffer_allocator< void, decltype(buffer) > buffer_allocator(buffer);
+                crdt::allocator< typename decltype(allocator)::replica_type, void, decltype(buffer_allocator) > tmp(allocator.get_replica(), buffer_allocator);
+                
+                typename delta_type::template rebind_t< decltype(tmp) > delta(tmp);
 
                 auto dot = this->get_next_dot();
                 delta.add_counter_dot(dot);
@@ -214,10 +218,11 @@ namespace crdt
             void erase(iterator it, typename dot_kernel_type::erase_context& context)
             {
                 auto allocator = this->get_allocator();
-                arena< 8192 > arena;
-                crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arena);
+                memory::static_buffer< temporary_buffer_size > buffer;
+                memory::buffer_allocator< void, decltype(buffer) > buffer_allocator(buffer);
+                crdt::allocator< typename decltype(allocator)::replica_type, void, decltype(buffer_allocator) > tmp(allocator.get_replica(), buffer_allocator);
 
-                typename delta_type::template rebind_t< decltype(deltaallocator) > delta(deltaallocator);
+                typename delta_type::template rebind_t< decltype(tmp) > delta(tmp);
 
                 // TODO: this can move dots
                 delta.add_counter_dots(it.it_->second.dots);

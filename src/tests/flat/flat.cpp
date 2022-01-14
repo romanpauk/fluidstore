@@ -1,10 +1,8 @@
 #include <fluidstore/flat/vector.h>
 #include <fluidstore/flat/set.h>
 #include <fluidstore/flat/map.h>
-
 #include <fluidstore/crdt/detail/dot.h>
-
-#include <fluidstore/allocators/arena_allocator.h>
+#include <fluidstore/memory/buffer_allocator.h>
 
 #include <boost/test/unit_test.hpp>
 #include <deque>
@@ -13,9 +11,8 @@ using namespace crdt::flat;
 
 BOOST_AUTO_TEST_CASE(vector_basic_operations)
 {
-    crdt::arena< 32768 > arena;
-    crdt::arena_allocator< int > allocator(arena);
-
+    std::allocator< int > allocator;
+    
     vector_base< int > vec;
     BOOST_TEST(vec.size() == 0);
     BOOST_TEST(vec.empty());
@@ -49,8 +46,7 @@ BOOST_AUTO_TEST_CASE(vector_basic_operations)
 
 BOOST_AUTO_TEST_CASE(set_basic_operations)
 {
-    crdt::arena< 32768 > arena;
-    crdt::arena_allocator< int > allocator(arena);
+    std::allocator< int > allocator;
 
     set_base< int > set;
     set.emplace(allocator, 3);
@@ -70,8 +66,7 @@ BOOST_AUTO_TEST_CASE(set_basic_operations)
 
 BOOST_AUTO_TEST_CASE(map_basic_operations2)
 {
-    crdt::arena< 32768 > arena;
-    crdt::arena_allocator< int > allocator(arena);
+    std::allocator< int > allocator;
 
     map_base< int, int > map;
     map.emplace(allocator, 3, 3);
@@ -91,9 +86,7 @@ BOOST_AUTO_TEST_CASE(map_basic_operations2)
 
 BOOST_AUTO_TEST_CASE(map_custom_node)
 {
-    crdt::arena< 32768 > arena;
-    //crdt::arena_allocator< int > allocator(arena);
-    std::allocator<int> allocator;
+    std::allocator< int > allocator;
 
     struct node
     {
@@ -118,8 +111,8 @@ BOOST_AUTO_TEST_CASE(map_custom_node)
 
 BOOST_AUTO_TEST_CASE(vector_string)
 {
-    crdt::arena< 32768 > arena;
-    crdt::arena_allocator< int > allocator(arena);
+    memory::static_buffer< 8192 > buffer;
+    memory::buffer_allocator< void, decltype(buffer) > allocator(buffer);
 
     {
         vector_base< std::string > vec;
@@ -136,7 +129,7 @@ BOOST_AUTO_TEST_CASE(vector_string)
         vec.clear(allocator);
     }
 
-    BOOST_TEST(arena.get_allocated() == 0);
+    BOOST_TEST(buffer.get_allocated() == 0);
 
     {
         vector_base< std::string > vec;
@@ -153,7 +146,7 @@ BOOST_AUTO_TEST_CASE(vector_string)
         vec.clear(allocator);
     }
 
-    BOOST_TEST(arena.get_allocated() == 0);
+    BOOST_TEST(buffer.get_allocated() == 0);
 }
 
 BOOST_AUTO_TEST_CASE(set_string)
@@ -174,8 +167,7 @@ BOOST_AUTO_TEST_CASE(set_string)
 
 BOOST_AUTO_TEST_CASE(map_non_default)
 {
-    crdt::arena< 32768 > arena;
-    crdt::arena_allocator< int > allocator(arena);
+    std::allocator< int > allocator;
 
     struct data 
     {
@@ -196,8 +188,7 @@ BOOST_AUTO_TEST_CASE(map_non_default)
 
 BOOST_AUTO_TEST_CASE(vector_dots_type)
 {
-    crdt::arena< 32768 > arena;
-    crdt::arena_allocator< int > allocator(arena);
+    std::allocator< int > allocator;
 
     crdt::flat::map_base< crdt::dot< int, int >, int > dots;
     

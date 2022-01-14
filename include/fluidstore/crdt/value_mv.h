@@ -91,10 +91,12 @@ namespace crdt
             void set(Value value)
             {
                 auto allocator = this->get_allocator();
-                arena< 8192 > arena;
-                crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > deltaallocator(allocator.get_replica(), arena);
 
-                typename delta_type::template rebind_t< decltype(deltaallocator) > delta(deltaallocator);
+                memory::static_buffer< temporary_buffer_size > buffer;
+                memory::buffer_allocator< void, decltype(buffer) > buffer_allocator(buffer);
+                crdt::allocator< typename decltype(allocator)::replica_type, void, decltype(buffer_allocator) > tmp(allocator.get_replica(), buffer_allocator);
+
+                typename delta_type::template rebind_t< decltype(tmp) > delta(tmp);
 
                 values_.delta_clear(delta.values_);
                 values_.delta_insert(delta.values_, value);

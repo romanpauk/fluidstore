@@ -12,7 +12,7 @@
 #include <fluidstore/crdt/detail/dot_kernel_metadata_flat.h>
 
 #include <fluidstore/crdt/allocator.h>
-#include <fluidstore/allocators/arena_allocator.h>
+#include <fluidstore/memory/buffer_allocator.h>
 
 #include <deque>
 
@@ -86,8 +86,12 @@ namespace crdt
         };
 
         // TODO: values_ belong to metadata.
-        dot_kernel()
-            : values_(typename values_type::allocator_type(static_cast< Container* >(this)->get_allocator()))
+        dot_kernel()            
+            : values_(
+                typename std::allocator_traits< Allocator >::template rebind_alloc< typename values_type::allocator_type::value_type >(
+                    static_cast<Container*>(this)->get_allocator()
+                )
+            )
         {}
 
         dot_kernel(dot_kernel_type&& other) = default;             
@@ -115,10 +119,12 @@ namespace crdt
 
         template < typename DotKernel, typename Context >
         void merge(const DotKernel& other, Context& ctx)
-        {
+        {        
             auto allocator = static_cast<Container*>(this)->get_allocator();
-            arena< 8192 > arena;
-            crdt::allocator< typename decltype(allocator)::replica_type, void, arena_allocator< void > > tmp(allocator.get_replica(), arena);
+
+            memory::static_buffer< temporary_buffer_size > buffer;
+            memory::buffer_allocator< void, decltype(buffer) > buffer_allocator(buffer);
+            crdt::allocator< typename decltype(allocator)::replica_type, void, decltype(buffer_allocator) > tmp(allocator.get_replica(), buffer_allocator);
                        
             typename Metadata::template visited_map_type< decltype(tmp) > visited(tmp);
         

@@ -307,7 +307,95 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_insert, T, crdt_set_insert_types)
             std::cout << "btree::set<" << get_type_name<T>() << ">" << " [append,linear] insertions per second: " << int(N / t) << std::endl;
         }
     }
+}
 
+BOOST_AUTO_TEST_CASE(crdt_set_memory_overhead)
+{
+    const int Max = 32768 * 4;
+    std::map< size_t, double > base;
+
+    for (int i = 1; i < Max; i *= 2)
+    {
+        memory::stats_buffer<> buffer;
+        memory::buffer_allocator< int, decltype(buffer) > allocator(buffer);
+
+        std::set< int, std::less< int >, decltype(allocator) > s(allocator);
+        for (int j = 0; j < i; ++j)
+        {
+            s.insert(j);
+        }
+
+        base[i] = buffer.get_allocated();
+    }
+
+    {
+        std::map< size_t, double > results;
+        for (int i = 1; i < Max; i *= 2)
+        {
+            memory::stats_buffer<> buffer;
+            memory::buffer_allocator< int, decltype(buffer) > bufferallocator(buffer);
+
+            crdt::replica<> replica(0);
+            crdt::allocator< crdt::replica<>, int, decltype(bufferallocator) > allocator(replica, bufferallocator);
+
+            crdt::set< int, decltype(allocator), crdt::tag_state, crdt::detail::metadata_tag_btree_local, crdt::hook_default > s(allocator);
+            for (int j = 0; j < i; ++j)
+            {
+                s.insert(j);
+            }
+
+            results[i] = buffer.get_allocated();
+        }
+
+        std::cout << "crdt::set [btree] memory usage compared to std::set" << std::endl;
+        print_results(results, base);
+    }
+
+    {
+        std::map< size_t, double > results;
+        for (int i = 1; i < Max; i *= 2)
+        {
+            memory::stats_buffer<> buffer;
+            memory::buffer_allocator< int, decltype(buffer) > bufferallocator(buffer);
+
+            crdt::replica<> replica(0);
+            crdt::allocator< crdt::replica<>, int, decltype(bufferallocator) > allocator(replica, bufferallocator);
+
+            crdt::set< int, decltype(allocator), crdt::tag_state, crdt::detail::metadata_tag_stl_local, crdt::hook_default > s(allocator);
+            for (int j = 0; j < i; ++j)
+            {
+                s.insert(j);
+            }
+
+            results[i] = buffer.get_allocated();
+        }
+
+        std::cout << "crdt::set [stl] memory usage compared to std::set" << std::endl;
+        print_results(results, base);
+    }
+
+    {
+        std::map< size_t, double > results;
+        for (int i = 1; i < Max; i *= 2)
+        {
+            memory::stats_buffer<> buffer;
+            memory::buffer_allocator< int, decltype(buffer) > bufferallocator(buffer);
+
+            crdt::replica<> replica(0);
+            crdt::allocator< crdt::replica<>, int, decltype(bufferallocator) > allocator(replica, bufferallocator);
+
+            crdt::set< int, decltype(allocator), crdt::tag_state, crdt::detail::metadata_tag_flat_local, crdt::hook_default > s(allocator);
+            for (int j = 0; j < i; ++j)
+            {
+                s.insert(j);
+            }
+
+            results[i] = buffer.get_allocated();
+        }
+
+        std::cout << "crdt::set [flat] memory usage compared to std::set" << std::endl;
+        print_results(results, base);
+    }
 }
 
 #endif

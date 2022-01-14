@@ -1009,4 +1009,42 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_set_find, T, btree_perf_insert_types)
     }
 }
 
+BOOST_AUTO_TEST_CASE(btree_memory_overhead)
+{
+    const int Max = 32768*4;
+    std::map< size_t, double > base;
+    
+    for (int i = 1; i < Max; i *= 2)
+    {
+        memory::stats_buffer<> buffer;
+        memory::buffer_allocator< int, decltype(buffer) > allocator(buffer);
+
+        std::set< int, std::less< int >,  decltype(allocator) > s(allocator);
+        for (int j = 0; j < i; ++j)
+        {
+            s.insert(j);
+        }
+
+        base[i] = buffer.get_allocated();
+    }
+
+    std::map< size_t, double > results;
+    for (int i = 1; i < Max; i *= 2)
+    {
+        memory::stats_buffer<> buffer;
+        memory::buffer_allocator< int, decltype(buffer) > allocator(buffer);
+
+        btree::set< int, std::less< int >, decltype(allocator) > s(allocator);
+        for (int j = 0; j < i; ++j)
+        {
+            s.insert(j);
+        }
+
+        results[i] = buffer.get_allocated();
+    }
+
+    std::cout << "btree memory usage compared to std::set" << std::endl;
+    print_results(results, base);
+}
+
 #endif

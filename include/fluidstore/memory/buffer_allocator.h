@@ -4,6 +4,7 @@
 
 #include <array>
 #include <new>
+#include <memory>
 
 namespace memory
 {
@@ -136,9 +137,56 @@ namespace memory
         std::size_t allocated_;
     };
 
+    template< typename Allocator = std::allocator< void > > class stats_buffer
+    {
+        stats_buffer(const stats_buffer< Allocator >&) = delete;
+        stats_buffer< Allocator >& operator = (const stats_buffer< Allocator >&) = delete;
+
+        stats_buffer(stats_buffer< Allocator >&&) = delete;
+        stats_buffer< Allocator >& operator = (stats_buffer< Allocator >&&) = delete;
+
+    public:
+        using value_type = typename Allocator::value_type;
+        using allocator_type = typename std::allocator_traits< Allocator >::template rebind_alloc< uint8_t >;
+
+        stats_buffer()
+            : allocator_()
+            , allocated_()
+        {}
+
+        stats_buffer(Allocator& allocator)
+            : allocator_(allocator)
+            , allocated_()
+        {}
+
+        ~stats_buffer() {}
+        
+        void* allocate(std::size_t n, std::size_t alignment)
+        {            
+            void* p = allocator_.allocate(n);
+            allocated_ += n;
+            return p;
+        }
+
+        void deallocate(void* p, std::size_t n)
+        {
+            allocated_ -= n;
+            allocator_.deallocate(reinterpret_cast< uint8_t* >(p), n);
+        }
+
+        std::size_t get_allocated() const { return allocated_; }
+
+    private:
+        allocator_type allocator_;
+        std::size_t allocated_;
+    };
+
     template < typename T, typename Buffer > class buffer_allocator
     {
         template < typename U, typename BufferU > friend class buffer_allocator;
+        
+        template < typename T1, typename T2, typename BufferT > friend bool operator == (buffer_allocator< T1, BufferT > const& lhs, buffer_allocator< T2, BufferT > const& rhs) noexcept;
+        template < typename T1, typename T2, typename BufferT > friend bool operator != (buffer_allocator< T1, BufferT > const& lhs, buffer_allocator< T2, BufferT > const& rhs) noexcept;
 
     public:
         using value_type = T;
@@ -177,7 +225,7 @@ namespace memory
             buffer_->deallocate(p, n * sizeof(value_type));
         }
         
-    //private:
+    private:
         Buffer* buffer_;
     };
 

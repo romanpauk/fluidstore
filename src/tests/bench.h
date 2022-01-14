@@ -46,7 +46,7 @@ static void set_realtime_priority()
 #endif
 }
 
-static void print_results(const std::map< int, double >& results, const std::map< int, double >& base)
+template < typename Elements, typename Value > static void print_results(const std::map< Elements, Value >& results, const std::map< Elements, Value >& base)
 {
     for (auto& [i, t] : results)
     {

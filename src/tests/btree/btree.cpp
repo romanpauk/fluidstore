@@ -867,7 +867,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_map_perf_insert_arena, T, btree_perf_insert_
         for (size_t i = 1; i < Max; i *= 2)
         {
             memory::dynamic_buffer<> buffer(preallocated);
-            memory::buffer_allocator< T, decltype(buffer) > allocator(buffer);
+            memory::buffer_allocator< std::pair< T, T >, decltype(buffer) > allocator(buffer);
 
             results[i] = measure([&, allocator]
             {

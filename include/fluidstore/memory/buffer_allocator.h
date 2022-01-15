@@ -263,7 +263,7 @@ namespace memory
         {
             return buffer_ == other.buffer_ && fallback_ == other.fallback_;
         }
-
+                
     private:
         Buffer* buffer_;
         typename std::allocator_traits< FallbackAllocator >::template rebind_alloc< T > fallback_;

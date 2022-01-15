@@ -38,6 +38,7 @@ BOOST_AUTO_TEST_CASE(static_buffer_fallback)
 
 BOOST_AUTO_TEST_CASE(static_dynamic_buffer)
 {	
+	// TODO: dynamic buffer needs to be lazy ;)
 	memory::dynamic_buffer heap(sizeof(uint8_t));
 	memory::buffer_allocator< uint8_t, decltype(heap) > heap_allocator(heap);
 

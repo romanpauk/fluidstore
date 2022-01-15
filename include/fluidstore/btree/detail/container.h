@@ -896,6 +896,7 @@ namespace btree::detail
                 return true;
             }
 
+        #if defined(BTREE_VALUE_NODE_APPEND)
             if (source.node() == last_node_ && !sdata.empty())
             {
                 // Left-most key from the right node
@@ -914,6 +915,7 @@ namespace btree::detail
 
                 return true;
             }
+        #endif
 
             return false;
         }

@@ -17,7 +17,6 @@ namespace memory
         dynamic_buffer< Allocator >& operator = (dynamic_buffer< Allocator >&&) = delete;
 
     public:
-        using value_type = typename Allocator::value_type;
         using allocator_type = typename std::allocator_traits< Allocator >::template rebind_alloc< uint8_t >;
                 
         dynamic_buffer(size_t size)
@@ -45,14 +44,15 @@ namespace memory
             allocator_.deallocate(base_, size_);
         }
 
-        void* allocate(std::size_t n, std::size_t alignment)
+        template < typename T > T* allocate(std::size_t n)
         {            
-            unsigned char* ptr = (unsigned char*)(uintptr_t(current_ + alignment - 1) & ~(alignment - 1));
+            n *= sizeof(T);
+            unsigned char* ptr = (unsigned char*)(uintptr_t(current_ + alignof(T) - 1) & ~(alignof(T) - 1));
             if (ptr + n < base_ + size_)
             {
                 current_ = ptr + n;
                 allocated_ += n;
-                return ptr;
+                return reinterpret_cast< T* >(ptr);
             }
             else
             {
@@ -60,8 +60,9 @@ namespace memory
             }
         }
 
-        void deallocate(void* p, std::size_t n)
+        template < typename T > void deallocate(T* p, std::size_t n)
         {
+            n *= sizeof(T);
             auto ptr = reinterpret_cast<unsigned char*>(p);
             assert(ptr >= base_ && ptr + n <= base_ + size_);
         
@@ -102,14 +103,15 @@ namespace memory
         ~static_buffer()
         {}
 
-        void* allocate(std::size_t n, std::size_t alignment)
+        template < typename T > T* allocate(std::size_t n)
         {
-            unsigned char* ptr = (unsigned char*)(uintptr_t(current_ + alignment - 1) & ~(alignment - 1));
+            n *= sizeof(T);
+            unsigned char* ptr = (unsigned char*)(uintptr_t(current_ + alignof(T) - 1) & ~(alignof(T) - 1));
             if (ptr + n < base_.data() + Size)
             {                
                 current_ = ptr + n;
                 allocated_ += n;
-                return ptr;
+                return reinterpret_cast< T* >(ptr);
             }
             else
             {
@@ -117,8 +119,9 @@ namespace memory
             }
         }
 
-        void deallocate(void* p, std::size_t n)
+        template < typename T > void deallocate(T* p, std::size_t n)
         {
+            n *= sizeof(T);
             auto ptr = reinterpret_cast<unsigned char*>(p);
             assert(ptr >= base_.data() && ptr + n <= base_.data() + Size);
 
@@ -137,7 +140,7 @@ namespace memory
         std::size_t allocated_;
     };
 
-    template< typename Allocator = std::allocator< void > > class stats_buffer
+    template< typename Allocator = std::allocator< uint8_t > > class stats_buffer
     {
         stats_buffer(const stats_buffer< Allocator >&) = delete;
         stats_buffer< Allocator >& operator = (const stats_buffer< Allocator >&) = delete;
@@ -146,7 +149,6 @@ namespace memory
         stats_buffer< Allocator >& operator = (stats_buffer< Allocator >&&) = delete;
 
     public:
-        using value_type = typename Allocator::value_type;
         using allocator_type = typename std::allocator_traits< Allocator >::template rebind_alloc< uint8_t >;
 
         stats_buffer()
@@ -161,17 +163,17 @@ namespace memory
 
         ~stats_buffer() {}
         
-        void* allocate(std::size_t n, std::size_t alignment)
+        template < typename T > T* allocate(std::size_t n)
         {            
-            void* p = allocator_.allocate(n);
-            allocated_ += n;
+            T* p = typename std::allocator_traits< Allocator >::template rebind_alloc< T >(this->allocator_).allocate(n);
+            allocated_ += n*sizeof(T);
             return p;
         }
 
-        void deallocate(void* p, std::size_t n)
+        template < typename T > void deallocate(T* p, std::size_t n)
         {
-            allocated_ -= n;
-            allocator_.deallocate(reinterpret_cast< uint8_t* >(p), n);
+            allocated_ -= n*sizeof(T);
+            typename std::allocator_traits< Allocator >::template rebind_alloc< T >(this->allocator_).deallocate(p, n);
         }
 
         std::size_t get_allocated() const { return allocated_; }
@@ -212,7 +214,7 @@ namespace memory
 
         value_type* allocate(std::size_t n)
         {
-            auto ptr = reinterpret_cast< value_type* >(buffer_->allocate(n * sizeof(value_type), alignof(value_type)));
+            auto ptr = buffer_->template allocate< value_type >(n);
             if (!ptr)
             {
                 throw std::bad_alloc();
@@ -222,7 +224,7 @@ namespace memory
 
         void deallocate(value_type* p, std::size_t n) noexcept
         {
-            buffer_->deallocate(p, n * sizeof(value_type));
+            buffer_->deallocate(p, n);
         }
         
     private:

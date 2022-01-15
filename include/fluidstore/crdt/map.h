@@ -93,7 +93,7 @@ namespace crdt
             {
                 auto allocator = this->get_allocator();
                 memory::static_buffer< temporary_buffer_size > buffer;
-                memory::buffer_allocator< void, decltype(buffer) > buffer_allocator(buffer);
+                memory::buffer_allocator< void, decltype(buffer), std::allocator< void > > buffer_allocator(buffer);
                 crdt::allocator< typename decltype(allocator)::replica_type, void, decltype(buffer_allocator) > tmp(allocator.get_replica(), buffer_allocator);
 
                 typename delta_type::template rebind_t< decltype(tmp) > delta(tmp);
@@ -149,7 +149,7 @@ namespace crdt
                     auto allocator = this->get_allocator();
 
                     memory::static_buffer< temporary_buffer_size > buffer;
-                    memory::buffer_allocator< void, decltype(buffer) > buffer_allocator(buffer);
+                    memory::buffer_allocator< void, decltype(buffer), std::allocator< void > > buffer_allocator(buffer);
                     crdt::allocator< typename decltype(allocator)::replica_type, void, decltype(buffer_allocator) > tmp(allocator.get_replica(), buffer_allocator);
 
                     typename delta_type::template rebind_t< decltype(tmp) > delta(tmp);
@@ -197,7 +197,7 @@ namespace crdt
             {
                 auto allocator = this->get_allocator();
                 memory::static_buffer< temporary_buffer_size > buffer;
-                memory::buffer_allocator< void, decltype(buffer) > buffer_allocator(buffer);
+                memory::buffer_allocator< void, decltype(buffer), std::allocator< void > > buffer_allocator(buffer);
                 crdt::allocator< typename decltype(allocator)::replica_type, void, decltype(buffer_allocator) > tmp(allocator.get_replica(), buffer_allocator);
                 
                 typename delta_type::template rebind_t< decltype(tmp) > delta(tmp);
@@ -219,7 +219,7 @@ namespace crdt
             {
                 auto allocator = this->get_allocator();
                 memory::static_buffer< temporary_buffer_size > buffer;
-                memory::buffer_allocator< void, decltype(buffer) > buffer_allocator(buffer);
+                memory::buffer_allocator< void, decltype(buffer), std::allocator< void > > buffer_allocator(buffer);
                 crdt::allocator< typename decltype(allocator)::replica_type, void, decltype(buffer_allocator) > tmp(allocator.get_replica(), buffer_allocator);
 
                 typename delta_type::template rebind_t< decltype(tmp) > delta(tmp);

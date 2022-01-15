@@ -48,7 +48,7 @@ namespace memory
         {            
             n *= sizeof(T);
             unsigned char* ptr = (unsigned char*)(uintptr_t(current_ + alignof(T) - 1) & ~(alignof(T) - 1));
-            if (ptr + n < base_ + size_)
+            if (ptr + n <= base_ + size_)
             {
                 current_ = ptr + n;
                 allocated_ += n;
@@ -60,17 +60,22 @@ namespace memory
             }
         }
 
-        template < typename T > void deallocate(T* p, std::size_t n)
+        template < typename T > bool deallocate(T* p, std::size_t n)
         {
             n *= sizeof(T);
             auto ptr = reinterpret_cast<unsigned char*>(p);
-            assert(ptr >= base_ && ptr + n <= base_ + size_);
-        
-            allocated_ -= n;
-            if (allocated_ == 0)
+            if (ptr >= base_ && ptr + n <= base_ + size_)
             {
-                current_ = base_;
+                allocated_ -= n;
+                if (allocated_ == 0)
+                {
+                    current_ = base_;
+                }
+
+                return true;
             }
+        
+            return false;
         }
 
         std::size_t get_allocated() const { return allocated_; }
@@ -107,7 +112,7 @@ namespace memory
         {
             n *= sizeof(T);
             unsigned char* ptr = (unsigned char*)(uintptr_t(current_ + alignof(T) - 1) & ~(alignof(T) - 1));
-            if (ptr + n < base_.data() + Size)
+            if (ptr + n <= base_.data() + Size)
             {                
                 current_ = ptr + n;
                 allocated_ += n;
@@ -119,17 +124,22 @@ namespace memory
             }
         }
 
-        template < typename T > void deallocate(T* p, std::size_t n)
+        template < typename T > bool deallocate(T* p, std::size_t n)
         {
             n *= sizeof(T);
             auto ptr = reinterpret_cast<unsigned char*>(p);
-            assert(ptr >= base_.data() && ptr + n <= base_.data() + Size);
-
-            allocated_ -= n;
-            if (allocated_ == 0)
+            if (ptr >= base_.data() && ptr + n <= base_.data() + Size)
             {
-                current_ = base_.data();
+                allocated_ -= n;
+                if (allocated_ == 0)
+                {
+                    current_ = base_.data();
+                }
+
+                return true;
             }
+
+            return false;
         }
 
         std::size_t get_allocated() const { return allocated_; }
@@ -170,10 +180,11 @@ namespace memory
             return p;
         }
 
-        template < typename T > void deallocate(T* p, std::size_t n)
+        template < typename T > bool deallocate(T* p, std::size_t n)
         {
             allocated_ -= n*sizeof(T);
             typename std::allocator_traits< Allocator >::template rebind_alloc< T >(this->allocator_).deallocate(p, n);
+            return true;
         }
 
         std::size_t get_allocated() const { return allocated_; }
@@ -183,25 +194,35 @@ namespace memory
         std::size_t allocated_;
     };
 
-    template < typename T, typename Buffer > class buffer_allocator
+    template < typename T > class buffer_allocator_throw
     {
-        template < typename U, typename BufferU > friend class buffer_allocator;
-        
-        template < typename T1, typename T2, typename BufferT > friend bool operator == (buffer_allocator< T1, BufferT > const& lhs, buffer_allocator< T2, BufferT > const& rhs) noexcept;
-        template < typename T1, typename T2, typename BufferT > friend bool operator != (buffer_allocator< T1, BufferT > const& lhs, buffer_allocator< T2, BufferT > const& rhs) noexcept;
+    public:
+        using value_type = T;
+        T* allocate(std::size_t) { throw std::bad_alloc(); }
+        bool deallocate(T*, std::size_t) { throw std::bad_alloc(); }
+    };
 
+    template < typename T, typename Buffer, typename FallbackAllocator = buffer_allocator_throw< T > > class buffer_allocator
+    {
+        template < typename U, typename BufferU, typename FallbackAllocatorU > friend class buffer_allocator;
+                
     public:
         using value_type = T;
 
         template< typename U > struct rebind
         {
-            using other = buffer_allocator < U, Buffer > ;
+            using other = buffer_allocator < U, Buffer, typename std::allocator_traits< FallbackAllocator >::template rebind_alloc< U > > ;
         };
 
         buffer_allocator(Buffer& buffer) noexcept
             : buffer_(&buffer)
         {}
         
+        template < typename U, typename FallbackAllocatorU > buffer_allocator(const buffer_allocator< U, Buffer, FallbackAllocatorU >& other) noexcept
+            : buffer_(other.buffer_)
+        {}
+
+
         template < typename U > buffer_allocator(const buffer_allocator< U, Buffer >& other) noexcept 
             : buffer_(other.buffer_)
         {}                       
@@ -216,24 +237,31 @@ namespace memory
         {
             auto ptr = buffer_->template allocate< value_type >(n);
             if (!ptr)
-            {
-                throw std::bad_alloc();
+            {                
+                FallbackAllocator fallback;
+                return std::allocator_traits< FallbackAllocator >::rebind_alloc< value_type >(fallback).allocate(n);
             }
             return ptr;
         }
 
         void deallocate(value_type* p, std::size_t n) noexcept
         {
-            buffer_->deallocate(p, n);
+            if (!buffer_->deallocate(p, n))
+            {
+                FallbackAllocator fallback;
+                std::allocator_traits< FallbackAllocator >::rebind_alloc< value_type >(fallback).deallocate(p, n);
+            }
         }
         
+        const Buffer* get_buffer() { return buffer_; }
+
     private:
         Buffer* buffer_;
     };
 
     template < typename T, typename U, typename Buffer > bool operator == (buffer_allocator< T, Buffer > const& lhs, buffer_allocator< U, Buffer > const& rhs) noexcept
     {
-        return lhs.buffer_ == rhs.buffer_;
+        return lhs.get_buffer() == rhs.get_buffer();
     }
 
     template < typename T, typename U, typename Buffer > bool operator != (buffer_allocator< T, Buffer > const& x, buffer_allocator< U, Buffer > const& y) noexcept

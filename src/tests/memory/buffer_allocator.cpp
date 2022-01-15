@@ -2,28 +2,50 @@
 
 #include <fluidstore/memory/buffer_allocator.h>
 
-BOOST_AUTO_TEST_CASE(dynamic_buffer)
+template < typename Allocator, typename Buffer > void test_minimal_size(Allocator& allocator, Buffer& buffer)
 {
-	memory::dynamic_buffer< std::allocator< void > > buffer(1024);
 	BOOST_TEST(buffer.get_allocated() == 0);
-
-	memory::buffer_allocator< uint8_t, decltype(buffer) > allocator(buffer);
-
 	auto p = allocator.allocate(1);
 	BOOST_TEST(buffer.get_allocated() > 0);
 	allocator.deallocate(p, 1);
 	BOOST_TEST(buffer.get_allocated() == 0);
+	BOOST_CHECK_THROW(allocator.allocate(2), std::bad_alloc);
 }
 
-BOOST_AUTO_TEST_CASE(static_buffer)
+BOOST_AUTO_TEST_CASE(static_buffer_minimal)
 {
-	memory::static_buffer< 1024 > buffer;
-	BOOST_TEST(buffer.get_allocated() == 0);
-
+	memory::static_buffer< sizeof(uint8_t) > buffer;
 	memory::buffer_allocator< uint8_t, decltype(buffer) > allocator(buffer);
+	test_minimal_size(allocator, buffer);
+}
 
-	auto p = allocator.allocate(1);
-	BOOST_TEST(buffer.get_allocated() > 0);
-	allocator.deallocate(p, 1);
-	BOOST_TEST(buffer.get_allocated() == 0);
+BOOST_AUTO_TEST_CASE(dynamic_buffer_minimal)
+{
+	memory::dynamic_buffer buffer(sizeof(uint8_t));
+	memory::buffer_allocator< uint8_t, decltype(buffer) > allocator(buffer);
+	test_minimal_size(allocator, buffer);
+}
+
+BOOST_AUTO_TEST_CASE(static_buffer_fallback)
+{
+	memory::static_buffer< sizeof(uint8_t) > buffer;
+	memory::buffer_allocator< uint8_t, decltype(buffer), std::allocator< uint8_t > > allocator(buffer);
+	auto p1 = allocator.allocate(1);
+	auto p2 = allocator.allocate(1);
+	allocator.deallocate(p2, 1);
+	allocator.deallocate(p1, 1);
+}
+
+BOOST_AUTO_TEST_CASE(static_dynamic_buffer)
+{
+	// TODO: fallback allocator needs to be stateless for now
+
+	/*
+	memory::dynamic_buffer heap(sizeof(uint8_t));
+	memory::buffer_allocator< uint8_t, decltype(heap) > heap_allocator(heap);
+
+	memory::static_buffer< sizeof(uint8_t) > stack;
+	memory::buffer_allocator< uint8_t, decltype(stack), decltype(heap_allocator) > allocator(stack, heap_allocator);
+	test_minimal_size(allocator, stack);
+	*/
 }

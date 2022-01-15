@@ -198,8 +198,14 @@ namespace memory
     {
     public:
         using value_type = T;
+
+        buffer_allocator_throw() = default;
+        template < typename U > buffer_allocator_throw(U&&) {}
+
         T* allocate(std::size_t) { throw std::bad_alloc(); }
         bool deallocate(T*, std::size_t) { throw std::bad_alloc(); }
+
+        template < typename U > bool operator == (const buffer_allocator_throw< U >&) const { return true; }
     };
 
     template < typename T, typename Buffer, typename FallbackAllocator = buffer_allocator_throw< T > > class buffer_allocator
@@ -218,18 +224,20 @@ namespace memory
             : buffer_(&buffer)
         {}
         
-        template < typename U, typename FallbackAllocatorU > buffer_allocator(const buffer_allocator< U, Buffer, FallbackAllocatorU >& other) noexcept
-            : buffer_(other.buffer_)
+        template < typename FallbackAlloc > buffer_allocator(Buffer& buffer, FallbackAlloc&& fallback) noexcept
+            : buffer_(&buffer)
+            , fallback_(std::forward< FallbackAlloc >(fallback))
         {}
 
-
-        template < typename U > buffer_allocator(const buffer_allocator< U, Buffer >& other) noexcept 
+        template < typename U, typename FallbackAllocatorU > buffer_allocator(const buffer_allocator< U, Buffer, FallbackAllocatorU >& other) noexcept
             : buffer_(other.buffer_)
-        {}                       
-                
+            , fallback_(std::allocator_traits< FallbackAllocatorU >::template rebind_alloc< T >(other.fallback_))
+        {}
+                                
         buffer_allocator< T, Buffer >& operator = (const buffer_allocator< T, Buffer >& other)
         {
             buffer_ = other.buffer_;
+            fallback_ = other.fallback_;
             return *this;
         }
 
@@ -238,8 +246,7 @@ namespace memory
             auto ptr = buffer_->template allocate< value_type >(n);
             if (!ptr)
             {                
-                FallbackAllocator fallback;
-                return std::allocator_traits< FallbackAllocator >::rebind_alloc< value_type >(fallback).allocate(n);
+                return fallback_.allocate(n);
             }
             return ptr;
         }
@@ -248,24 +255,17 @@ namespace memory
         {
             if (!buffer_->deallocate(p, n))
             {
-                FallbackAllocator fallback;
-                std::allocator_traits< FallbackAllocator >::rebind_alloc< value_type >(fallback).deallocate(p, n);
+                fallback_.deallocate(p, n);
             }
         }
         
-        const Buffer* get_buffer() { return buffer_; }
+        template < typename U, typename FallbackU, typename Buffer > bool operator == (const buffer_allocator< U, Buffer, FallbackU >& other) const
+        {
+            return buffer_ == other.buffer_ && fallback_ == other.fallback_;
+        }
 
     private:
         Buffer* buffer_;
+        typename std::allocator_traits< FallbackAllocator >::template rebind_alloc< T > fallback_;
     };
-
-    template < typename T, typename U, typename Buffer > bool operator == (buffer_allocator< T, Buffer > const& lhs, buffer_allocator< U, Buffer > const& rhs) noexcept
-    {
-        return lhs.get_buffer() == rhs.get_buffer();
-    }
-
-    template < typename T, typename U, typename Buffer > bool operator != (buffer_allocator< T, Buffer > const& x, buffer_allocator< U, Buffer > const& y) noexcept
-    {
-        return !(x == y);
-    }
 }

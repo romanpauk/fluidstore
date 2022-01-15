@@ -37,15 +37,24 @@ BOOST_AUTO_TEST_CASE(static_buffer_fallback)
 }
 
 BOOST_AUTO_TEST_CASE(static_dynamic_buffer)
-{
-	// TODO: fallback allocator needs to be stateless for now
-
-	/*
+{	
 	memory::dynamic_buffer heap(sizeof(uint8_t));
 	memory::buffer_allocator< uint8_t, decltype(heap) > heap_allocator(heap);
 
 	memory::static_buffer< sizeof(uint8_t) > stack;
 	memory::buffer_allocator< uint8_t, decltype(stack), decltype(heap_allocator) > allocator(stack, heap_allocator);
-	test_minimal_size(allocator, stack);
-	*/
+
+	auto stack_p = allocator.allocate(1);
+	BOOST_TEST(stack.get_allocated() > 0);
+	
+	auto heap_p = allocator.allocate(1);
+	BOOST_TEST(heap.get_allocated() > 0);
+
+	BOOST_CHECK_THROW(allocator.allocate(1), std::bad_alloc);
+
+	allocator.deallocate(stack_p, 1);
+	BOOST_TEST(stack.get_allocated() == 0);
+
+	allocator.deallocate(heap_p, 1);
+	BOOST_TEST(heap.get_allocated() == 0);
 }

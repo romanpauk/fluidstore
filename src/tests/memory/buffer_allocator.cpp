@@ -16,6 +16,10 @@ BOOST_AUTO_TEST_CASE(static_buffer_minimal)
 {
 	memory::static_buffer< sizeof(uint8_t) > buffer;
 	memory::buffer_allocator< uint8_t, decltype(buffer) > allocator(buffer);
+
+	// Check the size optimization when stateless allocator is used (throwing version)
+	static_assert(sizeof(allocator) == sizeof(&buffer));
+
 	test_minimal_size(allocator, buffer);
 }
 
@@ -30,6 +34,10 @@ BOOST_AUTO_TEST_CASE(static_buffer_fallback)
 {
 	memory::static_buffer< sizeof(uint8_t) > buffer;
 	memory::buffer_allocator< uint8_t, decltype(buffer), std::allocator< uint8_t > > allocator(buffer);
+
+	// Check the size optimization when stateless allocator is used (std::allocator version)
+	static_assert(sizeof(allocator) == sizeof(&buffer));
+
 	auto p1 = allocator.allocate(1);
 	auto p2 = allocator.allocate(1);
 	allocator.deallocate(p2, 1);
@@ -38,12 +46,14 @@ BOOST_AUTO_TEST_CASE(static_buffer_fallback)
 
 BOOST_AUTO_TEST_CASE(static_dynamic_buffer)
 {	
-	// TODO: dynamic buffer needs to be lazy ;)
 	memory::dynamic_buffer heap(sizeof(uint8_t));
 	memory::buffer_allocator< uint8_t, decltype(heap) > heap_allocator(heap);
+	static_assert(sizeof(heap_allocator) == sizeof(&heap));
 
 	memory::static_buffer< sizeof(uint8_t) > stack;
 	memory::buffer_allocator< uint8_t, decltype(stack), decltype(heap_allocator) > allocator(stack, heap_allocator);
+	
+	static_assert(sizeof(allocator) == sizeof(&stack) + sizeof(heap_allocator));
 
 	auto stack_p = allocator.allocate(1);
 	BOOST_TEST(stack.get_allocated() > 0);

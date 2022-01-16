@@ -231,7 +231,7 @@ namespace memory
 
         template < typename U, typename FallbackAllocatorU > buffer_allocator(const buffer_allocator< U, Buffer, FallbackAllocatorU >& other) noexcept
             : buffer_(other.buffer_)
-            , fallback_(std::allocator_traits< FallbackAllocatorU >::template rebind_alloc< T >(other.fallback_))
+            , fallback_(typename std::allocator_traits< FallbackAllocatorU >::template rebind_alloc< T >(other.fallback_))
         {}
                                 
         buffer_allocator< T, Buffer >& operator = (const buffer_allocator< T, Buffer >& other)
@@ -259,7 +259,7 @@ namespace memory
             }
         }
         
-        template < typename U, typename FallbackU, typename Buffer > bool operator == (const buffer_allocator< U, Buffer, FallbackU >& other) const
+        template < typename U, typename FallbackU > bool operator == (const buffer_allocator< U, Buffer, FallbackU >& other) const
         {
             return buffer_ == other.buffer_ && fallback_ == other.fallback_;
         }

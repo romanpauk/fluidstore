@@ -29,7 +29,7 @@ namespace memory
     {
     public:
         template < typename AllocatorT > allocator_storage(AllocatorT&& allocator)
-            : allocator_(typename std::allocator_traits< Allocator >::rebind_alloc< typename Allocator::value_type >(std::forward< AllocatorT >(allocator)))
+            : allocator_(typename std::allocator_traits< Allocator >::template rebind_alloc< typename Allocator::value_type >(std::forward< AllocatorT >(allocator)))
         {}
 
         Allocator& get_allocator() { return allocator_; }
@@ -63,7 +63,7 @@ namespace memory
             , allocated_()
             , size_(size)
         {
-            base_ = current_ = typename std::allocator_traits< Allocator >::template rebind_alloc< uint8_t >(get_allocator()).allocate(size_);
+            base_ = current_ = typename std::allocator_traits< Allocator >::template rebind_alloc< uint8_t >(this->get_allocator()).allocate(size_);
         }
 
         dynamic_buffer(size_t size, Allocator& allocator)
@@ -73,12 +73,12 @@ namespace memory
             , allocated_()
             , size_(size)
         {
-            base_ = current_ = typename std::allocator_traits< Allocator >::template rebind_alloc< uint8_t >(get_allocator()).allocate(size_);
+            base_ = current_ = typename std::allocator_traits< Allocator >::template rebind_alloc< uint8_t >(this->get_allocator()).allocate(size_);
         }
 
         ~dynamic_buffer()
         {
-            typename std::allocator_traits< Allocator >::rebind_alloc< uint8_t >(get_allocator()).deallocate(base_, size_);
+            typename std::allocator_traits< Allocator >::template rebind_alloc< uint8_t >(this->get_allocator()).deallocate(base_, size_);
         }
 
         template < typename T > T* allocate(std::size_t n)
@@ -208,7 +208,7 @@ namespace memory
 
         template < typename T > T* allocate(std::size_t n)
         {
-            T* p = typename std::allocator_traits< Allocator >::template rebind_alloc< T >(get_allocator()).allocate(n);
+            T* p = typename std::allocator_traits< Allocator >::template rebind_alloc< T >(this->get_allocator()).allocate(n);
             allocated_ += n * sizeof(T);
             return p;
         }
@@ -216,7 +216,7 @@ namespace memory
         template < typename T > bool deallocate(T* p, std::size_t n)
         {
             allocated_ -= n * sizeof(T);
-            typename std::allocator_traits< Allocator >::template rebind_alloc< T >(get_allocator()).deallocate(p, n);
+            typename std::allocator_traits< Allocator >::template rebind_alloc< T >(this->get_allocator()).deallocate(p, n);
             return true;
         }
 
@@ -281,7 +281,7 @@ namespace memory
             auto ptr = buffer_->template allocate< value_type >(n);
             if (!ptr)
             {                
-                return get_allocator().allocate(n);
+                return this->get_allocator().allocate(n);
             }
             return ptr;
         }
@@ -290,7 +290,7 @@ namespace memory
         {
             if (!buffer_->deallocate(p, n))
             {
-                get_allocator().deallocate(p, n);
+                this->get_allocator().deallocate(p, n);
             }
         }
         

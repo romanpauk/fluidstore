@@ -13,6 +13,11 @@
 
 #include "bench.h"
 
+#if defined(TLX_ENABLED)
+#include <tlx/container/btree_set.hpp>
+void tlx::die_with_message(char const*, char const*, unsigned __int64) {}
+#endif
+
 #if !defined(_DEBUG)
 
 static int Max = 8192;
@@ -255,6 +260,31 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_insert, T, crdt_set_insert_types)
 
             std::cout << "btree::set<" << get_type_name<T>() << ">" << " [random,linear] insertions per second: " << int(N / t) << std::endl;
         }
+
+    #if defined(TLX_ENABLED)
+        {
+            auto t = measure(Iters, [&]
+                {
+                    tlx::btree_set< T > c;
+                    insertion_test(c, data, N);
+                });
+
+            std::cout << "tlx::btree_set<" << get_type_name<T>() << ">" << " [random,new] insertions per second: " << int(N / t) << std::endl;
+        }
+        
+        {
+            memory::dynamic_buffer< std::allocator< uint8_t > > buffer(preallocated);
+            memory::buffer_allocator< T, decltype(buffer) > alloc(buffer);
+
+            auto t = measure(Iters, [&, alloc]
+                {
+                    tlx::btree_set< T, std::less< T >, tlx::btree_default_traits<T, T>, decltype(alloc) > c(alloc);
+                    insertion_test(c, data, N);
+                });
+
+            std::cout << "tlx::btree_set<" << get_type_name<T>() << ">" << " [random,linear] insertions per second: " << int(N / t) << std::endl;
+        }
+    #endif
     }
 
     {
@@ -306,6 +336,31 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_insert, T, crdt_set_insert_types)
 
             std::cout << "btree::set<" << get_type_name<T>() << ">" << " [append,linear] insertions per second: " << int(N / t) << std::endl;
         }
+
+    #if defined(TLX_ENABLED)
+        {
+            auto t = measure(Iters, [&]
+                {
+                    tlx::btree_set< T > c;
+                    insertion_test_end(c, data, N);
+                });
+
+            std::cout << "tlx::btree_set<" << get_type_name<T>() << ">" << " [append,new] insertions per second: " << int(N / t) << std::endl;
+        }
+
+        {
+            memory::dynamic_buffer< std::allocator< uint8_t > > buffer(preallocated);
+            memory::buffer_allocator< T, decltype(buffer) > alloc(buffer);
+
+            auto t = measure(Iters, [&, alloc]
+                {
+                    tlx::btree_set< T, std::less< T >, tlx::btree_default_traits<T, T>, decltype(alloc) > c(alloc);
+                    insertion_test_end(c, data, N);
+                });
+
+            std::cout << "tlx::btree_set<" << get_type_name<T>() << ">" << " [append,linear] insertions per second: " << int(N / t) << std::endl;
+        }
+    #endif
     }
 }
 

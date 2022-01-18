@@ -76,7 +76,12 @@ if(Boost_FOUND)
     target_link_libraries(fluidstoretest fluidstore Boost::boost)
     target_include_directories(fluidstoretest PRIVATE src/tests)
     target_precompile_headers(fluidstoretest PRIVATE src/tests/pch.h)    
-    
+
+    if(TLX_INCLUDE)
+        target_include_directories(fluidstoretest PRIVATE ${TLX_INCLUDE})
+        target_compile_definitions(fluidstoretest PRIVATE TLX_ENABLED)
+    endif()
+        
     if(WIN32)
         group_sources(src)
         group_sources(include)

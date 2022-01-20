@@ -764,7 +764,7 @@ namespace btree::detail
             return *(n.get_keys().begin() + internal_node::N);
         }
 
-        template < typename AllocatorT > std::tuple< node_descriptor< internal_node* >, key_type > split_node(AllocatorT& allocator, size_type depth, node_descriptor< internal_node* > lnode, node_size_type lindex, const key_type&)
+        template < typename AllocatorT > std::tuple< node_descriptor< internal_node* >, const key_type > split_node(AllocatorT& allocator, size_type depth, node_descriptor< internal_node* > lnode, node_size_type lindex, const key_type&)
         {
             assert(full(lnode));
             auto rnode = desc(allocate_node< internal_node >(allocator));
@@ -791,9 +791,8 @@ namespace btree::detail
 
             return { rnode, splitkey };
         }
-
-        // TODO: returned key_type can be const reference
-        template < typename AllocatorT > std::tuple< node_descriptor< value_node* >, key_type > split_node(AllocatorT& allocator, size_type, node_descriptor< value_node* > lnode, node_size_type lindex, const key_type& key)
+                
+        template < typename AllocatorT > std::tuple< node_descriptor< value_node* >, const key_type& > split_node(AllocatorT& allocator, size_type, node_descriptor< value_node* > lnode, node_size_type lindex, const key_type& key)
         {
             assert(full(lnode));
             auto rnode = desc(allocate_node< value_node >(allocator));

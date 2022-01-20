@@ -180,6 +180,10 @@ BOOST_AUTO_TEST_CASE(btree_set_erase)
     BOOST_TEST(set1.size() == 0);
     BOOST_TEST(set1.empty());
     BOOST_TEST((set1.begin() == set1.end()));
+
+    set1.insert(1);
+    BOOST_TEST(set1.erase(1) == 1);
+    BOOST_TEST(set1.erase(1) == 0);
 }
 
 BOOST_AUTO_TEST_CASE(btree_set_erase_iterator_forward)

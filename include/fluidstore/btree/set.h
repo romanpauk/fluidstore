@@ -85,6 +85,7 @@ namespace btree
     public:
         using allocator_type = Allocator;
         using value_type = typename base_type::value_type;
+        using size_type = typename base_type::size_type;
         using iterator = typename base_type::iterator;
 
         set(const Allocator& allocator = Allocator())
@@ -113,9 +114,9 @@ namespace btree
             BTREE_CHECK(base_type::insert(allocator_, begin, end));
         }
 
-        void erase(const value_type& key)
+        size_type erase(const value_type& key)
         {
-            BTREE_CHECK(base_type::erase(allocator_, key));
+            BTREE_CHECK_RETURN(base_type::erase(allocator_, key));
         }
 
         iterator erase(iterator it)

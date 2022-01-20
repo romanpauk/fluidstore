@@ -1279,8 +1279,7 @@ namespace btree::detail
     #if defined(BTREE_VALUE_NODE_LR)
         static std::tuple< node_descriptor< value_node* >, node_size_type > get_right(node_descriptor< value_node* > n, node_size_type index)
         {
-            // TODO: why is this using get_index when we have index?
-            return { n.node()->right, n.node()->right ? get_index(desc(n.node()->right)) : 0 };
+            return { n.node()->right, n.node()->right ? index + 1 : 0 };
         }
     #endif
 
@@ -1323,9 +1322,8 @@ namespace btree::detail
 
     #if defined(BTREE_VALUE_NODE_LR)
         static std::tuple< node_descriptor< value_node* >, node_size_type > get_left(node_descriptor< value_node* > n, node_size_type index)
-        {
-            // TODO: why get_index?
-            return { n.node()->left, n.node()->left ? get_index(desc(n.node()->left)) : 0 };
+        {            
+            return { n.node()->left, n.node()->left ? index - 1 : 0 };
         }
     #endif
 

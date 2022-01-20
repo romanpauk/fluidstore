@@ -1,5 +1,17 @@
 #pragma once
 
+// TODO: what should happen with btree:
+// 1. check exception-safety
+// 2. check function signatures
+// 3. check iterators
+// 4. separate source control
+// 5. copying
+// 6. batch initialization
+// 7. stable iterators
+// 8. multimap/multiset
+// 9. stateful/stateless comparator
+// 10. stateful/stateless allocator
+
 #include <memory>
 #include <type_traits>
 #include <algorithm>
@@ -414,13 +426,17 @@ namespace btree::detail
             }
         }
 
-        template < typename AllocatorT > void erase(AllocatorT& allocator, const key_type& key)
+        // TODO: test, add to set/map
+        template < typename AllocatorT > size_type erase(AllocatorT& allocator, const key_type& key)
         {
             auto it = find(key);
             if (it != end())
             {
                 erase(allocator, it);
+                return 1;
             }
+
+            return 0;
         }
 
         template < typename AllocatorT > iterator erase(AllocatorT& allocator, iterator it)
@@ -505,9 +521,11 @@ namespace btree::detail
                 root_ = first_node_ = last_node_ = root;
                 depth_ = 1;
 
+                // TODO: this should forward
                 return insert(allocator, root, 0, std::move(value));
             }
 
+            // TODO: look at key extraction
             const auto& key = value_type_traits_type::get_key(value);
             auto [n, nindex] = find_value_node(root_, key);
             if (!full(n))
@@ -702,6 +720,7 @@ namespace btree::detail
             if (pkeys.empty())
             {
                 auto root = root_;
+                // TODO: store left child before erase, get rid of this.
                 fixed_vector< node*, children_descriptor< internal_node*, size_type, 2 * internal_node::N > > pchildren((internal_node*)parent, 1); // override the size to 1
                 root_ = pchildren[0];
                 --depth_;
@@ -738,6 +757,7 @@ namespace btree::detail
             std::allocator_traits< decltype(alloc) >::deallocate(alloc, n.node(), 1);
         }
 
+        // TODO: check that returned reference is valid where split_key is used.
         static const Key& split_key(/*const*/ node_descriptor< internal_node* > n)
         {
             assert(full(n));
@@ -772,6 +792,7 @@ namespace btree::detail
             return { rnode, splitkey };
         }
 
+        // TODO: returned key_type can be const reference
         template < typename AllocatorT > std::tuple< node_descriptor< value_node* >, key_type > split_node(AllocatorT& allocator, size_type, node_descriptor< value_node* > lnode, node_size_type lindex, const key_type& key)
         {
             assert(full(lnode));
@@ -783,7 +804,6 @@ namespace btree::detail
             // In case of appending to the right-most node, we will allow rnode to be empty as there might be more appends comming.
             // The tree will be very slightly disbalanced on its right edge but that is ok, it does not impact the overall complexity.
             // The node needs to be properly split and items distributed if there is a right node or the operation is not an append.
-            // TODO: this needs equivalent fixes for erase as the code is not used to unbalanced nodes.
             auto [right, rindex] = get_right(lnode, lindex);
             if (right || compare_lte(key, lkeys.back()))
             {
@@ -818,6 +838,7 @@ namespace btree::detail
 
         template < typename AllocatorT > void free_node(AllocatorT& allocator, node* n, size_type depth)
         {
+            // TODO: can throw, will leave depth/size in mess
             if (depth != depth_)
             {
                 auto in = desc(node_cast<internal_node*>(n));
@@ -836,6 +857,7 @@ namespace btree::detail
             }
         }
 
+        // TODO: make part of verify_.
         template < typename Node > static Node first_node(node* n, size_type depth)
         {
             assert(n);
@@ -1217,6 +1239,7 @@ namespace btree::detail
             return { n, nindex };
         }
             
+        // TODO: hide in #else, or remove (keep for verify_).
         template< typename Node > static std::tuple< node_descriptor< Node >, node_size_type > get_right(node_descriptor< Node > n, node_size_type index, bool recursive = false)
         {
             node_descriptor< internal_node* > p(n.get_parent());
@@ -1257,6 +1280,7 @@ namespace btree::detail
     #if defined(BTREE_VALUE_NODE_LR)
         static std::tuple< node_descriptor< value_node* >, node_size_type > get_right(node_descriptor< value_node* > n, node_size_type index)
         {
+            // TODO: why is this using get_index when we have index?
             return { n.node()->right, n.node()->right ? get_index(desc(n.node()->right)) : 0 };
         }
     #endif
@@ -1301,6 +1325,7 @@ namespace btree::detail
     #if defined(BTREE_VALUE_NODE_LR)
         static std::tuple< node_descriptor< value_node* >, node_size_type > get_left(node_descriptor< value_node* > n, node_size_type index)
         {
+            // TODO: why get_index?
             return { n.node()->left, n.node()->left ? get_index(desc(n.node()->left)) : 0 };
         }
     #endif
@@ -1318,6 +1343,7 @@ namespace btree::detail
         }
 
     private:
+        // TODO: parent is needed to find index of node, and that is needed as internal_nodes do not have left/right.
         static void set_parent(bool valuenode, node* n, internal_node* parent)
         {
             if (valuenode)

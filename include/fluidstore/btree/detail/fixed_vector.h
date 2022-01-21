@@ -17,8 +17,8 @@ namespace btree::detail
     {
         using size_type = typename Descriptor::size_type;
 
-        fixed_vector_base(Descriptor desc)
-            : desc_(desc)
+        template < typename... Args > fixed_vector_base(Args&&... args)
+            : desc_(std::forward< Args >(args)...)
         {}
         
         size_type size() const { return desc_.size(); }
@@ -61,14 +61,10 @@ namespace btree::detail
         using value_type = T;
         using iterator = value_type*;
 
-        fixed_vector(Descriptor desc)
-            : fixed_vector_base< T, Descriptor >(desc)
+        template < typename... Args > fixed_vector(Args&&... args)
+            : fixed_vector_base< T, Descriptor >(std::forward< Args >(args)...)
         {}
-
-        fixed_vector(Descriptor desc, size_type size)
-            : fixed_vector_base< T, Descriptor >(desc, size)
-        {}     
-
+                
         template < typename Allocator, typename... Args > void emplace_back(Allocator& alloc, Args&&... args)
         {
             emplace(alloc, this->end(), std::forward< Args >(args)...);
@@ -218,14 +214,10 @@ namespace btree::detail
         using iterator = value_type*;
         using size_type = typename Descriptor::size_type;
 
-        fixed_vector(Descriptor desc)
-            : fixed_vector_base< T, Descriptor >(desc)
+        template < typename... Args > fixed_vector(Args&&... args)
+            : fixed_vector_base< T, Descriptor >(std::forward< Args >(args)...)
         {}
-
-        fixed_vector(Descriptor desc, size_type size)
-            : fixed_vector_base< T, Descriptor >(desc, size)
-        {}
-        
+              
         template < typename Allocator > void clear(Allocator& alloc)
         {
             this->desc_.set_size(0);

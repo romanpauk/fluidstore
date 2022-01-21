@@ -60,92 +60,58 @@ namespace btree::detail
 
     template < typename Node > struct node_descriptor;
 
-    template < typename Node, typename SizeType, SizeType Capacity > struct keys_descriptor
+    template < typename SizeType > struct array_size_copy
     {
         using size_type = SizeType;
 
-        keys_descriptor(Node node)
-            : node_(node)
-        {}
+        array_size_copy(size_type size): size_(size) {}
 
-        size_type size() const { return node_->size; }
-        constexpr size_type capacity() const { return Capacity; }
-
-        void set_size(size_type size)
-        {
-            assert(size <= capacity());
-            node_->size = size;
-        }
-
-        void* data() { return reinterpret_cast<void*>(node_->keys); }
-        const void* data() const { return reinterpret_cast<const void*>(node_->keys); }
-
-    private:
-        Node node_;
-    };
-
-    template < typename Node, typename SizeType, SizeType Capacity > struct children_descriptor
-    {
-        using size_type = SizeType;
-
-        children_descriptor(Node node)
-            : node_(node)
-            , size_()
-        {
-            auto keys = node_descriptor< Node >(node_).get_keys();
-            if (!keys.empty())
-            {
-                size_ = keys.size() + 1;
-            }
-        }
-
-        children_descriptor(const children_descriptor< Node, SizeType, Capacity >& other) = default;
-
+        void set_size(size_type size) { size_ = size; }
         size_type size() const { return size_; }
 
-        void set_size(size_type size)
-        {
-            assert(size <= capacity());
-            size_ = size;
-        }
-
-        constexpr size_type capacity() const { return Capacity; }
-
-        void* data() { return reinterpret_cast<void*>(node_->children); }
-        const void* data() const { return reinterpret_cast<void*>(node_->children); }
-
     private:
-        Node node_;
         size_type size_;
     };
 
-    template < typename Node, typename SizeType, SizeType Capacity > struct values_descriptor
+    template < typename SizeType > struct array_size_ref
     {
         using size_type = SizeType;
 
-        values_descriptor(Node node)
-            : node_(node)
-            , size_(node_descriptor< Node >(node_).get_keys().size())
-        {}
+        array_size_ref(size_type& size): size_(size) {}
 
-        values_descriptor(const values_descriptor< Node, SizeType, Capacity >& other) = default;
-
+        void set_size(size_type size) { size_ = size; }
         size_type size() const { return size_; }
 
+    private:
+        size_type& size_;
+    };
+
+    template < typename ArraySize, typename ArraySize::size_type Capacity > struct array_descriptor
+        : ArraySize
+    {
+        using size_type = typename ArraySize::size_type;
+
+        template < typename ArraySizeT > array_descriptor(void* data, ArraySizeT&& size)
+            : ArraySize(std::forward< ArraySizeT >(size))
+            , data_(data)
+        {}
+
+        size_type size() const { return ArraySize::size(); }
+        constexpr size_type capacity() const { return Capacity; }
+
+    #if defined(_DEBUG)
         void set_size(size_type size)
         {
             assert(size <= capacity());
-            size_ = size;
+            ArraySize::set_size(size);
         }
+    #endif
 
-        constexpr size_type capacity() const { return Capacity; }
-
-        void* data() { return reinterpret_cast<void*>(node_->values); }
-        const void* data() const { return reinterpret_cast<const void*>(node_->values); }
+        void* data() { return data_; }
+        const void* data() const { return data_; }
 
     private:
-        Node node_;
-        size_type size_;
+        void* data_;
     };
 
     template< typename SizeType, typename Key > struct node_dimension
@@ -1512,17 +1478,20 @@ namespace btree::detail
         using internal_node_type = internal_node< Key, SizeType, N >;
         using size_type = SizeType;
 
+        using key_array_descriptor = array_descriptor< array_size_ref< size_type >, 2 * N - 1 >;
+        using children_array_descriptor = array_descriptor< array_size_copy< size_type >, 2 * N >;
+
         node_descriptor(internal_node_type* n)
             : node_(n)
         {}
 
         template < typename Allocator > void cleanup(Allocator& allocator) { get_keys().clear(allocator); }
-
-        auto get_keys() { return fixed_vector< Key, keys_descriptor< internal_node_type*, size_type, 2 * N - 1 > >(node_); }
-        auto get_keys() const { return fixed_vector< Key, keys_descriptor< internal_node_type*, size_type, 2 * N - 1 > >(node_); }
-
-        template < typename Node > auto get_children() { return fixed_vector< Node, children_descriptor< internal_node_type*, size_type, 2 * N > >(node_); }
-
+                
+        auto get_keys() { return fixed_vector< Key, key_array_descriptor >(node_->keys, node_->size); }
+        auto get_keys() const { return fixed_vector< Key, key_array_descriptor >(node_->keys, node_->size); }
+                
+        template < typename Node > auto get_children() { return fixed_vector< Node, children_array_descriptor >(node_->children, node_->size ? node_->size + 1 : 0); }
+                
         node_descriptor< internal_node_type* > get_parent() { return node_->parent; }
         void set_parent(internal_node_type* p) { node_->parent = p; }
 

@@ -467,7 +467,7 @@ namespace btree::detail
                 else
                 {
                     auto key = node.get_keys()[it.kindex_];
-                    auto [n, nindex] = rebalance_erase(allocator, depth_, node, get_index(node));
+                    auto n = rebalance_erase(allocator, depth_, node);
 
                     assert(find_key_index(n.get_keys(), key) < n.get_keys().size());
 
@@ -477,7 +477,7 @@ namespace btree::detail
                     --size_;
                     if (ndata.erase(allocator, ndata.begin() + kindex) == ndata.end())
                     {
-                        auto [right, rindex] = get_right(n, nindex, true);
+                        auto [right, rindex] = get_right(n, get_index(n), true);
                         if (right)
                         {
                             return iterator(right, 0);
@@ -1156,88 +1156,86 @@ namespace btree::detail
             return cmp ? p : n;
         }
 
-        template < typename AllocatorT, typename Node > void rebalance_erase(AllocatorT& allocator, size_type depth, node_descriptor< Node* > n)
+        template < typename AllocatorT, typename Node > node_descriptor< Node* > rebalance_erase(AllocatorT& allocator, size_type depth, node_descriptor< Node* > n)
         {
             if (n.get_parent())
-            {
-                rebalance_erase(allocator, depth, n, get_index(n));
-            }
-        }
+            {                
+                assert(n.get_keys().size() <= n.get_keys().capacity() / 2);
 
-        template < typename AllocatorT, typename Node > std::tuple< node_descriptor< Node* >, node_size_type > rebalance_erase(AllocatorT& allocator, size_type depth, node_descriptor< Node* > n, node_size_type nindex)
-        {
-            assert(n.get_parent());
-            assert(n.get_keys().size() <= n.get_keys().capacity() / 2);
+                auto nindex = get_index(n);
 
-            {
-                auto [left, lindex] = get_left(n, nindex);
-                if (left && share_keys(allocator, depth, n, nindex, left, lindex))
                 {
-                #if defined(BTREE_VALUE_NODE_APPEND)
-                    // TODO: investigate - right was 0, so possibly rigthtmost node append optimization?
-                    //assert(n.get_keys().size() > n.get_keys().capacity() / 2);
-                #else
-                    assert(n.get_keys().size() > n.get_keys().capacity() / 2);
-                #endif
-                    return { n, nindex };
-                }
-            }
-
-            {
-                auto [right, rindex] = get_right(n, nindex);
-                if (right && share_keys(allocator, depth, n, nindex, right, rindex))
-                {
-                #if defined(BTREE_VALUE_NODE_APPEND)
-                    // TODO: investigate - right was 0, so possibly rigthtmost node append optimization?
-                    if (right.get_keys().empty())
-                    {                        
-                        remove_node(allocator, depth, n.get_parent(), right, rindex, nindex);
-                        deallocate_node(allocator, right);
+                    auto [left, lindex] = get_left(n, nindex);
+                    if (left && share_keys(allocator, depth, n, nindex, left, lindex))
+                    {
+                    #if defined(BTREE_VALUE_NODE_APPEND)
+                        // TODO: investigate - right was 0, so possibly rigthtmost node append optimization?
+                        //assert(n.get_keys().size() > n.get_keys().capacity() / 2);
+                    #else
+                        assert(n.get_keys().size() > n.get_keys().capacity() / 2);
+                    #endif
+                        return n;
                     }
-                #else
-                    assert(n.get_keys().size() > n.get_keys().capacity() / 2);
-                #endif
-                    return { n, nindex };
                 }
-            }
 
-            {
-                auto pkeys = n.get_parent().get_keys();
-                if (pkeys.size() <= pkeys.capacity() / 2)
                 {
-                    depth_check< false > dc(depth_, depth);
-                    rebalance_erase(allocator, depth - 1, n.get_parent());
-                    nindex = get_index(n);
+                    auto [right, rindex] = get_right(n, nindex);
+                    if (right && share_keys(allocator, depth, n, nindex, right, rindex))
+                    {
+                    #if defined(BTREE_VALUE_NODE_APPEND)
+                        // TODO: investigate - right was 0, so possibly rigthtmost node append optimization?
+                        if (right.get_keys().empty())
+                        {
+                            remove_node(allocator, depth, n.get_parent(), right, rindex, nindex);
+                            deallocate_node(allocator, right);
+                        }
+                    #else
+                        assert(n.get_keys().size() > n.get_keys().capacity() / 2);
+                    #endif
+                        return n;
+                    }
                 }
-            }
 
-            {
-                // TODO: call get_left only if nindex changed
-                auto [left, lindex] = get_left(n, nindex);
-                if (merge_keys(allocator, depth, left, lindex, n, nindex))
                 {
-                    remove_node(allocator, depth, n.get_parent(), n, nindex, nindex - 1);
-                    deallocate_node(allocator, n);
-                    return { left, nindex - 1 };
+                    auto pkeys = n.get_parent().get_keys();
+                    if (pkeys.size() <= pkeys.capacity() / 2)
+                    {
+                        depth_check< false > dc(depth_, depth);
+                        rebalance_erase(allocator, depth - 1, n.get_parent());
+                        nindex = get_index(n);
+                    }
                 }
-            }
 
-            {
-                // TODO: call get_right only if nindex changed
-                auto [right, rindex] = get_right(n, nindex);
-                if (merge_keys(allocator, depth, right, rindex, n, nindex))
                 {
-                    remove_node(allocator, depth, n.get_parent(), n, nindex, nindex);
-                    deallocate_node(allocator, n);
-                    return { right, nindex };
+                    // TODO: call get_left only if nindex changed
+                    auto [left, lindex] = get_left(n, nindex);
+                    if (merge_keys(allocator, depth, left, lindex, n, nindex))
+                    {
+                        remove_node(allocator, depth, n.get_parent(), n, nindex, nindex - 1);
+                        deallocate_node(allocator, n);
+                        return left;
+                    }
                 }
+
+                {
+                    // TODO: call get_right only if nindex changed
+                    auto [right, rindex] = get_right(n, nindex);
+                    if (merge_keys(allocator, depth, right, rindex, n, nindex))
+                    {
+                        remove_node(allocator, depth, n.get_parent(), n, nindex, nindex);
+                        deallocate_node(allocator, n);
+                        return right;
+                    }
+                }
+
+            #if !defined(BTREE_VALUE_NODE_APPEND)
+                assert(false);
+                std::abort();
+            #endif
+                return n;
             }
 
-        #if !defined(BTREE_VALUE_NODE_APPEND)
-            assert(false);
-            std::abort();
-        #endif
-            return { n, nindex };
+            return nullptr;
         }
             
         // TODO: hide in #else, or remove (keep for verify_).

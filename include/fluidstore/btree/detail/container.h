@@ -521,7 +521,7 @@ namespace btree::detail
                 root_ = first_node_ = last_node_ = root;
                 depth_ = 1;
 
-                // TODO: this should forward
+                // TODO: this should forward but can't because of fixed_split_vector
                 return insert(allocator, root, 0, std::move(value));
             }
 
@@ -536,12 +536,12 @@ namespace btree::detail
             {
                 if (n.get_parent())
                 {
-                    std::tie(n, nindex) = rebalance_insert(allocator, depth_, n, nindex, key);
+                    n = rebalance_insert(allocator, depth_, n, nindex, key);
                     return insert(allocator, n, std::move(value));
                 }
                 else
                 {
-                    std::tie(n, nindex) = rebalance_insert(allocator, depth_, n, key);
+                    n = rebalance_insert(allocator, depth_, n, key);
                     return insert(allocator, n, std::move(value));
                 }
             }
@@ -577,7 +577,7 @@ namespace btree::detail
                     }
                     else
                     {
-                        std::tie(n, nindex) = rebalance_insert(allocator, depth_, n, key);
+                        n = rebalance_insert(allocator, depth_, n, key);
                         return insert(allocator, n, std::move(value));
                     }
                 }
@@ -1084,7 +1084,7 @@ namespace btree::detail
             return false;
         }
 
-        template < typename AllocatorT, typename Node > std::tuple< node_descriptor< Node* >, node_size_type > rebalance_insert(AllocatorT& allocator, size_type depth, node_descriptor< Node* > n, const Key& key)
+        template < typename AllocatorT, typename Node > node_descriptor< Node* > rebalance_insert(AllocatorT& allocator, size_type depth, node_descriptor< Node* > n, const Key& key)
         {
             assert(full(n));
             if (n.get_parent())
@@ -1113,11 +1113,11 @@ namespace btree::detail
                 root_ = root;
                 ++depth_;
 
-                return { cmp ? p : n, cmp };
+                return cmp ? p : n;
             }
         }
 
-        template < typename AllocatorT, typename Node > std::tuple< node_descriptor< Node* >, node_size_type > rebalance_insert(AllocatorT& allocator, size_type depth, node_descriptor< Node* > n, node_size_type nindex, const Key& key)
+        template < typename AllocatorT, typename Node > node_descriptor< Node* > rebalance_insert(AllocatorT& allocator, size_type depth, node_descriptor< Node* > n, node_size_type nindex, const Key& key)
         {
             assert(full(n));
             assert(n.get_parent());
@@ -1153,7 +1153,7 @@ namespace btree::detail
             }
 
             auto cmp = !(compare_lte(key, splitkey));
-            return { cmp ? p : n, nindex + cmp };
+            return cmp ? p : n;
         }
 
         template < typename AllocatorT, typename Node > void rebalance_erase(AllocatorT& allocator, size_type depth, node_descriptor< Node* > n)

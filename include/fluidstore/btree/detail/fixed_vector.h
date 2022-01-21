@@ -20,13 +20,6 @@ namespace btree::detail
         fixed_vector_base(Descriptor desc)
             : desc_(desc)
         {}
-
-        fixed_vector_base(Descriptor desc, size_type size)
-            : desc_(desc)
-        {
-            // TODO: desc ctor
-            desc_.set_size(size);
-        }
         
         size_type size() const { return desc_.size(); }
         constexpr size_type capacity() const { return desc_.capacity(); }
@@ -59,6 +52,7 @@ namespace btree::detail
         Descriptor desc_;
     };
         
+    // TODO: the trivial code is not faster than the normal code...
     template < typename T, typename Descriptor, bool IsTrivial = is_fixed_vector_trivial< T >::value > struct fixed_vector
         : public fixed_vector_base< T, Descriptor >
     {

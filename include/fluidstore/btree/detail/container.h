@@ -158,7 +158,7 @@ namespace btree::detail
         typedef std::pair< Key, Value > value_type;
         typedef std::pair< const Key&, Value& > reference;
 
-        template < typename Pair > static const Key& get_key(Pair&& p) { return p.first; }
+        template < typename Pair > static const Key& get_key(const Pair& p) { return p.first; }
 
         template < typename T > static reference* reference_address(T&& p)
         {
@@ -712,17 +712,19 @@ namespace btree::detail
         template< typename AllocatorT, typename Node > void remove_node(AllocatorT& allocator, size_type depth, node_descriptor< internal_node* > parent, const node_descriptor< Node* > n, node_size_type nindex, node_size_type kindex)
         {
             auto pchildren = parent.template get_children< node* >();
+            assert(!pchildren.empty());
             pchildren.erase(allocator, pchildren.begin() + nindex);
-
+            
             auto pkeys = parent.get_keys();
             pkeys.erase(allocator, pkeys.begin() + kindex);
 
             if (pkeys.empty())
             {
+                assert(pchildren.size() == 1);
+
                 auto root = root_;
-                // TODO: store left child before erase, get rid of this.
-                fixed_vector< node*, children_descriptor< internal_node*, size_type, 2 * internal_node::N > > pchildren((internal_node*)parent, 1); // override the size to 1
                 root_ = pchildren[0];
+
                 --depth_;
                 assert(depth_ >= 1);
                 set_parent(depth_ == 1, root_, nullptr);
@@ -758,7 +760,7 @@ namespace btree::detail
         }
 
         // TODO: check that returned reference is valid where split_key is used.
-        static const Key& split_key(/*const*/ node_descriptor< internal_node* > n)
+        static const Key& split_key(node_descriptor< internal_node* > n)
         {
             assert(full(n));
             return *(n.get_keys().begin() + internal_node::N);

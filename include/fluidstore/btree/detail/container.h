@@ -18,6 +18,7 @@
 #include <iterator>
 
 #define BTREE_VALUE_NODE_LR
+//#define BTREE_INTERNAL_NODE_LR
 #define BTREE_VALUE_NODE_APPEND
 
 #if defined(_DEBUG)
@@ -455,7 +456,7 @@ namespace btree::detail
                     --size_;
                     if (ndata.erase(allocator, ndata.begin() + it.kindex_) == ndata.end())
                     {
-                        auto [right, rindex] = get_right(node, get_index(node), true);
+                        auto right = get_right(node);
                         if (right)
                         {
                             return iterator(right, 0);
@@ -468,16 +469,17 @@ namespace btree::detail
                 {
                     auto key = node.get_keys()[it.kindex_];
                     auto n = rebalance_erase(allocator, depth_, node);
+                    auto nkeys = n.get_keys();
 
-                    assert(find_key_index(n.get_keys(), key) < n.get_keys().size());
+                    assert(find_key_index(nkeys, key) < nkeys.size());
 
                     auto ndata = n.get_data();
-                    auto kindex = find_key_index(n.get_keys(), key);
+                    auto kindex = find_key_index(nkeys, key);
 
                     --size_;
                     if (ndata.erase(allocator, ndata.begin() + kindex) == ndata.end())
                     {
-                        auto [right, rindex] = get_right(n, get_index(n), true);
+                        auto right = get_right(n);
                         if (right)
                         {
                             return iterator(right, 0);
@@ -536,6 +538,7 @@ namespace btree::detail
             {
                 if (n.get_parent())
                 {
+                    // TODO: reusing nindex here makes some difference, it seems.
                     n = rebalance_insert(allocator, depth_, n, nindex, key);
                     return insert(allocator, n, std::move(value));
                 }
@@ -766,7 +769,7 @@ namespace btree::detail
             return *(n.get_keys().begin() + internal_node::N);
         }
 
-        template < typename AllocatorT > std::tuple< node_descriptor< internal_node* >, const key_type > split_node(AllocatorT& allocator, size_type depth, node_descriptor< internal_node* > lnode, node_size_type lindex, const key_type&)
+        template < typename AllocatorT > std::tuple< node_descriptor< internal_node* >, const key_type > split_node(AllocatorT& allocator, size_type depth, node_descriptor< internal_node* > lnode, const key_type&)
         {
             assert(full(lnode));
             auto rnode = desc(allocate_node< internal_node >(allocator));
@@ -794,7 +797,7 @@ namespace btree::detail
             return { rnode, splitkey };
         }
                 
-        template < typename AllocatorT > std::tuple< node_descriptor< value_node* >, const key_type& > split_node(AllocatorT& allocator, size_type, node_descriptor< value_node* > lnode, node_size_type lindex, const key_type& key)
+        template < typename AllocatorT > std::tuple< node_descriptor< value_node* >, const key_type& > split_node(AllocatorT& allocator, size_type, node_descriptor< value_node* > lnode, const key_type& key)
         {
             assert(full(lnode));
             auto rnode = desc(allocate_node< value_node >(allocator));
@@ -805,7 +808,7 @@ namespace btree::detail
             // In case of appending to the right-most node, we will allow rnode to be empty as there might be more appends comming.
             // The tree will be very slightly disbalanced on its right edge but that is ok, it does not impact the overall complexity.
             // The node needs to be properly split and items distributed if there is a right node or the operation is not an append.
-            auto [right, rindex] = get_right(lnode, lindex);
+            auto right = get_right(lnode);
             if (right || compare_lte(key, lkeys.back()))
             {
         #endif
@@ -1094,21 +1097,22 @@ namespace btree::detail
             else
             {
                 auto root = desc(allocate_node< internal_node >(allocator));
-                auto [p, splitkey] = split_node(allocator, depth, n, 0, key);
+                auto [p, splitkey] = split_node(allocator, depth, n, key);
 
                 auto children = root.template get_children< node* >();
                 children.emplace_back(allocator, n);
                 n.set_parent(root);
                 children.emplace_back(allocator, p);
                 p.set_parent(root);
+                              
+                auto cmp = !(compare_lte(key, splitkey));
+                root.get_keys().emplace_back(allocator, std::move(splitkey));
 
                 if (root_ == last_node_)
                 {
                     last_node_ = node_cast<value_node*>(p);
-                }
-
-                auto cmp = !(compare_lte(key, splitkey));
-                root.get_keys().emplace_back(allocator, std::move(splitkey));
+                    first_node_ = node_cast<value_node*>(n);
+                }               
 
                 root_ = root;
                 ++depth_;
@@ -1121,35 +1125,32 @@ namespace btree::detail
         {
             assert(full(n));
             assert(n.get_parent());
-
-            auto parent_rebalance = full(n.get_parent());
-            if (parent_rebalance)
+                        
+            if (full(n.get_parent()))
             {
                 assert(depth > 1);
                 depth_check< true > dc(depth_, depth);
                 rebalance_insert(allocator, depth - 1, n.get_parent(), split_key(n.get_parent()));
                 assert(!full(n.get_parent()));
-            }
-
-            // TODO: check that the key is still valid reference, it might not be after split
-            auto [p, splitkey] = split_node(allocator, depth, n, nindex, key);
-
-            auto pchildren = n.get_parent().template get_children< node* >();
-            if (parent_rebalance)
-            {
                 nindex = get_index(n);
             }
+                        
+            auto [p, splitkey] = split_node(allocator, depth, n, key);
 
+            auto pchildren = n.get_parent().template get_children< node* >();
             pchildren.emplace(allocator, pchildren.begin() + nindex + 1, p);
             p.set_parent(n.get_parent());
 
             auto pkeys = n.get_parent().get_keys();
             pkeys.emplace(allocator, pkeys.begin() + nindex, splitkey);
 
-            // TODO:
-            if ((uintptr_t)last_node_ == (uintptr_t)n.node())
+            // TODO: where does this belong?
+            if constexpr (std::is_same_v< Node, value_node >)
             {
-                last_node_ = node_cast<value_node*>(p.node());
+                if ((uintptr_t)last_node_ == (uintptr_t)n.node())
+                {
+                    last_node_ = node_cast<value_node*>(p.node());
+                }
             }
 
             auto cmp = !(compare_lte(key, splitkey));
@@ -1280,6 +1281,11 @@ namespace btree::detail
         static std::tuple< node_descriptor< value_node* >, node_size_type > get_right(node_descriptor< value_node* > n, node_size_type index)
         {
             return { n.node()->right, n.node()->right ? index + 1 : 0 };
+        }
+
+        static node_descriptor< value_node* > get_right(node_descriptor< value_node* > n)
+        {
+            return n.node()->right;
         }
     #endif
 
@@ -1494,6 +1500,10 @@ namespace btree::detail
         alignas(Key) uint8_t keys[(2 * N - 1) * sizeof(Key)];
         alignas(node*) uint8_t children[2 * N * sizeof(node*)];
         internal_node< Key, SizeType, N >* parent;
+    #if defined(BTREE_INTERNAL_NODE_LR)
+        value_node* left;
+        value_node* right;
+    #endif
         SizeType size;
     };
 

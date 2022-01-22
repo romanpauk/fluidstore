@@ -18,8 +18,8 @@
 #include <iterator>
 
 #define BTREE_VALUE_NODE_LR
-//#define BTREE_INTERNAL_NODE_LR
 #define BTREE_VALUE_NODE_APPEND
+//#define BTREE_INTERNAL_NODE_LR
 
 #if defined(_DEBUG)
     //#define BTREE_CHECK_VECTOR_INVARIANTS
@@ -158,6 +158,12 @@ namespace btree::detail
         typename ValueNode
     > class container_base
     {
+        enum class balance_direction
+        {
+            left,
+            right
+        };
+
     public:
         using node_size_type = NodeSizeType;
         using size_type = size_t;
@@ -266,6 +272,7 @@ namespace btree::detail
                     node_ = node_->left;
                 #else
                     auto node = node_descriptor< value_node* >(node_);
+                    size_type tmp;
                     std::tie(node_, tmp) = get_left(node, get_index(node), true);
                 #endif
                     kindex_ = node_descriptor< value_node* >(node_).get_keys().size() - 1;
@@ -760,6 +767,17 @@ namespace btree::detail
             assert(lkeys.size() == internal_node::N - 1);
             assert(rkeys.size() == internal_node::N - 1);
 
+        #if defined(BTREE_INTERNAL_NODE_LR)
+            auto znode = lnode.node()->right;
+            lnode.node()->right = rnode;
+            rnode.node()->right = znode;
+            rnode.node()->left = lnode;
+            if (znode)
+            {
+                znode->left = rnode;
+            }
+        #endif
+
             return { rnode, splitkey };
         }
                 
@@ -859,10 +877,12 @@ namespace btree::detail
                 return false;
             }
 
+            assert(source.get_parent() == target.get_parent());
+
             auto sdata = source.get_data();
             auto tdata = target.get_data();
             auto pkeys = target.get_parent().get_keys();
-
+                        
             if (sdata.size() > value_node::N && tdata.size() < 2 * value_node::N)
             {
                 if (tindex > sindex)
@@ -902,7 +922,9 @@ namespace btree::detail
                 if (sdata.empty())
                 {
                     last_node_ = target;
+                #if defined(BTREE_VALUE_NODE_LR)
                     target.node()->right = nullptr;
+                #endif
                 }
 
                 return true;
@@ -921,8 +943,9 @@ namespace btree::detail
 
             auto skeys = source.get_keys();
             auto tkeys = target.get_keys();
-
+                       
             assert(depth_ >= depth + 1);
+            assert(source.get_parent() == target.get_parent());
 
             if (skeys.size() > internal_node::N - 1 && tkeys.size() < 2 * internal_node::N - 1)
             {
@@ -967,6 +990,8 @@ namespace btree::detail
             {
                 return false;
             }
+
+            assert(source.get_parent() == target.get_parent());
 
             auto tdata = target.get_data();
             if (tdata.size() == value_node::N)
@@ -1017,6 +1042,8 @@ namespace btree::detail
             {
                 return false;
             }
+
+            assert(source.get_parent() == target.get_parent());
 
             auto skeys = source.get_keys();
             auto tkeys = target.get_keys();
@@ -1206,6 +1233,11 @@ namespace btree::detail
         }
             
         // TODO: hide in #else, or remove (keep for verify_).
+        template< typename Node > static node_descriptor< Node > get_right(node_descriptor< Node > n)
+        {
+            return std::get< 0 >(get_right(n, get_index(n)));
+        }
+
         template< typename Node > static std::tuple< node_descriptor< Node >, node_size_type > get_right(node_descriptor< Node > n, node_size_type index, bool recursive = false)
         {
             node_descriptor< internal_node* > p(n.get_parent());
@@ -1255,6 +1287,13 @@ namespace btree::detail
         }
     #endif
 
+    #if defined(BTREE_INTERNAL_NODE_LR)
+        static std::tuple< node_descriptor< internal_node* >, node_size_type > get_right(node_descriptor< internal_node* > n, node_size_type index)
+        {
+            return { n.node()->right, n.node()->right ? index + 1 : 0 };
+        }
+    #endif
+
         template< typename Node > static std::tuple< node_descriptor< Node >, node_size_type > get_left(node_descriptor< Node > n, node_size_type index, bool recursive = false)
         {
             node_descriptor< internal_node* > p = n.get_parent();
@@ -1295,6 +1334,13 @@ namespace btree::detail
     #if defined(BTREE_VALUE_NODE_LR)
         static std::tuple< node_descriptor< value_node* >, node_size_type > get_left(node_descriptor< value_node* > n, node_size_type index)
         {            
+            return { n.node()->left, n.node()->left ? index - 1 : 0 };
+        }
+    #endif
+
+    #if defined(BTREE_INTERNAL_NODE_LR)
+        static std::tuple< node_descriptor< internal_node* >, node_size_type > get_left(node_descriptor< internal_node* > n, node_size_type index)
+        {
             return { n.node()->left, n.node()->left ? index - 1 : 0 };
         }
     #endif
@@ -1358,9 +1404,8 @@ namespace btree::detail
                 // TODO: after we move last_node/first_node to pointer versions, we will need a way how to find them through traversal.
                 assert(last_node_ == last_node< value_node* >(root_, depth_));
                 assert(first_node_ == first_node< value_node* >(root_, depth_));
-
-                // TODO:
-                //assert(count == std::distance(begin(), end()));                    
+                                
+                assert(std::distance(begin(), end()) == size());                    
 
                 size_type count_forward = 0;
                 for (auto it = begin(); it != end(); ++it)
@@ -1378,6 +1423,7 @@ namespace btree::detail
                 } while (it != begin());
                 assert(count_backward == size());
 
+            #if defined(BTREE_VALUE_NODE_LR)
                 size_type count_node = 0;
                 for (auto vn = first_node_; vn != nullptr; )
                 {
@@ -1401,6 +1447,7 @@ namespace btree::detail
                 }
 
                 assert(count_node == size());
+            #endif
             }
             else
             {
@@ -1467,8 +1514,8 @@ namespace btree::detail
         alignas(node*) uint8_t children[2 * N * sizeof(node*)];
         internal_node< Key, SizeType, N >* parent;
     #if defined(BTREE_INTERNAL_NODE_LR)
-        value_node* left;
-        value_node* right;
+        internal_node< Key, SizeType, N >* left;
+        internal_node< Key, SizeType, N >* right;
     #endif
         SizeType size;
     };

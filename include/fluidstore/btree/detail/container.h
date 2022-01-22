@@ -742,6 +742,34 @@ namespace btree::detail
             return *(n.get_keys().begin() + internal_node::N);
         }
 
+        template < typename Node > void link_node(node_descriptor< Node > lnode, node_descriptor< Node > rnode)
+        {
+            auto znode = lnode.node()->right;
+            lnode.node()->right = rnode;
+            rnode.node()->right = znode;
+            rnode.node()->left = lnode;
+            if (znode)
+            {
+                znode->left = rnode;
+            }
+        }
+        
+        template < typename Node > void unlink_node(node_descriptor< Node > n)
+        {
+            auto left = n.node()->left;
+            auto right = n.node()->right;
+            
+            if (left)
+            {
+                left->right = right;
+            }
+
+            if (right)
+            {
+                right->left = left;
+            }
+        }
+
         template < typename AllocatorT > std::tuple< node_descriptor< internal_node* >, const key_type > split_node(AllocatorT& allocator, size_type depth, node_descriptor< internal_node* > lnode, const key_type&)
         {
             assert(full(lnode));
@@ -768,14 +796,7 @@ namespace btree::detail
             assert(rkeys.size() == internal_node::N - 1);
 
         #if defined(BTREE_INTERNAL_NODE_LR)
-            auto znode = lnode.node()->right;
-            lnode.node()->right = rnode;
-            rnode.node()->right = znode;
-            rnode.node()->left = lnode;
-            if (znode)
-            {
-                znode->left = rnode;
-            }
+            link_node(lnode, rnode);
         #endif
 
             return { rnode, splitkey };
@@ -811,14 +832,7 @@ namespace btree::detail
         #endif
 
         #if defined(BTREE_VALUE_NODE_LR)
-            auto znode = lnode.node()->right;
-            lnode.node()->right = rnode;
-            rnode.node()->right = znode;
-            rnode.node()->left = lnode;
-            if (znode)
-            {
-                znode->left = rnode;
-            }
+            link_node(lnode, rnode);
         #endif
 
             return { rnode, lkeys.back() };
@@ -1000,13 +1014,9 @@ namespace btree::detail
                 tdata.insert(allocator, tindex < sindex ? tdata.end() : tdata.begin(), std::make_move_iterator(sdata.begin()), std::make_move_iterator(sdata.end()));
 
                 if (tindex < sindex)
-                {
+                {                  
                 #if defined(BTREE_VALUE_NODE_LR)
-                    target.node()->right = source.node()->right;
-                    if (source.node()->right)
-                    {
-                        source.node()->right->left = target;
-                    }
+                    unlink_node(source);
                 #endif
 
                     if (last_node_ == source)
@@ -1017,11 +1027,7 @@ namespace btree::detail
                 else
                 {
                 #if defined(BTREE_VALUE_NODE_LR)
-                    target.node()->left = source.node()->left;
-                    if (source.node()->left)
-                    {
-                        source.node()->left->right = target;
-                    }
+                    unlink_node(source);
                 #endif
 
                     if (first_node_ == source)
@@ -1150,6 +1156,12 @@ namespace btree::detail
             return cmp ? p : n;
         }
 
+        //
+        // TODO: this code does rebalancing under one parent only.
+        // to extend it across multiple parents, share/merge methods need to change:
+        //  1) cannot use sindex/tindex to find direction of balancing (as those are per-parent).
+        //  2) cannot use pkeys blindly as the parent for pkeys can be more levels distant
+        //
         template < typename AllocatorT, typename Node > node_descriptor< Node* > rebalance_erase(AllocatorT& allocator, size_type depth, node_descriptor< Node* > n)
         {
             if (n.get_parent())

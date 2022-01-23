@@ -1043,7 +1043,7 @@ namespace btree::detail
             return false;
         }
 
-        template < typename AllocatorT > bool merge_keys(AllocatorT& allocator, direction dir, size_type depth, node_descriptor< value_node* > target, node_size_type tindex, node_descriptor< value_node* > source, node_size_type sindex)
+        template < typename AllocatorT > bool merge_keys(AllocatorT& allocator, direction dir, size_type depth, node_descriptor< value_node* > target, node_descriptor< value_node* > source)
         {
             if (!target)
             {
@@ -1057,9 +1057,9 @@ namespace btree::detail
             if (tdata.size() == value_node::N)
             {
                 auto sdata = source.get_data();
-                tdata.insert(allocator, tindex < sindex ? tdata.end() : tdata.begin(), std::make_move_iterator(sdata.begin()), std::make_move_iterator(sdata.end()));
+                tdata.insert(allocator, dir == direction::left ? tdata.end() : tdata.begin(), std::make_move_iterator(sdata.begin()), std::make_move_iterator(sdata.end()));
 
-                if (tindex < sindex)
+                if (dir == direction::left)
                 {                  
                 #if defined(BTREE_VALUE_NODE_LR)
                     unlink_node(source);
@@ -1088,7 +1088,7 @@ namespace btree::detail
             return false;
         }
 
-        template < typename AllocatorT > bool merge_keys(AllocatorT& allocator, direction dir, size_type depth, node_descriptor< internal_node* > target, node_size_type tindex, node_descriptor< internal_node* > source, node_size_type sindex)
+        template < typename AllocatorT > bool merge_keys(AllocatorT& allocator, direction dir, size_type depth, node_descriptor< internal_node* > target, node_descriptor< internal_node* > source)
         {
             if (!target)
             {
@@ -1103,27 +1103,38 @@ namespace btree::detail
 
             if (tkeys.size() == internal_node::N - 1)
             {
-                auto pkeys = target.get_parent().get_keys();
-                
+                auto p = get_common_parent(source, target);
+                auto pkeys = p.get_keys();
+                               
+                auto get_key_index = [&](auto key)
+                {
+                    auto kindex = find_key_index(pkeys, key);
+                    return kindex == pkeys.size() ? --kindex : kindex;
+                };
+
                 assert(depth_ >= depth + 1);
 
                 auto schildren = source.template get_children< node* >();
                 auto tchildren = target.template get_children< node* >();
 
-                if (tindex < sindex)
+                if (dir == direction::left)
                 {                    
+                    auto pkindex = get_key_index(tkeys.back());
+                    
                     tchildren.insert(allocator, tchildren.end(), schildren.begin(), schildren.end());
                     std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { set_parent(depth_ == depth + 1, n, target); });
 
-                    tkeys.emplace(allocator, tkeys.end(), pkeys[sindex - 1]);
+                    tkeys.emplace(allocator, tkeys.end(), pkeys[pkindex]);
                     tkeys.insert(allocator, tkeys.end(), std::make_move_iterator(skeys.begin()), std::make_move_iterator(skeys.end()));
                 }
                 else
-                {                    
+                {  
+                    auto pkindex = get_key_index(skeys.back());
+                    
                     tchildren.insert(allocator, tchildren.begin(), schildren.begin(), schildren.end());
                     std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { set_parent(depth_ == depth + 1, n, target); });
 
-                    tkeys.emplace(allocator, tkeys.begin(), pkeys[sindex]);
+                    tkeys.emplace(allocator, tkeys.begin(), pkeys[pkindex]);
                     tkeys.insert(allocator, tkeys.begin(), std::make_move_iterator(skeys.begin()), std::make_move_iterator(skeys.end()));                    
                 }
 
@@ -1277,7 +1288,7 @@ namespace btree::detail
                 {
                     // TODO: call get_left only if nindex changed
                     auto [left, lindex] = get_left(n, nindex, recursive);
-                    if (merge_keys(allocator, direction::left, depth, left, lindex, n, nindex))
+                    if (merge_keys(allocator, direction::left, depth, left, n))
                     {
                         remove_node(allocator, depth, n.get_parent(), n, nindex, nindex - 1);
                         deallocate_node(allocator, n);
@@ -1289,7 +1300,7 @@ namespace btree::detail
                 {
                     // TODO: call get_right only if nindex changed
                     auto [right, rindex] = get_right(n, nindex, recursive);
-                    if (merge_keys(allocator, direction::right, depth, right, rindex, n, nindex))
+                    if (merge_keys(allocator, direction::right, depth, right, n))
                     {
                         remove_node(allocator, depth, n.get_parent(), n, nindex, nindex);
                         deallocate_node(allocator, n);

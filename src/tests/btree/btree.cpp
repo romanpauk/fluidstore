@@ -532,6 +532,46 @@ BOOST_AUTO_TEST_CASE(btree_lower_bound_pair)
     BOOST_TEST((counters.lower_bound({ 1, 2 }) == counters.end()));
 }
 
+template < typename T > void shuffle(std::vector< T >& data)
+{
+    assert(!data.empty());
+
+    srand(1);
+        
+    for (int i = data.size() - 1; i > 0; i--)
+    {
+        int j = rand() % (i + 1);
+        std::swap(data[i], data[j]);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(btree_set_random)
+{
+    const int Count = 2048;
+    std::vector< int > data;
+    for (int i = 0; i < Count; ++i)
+    {
+        data.push_back(i);
+    }
+    shuffle(data);
+
+    btree::set< int > set;
+
+    for (auto& value : data)
+    {
+        BOOST_TEST(set.insert(value).second == true);
+    }
+    BOOST_TEST(set.size() == data.size());
+
+    shuffle(data);
+
+    for (auto& value : data)
+    {
+        BOOST_TEST(set.erase(value) == 1);
+    }
+    BOOST_TEST(set.empty());
+}
+
 #if !defined(_DEBUG)
 template < typename Fn > double measure(Fn&& fn)
 {

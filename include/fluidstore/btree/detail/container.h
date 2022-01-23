@@ -918,7 +918,7 @@ namespace btree::detail
                 return false;
             }
 
-            assert(source.get_parent() == target.get_parent());
+            //assert(source.get_parent() == target.get_parent());
             assert(get_level(source) == get_level(target));
 
             auto sdata = source.get_data();
@@ -992,7 +992,6 @@ namespace btree::detail
             auto tkeys = target.get_keys();
                        
             assert(depth_ >= depth + 1);
-            assert(source.get_parent() == target.get_parent());
             assert(get_level(source) == get_level(target));
 
             if (skeys.size() > internal_node::N - 1 && tkeys.size() < 2 * internal_node::N - 1)
@@ -1049,8 +1048,7 @@ namespace btree::detail
             {
                 return false;
             }
-
-            assert(source.get_parent() == target.get_parent());
+                        
             assert(get_level(source) == get_level(target));
 
             auto tdata = target.get_data();
@@ -1094,8 +1092,7 @@ namespace btree::detail
             {
                 return false;
             }
-
-            assert(source.get_parent() == target.get_parent());
+                        
             assert(get_level(source) == get_level(target));
 
             auto skeys = source.get_keys();
@@ -1227,7 +1224,7 @@ namespace btree::detail
         //
         template < typename AllocatorT, typename Node > node_descriptor< Node* > rebalance_erase(AllocatorT& allocator, size_type depth, node_descriptor< Node* > n)
         {
-            const bool recursive = false;
+            const bool recursive = true;
             if (n.get_parent())
             {                
                 assert(n.get_keys().size() <= n.get_keys().capacity() / 2);

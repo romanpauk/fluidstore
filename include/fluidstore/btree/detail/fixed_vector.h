@@ -48,6 +48,10 @@ namespace btree::detail
             return const_cast<fixed_vector_base< T, Descriptor >&>(*this).operator [](index);
         }
 
+    #if defined(_DEBUG)
+        std::vector< T > get_std_vector() const { return std::vector<T>(begin(), end()); }
+    #endif
+
     protected:
         Descriptor desc_;
     };

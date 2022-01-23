@@ -780,7 +780,7 @@ namespace btree::detail
 
             assert(depth_ >= depth + 1);
             rchildren.insert(allocator, rchildren.begin(), lchildren.begin() + internal_node::N, lchildren.end());
-            std::for_each(lchildren.begin() + internal_node::N, lchildren.end(), [&](auto& n) { set_parent(depth_ == depth + 1, n, rnode); });
+            std::for_each(rchildren.begin(), rchildren.end(), [&](auto& n) { set_parent(depth_ == depth + 1, n, rnode); });
 
             auto lkeys = lnode.get_keys();
             auto rkeys = rnode.get_keys();
@@ -792,8 +792,11 @@ namespace btree::detail
 
             // Remove splitkey, too (begin - 1). Each node should end up with N-1 keys as split key will be propagated to parent node.
             lkeys.erase(allocator, begin - 1, lkeys.end());
+
             assert(lkeys.size() == internal_node::N - 1);
+            assert(lnode.template get_children< node* >().size() == internal_node::N);
             assert(rkeys.size() == internal_node::N - 1);
+            assert(rnode.template get_children< node* >().size() == internal_node::N);
 
         #if defined(BTREE_INTERNAL_NODE_LR)
             link_node(lnode, rnode);
@@ -896,6 +899,19 @@ namespace btree::detail
             }
         }
 
+        template < typename Node > size_type get_level(node_descriptor< Node* > n)
+        {
+            size_type level = 0;
+            auto parent = n.get_parent();
+            while (parent)
+            {
+                ++level;
+                parent = parent.get_parent();
+            }
+
+            return level;
+        }
+
         template < typename AllocatorT > bool share_keys(AllocatorT& allocator, direction dir, size_t, node_descriptor< value_node* > target, node_size_type tindex, node_descriptor< value_node* > source, node_size_type sindex)
         {
             if (!source)
@@ -903,16 +919,21 @@ namespace btree::detail
                 return false;
             }
 
-            assert(source.get_parent() == target.get_parent());
+            assert(get_level(source) == get_level(target));
 
             auto sdata = source.get_data();
             auto tdata = target.get_data();
 
-            // TODO: in progress
-            assert(get_common_parent(source, target) == source.get_parent());
+            auto p = get_common_parent(source, target);
+            auto pkeys = p.get_keys();
 
-            auto pkeys = get_common_parent(source, target).get_keys();
-                        
+            auto get_key_index = [&](auto key)
+            {
+                auto kindex = find_key_index(pkeys, key);
+                return kindex == pkeys.size() ? --kindex : kindex;
+            };
+
+        
             if (sdata.size() > value_node::N && tdata.size() < 2 * value_node::N)
             {
                 if (dir == direction::right)
@@ -923,16 +944,22 @@ namespace btree::detail
                     sdata.erase(allocator, key);
 
                     assert(tindex > 0);
-                    pkeys[tindex - 1] = source.get_keys().back();
+                    const auto& pkey = source.get_keys().back();
+                    pkeys[get_key_index(pkey)] = pkey;
                 }
                 else
                 {
+                    auto skeys = std::vector< key_type >(source.get_keys().begin(), source.get_keys().end());
+                    auto tkeys = std::vector< key_type >(target.get_keys().begin(), target.get_keys().end());
+
                     // Left-most key from the right node
                     auto key = sdata.begin();
                     tdata.emplace(allocator, tdata.end(), std::move(*key));
                     sdata.erase(allocator, key);
 
-                    pkeys[tindex] = target.get_keys().back();
+                    const auto& pkey = target.get_keys().back();
+                    std::vector< key_type > aaa(pkeys.begin(), pkeys.end());
+                    pkeys[get_key_index(pkey)] = pkey;
                 }
 
                 return true;
@@ -946,7 +973,8 @@ namespace btree::detail
                 tdata.emplace(allocator, tdata.end(), std::move(*key));
                 sdata.erase(allocator, key);
 
-                pkeys[tindex] = target.get_keys().back();
+                const auto& pkey = target.get_keys().back();
+                pkeys[get_key_index(pkey)] = pkey;
                                 
                 return true;
             }
@@ -1134,9 +1162,13 @@ namespace btree::detail
                         
             if (full(n.get_parent()))
             {
-                assert(depth > 1);
-                depth_check< true > dc(depth_, depth);
-                rebalance_insert(allocator, depth - 1, n.get_parent(), split_key(n.get_parent()));
+                assert(depth > 1);                
+
+                {
+                    depth_check< true > dc(depth_, depth);
+                    rebalance_insert(allocator, depth - 1, n.get_parent(), split_key(n.get_parent()));
+                }
+
                 assert(!full(n.get_parent()));
                 nindex = get_index(n);
             }
@@ -1172,6 +1204,7 @@ namespace btree::detail
         //
         template < typename AllocatorT, typename Node > node_descriptor< Node* > rebalance_erase(AllocatorT& allocator, size_type depth, node_descriptor< Node* > n)
         {
+            const bool recursive = false;
             if (n.get_parent())
             {                
                 assert(n.get_keys().size() <= n.get_keys().capacity() / 2);
@@ -1179,7 +1212,7 @@ namespace btree::detail
                 auto nindex = get_index(n);
 
                 {
-                    auto [left, lindex] = get_left(n, nindex);
+                    auto [left, lindex] = get_left(n, nindex, recursive);
                     if (left && share_keys(allocator, direction::right, depth, n, nindex, left, lindex))
                     {
                     #if defined(BTREE_VALUE_NODE_APPEND)
@@ -1193,7 +1226,7 @@ namespace btree::detail
                 }
 
                 {
-                    auto [right, rindex] = get_right(n, nindex);
+                    auto [right, rindex] = get_right(n, nindex, recursive);
                     if (right && share_keys(allocator, direction::left, depth, n, nindex, right, rindex))
                     {
                     #if defined(BTREE_VALUE_NODE_APPEND)
@@ -1281,11 +1314,15 @@ namespace btree::detail
                     result = { children[index + 1], index + 1 };
                     break;
                 }
+                else if(recursive)
+                {
+                    index = get_index(p);
+                    p = p.get_parent();                    
+                    ++level;
+                }
                 else
                 {
-                    p = p.get_parent();
-                    index = get_index(p);
-                    ++level;
+                    break;
                 }
             }
 
@@ -1332,11 +1369,15 @@ namespace btree::detail
                     result = { children[index - 1], index - 1 };
                     break;
                 }
+                else if(recursive)
+                {
+                    index = get_index(p);
+                    p = p.get_parent();                    
+                    ++level;
+                }
                 else
                 {
-                    p = p.get_parent();
-                    index = get_index(p);
-                    ++level;
+                    break;
                 }
             }
 
@@ -1470,6 +1511,8 @@ namespace btree::detail
 
                 assert(count_node == size());
             #endif
+
+                checklevels(root_, 1);
             }
             else
             {
@@ -1511,9 +1554,48 @@ namespace btree::detail
                     }
 
                     checktree(child, in, depth + 1);
-                }
+                }                                
             }
         }
+
+        template < typename Node > void checklevels(Node* n, size_type depth)
+        {
+            if (depth == depth_)
+            {
+                auto vn = desc(node_cast<value_node*>(n));
+                checklevel(vn);
+            }
+            else
+            {
+                auto in = desc(node_cast<internal_node*>(n));
+                checklevel(in);
+                checklevels(in.get_children< node* >()[0], depth + 1);
+            }
+        }
+
+        template < typename Node > bool checklevel(node_descriptor< Node > n)
+        {
+            std::vector< key_type > vec;
+            auto level = get_level(n);
+            while (n)
+            {
+                assert(get_level(n) == level);
+
+                // TODO: why does this not compile?
+                // vec.emplace(vec.end(), n.get_keys().begin(), n.get_keys().end());
+                for (auto key : n.get_keys())
+                {
+                    vec.push_back(key);
+                }
+
+                assert(std::is_sorted(vec.begin(), vec.end()));
+
+                n = std::get< 0 >(get_right(n, get_index(n), true));
+            }
+
+            return true;
+        }
+
     #endif
 
     private:

@@ -1179,7 +1179,7 @@ namespace btree::detail
                 auto nindex = get_index(n);
 
                 {
-                    auto [left, lindex] = get_left(n, nindex, true);
+                    auto [left, lindex] = get_left(n, nindex);
                     if (left && share_keys(allocator, direction::right, depth, n, nindex, left, lindex))
                     {
                     #if defined(BTREE_VALUE_NODE_APPEND)
@@ -1193,7 +1193,7 @@ namespace btree::detail
                 }
 
                 {
-                    auto [right, rindex] = get_right(n, nindex, true);
+                    auto [right, rindex] = get_right(n, nindex);
                     if (right && share_keys(allocator, direction::left, depth, n, nindex, right, rindex))
                     {
                     #if defined(BTREE_VALUE_NODE_APPEND)
@@ -1270,38 +1270,33 @@ namespace btree::detail
         template< typename Node > static std::tuple< node_descriptor< Node >, node_size_type > get_right(node_descriptor< Node > n, node_size_type index, bool recursive = false)
         {
             node_descriptor< internal_node* > p(n.get_parent());
-            size_type depth = 1;
+            std::tuple< node_descriptor< Node >, node_size_type > result(nullptr, 0);
+            node_size_type level(1);
+
             while (p)
             {
                 auto children = p.template get_children< Node >();
                 if (index + 1 < children.size())
                 {
-                    if (depth == 1)
-                    {
-                        return { children[index + 1], index + 1 };
-                    }
-                    else
-                    {
-                        return { first_node< Node >(children[index + 1], depth), 0 };
-                    }
-                }
-                else if (recursive)
-                {
-                    if (p.get_parent())
-                    {
-                        index = get_index(p);
-                        ++depth;
-                    }
-
-                    p = p.get_parent();
+                    result = { children[index + 1], index + 1 };
+                    break;
                 }
                 else
                 {
-                    break;
+                    p = p.get_parent();
+                    index = get_index(p);
+                    ++level;
                 }
             }
 
-            return { nullptr, 0 };
+            if (std::get< 0 >(result) && level > 1)
+            {
+                return { first_node< Node >(std::get< 0 >(result), level), 0 };
+            }
+            else
+            {
+                return result;
+            }
         }
 
     #if defined(BTREE_VALUE_NODE_LR)
@@ -1325,39 +1320,37 @@ namespace btree::detail
 
         template< typename Node > static std::tuple< node_descriptor< Node >, node_size_type > get_left(node_descriptor< Node > n, node_size_type index, bool recursive = false)
         {
-            node_descriptor< internal_node* > p = n.get_parent();
-            size_type depth = 1;
+            node_descriptor< internal_node* > p(n.get_parent());
+            std::tuple< node_descriptor< Node >, node_size_type > result(nullptr, 0);
+            node_size_type level(1);
+
             while (p)
             {
                 auto children = p.template get_children< Node >();
                 if (index > 0)
                 {
-                    if (depth == 1)
-                    {
-                        return { children[index - 1], index - 1 };
-                    }
-                    else
-                    {
-                        return { last_node< Node >(children[index - 1], depth), 0 };
-                    }
-                }
-                else if (recursive)
-                {
-                    if (p.get_parent())
-                    {
-                        index = get_index(p);
-                        ++depth;
-                    }
-
-                    p = p.get_parent();
+                    result = { children[index - 1], index - 1 };
+                    break;
                 }
                 else
                 {
-                    break;
+                    p = p.get_parent();
+                    index = get_index(p);
+                    ++level;
                 }
             }
 
-            return { nullptr, 0 };
+            if (std::get< 0 >(result) && level > 1)
+            {
+                auto node = last_node< Node >(std::get< 0 >(result), level);
+
+                // TODO: last node, can be get from parent's children
+                return { node, get_index(desc(node)) };
+            }
+            else
+            {
+                return result;
+            }
         }
 
     #if defined(BTREE_VALUE_NODE_LR)

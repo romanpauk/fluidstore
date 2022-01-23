@@ -337,6 +337,35 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_insert, T, crdt_set_insert_types)
             std::cout << "btree::set<" << get_type_name<T>() << ">" << " [append,linear] insertions per second: " << int(N / t) << std::endl;
         }
 
+        {
+            auto t = measure(Iters, [&]
+                {
+                    std::deque< T > c;
+                    for (size_t i = 0; i < N; ++i)
+                    {
+                        c.push_back(i);
+                    }                    
+                });
+
+            std::cout << "std::deque<" << get_type_name<T>() << ">" << " [append,new] insertions per second: " << int(N / t) << std::endl;
+        }
+
+        {
+            memory::dynamic_buffer< std::allocator< uint8_t > > buffer(preallocated);
+            memory::buffer_allocator< T, decltype(buffer) > alloc(buffer);
+
+            auto t = measure(Iters, [&, alloc]
+                {
+                    std::deque < T, decltype(alloc) > c(alloc);
+                    for (size_t i = 0; i < N; ++i)
+                    {
+                        c.push_back(i);
+                    }
+                });
+
+            std::cout << "std::deque<" << get_type_name<T>() << ">" << " [append,linear] insertions per second: " << int(N / t) << std::endl;
+        }
+
     #if defined(TLX_ENABLED)
         {
             auto t = measure(Iters, [&]

@@ -47,12 +47,13 @@ namespace btree::detail
         {
             return const_cast<fixed_vector_base< T, Descriptor >&>(*this).operator [](index);
         }
+            
+        void set_size(size_type size)
+        {            
+            desc_.set_size(size);
+        }
 
-    #if defined(_DEBUG)
-        std::vector< T > get_std_vector() const { return std::vector<T>(begin(), end()); }
-    #endif
-
-    protected:
+    private:
         Descriptor desc_;
     };
         
@@ -82,7 +83,7 @@ namespace btree::detail
             std::move(index + 1, this->end(), index);
             destroy(alloc, this->end() - 1, this->end());
 
-            this->desc_.set_size(this->size() - 1);
+            this->set_size(this->size() - 1);
 
             return last ? this->end() : index;
         }
@@ -95,7 +96,7 @@ namespace btree::detail
             if (to == this->end())
             {
                 destroy(alloc, from, to);
-                this->desc_.set_size(this->size() - static_cast<size_type>(to - from));
+                this->set_size(this->size() - static_cast<size_type>(to - from));
             }
             else
             {
@@ -106,7 +107,7 @@ namespace btree::detail
         template < typename Allocator > void clear(Allocator& alloc)
         {
             destroy(alloc, this->begin(), this->end());
-            this->desc_.set_size(0);
+            this->set_size(0);
         }       
 
         template < typename Allocator, typename... Args > void emplace(Allocator& alloc, iterator it, Args&&... args)
@@ -135,7 +136,7 @@ namespace btree::detail
                 std::allocator_traits< Allocator >::construct(alloc, it, std::forward< Args >(args)...);
             }
 
-            this->desc_.set_size(this->desc_.size() + 1);
+            this->set_size(this->size() + 1);
         }
 
         template < typename Allocator, typename U > void insert(Allocator& alloc, iterator it, U from, U to)
@@ -149,7 +150,7 @@ namespace btree::detail
             }
 
             copy(alloc, from, to, it);
-            this->desc_.set_size(this->size() + static_cast<size_type>(to - from));
+            this->set_size(this->size() + static_cast<size_type>(to - from));
         }
 
     private:
@@ -220,11 +221,15 @@ namespace btree::detail
 
         template < typename... Args > fixed_vector(Args&&... args)
             : fixed_vector_base< T, Descriptor >(std::forward< Args >(args)...)
-        {}
+        {
+        #if defined(_DEBUG)
+            std_vector_.assign(begin(), end());
+        #endif
+        }
               
         template < typename Allocator > void clear(Allocator& alloc)
         {
-            this->desc_.set_size(0);
+            this->set_size(0);
         }
 
         template < typename Allocator, typename... Args > void emplace_back(Allocator& alloc, Args&&... args)
@@ -245,7 +250,7 @@ namespace btree::detail
 
             new (it) T(std::forward< Args >(args)...);
 
-            this->desc_.set_size(this->size() + 1);
+            this->set_size(this->size() + 1);
         }
 
         template < typename Allocator > iterator erase(Allocator&, iterator it)
@@ -254,7 +259,7 @@ namespace btree::detail
 
             bool last = it == this->end() - 1;
             copy(it, it + 1, static_cast< size_type >(this->end() - it - 1));
-            this->desc_.set_size(this->size() - 1);
+            this->set_size(this->size() - 1);
             return last ? this->end() : it;
         }
 
@@ -265,7 +270,7 @@ namespace btree::detail
 
             if (to == this->end())
             {                
-                this->desc_.set_size(this->size() - static_cast<size_type>(to - from));
+                this->set_size(this->size() - static_cast<size_type>(to - from));
             }
             else
             {
@@ -287,15 +292,23 @@ namespace btree::detail
 
             if (it < this->end())
             {                
-                move(it + count, it, count);
+                move(it + count, it, this->size());
             }
 
             copy(it, from, count);
                         
-            this->desc_.set_size(this->size() + count);
+            this->set_size(this->size() + count);
         }       
 
     private:
+    #if defined(_DEBUG)
+        void set_size(size_type size)
+        {
+            fixed_vector_base< T, Descriptor >::set_size(size);
+            std_vector_.assign(begin(), end());
+        }
+    #endif
+
         void move(T* dest, const T* source, size_type count)
         {
             std::memmove(dest, source, sizeof(T) * count);
@@ -305,6 +318,10 @@ namespace btree::detail
         {
             std::memcpy(dest, source, sizeof(T) * count);
         }
+
+    #if defined(_DEBUG)
+        std::vector< T > std_vector_;
+    #endif
     };
     
     // TODO: exception safety

@@ -14,7 +14,6 @@
 #if !defined(_DEBUG)
 static int Iters = 20;
 static int Max = 32768;
-static const int ArenaSize = 65536 * 2;
 #endif
 
 static const int Count = 10;
@@ -190,7 +189,7 @@ BOOST_AUTO_TEST_CASE(btree_set_erase_iterator_forward)
 {
     btree::set < int > set1;
     
-    int Count = 512;
+    int Count = 2048;
     for (int i = 0; i < Count; ++i)
     {
         set1.insert(i);
@@ -211,7 +210,7 @@ BOOST_AUTO_TEST_CASE(btree_set_erase_iterator_backwards)
 {
     btree::set < int > set1;
 
-    int Count = 512;
+    int Count = 2048;
     for (int i = 0; i < Count; ++i)
     {
         set1.insert(i);

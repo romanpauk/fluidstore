@@ -559,17 +559,17 @@ BOOST_AUTO_TEST_CASE(btree_set_random)
 
     for (auto& value : data)
     {
-        BOOST_TEST(set.insert(value).second == true);
+        BOOST_REQUIRE(set.insert(value).second == true);
     }
-    BOOST_TEST(set.size() == data.size());
+    BOOST_REQUIRE(set.size() == data.size());
 
     shuffle(data);
 
     for (auto& value : data)
     {
-        BOOST_TEST(set.erase(value) == 1);
+        BOOST_REQUIRE(set.erase(value) == 1);
     }
-    BOOST_TEST(set.empty());
+    BOOST_REQUIRE(set.empty());
 }
 
 #if !defined(_DEBUG)

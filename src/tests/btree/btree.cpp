@@ -413,11 +413,15 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_erase_loop, T, test_types)
         for (int j = 0; j < i; ++j)
         {
             auto jv = value<T>(j);
-            c.erase(jv);
+            BOOST_REQUIRE(c.erase(jv) == 1);
             BOOST_REQUIRE((c.find(jv) == c.end()));
 
             for (int k = j + 1; k < i; ++k)
             {
+                if (c.find(value<T>(k)) == c.end())
+                {
+                    int a(1);
+                }
                 BOOST_REQUIRE(c.find(value<T>(k)) != c.end());
             }
         }
@@ -555,21 +559,49 @@ BOOST_AUTO_TEST_CASE(btree_set_random)
     }
     shuffle(data);
 
-    btree::set< int > set;
+    std::vector< int > data2 = data;
+    shuffle(data2);
 
-    for (auto& value : data)
+    for (size_t i = 1; i < data.size(); ++i)
     {
-        BOOST_REQUIRE(set.insert(value).second == true);
-    }
-    BOOST_REQUIRE(set.size() == data.size());
+        btree::set< int > set;
+        std::set< int > inserted;
 
-    shuffle(data);
+        for (size_t j = 0; j < i; ++j)
+        {
+            if (j == 34)
+            {
+                int a(1);
+            }
+            BOOST_REQUIRE(set.insert(data[j]).second == true);
+            inserted.insert(data[j]);
 
-    for (auto& value : data)
-    {
-        BOOST_REQUIRE(set.erase(value) == 1);
+            for (auto& inserted_value : inserted)
+            {
+                auto it = set.find(inserted_value);
+                BOOST_REQUIRE((it != set.end()));
+                BOOST_REQUIRE(*it == inserted_value);
+            }
+        }
+        BOOST_REQUIRE(set.size() == i);
+
+        for (size_t j = 0; j < i; ++j)
+        {
+            if (i == 35 && j == 4)
+            {
+                int a(1);
+            }
+
+            auto count = set.erase(data[j]);
+            if (count != 1)
+            {
+                int a(1);
+            }
+            BOOST_REQUIRE(count == 1);
+        }
+
+        BOOST_REQUIRE(set.empty());
     }
-    BOOST_REQUIRE(set.empty());
 }
 
 #if !defined(_DEBUG)

@@ -18,7 +18,7 @@
 #include <iterator>
 
 #define BTREE_VALUE_NODE_LR
-#define BTREE_VALUE_NODE_APPEND
+//#define BTREE_VALUE_NODE_APPEND
 //#define BTREE_INTERNAL_NODE_LR
 
 #if defined(_DEBUG)
@@ -443,9 +443,7 @@ namespace btree::detail
                     auto key = node.get_keys()[it.kindex_];
                     auto n = rebalance_erase(allocator, depth_, node);
                     auto nkeys = n.get_keys();
-
-                    assert(find_key_index(nkeys, key) < nkeys.size());
-
+                                        
                     auto ndata = n.get_data();
                     auto kindex = find_key_index(nkeys, key);
 
@@ -668,6 +666,22 @@ namespace btree::detail
             }
 
             return static_cast<node_size_type>(index - keys.begin());
+        }
+
+        template < typename Keys, typename Key > node_size_type get_key_index(const Keys& keys, const Key& key)
+        {
+            auto kindex = find_key_index(keys, key);
+            if (kindex != keys.size())
+            {
+                // kindex = static_cast<node_size_type>(kindex + !compare_lte(key, keys[kindex]));
+            }
+            else if (kindex == keys.size())
+            {
+                assert(kindex > 0);
+                --kindex;
+            }
+
+            return kindex;
         }
 
         template < typename Node, typename Descriptor > static auto find_node_index(const fixed_vector< Node*, Descriptor >& nodes, const node* n)
@@ -910,7 +924,7 @@ namespace btree::detail
 
             return level;
         }
-
+                
         template < typename AllocatorT > bool share_keys(AllocatorT& allocator, direction dir, size_t, node_descriptor< value_node* > target, node_descriptor< value_node* > source)
         {
             if (!source)
@@ -926,13 +940,7 @@ namespace btree::detail
 
             auto p = get_common_parent(source, target);
             auto pkeys = p.get_keys();
-
-            auto get_key_index = [&](auto key)
-            {
-                auto kindex = find_key_index(pkeys, key);
-                return kindex == pkeys.size() ? --kindex : kindex;
-            };
-        
+                        
             if (sdata.size() > value_node::N && tdata.size() < 2 * value_node::N)
             {
                 if (dir == direction::right)
@@ -943,21 +951,19 @@ namespace btree::detail
                     sdata.erase(allocator, key);
                                         
                     const auto& pkey = source.get_keys().back();
-                    pkeys[get_key_index(pkey)] = pkey;
+                    //const auto& pkey = target.get_keys().front();
+                    pkeys[get_key_index(pkeys, pkey)] = pkey;
                 }
                 else
                 {
-                    auto skeys = std::vector< key_type >(source.get_keys().begin(), source.get_keys().end());
-                    auto tkeys = std::vector< key_type >(target.get_keys().begin(), target.get_keys().end());
-
                     // Left-most key from the right node
                     auto key = sdata.begin();
                     tdata.emplace(allocator, tdata.end(), std::move(*key));
                     sdata.erase(allocator, key);
 
                     const auto& pkey = target.get_keys().back();
-                    std::vector< key_type > aaa(pkeys.begin(), pkeys.end());
-                    pkeys[get_key_index(pkey)] = pkey;
+                    //const auto& pkey = source.get_keys().front();
+                    pkeys[get_key_index(pkeys, pkey)] = pkey;
                 }
 
                 return true;
@@ -971,8 +977,9 @@ namespace btree::detail
                 tdata.emplace(allocator, tdata.end(), std::move(*key));
                 sdata.erase(allocator, key);
 
+                // TODO: not fixed
                 const auto& pkey = target.get_keys().back();
-                pkeys[get_key_index(pkey)] = pkey;
+                pkeys[get_key_index(pkeys, pkey)] = pkey;
                                 
                 return true;
             }
@@ -998,19 +1005,14 @@ namespace btree::detail
             {
                 auto p = get_common_parent(source, target);
                 auto pkeys = p.get_keys();
-
-                auto get_key_index = [&](auto key)
-                {
-                    auto kindex = find_key_index(pkeys, key);
-                    return kindex == pkeys.size() ? --kindex : kindex;
-                };
-                                
+                                       
                 auto schildren = source.template get_children< node* >();
                 auto tchildren = target.template get_children< node* >();
 
                 if (dir == direction::right)
                 {
-                    auto pkindex = get_key_index(tkeys.front());
+                    auto pkindex = get_key_index(pkeys, tkeys.front());
+                    //auto pkindex = get_key_index(skeys.back());
 
                     tchildren.emplace(allocator, tchildren.begin(), schildren[skeys.size()]);
                     set_parent(depth_ == depth + 1, schildren[skeys.size()], target);
@@ -1018,11 +1020,12 @@ namespace btree::detail
                     tkeys.emplace(allocator, tkeys.begin(), std::move(pkeys[pkindex]));
 
                     pkeys[pkindex] = std::move(skeys.back());
+                    //pkeys[pkindex] = std::move(tkeys.front());
                     skeys.erase(allocator, skeys.end() - 1);
                 }
                 else
                 {
-                    auto pkindex = get_key_index(skeys.front());
+                    auto pkindex = get_key_index(pkeys, skeys.front());
 
                     tkeys.emplace(allocator, tkeys.end(), std::move(pkeys[pkindex]));
 
@@ -1101,14 +1104,8 @@ namespace btree::detail
             if (tkeys.size() == internal_node::N - 1)
             {
                 auto p = get_common_parent(source, target);
-                auto pkeys = p.get_keys();
-                               
-                auto get_key_index = [&](auto key)
-                {
-                    auto kindex = find_key_index(pkeys, key);
-                    return kindex == pkeys.size() ? --kindex : kindex;
-                };
-
+                auto pkeys = p.get_keys();             
+               
                 assert(depth_ >= depth + 1);
 
                 auto schildren = source.template get_children< node* >();
@@ -1116,7 +1113,9 @@ namespace btree::detail
 
                 if (dir == direction::left)
                 {                    
-                    auto pkindex = get_key_index(tkeys.back());
+                    // TODO: this was using node indexes (sindex - 1)
+                    auto pkindex = get_key_index(pkeys, tkeys.back());
+                    //auto pkindex = get_key_index(pkeys, skeys.front());
                     
                     tchildren.insert(allocator, tchildren.end(), schildren.begin(), schildren.end());
                     std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { set_parent(depth_ == depth + 1, n, target); });
@@ -1126,7 +1125,9 @@ namespace btree::detail
                 }
                 else
                 {  
-                    auto pkindex = get_key_index(skeys.back());
+                    // TODO: this was using indexes (sindex)
+                    auto pkindex = get_key_index(pkeys, skeys.back());
+                    //auto pkindex = get_key_index(pkeys, tkeys.front());
                     
                     tchildren.insert(allocator, tchildren.begin(), schildren.begin(), schildren.end());
                     std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { set_parent(depth_ == depth + 1, n, target); });
@@ -1224,7 +1225,7 @@ namespace btree::detail
         //
         template < typename AllocatorT, typename Node > node_descriptor< Node* > rebalance_erase(AllocatorT& allocator, size_type depth, node_descriptor< Node* > n)
         {
-            const bool recursive = true;
+            const bool recursive = false;
             if (n.get_parent())
             {                
                 assert(n.get_keys().size() <= n.get_keys().capacity() / 2);
@@ -1553,11 +1554,27 @@ namespace btree::detail
             {
                 auto vn = node_cast<value_node*>(n);
                 assert(vn->parent == parent);
+                
+                // Check that node is balanced
+                if (vn != root_ 
+                #if defined(BTREE_VALUE_NODE_APPEND)
+                    && vn != last_node_
+                #endif
+                )
+                {
+                    assert(value_node::N <= vn->size && vn->size <= 2 * value_node::N);
+                }
             }
             else
             {
                 auto in = node_cast<internal_node*>(n);
                 assert(in->parent == parent);
+
+                // Check that node is balanced
+                if(in != root_)
+                {
+                    assert(internal_node::N - 1 <= in->size && in->size <= 2 * internal_node::N - 1);
+                }
 
                 // Child/parent relationship check
 

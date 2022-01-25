@@ -1535,7 +1535,7 @@ namespace btree::detail
                 assert(count_node == size());
             #endif
 
-                // check_levels(root_, 1);
+                check_levels(root_, 1);
             }
             else
             {

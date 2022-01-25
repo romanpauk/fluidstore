@@ -18,8 +18,7 @@
 #include <iterator>
 
 #define BTREE_VALUE_NODE_LR
-// TODO: append is probably broken.
-//#define BTREE_VALUE_NODE_APPEND
+#define BTREE_VALUE_NODE_APPEND
 //#define BTREE_INTERNAL_NODE_LR
 
 #if defined(_DEBUG)
@@ -540,8 +539,6 @@ namespace btree::detail
                 auto n = desc(hint.node_);
                 
                 auto keys = n.get_keys();
-                Compare compare;
-
                 const auto key = value_type_traits_type::get_key(value);
                 if (compare(keys[hint.kindex_ - 1], key))
                 {
@@ -662,8 +659,7 @@ namespace btree::detail
         {
             // Counts number of elements smaller than key
             // TODO: better search
-
-            Compare compare;
+                        
             auto index = keys.begin();
             for (; index != keys.end(); ++index)
             {
@@ -690,7 +686,7 @@ namespace btree::detail
             return nodes.size();
         }
 
-        template< typename AllocatorT, typename Node > void remove_node(AllocatorT& allocator, size_type depth, node_descriptor< internal_node* > parent, const node_descriptor< Node* > n, node_size_type nindex, node_size_type kindex)
+        template< typename AllocatorT, typename Node > void remove_node(AllocatorT& allocator, size_type depth, node_descriptor< internal_node* > parent, node_descriptor< Node* > n, node_size_type nindex, node_size_type kindex)
         {
             auto pchildren = parent.template get_children< node* >();
             assert(!pchildren.empty());
@@ -823,7 +819,6 @@ namespace btree::detail
             // The tree will be very slightly disbalanced on its right edge but that is ok, it does not impact the overall complexity.
             // The node needs to be properly split and items distributed if there is a right node or the operation is not an append.
             // TODO: compare
-            Compare compare;
             auto right = get_right(lnode);
             if (right || !compare(lkeys.back(), key))
             {
@@ -1180,7 +1175,7 @@ namespace btree::detail
                 p.set_parent(root);
                               
                 Compare compare;
-                auto cmp = !compare(key, splitkey); // !(compare_lte(key, splitkey));
+                auto cmp = !compare(key, splitkey);
 
             #if defined(BTREE_VALUE_NODE_APPEND)
                 if (p.node()->size) 
@@ -1251,8 +1246,7 @@ namespace btree::detail
                     last_node_ = node_cast<value_node*>(p.node());
                 }
             }
-
-            Compare compare;
+                        
             auto cmp = !compare(key, splitkey);
             return cmp ? p : n;
         }
@@ -1271,6 +1265,17 @@ namespace btree::detail
                 assert(n.get_keys().size() <= n.get_keys().capacity() / 2);
 
                 auto nindex = get_index(n);
+                                
+                {
+                    // Rebalance parent right away as in 3 out of 4 cases we might need to rebalance it anyway.
+                    auto pkeys = n.get_parent().get_keys();
+                    if (pkeys.size() <= pkeys.capacity() / 2)
+                    {
+                        depth_check< false > dc(depth_, depth);
+                        rebalance_erase(allocator, depth - 1, n.get_parent());
+                        nindex = get_index(n);
+                    }
+                }
 
                 {
                     auto [left, lindex] = get_left(n, nindex, recursive);
@@ -1310,16 +1315,6 @@ namespace btree::detail
                         assert(n.get_keys().size() > n.get_keys().capacity() / 2);
                     #endif
                         return n;
-                    }
-                }
-
-                {
-                    auto pkeys = n.get_parent().get_keys();
-                    if (pkeys.size() <= pkeys.capacity() / 2)
-                    {    
-                        depth_check< false > dc(depth_, depth);
-                        rebalance_erase(allocator, depth - 1, n.get_parent());
-                        nindex = get_index(n);
                     }
                 }
 
@@ -1506,10 +1501,10 @@ namespace btree::detail
             return reinterpret_cast<Node>(n);
         }
 
-        bool compare_lte(const key_type& lhs, const key_type& rhs) const
+        bool compare(const key_type& lhs, const key_type& rhs) const
         {
-            Compare compare;
-            return compare(lhs, rhs) || !compare(rhs, lhs);
+            Compare cmp;
+            return cmp(lhs, rhs);
         }
 
         template < typename Node > static bool full(const node_descriptor< Node > n)
@@ -1610,6 +1605,8 @@ namespace btree::detail
                 auto in = node_cast<internal_node*>(n);
                 assert(in->parent == parent);
 
+                auto keys = desc(in).get_keys();
+
                 // Check that node is balanced
                 if(in != root_)
                 {
@@ -1617,7 +1614,6 @@ namespace btree::detail
                 }
 
                 // Check keys
-                auto keys = desc(in).get_keys();
                 for (node_size_type i = 0; i < keys.size(); ++i)
                 {
                     if (depth_ == depth + 1)

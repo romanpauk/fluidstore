@@ -668,21 +668,7 @@ namespace btree::detail
             }
 
             return static_cast<node_size_type>(index - keys.begin());
-        }
-
-        template < typename Keys, typename Key > node_size_type get_key_index(const Keys& keys, const Key& key)
-        {
-            auto kindex = find_key_index(keys, key);
-            if (kindex == keys.size())
-            {
-                // TODO: remove
-                assert(false);
-                assert(kindex > 0);
-                --kindex;
-            }
-
-            return kindex;
-        }
+        }       
 
         template < typename Node, typename Descriptor > static auto find_node_index(const fixed_vector< Node*, Descriptor >& nodes, const node* n)
         {
@@ -952,7 +938,7 @@ namespace btree::detail
                 {
                     // Right-most key from the left node
                     auto borrow = sdata.end() - 1;
-                    auto pkindex = get_key_index(pkeys, value_type_traits_type::get_key(*borrow));
+                    auto pkindex = find_key_index(pkeys, value_type_traits_type::get_key(*borrow));
 
                     tdata.emplace(allocator, tdata.begin(), std::move(*borrow));
                     sdata.erase(allocator, borrow);
@@ -968,7 +954,7 @@ namespace btree::detail
                     // Left-most key from the right node
                     auto key = sdata.begin();
                     // TODO: this looks strange
-                    auto pkindex = get_key_index(pkeys, value_type_traits_type::get_key(*(tdata.end() - 1)));
+                    auto pkindex = find_key_index(pkeys, value_type_traits_type::get_key(*(tdata.end() - 1)));
 
                     tdata.emplace(allocator, tdata.end(), *key);
                     sdata.erase(allocator, key);
@@ -993,7 +979,7 @@ namespace btree::detail
 
                 // TODO: not fixed
                 const auto& pkey = target.get_keys().back();
-                pkeys[get_key_index(pkeys, pkey)] = pkey;
+                pkeys[find_key_index(pkeys, pkey)] = pkey;
                 // assert(check_separator(pkeys, skeys.back(), pkey, tkeys.front()));
                 return true;
             }
@@ -1025,7 +1011,7 @@ namespace btree::detail
 
                 if (dir == direction::right)
                 {
-                    auto pkindex = get_key_index(pkeys, skeys.back());
+                    auto pkindex = find_key_index(pkeys, skeys.back());
                     
                     tchildren.emplace(allocator, tchildren.begin(), schildren[skeys.size()]);
                     set_parent(depth_ == depth + 1, schildren[skeys.size()], target);
@@ -1039,7 +1025,7 @@ namespace btree::detail
                 }
                 else
                 {
-                    auto pkindex = get_key_index(pkeys, tkeys.back());
+                    auto pkindex = find_key_index(pkeys, tkeys.back());
 
                     tkeys.emplace(allocator, tkeys.end(), std::move(pkeys[pkindex]));
                     auto child = schildren[0];
@@ -1128,7 +1114,7 @@ namespace btree::detail
 
                 if (dir == direction::left)
                 {                   
-                    auto pkindex = get_key_index(pkeys, tkeys.back());
+                    auto pkindex = find_key_index(pkeys, tkeys.back());
                     
                     tchildren.insert(allocator, tchildren.end(), schildren.begin(), schildren.end());
                     std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { set_parent(depth_ == depth + 1, n, target); });
@@ -1138,7 +1124,7 @@ namespace btree::detail
                 }
                 else
                 {                   
-                    auto pkindex = get_key_index(pkeys, skeys.back());
+                    auto pkindex = find_key_index(pkeys, skeys.back());
                     
                     tchildren.insert(allocator, tchildren.begin(), schildren.begin(), schildren.end());
                     std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { set_parent(depth_ == depth + 1, n, target); });
@@ -1549,7 +1535,7 @@ namespace btree::detail
                 assert(count_node == size());
             #endif
 
-                check_levels(root_, 1);
+                // check_levels(root_, 1);
             }
             else
             {

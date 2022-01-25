@@ -31,11 +31,11 @@ namespace btree::detail
         T* end() { return begin() + size(); }
         const T* end() const { return begin() + size(); }
 
-        T& front() { return *begin(); }
-        const T& front() const { return *begin(); }
+        T& front() { assert(!empty()); return *begin(); }
+        const T& front() const { assert(!empty()); return *begin(); }
 
-        T& back() { return *(end() - 1); }
-        const T& back() const { return *(end() - 1); }
+        T& back() { assert(!empty()); return *(end() - 1); }
+        const T& back() const { assert(!empty()); return *(end() - 1); }
 
         T& operator[](size_type index)
         {

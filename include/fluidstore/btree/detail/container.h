@@ -590,7 +590,6 @@ namespace btree::detail
 
         iterator find(node* n, const key_type& key) const
         {
-            // TODO: implement find using lower_bound
             auto [vn, vnindex] = find_value_node(n, key);
             assert(vn);
 
@@ -619,7 +618,14 @@ namespace btree::detail
             }
             else
             {
+                // TODO: investigate why this differs.
+            #if defined(BTREE_VALUE_NODE_APPEND)
+                // Either next node, or end.
+                auto right = get_right(vn);
+                return right ? iterator(right, 0) : end();
+            #else
                 return end();
+            #endif
             }
         }
 
@@ -811,13 +817,15 @@ namespace btree::detail
             
             auto lkeys = lnode.get_keys();
             auto rkeys = rnode.get_keys();            
-
+                        
         #if defined(BTREE_VALUE_NODE_APPEND)
             // In case of appending to the right-most node, we will allow rnode to be empty as there might be more appends comming.
             // The tree will be very slightly disbalanced on its right edge but that is ok, it does not impact the overall complexity.
             // The node needs to be properly split and items distributed if there is a right node or the operation is not an append.
+            // TODO: compare
+            Compare compare;
             auto right = get_right(lnode);
-            if (right || compare_lte(key, lkeys.back()))
+            if (right || !compare(lkeys.back(), key))
             {
         #endif
                 auto ldata = lnode.get_data();
@@ -839,7 +847,12 @@ namespace btree::detail
             link_node(lnode, rnode);
         #endif
 
+        #if defined(BTREE_VALUE_NODE_APPEND)
+            // In case of append, there is nothing in rkeys yet. But the separator is clear as that is the key that caused a split.
+            return { rnode, rkeys.empty() ? key : rkeys.front() };
+        #else
             return { rnode, rkeys.front() };
+        #endif
         }
 
         template < typename AllocatorT > void free_node(AllocatorT& allocator, node* n, size_type depth)
@@ -974,13 +987,22 @@ namespace btree::detail
             {
                 // Left-most key from the right node
                 auto key = sdata.begin();
+                auto pkindex = find_key_index(pkeys, value_type_traits_type::get_key(*(tdata.end() - 1)));
+
                 tdata.emplace(allocator, tdata.end(), std::move(*key));
                 sdata.erase(allocator, key);
-
-                // TODO: not fixed
-                const auto& pkey = target.get_keys().back();
-                pkeys[find_key_index(pkeys, pkey)] = pkey;
-                // assert(check_separator(pkeys, skeys.back(), pkey, tkeys.front()));
+                                
+                if (!sdata.empty())
+                {
+                    auto key = sdata.begin();
+                    pkeys[pkindex] = value_type_traits_type::get_key(*key);
+                    assert(check_separator(pkeys, tkeys.back(), pkeys[pkindex], skeys.front()));
+                }
+                else
+                {
+                    // Node will be removed in the caller, no need to update the pkeys.
+                }
+                
                 return true;
             }
         #endif
@@ -1157,8 +1179,17 @@ namespace btree::detail
                 children.emplace_back(allocator, p);
                 p.set_parent(root);
                               
-                auto cmp = !(compare_lte(key, splitkey));
-                assert(check_separator(root.get_keys(), n.get_keys().back(), splitkey, p.get_keys().front()));
+                Compare compare;
+                auto cmp = !compare(key, splitkey); // !(compare_lte(key, splitkey));
+
+            #if defined(BTREE_VALUE_NODE_APPEND)
+                if (p.node()->size) 
+                {
+            #endif
+                    assert(check_separator(root.get_keys(), n.get_keys().back(), splitkey, p.get_keys().front()));
+            #if defined(BTREE_VALUE_NODE_APPEND)
+                }
+            #endif
 
                 root.get_keys().emplace_back(allocator, std::move(splitkey));
                 
@@ -1201,7 +1232,15 @@ namespace btree::detail
 
             auto pkeys = n.get_parent().get_keys();
             pkeys.emplace(allocator, pkeys.begin() + nindex, splitkey);
-            assert(check_separator(pkeys, n.get_keys().back(), splitkey, p.get_keys().front()));
+
+        #if defined(BTREE_VALUE_NODE_APPEND)
+            if (p.node()->size)
+            {
+            #endif
+                assert(check_separator(pkeys, n.get_keys().back(), splitkey, p.get_keys().front()));
+        #if defined(BTREE_VALUE_NODE_APPEND)
+            }
+        #endif
 
             // TODO: where does this belong?
             if constexpr (std::is_same_v< Node, value_node >)
@@ -1213,7 +1252,8 @@ namespace btree::detail
                 }
             }
 
-            auto cmp = !(compare_lte(key, splitkey));
+            Compare compare;
+            auto cmp = !compare(key, splitkey);
             return cmp ? p : n;
         }
 

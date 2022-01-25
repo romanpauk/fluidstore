@@ -564,39 +564,30 @@ BOOST_AUTO_TEST_CASE(btree_set_random)
 
     for (size_t i = 1; i < data.size(); ++i)
     {
+        std::cerr << "set random " << i << std::endl;
+
         btree::set< int > set;
         std::set< int > inserted;
 
         for (size_t j = 0; j < i; ++j)
         {
-            if (j == 34)
-            {
-                int a(1);
-            }
             BOOST_REQUIRE(set.insert(data[j]).second == true);
-            inserted.insert(data[j]);
-
+            
+            //inserted.insert(data[j]);
+            /*
             for (auto& inserted_value : inserted)
             {
                 auto it = set.find(inserted_value);
                 BOOST_REQUIRE((it != set.end()));
                 BOOST_REQUIRE(*it == inserted_value);
             }
+            */
         }
         BOOST_REQUIRE(set.size() == i);
 
         for (size_t j = 0; j < i; ++j)
         {
-            if (i == 35 && j == 4)
-            {
-                int a(1);
-            }
-
             auto count = set.erase(data[j]);
-            if (count != 1)
-            {
-                int a(1);
-            }
             BOOST_REQUIRE(count == 1);
         }
 

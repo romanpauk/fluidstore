@@ -10,6 +10,7 @@
 #include <iomanip>
 
 #include "bench.h"
+#include "shuffle.h"
 
 #if !defined(_DEBUG)
 static int Iters = 20;
@@ -17,7 +18,7 @@ static int Max = 32768;
 #endif
 
 static const int Count = 10;
-static const int RandomCount = 1000000;
+static const int RandomCount = 1000;
 
 template < typename T, size_t N > struct descriptor
 {
@@ -537,19 +538,6 @@ BOOST_AUTO_TEST_CASE(btree_lower_bound_pair)
     BOOST_TEST((counters.lower_bound({ 1, 2 }) == counters.end()));
 }
 
-template < typename T > void shuffle(std::vector< T >& data)
-{
-    assert(!data.empty());
-
-    srand(1);
-        
-    for (int i = data.size() - 1; i > 0; i--)
-    {
-        int j = rand() % (i + 1);
-        std::swap(data[i], data[j]);
-    }
-}
-
 BOOST_AUTO_TEST_CASE(btree_set_random)
 {
     std::vector< int > data;
@@ -564,7 +552,7 @@ BOOST_AUTO_TEST_CASE(btree_set_random)
 
     for (size_t i = 0; i < data.size(); ++i)
     {
-        std::cerr << "set random " << i << std::endl;
+        // std::cerr << "set random " << i << std::endl;
 
         btree::set< int > set;
         std::set< int > inserted;

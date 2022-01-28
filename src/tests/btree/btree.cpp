@@ -10,14 +10,20 @@
 #include <iomanip>
 
 #include "bench.h"
+#include "shuffle.h"
 
 #if !defined(_DEBUG)
 static int Iters = 20;
 static int Max = 32768;
-static const int ArenaSize = 65536 * 2;
 #endif
 
 static const int Count = 10;
+
+#if defined(_DEBUG)
+static const int RandomCount = 256;
+#else
+static const int RandomCount = 2048;
+#endif
 
 template < typename T, size_t N > struct descriptor
 {
@@ -180,13 +186,17 @@ BOOST_AUTO_TEST_CASE(btree_set_erase)
     BOOST_TEST(set1.size() == 0);
     BOOST_TEST(set1.empty());
     BOOST_TEST((set1.begin() == set1.end()));
+
+    set1.insert(1);
+    BOOST_TEST(set1.erase(1) == 1);
+    BOOST_TEST(set1.erase(1) == 0);
 }
 
 BOOST_AUTO_TEST_CASE(btree_set_erase_iterator_forward)
 {
     btree::set < int > set1;
     
-    int Count = 512;
+    int Count = 1024;
     for (int i = 0; i < Count; ++i)
     {
         set1.insert(i);
@@ -207,7 +217,7 @@ BOOST_AUTO_TEST_CASE(btree_set_erase_iterator_backwards)
 {
     btree::set < int > set1;
 
-    int Count = 512;
+    int Count = 1024;
     for (int i = 0; i < Count; ++i)
     {
         set1.insert(i);
@@ -410,11 +420,15 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_erase_loop, T, test_types)
         for (int j = 0; j < i; ++j)
         {
             auto jv = value<T>(j);
-            c.erase(jv);
+            BOOST_REQUIRE(c.erase(jv) == 1);
             BOOST_REQUIRE((c.find(jv) == c.end()));
 
             for (int k = j + 1; k < i; ++k)
             {
+                if (c.find(value<T>(k)) == c.end())
+                {
+                    int a(1);
+                }
                 BOOST_REQUIRE(c.find(value<T>(k)) != c.end());
             }
         }
@@ -527,6 +541,57 @@ BOOST_AUTO_TEST_CASE(btree_lower_bound_pair)
     BOOST_TEST((counters.lower_bound({ 1, 0 }) == counters.find({ 1, 1 })));
     BOOST_TEST((counters.lower_bound({ 1, 1 }) == counters.find({ 1, 1 })));
     BOOST_TEST((counters.lower_bound({ 1, 2 }) == counters.end()));
+}
+
+BOOST_AUTO_TEST_CASE(btree_set_random)
+{
+    std::vector< int > data;
+    for (int i = 0; i < RandomCount; ++i)
+    {
+        data.push_back(i);
+    }
+    
+    shuffle(data);
+        
+    std::vector< int > inserted;
+
+    for (size_t i = 1; i < data.size(); ++i)
+    {
+        // std::cerr << "set random " << i << std::endl;
+        
+        std::next_permutation(data.begin(), data.end());
+
+        btree::set< int > set;
+        
+        inserted.clear();
+        inserted.reserve(i);
+
+        for (size_t j = 0; j < i; ++j)
+        {
+            inserted.push_back(data[j]);
+            BOOST_REQUIRE(set.insert(data[j]).second == true);
+            
+            //inserted.insert(data[j]);
+            /*
+            for (auto& inserted_value : inserted)
+            {
+                auto it = set.find(inserted_value);
+                BOOST_REQUIRE((it != set.end()));
+                BOOST_REQUIRE(*it == inserted_value);
+            }
+            */
+        }
+        BOOST_REQUIRE(set.size() == i);
+                
+        std::next_permutation(inserted.begin(), inserted.end());
+        for (size_t j = 0; j < i; ++j)
+        {
+            auto count = set.erase(inserted[j]);
+            BOOST_REQUIRE(count == 1);
+        }
+
+        BOOST_REQUIRE(set.empty());
+    }
 }
 
 #if !defined(_DEBUG)

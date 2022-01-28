@@ -71,7 +71,9 @@ if(Boost_FOUND)
         src/tests/testmodule.cpp
         src/tests/pch.h
         src/tests/bench.h
+        src/tests/shuffle.h
     )
+
     add_test(fluidstoretest COMMAND fluidstoretest)
     target_link_libraries(fluidstoretest fluidstore Boost::boost)
     target_include_directories(fluidstoretest PRIVATE src/tests)
@@ -80,6 +82,11 @@ if(Boost_FOUND)
     if(TLX_INCLUDE)
         target_include_directories(fluidstoretest PRIVATE ${TLX_INCLUDE})
         target_compile_definitions(fluidstoretest PRIVATE TLX_ENABLED)
+    endif()
+    
+    if(ABSL_INCLUDE)
+        target_include_directories(fluidstoretest PRIVATE ${ABSL_INCLUDE})
+        target_compile_definitions(fluidstoretest PRIVATE ABSL_ENABLED)
     endif()
         
     if(WIN32)

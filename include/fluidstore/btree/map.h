@@ -27,9 +27,12 @@ namespace btree
             using internal_node_type = InternalNodeType;
             using size_type = SizeType;
 
+            using key_array_descriptor = array_descriptor< array_size_ref< size_type >, 2 * N >;
+            using value_array_descriptor = array_descriptor< array_size_copy< size_type >, 2 * N >;
+
             using values_type = fixed_split_vector<
-                fixed_vector< Key, keys_descriptor< value_node_type*, size_type, 2 * N > >,
-                fixed_vector< Value, values_descriptor< value_node_type*, size_type, 2 * N > >
+                fixed_vector< Key, key_array_descriptor >,
+                fixed_vector< Value, value_array_descriptor >
             >;
 
             node_descriptor(value_node_type* n)
@@ -38,8 +41,8 @@ namespace btree
 
             template < typename Allocator > void cleanup(Allocator& allocator) { get_data().clear(allocator); }
 
-            auto get_keys() { return fixed_vector< Key, keys_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
-            auto get_keys() const { return fixed_vector< Key, keys_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
+            auto get_keys() { return fixed_vector< Key, key_array_descriptor >(node_->keys, node_->size); }
+            auto get_keys() const { return fixed_vector< Key, key_array_descriptor >(node_->keys, node_->size); }
 
             auto get_data() { return values_type(get_keys(), get_values()); }
             auto get_data() const { return values_type(get_keys(), get_values()); }
@@ -52,8 +55,8 @@ namespace btree
             value_node_type* node() { return node_; }
 
         private:
-            auto get_values() { return fixed_vector< Value, values_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
-            auto get_values() const { return fixed_vector< Value, values_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
+            auto get_values() { return fixed_vector< Value, value_array_descriptor >(node_->values, node_->size); }
+            auto get_values() const { return fixed_vector< Value, value_array_descriptor >(node_->values, node_->size); }
 
             value_node_type* node_;
         };
@@ -98,6 +101,7 @@ namespace btree
         using allocator_type = Allocator;
         using value_type = typename base_type::value_type;
         using iterator = typename base_type::iterator;
+        using size_type = typename base_type::size_type;
 
         map() = default;
 
@@ -119,12 +123,12 @@ namespace btree
 
         template < typename It > void insert(It begin, It end)
         {
-            BTREE_CHECK_RETURN(base_type::insert(allocator_, begin, end));
+            BTREE_CHECK(base_type::insert(allocator_, begin, end));
         }
 
-        void erase(const typename value_type::first_type& key)
+        size_type erase(const typename value_type::first_type& key)
         {
-            BTREE_CHECK(base_type::erase(allocator_, key));
+            BTREE_CHECK_RETURN(base_type::erase(allocator_, key));
         }
 
         void clear()

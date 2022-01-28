@@ -12,10 +12,15 @@
 #include <iomanip>
 
 #include "bench.h"
+#include "shuffle.h"
 
 #if defined(TLX_ENABLED)
 #include <tlx/container/btree_set.hpp>
 void tlx::die_with_message(char const*, char const*, unsigned __int64) {}
+#endif
+
+#if defined(ABSL_ENABLED)
+#include <absl/container/btree_set.h>
 #endif
 
 #if !defined(_DEBUG)
@@ -214,6 +219,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_insert, T, crdt_set_insert_types)
 
     {
         auto data = get_vector_data< T >(N);
+        shuffle(data);
 
         {
             auto t = measure(Iters, [&]
@@ -285,6 +291,31 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_insert, T, crdt_set_insert_types)
             std::cout << "tlx::btree_set<" << get_type_name<T>() << ">" << " [random,linear] insertions per second: " << int(N / t) << std::endl;
         }
     #endif
+
+    #if defined(ABSL_ENABLED)
+        {
+            auto t = measure(Iters, [&]
+                {
+                    absl::btree_set< T > c;
+                    insertion_test(c, data, N);
+                });
+
+            std::cout << "absl::btree_set<" << get_type_name<T>() << ">" << " [random,new] insertions per second: " << int(N / t) << std::endl;
+        }
+        
+        {
+            memory::dynamic_buffer< std::allocator< uint8_t > > buffer(preallocated);
+            memory::buffer_allocator< T, decltype(buffer) > alloc(buffer);
+
+            auto t = measure(Iters, [&, alloc]
+                {
+                    absl::btree_set< T, std::less< T >, decltype(alloc) > c(alloc);
+                    insertion_test(c, data, N);
+                });
+
+            std::cout << "absl::btree_set<" << get_type_name<T>() << ">" << " [random,linear] insertions per second: " << int(N / t) << std::endl;
+        }
+    #endif
     }
 
     {
@@ -337,6 +368,35 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_insert, T, crdt_set_insert_types)
             std::cout << "btree::set<" << get_type_name<T>() << ">" << " [append,linear] insertions per second: " << int(N / t) << std::endl;
         }
 
+        {
+            auto t = measure(Iters, [&]
+                {
+                    std::deque< T > c;
+                    for (size_t i = 0; i < N; ++i)
+                    {
+                        c.push_back(i);
+                    }                    
+                });
+
+            std::cout << "std::deque<" << get_type_name<T>() << ">" << " [append,new] insertions per second: " << int(N / t) << std::endl;
+        }
+
+        {
+            memory::dynamic_buffer< std::allocator< uint8_t > > buffer(preallocated);
+            memory::buffer_allocator< T, decltype(buffer) > alloc(buffer);
+
+            auto t = measure(Iters, [&, alloc]
+                {
+                    std::deque < T, decltype(alloc) > c(alloc);
+                    for (size_t i = 0; i < N; ++i)
+                    {
+                        c.push_back(i);
+                    }
+                });
+
+            std::cout << "std::deque<" << get_type_name<T>() << ">" << " [append,linear] insertions per second: " << int(N / t) << std::endl;
+        }
+
     #if defined(TLX_ENABLED)
         {
             auto t = measure(Iters, [&]
@@ -359,6 +419,31 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_insert, T, crdt_set_insert_types)
                 });
 
             std::cout << "tlx::btree_set<" << get_type_name<T>() << ">" << " [append,linear] insertions per second: " << int(N / t) << std::endl;
+        }
+    #endif
+
+    #if defined(ABSL_ENABLED)
+        {
+            auto t = measure(Iters, [&]
+                {
+                    absl::btree_set< T > c;
+                    insertion_test_end(c, data, N);
+                });
+
+            std::cout << "absl::btree_set<" << get_type_name<T>() << ">" << " [append,new] insertions per second: " << int(N / t) << std::endl;
+        }
+        
+        {
+            memory::dynamic_buffer< std::allocator< uint8_t > > buffer(preallocated);
+            memory::buffer_allocator< T, decltype(buffer) > alloc(buffer);
+
+            auto t = measure(Iters, [&, alloc]
+                {
+                    absl::btree_set< T, std::less< T >, decltype(alloc) > c(alloc);
+                    insertion_test_end(c, data, N);
+                });
+
+            std::cout << "absl::btree_set<" << get_type_name<T>() << ">" << " [append,linear] insertions per second: " << int(N / t) << std::endl;
         }
     #endif
     }

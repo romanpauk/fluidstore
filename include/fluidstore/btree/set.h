@@ -24,6 +24,8 @@ namespace btree
             using value_node_type = value_node< Key, void, SizeType, N, InternalNodeType >;
             using internal_node_type = InternalNodeType;
             using size_type = SizeType;
+            
+            using key_array_descriptor = array_descriptor< array_size_ref< size_type >, 2 * N >;
 
             node_descriptor(value_node_type* n)
                 : node_(n)
@@ -31,8 +33,8 @@ namespace btree
 
             template < typename Allocator > void cleanup(Allocator& allocator) { get_keys().clear(allocator); }
 
-            auto get_keys() { return fixed_vector< Key, keys_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
-            auto get_keys() const { return fixed_vector< Key, keys_descriptor< value_node_type*, size_type, 2 * N > >(node_); }
+            auto get_keys() { return fixed_vector< Key, key_array_descriptor >(node_->keys, node_->size); }
+            auto get_keys() const { return fixed_vector< Key, key_array_descriptor >(node_->keys, node_->size); }
 
             auto get_data() { return get_keys(); }
             auto get_data() const { return get_keys(); }
@@ -85,6 +87,7 @@ namespace btree
     public:
         using allocator_type = Allocator;
         using value_type = typename base_type::value_type;
+        using size_type = typename base_type::size_type;
         using iterator = typename base_type::iterator;
 
         set(const Allocator& allocator = Allocator())
@@ -113,9 +116,9 @@ namespace btree
             BTREE_CHECK(base_type::insert(allocator_, begin, end));
         }
 
-        void erase(const value_type& key)
+        size_type erase(const value_type& key)
         {
-            BTREE_CHECK(base_type::erase(allocator_, key));
+            BTREE_CHECK_RETURN(base_type::erase(allocator_, key));
         }
 
         iterator erase(iterator it)

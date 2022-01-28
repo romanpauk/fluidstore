@@ -18,7 +18,12 @@ static int Max = 32768;
 #endif
 
 static const int Count = 10;
-static const int RandomCount = 100000;
+
+#if defined(_DEBUG)
+static const int RandomCount = 256;
+#else
+static const int RandomCount = 2048;
+#endif
 
 template < typename T, size_t N > struct descriptor
 {
@@ -546,18 +551,24 @@ BOOST_AUTO_TEST_CASE(btree_set_random)
         data.push_back(i);
     }
     
-    // TODO: permute
     shuffle(data);
-
-    for (size_t i = 0; i < data.size(); ++i)
-    {
-        std::cerr << "set random " << i << std::endl;
         
+    std::vector< int > inserted;
+
+    for (size_t i = 1; i < data.size(); ++i)
+    {
+        // std::cerr << "set random " << i << std::endl;
+        
+        std::next_permutation(data.begin(), data.end());
+
         btree::set< int > set;
-        std::set< int > inserted;
+        
+        inserted.clear();
+        inserted.reserve(i);
 
         for (size_t j = 0; j < i; ++j)
         {
+            inserted.push_back(data[j]);
             BOOST_REQUIRE(set.insert(data[j]).second == true);
             
             //inserted.insert(data[j]);
@@ -571,11 +582,11 @@ BOOST_AUTO_TEST_CASE(btree_set_random)
             */
         }
         BOOST_REQUIRE(set.size() == i);
-
-        // TODO: delete in different order
+                
+        std::next_permutation(inserted.begin(), inserted.end());
         for (size_t j = 0; j < i; ++j)
         {
-            auto count = set.erase(data[j]);
+            auto count = set.erase(inserted[j]);
             BOOST_REQUIRE(count == 1);
         }
 

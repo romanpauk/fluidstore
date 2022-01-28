@@ -1592,7 +1592,7 @@ namespace btree::detail
             {   
                 // Check parent a bit
                 auto pkeys = parent.get_keys();
-                BTREE_ASSERT(pkeys.size() + 1 == parent.get_children< node* >().size());
+                BTREE_ASSERT(pkeys.size() + 1 == parent.template get_children< node* >().size());
                 BTREE_ASSERT(std::is_sorted(pkeys.begin(), pkeys.end()));
                                 
                 auto nindex = get_index(n);
@@ -1784,7 +1784,7 @@ namespace btree::detail
             {
                 auto in = desc(node_cast<internal_node*>(n));
                 check_level(in);
-                check_levels(in.get_children< node* >()[0], depth + 1);
+                check_levels(in.template get_children< node* >()[0], depth + 1);
             }
         }
 
@@ -1811,7 +1811,7 @@ namespace btree::detail
             return true;
         }
 
-        template< typename Keys, typename Key > bool check_separator(const Keys& keys, const Key& left, const Key& separator, const Key& right)
+        template< typename Keys > bool check_separator(const Keys& keys, const key_type& left, const key_type& separator, const key_type& right)
         {
             BTREE_ASSERT(left < separator);
             BTREE_ASSERT(separator <= right);

@@ -18,7 +18,7 @@ static int Max = 32768;
 #endif
 
 static const int Count = 10;
-static const int RandomCount = 1000;
+static const int RandomCount = 100000;
 
 template < typename T, size_t N > struct descriptor
 {
@@ -545,15 +545,14 @@ BOOST_AUTO_TEST_CASE(btree_set_random)
     {
         data.push_back(i);
     }
+    
+    // TODO: permute
     shuffle(data);
-
-    std::vector< int > data2 = data;
-    shuffle(data2);
 
     for (size_t i = 0; i < data.size(); ++i)
     {
-        // std::cerr << "set random " << i << std::endl;
-
+        std::cerr << "set random " << i << std::endl;
+        
         btree::set< int > set;
         std::set< int > inserted;
 
@@ -573,6 +572,7 @@ BOOST_AUTO_TEST_CASE(btree_set_random)
         }
         BOOST_REQUIRE(set.size() == i);
 
+        // TODO: delete in different order
         for (size_t j = 0; j < i; ++j)
         {
             auto count = set.erase(data[j]);

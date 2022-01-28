@@ -3,15 +3,18 @@
 #include <vector>
 #include <cstdlib>
 
-template < typename T > void shuffle(std::vector< T >& data)
+template < typename T > void shuffle(std::vector< T >& data, size_t count = 1)
 {
     assert(!data.empty());
 
     srand(1);
 
-    for (int i = data.size() - 1; i > 0; i--)
+    while (count--)
     {
-        int j = rand() % (i + 1);
-        std::swap(data[i], data[j]);
+        for (auto i = data.size(); i > 1; i--)
+        {
+            int j = rand() % i;
+            std::swap(data[i - 1], data[j]);
+        }
     }
 }

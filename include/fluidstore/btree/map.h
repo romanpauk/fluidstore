@@ -123,7 +123,7 @@ namespace btree
 
         template < typename It > void insert(It begin, It end)
         {
-            BTREE_CHECK_RETURN(base_type::insert(allocator_, begin, end));
+            BTREE_CHECK(base_type::insert(allocator_, begin, end));
         }
 
         size_type erase(const typename value_type::first_type& key)

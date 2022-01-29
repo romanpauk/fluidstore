@@ -101,6 +101,7 @@ namespace btree
         using allocator_type = Allocator;
         using value_type = typename base_type::value_type;
         using iterator = typename base_type::iterator;
+        using const_iterator = typename base_type::const_iterator;
         using size_type = typename base_type::size_type;
 
         map() = default;
@@ -121,17 +122,40 @@ namespace btree
             BTREE_CHECK_RETURN(base_type::emplace(allocator_, value));
         }
 
+        std::pair< iterator, bool > insert(value_type&& value)
+        {
+            BTREE_CHECK_RETURN(base_type::emplace(allocator_, std::move(value)));
+        }
+
+        std::pair< iterator, bool > insert(iterator hint, const value_type& value)
+        {
+            BTREE_CHECK_RETURN(base_type::emplace_hint(allocator_, hint, value));
+        }
+
+        std::pair< iterator, bool > insert(iterator hint, value_type&& value)
+        {
+            BTREE_CHECK_RETURN(base_type::emplace_hint(allocator_, hint, std::move(value)));
+        }
+
         template < typename It > void insert(It begin, It end)
         {
             BTREE_CHECK(base_type::insert(allocator_, begin, end));
         }
+
+        // TODO
+        // void insert(initializer_list<value_type> il);
 
         size_type erase(const typename value_type::first_type& key)
         {
             BTREE_CHECK_RETURN(base_type::erase(allocator_, key));
         }
 
-        void clear()
+        iterator erase(const_iterator it)
+        {
+            BTREE_CHECK_RETURN(base_type::erase(allocator_, it));
+        }
+
+        void clear() noexcept
         {
             // TODO: missing test
             BTREE_CHECK(base_type::clear(allocator_));
@@ -142,6 +166,13 @@ namespace btree
             // TODO: missing test
             // TODO: missing BTREE_CHECK_RETURN as it requires move
             return (*base_type::emplace(allocator_, key, Value()).first).second;
+        }
+
+        Value& operator[](Key&& key)
+        {
+            // TODO: missing test
+            // TODO: missing BTREE_CHECK_RETURN as it requires move
+            return (*base_type::emplace(allocator_, std::move(key), Value()).first).second;
         }
 
     private:

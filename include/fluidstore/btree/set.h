@@ -89,8 +89,13 @@ namespace btree
         using value_type = typename base_type::value_type;
         using size_type = typename base_type::size_type;
         using iterator = typename base_type::iterator;
+        using const_iterator = typename base_type::const_iterator;
 
-        set(const Allocator& allocator = Allocator())
+        // TODO: constructors 
+        
+        set() = default;
+
+        explicit set(const allocator_type& allocator)
             : allocator_(allocator)
         {}
 
@@ -101,14 +106,47 @@ namespace btree
             clear();
         }
 
+        void clear() noexcept
+        {
+            BTREE_CHECK(base_type::clear(allocator_));
+        }
+
+        template < typename... Args > std::pair< iterator, bool > emplace(Args&&... args)
+        {
+            BTREE_CHECK_RETURN(base_type::emplace(allocator_, std::forward< Args >(args)...));
+        }
+
+        size_type erase(const value_type& key)
+        {
+            BTREE_CHECK_RETURN(base_type::erase(allocator_, key));
+        }
+                
+        iterator erase(const_iterator it)
+        {
+            BTREE_CHECK_RETURN(base_type::erase(allocator_, it));
+        }
+
+        // TODO
+        //iterator  erase(const_iterator first, const_iterator last);
+
         std::pair< iterator, bool > insert(const value_type& value)
         {
             BTREE_CHECK_RETURN(base_type::emplace(allocator_, value));
         }
 
-        std::pair< iterator, bool > insert(iterator hint, const value_type& value)
+        std::pair< iterator, bool > insert(value_type&& value)
+        {
+            BTREE_CHECK_RETURN(base_type::emplace(allocator_, std::move(value)));
+        }
+
+        iterator insert(iterator hint, const value_type& value)
         {
             BTREE_CHECK_RETURN(base_type::emplace_hint(allocator_, hint, value));
+        }
+
+        iterator insert(iterator hint, value_type&& value)
+        {
+            BTREE_CHECK_RETURN(base_type::emplace_hint(allocator_, hint, std::move(value)));
         }
 
         template < typename It > void insert(It begin, It end)
@@ -116,21 +154,8 @@ namespace btree
             BTREE_CHECK(base_type::insert(allocator_, begin, end));
         }
 
-        size_type erase(const value_type& key)
-        {
-            BTREE_CHECK_RETURN(base_type::erase(allocator_, key));
-        }
-
-        iterator erase(iterator it)
-        {
-            BTREE_CHECK_RETURN(base_type::erase(allocator_, it));
-        }
-
-        void clear()
-        {
-            // TODO: missing test
-            BTREE_CHECK(base_type::clear(allocator_));
-        }
+        // TODO
+        // void insert(initializer_list<value_type> il);    
 
     private:
         allocator_type allocator_;

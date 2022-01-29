@@ -3,6 +3,7 @@
 // TODO: what should happen with btree:
 // 1. check exception-safety
 // 2. check function signatures
+// - missing copy construction/batch construction/move with proper allocator semantic
 // 3. check iterators
 // 4. separate source control
 // 5. copying
@@ -381,15 +382,11 @@ namespace btree::detail
             }
         }
 
-        iterator find(const key_type& key) const
-        {
-            return root_ ? find(root_, key) : end();
-        }
+        iterator find(const key_type& key) { return root_ ? find(root_, key) : end(); }
+        const_iterator find(const key_type& key) const { return root_ ? find(root_, key) : end(); }
 
-        iterator lower_bound(const key_type& key) const
-        {
-            return root_ ? lower_bound(root_, key) : end();
-        }
+        iterator lower_bound(const key_type& key) { return root_ ? lower_bound(root_, key) : end(); }
+        const_iterator lower_bound(const key_type& key) const { return root_ ? lower_bound(root_, key) : end(); }
 
         template < typename AllocatorT > std::pair< iterator, bool > insert(AllocatorT& allocator, const value_type& value)
         {
@@ -398,7 +395,7 @@ namespace btree::detail
 
         template < typename AllocatorT > std::pair< iterator, bool > insert(AllocatorT& allocator, const_iterator hint, const value_type& value)
         {
-            return emplace_hint(allocator, hint, value);
+            return emplace_hint_impl(allocator, hint, value);
         }
 
         template < typename AllocatorT, typename It > void insert(AllocatorT& allocator, It begin, It end)
@@ -429,7 +426,7 @@ namespace btree::detail
             return 0;
         }
 
-        template < typename AllocatorT > iterator erase(AllocatorT& allocator, iterator it)
+        template < typename AllocatorT > iterator erase(AllocatorT& allocator, const_iterator it)
         {
             // TODO: size should be decremented after successfull erase
 
@@ -492,8 +489,8 @@ namespace btree::detail
             }
         }
 
-        size_type size() const { return size_; }
-        bool empty() const { return size_ == 0; }
+        size_type size() const noexcept { return size_; }
+        bool empty() const noexcept { return size_ == 0; }
 
         iterator begin() const { return iterator(first_node_, 0); }
         iterator end() const { return iterator(last_node_, last_node_ ? last_node_->size : 0); }
@@ -534,23 +531,29 @@ namespace btree::detail
             }
         }
 
-        template < typename AllocatorT, typename... Args > std::pair< iterator, bool > emplace_hint(AllocatorT& allocator, const_iterator hint, Args&&... args)
+        template < typename AllocatorT, typename... Args > iterator emplace_hint(AllocatorT& allocator, const_iterator hint, Args&&... args)
+        {
+            return emplace_hint_impl(allocator, hint, std::forward< Args >(args)...).first;
+        }
+        
+    protected:
+        template < typename AllocatorT, typename... Args > std::pair< iterator, bool > emplace_hint_impl(AllocatorT& allocator, const_iterator hint, Args&&... args)
         {
             if (empty())
             {
                 BTREE_ASSERT(hint == end());
                 return emplace(allocator, std::forward< Args >(args)...);
             }
-         
+
             // Hint is an iterator to an element that we are going to insert BEFORE.
             BTREE_ASSERT(!empty());
-                                    
+
             value_type value{ std::forward< Args >(args)... };
 
             if (hint == end())
             {
                 auto n = desc(hint.node_);
-                
+
                 auto keys = n.get_keys();
                 const auto key = value_type_traits_type::get_key(value);
                 if (compare(keys[hint.kindex_ - 1], key))
@@ -571,7 +574,6 @@ namespace btree::detail
             return emplace(allocator, std::move(value));
         }
 
-    protected:
         std::tuple< node_descriptor< value_node* >, node_size_type > find_value_node(node* n, const key_type& key) const
         {
             size_type depth = depth_;

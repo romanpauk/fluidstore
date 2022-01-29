@@ -68,6 +68,8 @@ if(Boost_FOUND)
         src/tests/crdt/value_mv.cpp
         src/tests/flat/flat.cpp
         src/tests/memory/buffer_allocator.cpp
+        src/tests/stl/set_interface.cpp
+        src/tests/stl/set_interface.h        
         src/tests/testmodule.cpp
         src/tests/pch.h
         src/tests/bench.h

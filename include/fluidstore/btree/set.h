@@ -81,6 +81,7 @@ namespace btree
         typename ValueNodeType = detail::value_node< Key, void, NodeSizeType, N, InternalNodeType >
     > class set
         : public set_base< Key, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >
+        , private detail::compressed_base< Allocator >
     {
         using base_type = set_base< Key, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >;
 
@@ -96,7 +97,7 @@ namespace btree
         set() = default;
 
         explicit set(const allocator_type& allocator)
-            : allocator_(allocator)
+            : detail::compressed_base< Allocator >(allocator)
         {}
 
         set(set< Key, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >&& other) = default;
@@ -108,22 +109,22 @@ namespace btree
 
         void clear() noexcept
         {
-            BTREE_CHECK(base_type::clear(allocator_));
+            BTREE_CHECK(base_type::clear(get_allocator()));
         }
 
         template < typename... Args > std::pair< iterator, bool > emplace(Args&&... args)
         {
-            BTREE_CHECK_RETURN(base_type::emplace(allocator_, std::forward< Args >(args)...));
+            BTREE_CHECK_RETURN(base_type::emplace(get_allocator(), std::forward< Args >(args)...));
         }
 
         size_type erase(const value_type& key)
         {
-            BTREE_CHECK_RETURN(base_type::erase(allocator_, key));
+            BTREE_CHECK_RETURN(base_type::erase(get_allocator(), key));
         }
                 
         iterator erase(const_iterator it)
         {
-            BTREE_CHECK_RETURN(base_type::erase(allocator_, it));
+            BTREE_CHECK_RETURN(base_type::erase(get_allocator(), it));
         }
 
         // TODO
@@ -131,33 +132,33 @@ namespace btree
 
         std::pair< iterator, bool > insert(const value_type& value)
         {
-            BTREE_CHECK_RETURN(base_type::emplace(allocator_, value));
+            BTREE_CHECK_RETURN(base_type::emplace(get_allocator(), value));
         }
 
         std::pair< iterator, bool > insert(value_type&& value)
         {
-            BTREE_CHECK_RETURN(base_type::emplace(allocator_, std::move(value)));
+            BTREE_CHECK_RETURN(base_type::emplace(get_allocator(), std::move(value)));
         }
 
         iterator insert(iterator hint, const value_type& value)
         {
-            BTREE_CHECK_RETURN(base_type::emplace_hint(allocator_, hint, value));
+            BTREE_CHECK_RETURN(base_type::emplace_hint(get_allocator(), hint, value));
         }
 
         iterator insert(iterator hint, value_type&& value)
         {
-            BTREE_CHECK_RETURN(base_type::emplace_hint(allocator_, hint, std::move(value)));
+            BTREE_CHECK_RETURN(base_type::emplace_hint(get_allocator(), hint, std::move(value)));
         }
 
         template < typename It > void insert(It begin, It end)
         {
-            BTREE_CHECK(base_type::insert(allocator_, begin, end));
+            BTREE_CHECK(base_type::insert(get_allocator(), begin, end));
         }
 
         // TODO
         // void insert(initializer_list<value_type> il);    
 
     private:
-        allocator_type allocator_;
+        auto get_allocator() const { return detail::compressed_base< Allocator >::get(); }
     };
 }

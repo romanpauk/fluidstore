@@ -94,6 +94,7 @@ namespace btree
         typename ValueNodeType = detail::value_node< Key, Value, NodeSizeType, N, InternalNodeType >
     > class map
         : public map_base< Key, Value, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >
+        // , private detail::compressed_base< Allocator >
     {
         using base_type = map_base< Key, Value, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >;
 
@@ -175,6 +176,12 @@ namespace btree
             return (*base_type::emplace(allocator_, std::move(key), Value()).first).second;
         }
 
+        /*
+        auto get_allocator()
+        {
+            return detail::compressed_base< Allocator >::get();
+        }
+        */
     private:
         allocator_type allocator_;
     };

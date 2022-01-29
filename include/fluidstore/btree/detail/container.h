@@ -1764,4 +1764,40 @@ namespace btree::detail
     };
 
     template < typename Key, typename Value, typename SizeType, SizeType N, typename InternalNodeType > struct value_node;
+
+    template < typename T, bool = std::is_empty_v< T > > class compressed_base;
+
+    template < typename T > class compressed_base < T, true >
+    {
+    public:
+        compressed_base() {}
+        template < typename Ty > compressed_base(Ty&&) {}
+
+        T get() const { return T(); }
+
+        compressed_base< T, true >& operator = (const compressed_base< T, true >&) { return *this; }
+        bool operator == (const compressed_base< T, true >&) const { return true; }
+    };
+
+    template < typename T > class compressed_base < T, false >
+    {
+    public:
+        template < typename Ty > compressed_base(Ty&& value)
+            : value_(std::forward< Ty >(value))
+        {}
+
+        T& get() const { return value_; }
+
+        compressed_base< T, true >& operator = (const compressed_base< T, true >& other)
+        {
+            value_ = other.value_;
+            return *this;
+        }
+
+        bool operator == (const compressed_base< T, true >& other) const { return value_ == other.value_; }
+
+    private:
+        mutable T value_;
+    };
+
 }

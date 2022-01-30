@@ -48,7 +48,7 @@ namespace memory
         typename Allocator = std::allocator< void >, 
         typename AllocatorType = typename std::allocator_traits< Allocator >::template rebind_alloc< uint8_t > 
     > class dynamic_buffer
-        : compressed_base< AllocatorType >
+        : private compressed_base< AllocatorType >
     {
         dynamic_buffer(const dynamic_buffer< Allocator >&) = delete;
         dynamic_buffer< Allocator >& operator = (const dynamic_buffer< Allocator >&) = delete;
@@ -187,8 +187,9 @@ namespace memory
         std::size_t allocated_;
     };
 
+    // TODO: tests
     template< typename Allocator = std::allocator< uint8_t > > class stats_buffer
-        : compressed_base< Allocator >
+        : private compressed_base< Allocator >
     {
         stats_buffer(const stats_buffer< Allocator >&) = delete;
         stats_buffer< Allocator >& operator = (const stats_buffer< Allocator >&) = delete;
@@ -245,7 +246,7 @@ namespace memory
     };
         
     template < typename T, typename Buffer, typename Allocator = buffer_allocator_throw< T > > class buffer_allocator
-        : compressed_base< Allocator >
+        : private compressed_base< Allocator >
     {
         template < typename U, typename BufferU, typename kAllocatorU > friend class buffer_allocator;
                 

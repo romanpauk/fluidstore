@@ -82,6 +82,7 @@ namespace btree
     > class set
         : public set_base< Key, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >
         , private detail::compressed_base< Allocator >
+        , private detail::compressed_base< Compare >
     {
         using base_type = set_base< Key, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >;
 
@@ -157,8 +158,9 @@ namespace btree
 
         // TODO
         // void insert(initializer_list<value_type> il);    
-
+                
     private:
         auto get_allocator() const { return detail::compressed_base< Allocator >::get(); }
+        auto key_comp() const { return detail::compressed_base< Compare >::get(); }
     };
 }

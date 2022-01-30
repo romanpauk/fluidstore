@@ -16,7 +16,7 @@ namespace memory
         compressed_base() {}
         template < typename Ty > compressed_base(Ty&&) {}
 
-        T get() const { return T(); }
+        T& get() const { static T value; return value; }
 
         compressed_base< T, true >& operator = (const compressed_base< T, true >&) { return *this; }
         bool operator == (const compressed_base< T, true >&) const { return true; }
@@ -275,7 +275,7 @@ namespace memory
         buffer_allocator< T, Buffer >& operator = (const buffer_allocator< T, Buffer >& other)
         {
             buffer_ = other.buffer_;
-            static_cast< compressed_base< FallbackAllocator >& >(*this) = other;
+            static_cast< compressed_base< Allocator >& >(*this) = other;
             return *this;
         }
 

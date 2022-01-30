@@ -12,7 +12,7 @@ public:
 	// TODO
 	// explicit set(const key_compare& comp, const allocator_type& alloc = allocator_type());
 	
-	static void constructor_allocator(typename Container::allocator_type& allocator)
+	static void constructor_allocator(const typename Container::allocator_type& allocator)
 	{
 		Container container(allocator);
 	}
@@ -56,7 +56,7 @@ public:
 	{
 		typename Container::value_type value;
 		Container container;
-		auto result = container.erase(static_cast< const Container::value_type& >(value));
+		auto result = container.erase(static_cast< const typename Container::value_type& >(value));
 		STATIC_ASSERT(std::is_same_v< typename Container::size_type, decltype(result) >);
 	}
 
@@ -182,7 +182,7 @@ public:
 	{
 		typename Container::value_type value;
 		Container container;
-		auto result = container.lower_bound(static_cast< const Container::value_type& >(value));
+		auto result = container.lower_bound(static_cast< const typename Container::value_type& >(value));
 		STATIC_ASSERT(std::is_same_v< typename Container::iterator, decltype(result) >);
 	}
 
@@ -190,7 +190,7 @@ public:
 	{
 		typename Container::value_type value;
 		const Container container;
-		auto result = container.lower_bound(static_cast< const Container::value_type& >(value));
+		auto result = container.lower_bound(static_cast< const typename Container::value_type& >(value));
 		STATIC_ASSERT(std::is_same_v< typename Container::const_iterator, decltype(result) >);
 	}
 

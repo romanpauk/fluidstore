@@ -160,7 +160,7 @@ namespace btree
         void clear() noexcept
         {
             // TODO: missing test
-            BTREE_CHECK(base_type::clear(get_allocator()));
+            BTREE_CHECK(base_type::clear(this->get_allocator()));
         }
 
         Value& operator[](const Key& key)
@@ -184,7 +184,7 @@ namespace btree
         }
         */
     private:
-        auto get_allocator() const { return detail::compressed_base< Allocator >::get(); }
-        auto key_comp() const { return detail::compressed_base< Compare >::get(); }
+        auto& get_allocator() const { return detail::compressed_base< Allocator >::get(); }
+        auto& key_comp() const { return detail::compressed_base< Compare >::get(); }
     };
 }

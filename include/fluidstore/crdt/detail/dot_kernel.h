@@ -230,8 +230,8 @@ namespace crdt
         iterator begin() { return values_.begin(); }
         const_iterator end() const { return values_.end(); }
         iterator end() { return values_.end(); }
-        const_iterator find(const Key& key) const { return values_.find(key); }
-        iterator find(const Key& key) { return values_.find(key); }
+        const_iterator find(const Key& key) const { return this->get_metadata().values_find(values_, key); }
+        iterator find(const Key& key) { return this->get_metadata().values_find(values_, key); }
 
         template < typename Delta > void clear(Delta& delta)
         {

@@ -25,12 +25,16 @@ namespace crdt
             using replica_type = typename allocator_type::replica_type;
             using replica_id_type = typename replica_type::replica_id_type;
             using counter_type = typename replica_type::counter_type;
+            using compare_type = std::less< Key >;
+
+            using counter_compare_type = std::less< counter_type >;
+            using replica_id_compare_type = std::less< replica_id_type >;
 
             using counters_type = btree::set_base< counter_type >;
             using value_type_dots_type = btree::map_base < replica_id_type, counters_type >;            
 
             template < typename KeyT, typename ValueT > using values_map_type = btree::map_base< KeyT, ValueT >;
-            template < typename AllocatorT > using visited_map_type = btree::map< replica_id_type, btree::set_base< counter_type >, std::less< replica_id_type >, AllocatorT >;
+            template < typename AllocatorT > using visited_map_type = btree::map< replica_id_type, btree::set_base< counter_type >, replica_id_compare_type, AllocatorT >;
 
             // Replicas
             struct replica_data
@@ -41,12 +45,12 @@ namespace crdt
 
             replica_data& get_replica_data(Allocator& allocator, replica_id_type id)
             {
-                return replica_.emplace(allocator, id, replica_data()).first->second;
+                return replica_.emplace(allocator, replica_id_compare_type(), id, replica_data()).first->second;
             }
 
             replica_data* get_replica_data(replica_id_type id)
             {
-                auto it = replica_.find(id);
+                auto it = replica_.find(replica_id_compare_type(), id);
                 return it != replica_.end() ? &it->second : nullptr;
             }
 
@@ -64,9 +68,9 @@ namespace crdt
 
                 auto& counters = get_replica_data(allocator, id).counters;
             #if defined(DOTKERNEL_METADATA_HINT)
-                counters.emplace_hint(allocator, counters.end(), counter);
+                counters.emplace_hint(allocator, counter_compare_type(), counters.end(), counter);
             #else
-                counters.emplace(allocator, counter);
+                counters.emplace(allocator, counter_compare_type(), counter);
             #endif
             }
                         
@@ -77,12 +81,12 @@ namespace crdt
                     assert(get_replica_data(allocator, id).counters.empty());
                 }
 
-                get_replica_data(allocator, id).counters.insert(allocator, counters.begin(), counters.end());                
+                get_replica_data(allocator, id).counters.insert(allocator, counter_compare_type(), counters.begin(), counters.end());                
             }            
 
             auto counters_erase(Allocator& allocator, counters_type& counters, typename counters_type::iterator it)
             {
-                return counters.erase(allocator, it);
+                return counters.erase(allocator, counter_compare_type(), it);
             }
 
             void counters_update(Allocator& allocator, counters_type& counters, typename counters_type::iterator it, counter_type value)
@@ -93,13 +97,13 @@ namespace crdt
                 //counters.erase(allocator, it);
                 //const_cast< counter_type& >(*it) = value;
 
-                auto pos = counters.erase(allocator, it);
-                counters.insert(allocator, pos, value);  
+                auto pos = counters.erase(allocator, counter_compare_type(), it);
+                counters.insert(allocator, counter_compare_type(), pos, value);  
             }
 
             template < typename AllocatorT, typename It > void counters_insert(AllocatorT& allocator, counters_type& counters, It begin, It end)
             {
-                counters.insert(allocator, begin, end);
+                counters.insert(allocator, counter_compare_type(), begin, end);
             }
 
             template < typename AllocatorT > void counters_clear(AllocatorT& allocator, counters_type& counters)
@@ -110,9 +114,9 @@ namespace crdt
             void replica_dots_add(Allocator& allocator, replica_data& replica, counter_type counter, Key key)
             {
             #if defined(DOTKERNEL_METADATA_HINT)
-                replica.dots.emplace_hint(allocator, replica.dots.end(), counter, key);
+                replica.dots.emplace_hint(allocator, counter_compare_type(), replica.dots.end(), counter, key);
             #else
-                replica.dots.emplace(allocator, counter, key);
+                replica.dots.emplace(allocator, counter_compare_type(), counter, key);
             #endif
             }
 
@@ -121,45 +125,45 @@ namespace crdt
                 auto replica = get_replica_data(id);
                 if (replica)
                 {
-                    replica->dots.erase(allocator, counter);
+                    replica->dots.erase(allocator, counter_compare_type(), counter);
                 }
             }
 
             void replica_dots_erase(Allocator& allocator, replica_data& replica, typename btree::map_base< counter_type, Key >::iterator it)
             {
-                replica.dots.erase(allocator, it);
+                replica.dots.erase(allocator, counter_compare_type(), it);
             }
 
             auto replica_dots_find(replica_data& replica, counter_type counter)
             {
-                return replica.dots.find(counter);
+                return replica.dots.find(counter_compare_type(), counter);
             }
 
             auto& value_counters_fetch(Allocator& allocator, value_type_dots_type& ldots, replica_id_type id)
             {
-                auto& counters = ldots.emplace(allocator, id, btree::set_base< counter_type >()).first->second;
+                auto& counters = ldots.emplace(allocator, replica_id_compare_type(), id, btree::set_base< counter_type >()).first->second;
                 return counters;
             }
 
             void value_counters_emplace(Allocator& allocator, value_type_dots_type& ldots, dot< replica_id_type, counter_type > dot)
             {
-                auto& counters = ldots.emplace(allocator, dot.replica_id, btree::set_base< counter_type >()).first->second;
+                auto& counters = ldots.emplace(allocator, replica_id_compare_type(), dot.replica_id, btree::set_base< counter_type >()).first->second;
             #if defined(DOTKERNEL_METADATA_HINT)
-                counters.emplace_hint(allocator, counters.end(), dot.counter);
+                counters.emplace_hint(allocator, counter_compare_type(), counters.end(), dot.counter);
             #else
-                counters.emplace(allocator, dot.counter);
+                counters.emplace(allocator, counter_compare_type(), dot.counter);
             #endif
             }
 
             void value_counters_erase(Allocator& allocator, value_type_dots_type& ldots, dot< replica_id_type, counter_type > dot)
             {
-                auto it = ldots.find(dot.replica_id);
+                auto it = ldots.find(replica_id_compare_type(), dot.replica_id);
                 if (it != ldots.end())
                 {
-                    it->second.erase(allocator, dot.counter);
+                    it->second.erase(allocator, counter_compare_type(), dot.counter);
                     if (it->second.empty())
                     {
-                        ldots.erase(allocator, it);
+                        ldots.erase(allocator, replica_id_compare_type(), it);
                     }
                 }                
             }
@@ -167,20 +171,20 @@ namespace crdt
             template < typename Values, typename Value > auto values_emplace(Allocator& allocator, Values& values, const Key& key, Value&& value)
             {
             #if defined(DOTKERNEL_METADATA_HINT)
-                return values.emplace_hint(allocator, values.end(), key, std::forward< Value >(value));
+                return values.emplace_hint(allocator, compare_type(), values.end(), key, std::forward< Value >(value));
             #else
-                return values.emplace(allocator, key, std::forward< Value >(value));
+                return values.emplace(allocator, compare_type(), key, std::forward< Value >(value));
             #endif
             }
 
             template < typename Values > auto values_find(Values& values, const Key& key)
             {
-                return values.find(key);
+                return values.find(compare_type(), key);
             }
 
             template < typename Values > auto values_erase(Allocator& allocator, Values& values, typename Values::iterator it)
             {
-                return values.erase(allocator, it);
+                return values.erase(allocator, compare_type(), it);
             }
 
             template < typename Values > void values_clear(Allocator& allocator, Values& values)

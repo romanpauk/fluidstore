@@ -382,51 +382,51 @@ namespace btree::detail
             }
         }
 
-        iterator find(const key_type& key) { return root_ ? find(root_, key) : end(); }
-        const_iterator find(const key_type& key) const { return root_ ? find(root_, key) : end(); }
+        iterator find(const Compare& compare, const key_type& key) { return root_ ? find(compare, root_, key) : end(); }
+        const_iterator find(const Compare& compare, const key_type& key) const { return root_ ? find(compare, root_, key) : end(); }
 
-        iterator lower_bound(const key_type& key) { return root_ ? lower_bound(root_, key) : end(); }
-        const_iterator lower_bound(const key_type& key) const { return root_ ? lower_bound(root_, key) : end(); }
+        iterator lower_bound(const Compare& compare, const key_type& key) { return root_ ? lower_bound(compare, root_, key) : end(); }
+        const_iterator lower_bound(const Compare& compare, const key_type& key) const { return root_ ? lower_bound(compare, root_, key) : end(); }
 
-        template < typename AllocatorT > std::pair< iterator, bool > insert(AllocatorT& allocator, const value_type& value)
+        template < typename AllocatorT > std::pair< iterator, bool > insert(AllocatorT& allocator, const Compare& compare, const value_type& value)
         {
-            return emplace(allocator, value);
+            return emplace(allocator, compare, value);
         }      
 
-        template < typename AllocatorT > std::pair< iterator, bool > insert(AllocatorT& allocator, const_iterator hint, const value_type& value)
+        template < typename AllocatorT > std::pair< iterator, bool > insert(AllocatorT& allocator, const Compare& compare, const_iterator hint, const value_type& value)
         {
-            return emplace_hint_impl(allocator, hint, value);
+            return emplace_hint_impl(allocator, compare, hint, value);
         }
 
-        template < typename AllocatorT, typename It > void insert(AllocatorT& allocator, It begin, It end)
+        template < typename AllocatorT, typename It > void insert(AllocatorT& allocator, const Compare& compare, It begin, It end)
         {
             while (begin != end)
             {
-                insert(allocator, *begin++);
+                insert(allocator, compare, *begin++);
             }
         }
 
-        template < typename AllocatorT, typename It > void insert(AllocatorT& allocator, const_iterator pos, It begin, It end)
+        template < typename AllocatorT, typename It > void insert(AllocatorT& allocator, const Compare& compare, const_iterator pos, It begin, It end)
         {
             while (begin != end)
             {
-                pos = insert(allocator, pos + 1, *begin++).first;
+                pos = insert(allocator, compare, pos + 1, *begin++).first;
             }
         }
                 
-        template < typename AllocatorT > size_type erase(AllocatorT& allocator, const key_type& key)
+        template < typename AllocatorT > size_type erase(AllocatorT& allocator, const Compare& compare, const key_type& key)
         {
-            auto it = find(key);
+            auto it = find(compare, key);
             if (it != end())
             {
-                erase(allocator, it);
+                erase(allocator, compare, it);
                 return 1;
             }
 
             return 0;
         }
 
-        template < typename AllocatorT > iterator erase(AllocatorT& allocator, const_iterator it)
+        template < typename AllocatorT > iterator erase(AllocatorT& allocator, const Compare& compare, const_iterator it)
         {
             // TODO: size should be decremented after successfull erase
 
@@ -455,7 +455,7 @@ namespace btree::detail
                 {
                     auto key = node.get_keys()[it.kindex_];
                     auto n = rebalance_erase(allocator, depth_, node);
-                    auto kindex = find_key_index(n.get_keys(), key);
+                    auto kindex = find_key_index(compare, n.get_keys(), key);
 
                     --size_;
                     auto ndata = n.get_data();
@@ -495,7 +495,7 @@ namespace btree::detail
         iterator begin() const { return iterator(first_node_, 0); }
         iterator end() const { return iterator(last_node_, last_node_ ? last_node_->size : 0); }
         
-        template < typename AllocatorT, typename... Args > std::pair< iterator, bool > emplace(AllocatorT& allocator, Args&&... args)
+        template < typename AllocatorT, typename... Args > std::pair< iterator, bool > emplace(AllocatorT& allocator, const Compare& compare, Args&&... args)
         {
             value_type value{ std::forward< Args >(args)... };
 
@@ -511,38 +511,38 @@ namespace btree::detail
 
             // TODO: look at key extraction
             const auto& key = value_type_traits_type::get_key(value);
-            auto [n, nindex] = find_value_node(root_, key);
+            auto [n, nindex] = find_value_node(compare, root_, key);
             if (!full(n))
             {
-                return insert(allocator, n, std::move(value));
+                return insert(allocator, compare, n, std::move(value));
             }
             else
             {
                 if (n.get_parent())
                 {                    
-                    n = rebalance_insert(allocator, depth_, n, nindex, key);
-                    return insert(allocator, n, std::move(value));
+                    n = rebalance_insert(allocator, compare, depth_, n, nindex, key);
+                    return insert(allocator, compare, n, std::move(value));
                 }
                 else
                 {
-                    n = rebalance_insert(allocator, depth_, n, key);
-                    return insert(allocator, n, std::move(value));
+                    n = rebalance_insert(allocator, compare, depth_, n, key);
+                    return insert(allocator, compare, n, std::move(value));
                 }
             }
         }
 
-        template < typename AllocatorT, typename... Args > iterator emplace_hint(AllocatorT& allocator, const_iterator hint, Args&&... args)
+        template < typename AllocatorT, typename... Args > iterator emplace_hint(AllocatorT& allocator, const Compare& compare, const_iterator hint, Args&&... args)
         {
-            return emplace_hint_impl(allocator, hint, std::forward< Args >(args)...).first;
+            return emplace_hint_impl(allocator, compare, hint, std::forward< Args >(args)...).first;
         }
         
     protected:
-        template < typename AllocatorT, typename... Args > std::pair< iterator, bool > emplace_hint_impl(AllocatorT& allocator, const_iterator hint, Args&&... args)
+        template < typename AllocatorT, typename... Args > std::pair< iterator, bool > emplace_hint_impl(AllocatorT& allocator, const Compare& compare, const_iterator hint, Args&&... args)
         {
             if (empty())
             {
                 BTREE_ASSERT(hint == end());
-                return emplace(allocator, std::forward< Args >(args)...);
+                return emplace(allocator, compare, std::forward< Args >(args)...);
             }
 
             // Hint is an iterator to an element that we are going to insert BEFORE.
@@ -564,17 +564,17 @@ namespace btree::detail
                     }
                     else
                     {
-                        n = rebalance_insert(allocator, depth_, n, key);
-                        return insert(allocator, n, std::move(value));
+                        n = rebalance_insert(allocator, compare, depth_, n, key);
+                        return insert(allocator, compare, n, std::move(value));
                     }
                 }
             }
 
             BTREE_ASSERT(false);
-            return emplace(allocator, std::move(value));
+            return emplace(allocator, compare, std::move(value));
         }
 
-        std::tuple< node_descriptor< value_node* >, node_size_type > find_value_node(node* n, const key_type& key) const
+        std::tuple< node_descriptor< value_node* >, node_size_type > find_value_node(const Compare& compare, node* n, const key_type& key) const
         {
             size_type depth = depth_;
             node_size_type nindex = 0;
@@ -584,7 +584,7 @@ namespace btree::detail
                 auto in = desc(node_cast<internal_node*>(n));
 
                 auto nkeys = in.get_keys();
-                auto kindex = find_key_index(nkeys, key);
+                auto kindex = find_key_index(compare, nkeys, key);
                 if (kindex != nkeys.size())
                 {
                     nindex = static_cast<node_size_type>(kindex + (key == nkeys[kindex]));
@@ -600,13 +600,13 @@ namespace btree::detail
             return { node_cast<value_node*>(n), nindex };
         }
 
-        iterator find(node* n, const key_type& key) const
+        iterator find(const Compare& compare, node* n, const key_type& key) const
         {
-            auto [vn, vnindex] = find_value_node(n, key);
+            auto [vn, vnindex] = find_value_node(compare, n, key);
             BTREE_ASSERT(vn != nullptr);
 
             auto nkeys = vn.get_keys();
-            auto kindex = find_key_index(nkeys, key);
+            auto kindex = find_key_index(compare, nkeys, key);
             if (kindex < nkeys.size() && key == nkeys[kindex])
             {
                 return iterator(vn, kindex);
@@ -617,13 +617,13 @@ namespace btree::detail
             }
         }
 
-        iterator lower_bound(node* n, const key_type& key) const
+        iterator lower_bound(const Compare& compare, node* n, const key_type& key) const
         {
-            auto [vn, vnindex] = find_value_node(n, key);
+            auto [vn, vnindex] = find_value_node(compare, n, key);
             BTREE_ASSERT(vn != nullptr);
 
             auto nkeys = vn.get_keys();
-            auto kindex = find_key_index(nkeys, key);
+            auto kindex = find_key_index(compare, nkeys, key);
             if (kindex < nkeys.size())
             {
                 return iterator(vn, kindex);
@@ -643,14 +643,14 @@ namespace btree::detail
 
         // TODO: upper_bound
 
-        template < typename AllocatorT, typename T > std::pair< iterator, bool > insert(AllocatorT& allocator, node_descriptor< value_node* > n, T&& value)
+        template < typename AllocatorT, typename T > std::pair< iterator, bool > insert(AllocatorT& allocator, const Compare& compare, node_descriptor< value_node* > n, T&& value)
         {
             BTREE_ASSERT(!full(n));
 
             const auto& key = value_type_traits_type::get_key(value);
 
             auto nkeys = n.get_keys();
-            auto kindex = find_key_index(nkeys, key);
+            auto kindex = find_key_index(compare, nkeys, key);
             if (kindex < nkeys.size() && key == nkeys[kindex])
             {
                 return { iterator(n, kindex), false };
@@ -670,7 +670,7 @@ namespace btree::detail
             return { iterator(n, kindex), true };
         }
 
-        template < typename Descriptor > auto find_key_index(const fixed_vector< Key, Descriptor >& keys, const key_type& key) const
+        template < typename Descriptor > auto find_key_index(const Compare& compare, const fixed_vector< Key, Descriptor >& keys, const key_type& key) const
         {
             // Counts number of elements smaller than key
             // TODO: better search
@@ -796,7 +796,7 @@ namespace btree::detail
             }
         }
 
-        template < typename AllocatorT > std::tuple< node_descriptor< internal_node* >, const key_type > split_node(AllocatorT& allocator, size_type depth, node_descriptor< internal_node* > lnode, const key_type&)
+        template < typename AllocatorT > std::tuple< node_descriptor< internal_node* >, const key_type > split_node(AllocatorT& allocator, const Compare&, size_type depth, node_descriptor< internal_node* > lnode, const key_type&)
         {
             BTREE_ASSERT(full(lnode));
             auto rnode = desc(allocate_node< internal_node >(allocator));
@@ -833,7 +833,7 @@ namespace btree::detail
             return { rnode, splitkey };
         }
                 
-        template < typename AllocatorT > std::tuple< node_descriptor< value_node* >, const key_type& > split_node(AllocatorT& allocator, size_type, node_descriptor< value_node* > lnode, const key_type& splitkey)
+        template < typename AllocatorT > std::tuple< node_descriptor< value_node* >, const key_type& > split_node(AllocatorT& allocator, const Compare& compare, size_type, node_descriptor< value_node* > lnode, const key_type& splitkey)
         {
             BTREE_ASSERT(full(lnode));
             auto rnode = desc(allocate_node< value_node >(allocator));
@@ -1176,25 +1176,24 @@ namespace btree::detail
             return false;
         }
 
-        template < typename AllocatorT, typename Node > node_descriptor< Node* > rebalance_insert(AllocatorT& allocator, size_type depth, node_descriptor< Node* > n, const Key& key)
+        template < typename AllocatorT, typename Node > node_descriptor< Node* > rebalance_insert(AllocatorT& allocator, const Compare& compare, size_type depth, node_descriptor< Node* > n, const Key& key)
         {
             BTREE_ASSERT(full(n));
             if (n.get_parent())
             {
-                return rebalance_insert(allocator, depth, n, get_index(n), key);
+                return rebalance_insert(allocator, compare, depth, n, get_index(n), key);
             }
             else
             {
                 auto root = desc(allocate_node< internal_node >(allocator));
-                auto [p, splitkey] = split_node(allocator, depth, n, key);
+                auto [p, splitkey] = split_node(allocator, compare, depth, n, key);
                 
                 auto children = root.template get_children< node* >();
                 children.emplace_back(allocator, n);
                 n.set_parent(root);
                 children.emplace_back(allocator, p);
                 p.set_parent(root);
-                              
-                Compare compare;
+                             
                 auto cmp = !compare(key, splitkey);
 
             #if defined(BTREE_VALUE_NODE_APPEND)
@@ -1224,7 +1223,7 @@ namespace btree::detail
             }
         }
 
-        template < typename AllocatorT, typename Node > node_descriptor< Node* > rebalance_insert(AllocatorT& allocator, size_type depth, node_descriptor< Node* > n, node_size_type nindex, const Key& key)
+        template < typename AllocatorT, typename Node > node_descriptor< Node* > rebalance_insert(AllocatorT& allocator, const Compare& compare, size_type depth, node_descriptor< Node* > n, node_size_type nindex, const Key& key)
         {
             BTREE_ASSERT(full(n));
             BTREE_ASSERT(n.get_parent());
@@ -1233,14 +1232,14 @@ namespace btree::detail
             {
                 BTREE_ASSERT(depth > 1);
                 depth_check< true > dc(depth_, depth);
-                rebalance_insert(allocator, depth - 1, n.get_parent(), split_key(n.get_parent()));
+                rebalance_insert(allocator, compare, depth - 1, n.get_parent(), split_key(n.get_parent()));
                 
                 // Parent may changed, so fetch n's index again
                 nindex = get_index(n);
             }
                         
             // TODO: this only splits, but it can also share to get rid of some keys.
-            auto [p, splitkey] = split_node(allocator, depth, n, key);
+            auto [p, splitkey] = split_node(allocator, compare, depth, n, key);
             
             auto pchildren = n.get_parent().template get_children< node* >();
             pchildren.emplace(allocator, pchildren.begin() + nindex + 1, p);
@@ -1494,13 +1493,7 @@ namespace btree::detail
         #endif
             return reinterpret_cast<Node>(n);
         }
-
-        bool compare(const key_type& lhs, const key_type& rhs) const
-        {
-            Compare cmp;
-            return cmp(lhs, rhs);
-        }
-
+                
         template < typename Node > static bool full(const node_descriptor< Node > n)
         {
             return n.get_keys().size() == n.get_keys().capacity();

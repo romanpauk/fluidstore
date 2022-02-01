@@ -262,8 +262,8 @@ namespace memory
             : buffer_(&buffer)
         {}
         
-        template < typename FallbackAlloc > buffer_allocator(Buffer& buffer, FallbackAlloc&& fallback) noexcept
-            : compressed_base< Allocator >(fallback)
+        template < typename AllocatorT > buffer_allocator(Buffer& buffer, AllocatorT&& allocator) noexcept
+            : compressed_base< Allocator >(std::forward< AllocatorT >(allocator))
             , buffer_(&buffer)
         {}
 
@@ -275,7 +275,7 @@ namespace memory
         buffer_allocator< T, Buffer >& operator = (const buffer_allocator< T, Buffer >& other)
         {
             buffer_ = other.buffer_;
-            static_cast< compressed_base< FallbackAllocator >& >(*this) = other;
+            static_cast< compressed_base< Allocator >& >(*this) = other;
             return *this;
         }
 

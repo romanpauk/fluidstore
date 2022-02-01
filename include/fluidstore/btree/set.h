@@ -110,57 +110,57 @@ namespace btree
 
         void clear() noexcept
         {
-            BTREE_CHECK(base_type::clear(get_allocator()));
+            BTREE_CHECK(base_type::clear(this->get_allocator()));
         }
 
         template < typename... Args > std::pair< iterator, bool > emplace(Args&&... args)
         {
-            BTREE_CHECK_RETURN(base_type::emplace(get_allocator(), key_comp(), std::forward< Args >(args)...));
+            BTREE_CHECK_RETURN(base_type::emplace(this->get_allocator(), this->key_comp(), std::forward< Args >(args)...));
         }
 
         size_type erase(const value_type& key)
         {
-            BTREE_CHECK_RETURN(base_type::erase(get_allocator(), key_comp(), key));
+            BTREE_CHECK_RETURN(base_type::erase(this->get_allocator(), this->key_comp(), key));
         }
                 
         iterator erase(const_iterator it)
         {
-            BTREE_CHECK_RETURN(base_type::erase(get_allocator(), key_comp(), it));
+            BTREE_CHECK_RETURN(base_type::erase(this->get_allocator(), this->key_comp(), it));
         }
 
         // TODO
         //iterator  erase(const_iterator first, const_iterator last);
 
-        iterator find(const value_type& key) { return base_type::find(key_comp(), key); }
-        const_iterator find(const value_type& key) const { return base_type::find(key_comp(), key); }
+        iterator find(const value_type& key) { return base_type::find(this->key_comp(), key); }
+        const_iterator find(const value_type& key) const { return base_type::find(this->key_comp(), key); }
 
         std::pair< iterator, bool > insert(const value_type& value)
         {
-            BTREE_CHECK_RETURN(base_type::emplace(get_allocator(), key_comp(), value));
+            BTREE_CHECK_RETURN(base_type::emplace(this->get_allocator(), this->key_comp(), value));
         }
 
         std::pair< iterator, bool > insert(value_type&& value)
         {
-            BTREE_CHECK_RETURN(base_type::emplace(get_allocator(), key_comp(), std::move(value)));
+            BTREE_CHECK_RETURN(base_type::emplace(this->get_allocator(), this->key_comp(), std::move(value)));
         }
 
         iterator insert(iterator hint, const value_type& value)
         {
-            BTREE_CHECK_RETURN(base_type::emplace_hint(get_allocator(), key_comp(), hint, value));
+            BTREE_CHECK_RETURN(base_type::emplace_hint(this->get_allocator(), this->key_comp(), hint, value));
         }
 
         iterator insert(iterator hint, value_type&& value)
         {
-            BTREE_CHECK_RETURN(base_type::emplace_hint(get_allocator(), key_comp(), hint, std::move(value)));
+            BTREE_CHECK_RETURN(base_type::emplace_hint(this->get_allocator(), this->key_comp(), hint, std::move(value)));
         }
 
         template < typename It > void insert(It begin, It end)
         {
-            BTREE_CHECK(base_type::insert(get_allocator(), key_comp(), begin, end));
+            BTREE_CHECK(base_type::insert(this->get_allocator(), this->key_comp(), begin, end));
         }
 
-        iterator lower_bound(const value_type& key) { return base_type::lower_bound(key_comp(), key); }
-        const_iterator lower_bound(const value_type& key) const { return base_type::lower_bound(key_comp(), key); }
+        iterator lower_bound(const value_type& key) { return base_type::lower_bound(this->key_comp(), key); }
+        const_iterator lower_bound(const value_type& key) const { return base_type::lower_bound(this->key_comp(), key); }
 
         // TODO
         // void insert(initializer_list<value_type> il);    

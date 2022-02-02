@@ -456,7 +456,7 @@ namespace btree::detail
                 else
                 {
                     auto key = node.get_keys()[it.kindex_];
-                    auto n = rebalance_erase(allocator, depth_, node);
+                    auto n = rebalance_erase(allocator, compare, depth_, node);
                     auto kindex = find_key_index(compare, n.get_keys(), key);
 
                     --size_;
@@ -572,7 +572,8 @@ namespace btree::detail
                 }
             }
 
-            BTREE_ASSERT(false);
+            // TODO: support other cases than end()
+            // BTREE_ASSERT(false);
             return emplace(allocator, compare, std::move(value));
         }
 
@@ -703,7 +704,7 @@ namespace btree::detail
             return nodes.size();
         }
 
-        template< typename AllocatorT, typename Node > void remove_node(AllocatorT&& allocator, size_type depth, node_descriptor< Node* > n, node_size_type nindex, node_size_type pkindex)
+        template< typename AllocatorT, typename Node > void remove_node(AllocatorT&& allocator, const Compare& compare, size_type depth, node_descriptor< Node* > n, node_size_type nindex, node_size_type pkindex)
         {            
             auto p = n.get_parent();
             auto pchildren = p.template get_children< node* >();
@@ -728,11 +729,11 @@ namespace btree::detail
 
                 if (depth_ == 1)
                 {
-                    BTREE_ASSERT(verify_node(desc(node_cast<value_node*>(root_))));
+                    BTREE_ASSERT(verify_node(compare, desc(node_cast<value_node*>(root_))));
                 }
                 else
                 {
-                    BTREE_ASSERT(verify_node(desc(node_cast<internal_node*>(root_))));
+                    BTREE_ASSERT(verify_node(compare, desc(node_cast<internal_node*>(root_))));
                 }
             }
         }
@@ -931,7 +932,7 @@ namespace btree::detail
             return node_cast<Node>(n);
         }
 
-        template < typename AllocatorT > bool share_keys(AllocatorT&& allocator, direction dir, size_t, node_descriptor< value_node* > target, node_descriptor< value_node* > source, node_size_type pkindex)
+        template < typename AllocatorT > bool share_keys(AllocatorT&& allocator, const Compare& compare, direction dir, size_t, node_descriptor< value_node* > target, node_descriptor< value_node* > source, node_size_type pkindex)
         {
             if (!source)
             {
@@ -957,27 +958,27 @@ namespace btree::detail
                 {
                     // Right-most key from the left node
                     auto borrow = sdata.end() - 1;
-                    BTREE_ASSERT(find_key_index(pkeys, value_type_traits_type::get_key(*borrow)) == pkindex);
+                    BTREE_ASSERT(find_key_index(compare, pkeys, value_type_traits_type::get_key(*borrow)) == pkindex);
 
                     tdata.emplace(allocator, tdata.begin(), std::move(*borrow));
                     sdata.erase(allocator, borrow);
 
                     auto separator = tdata.begin();
                     pkeys[pkindex] = value_type_traits_type::get_key(*separator);
-                    BTREE_ASSERT(verify_separator(pkeys, skeys.back(), pkeys[pkindex], tkeys.front()));
+                    BTREE_ASSERT(verify_separator(compare, pkeys, skeys.back(), pkeys[pkindex], tkeys.front()));
                 }
                 else
                 {
                     // Left-most key from the right node
                     auto borrow = sdata.begin();
-                    BTREE_ASSERT(find_key_index(pkeys, value_type_traits_type::get_key(*(tdata.end() - 1))) == pkindex);
+                    BTREE_ASSERT(find_key_index(compare, pkeys, value_type_traits_type::get_key(*(tdata.end() - 1))) == pkindex);
 
                     tdata.emplace(allocator, tdata.end(), std::move(*borrow));
                     sdata.erase(allocator, borrow);
 
                     auto separator = sdata.begin();
                     pkeys[pkindex] = value_type_traits_type::get_key(*separator);
-                    BTREE_ASSERT(verify_separator(pkeys, tkeys.back(), pkeys[pkindex], skeys.front()));
+                    BTREE_ASSERT(verify_separator(compare, pkeys, tkeys.back(), pkeys[pkindex], skeys.front()));
                 }
 
             #if defined(BTREE_VALUE_NODE_APPEND)
@@ -1001,7 +1002,7 @@ namespace btree::detail
 
                 // Left-most key from the right node
                 auto borrow = sdata.begin();
-                BTREE_ASSERT(find_key_index(pkeys, value_type_traits_type::get_key(*(tdata.end() - 1))) == pkindex);
+                BTREE_ASSERT(find_key_index(compare, pkeys, value_type_traits_type::get_key(*(tdata.end() - 1))) == pkindex);
 
                 tdata.emplace(allocator, tdata.end(), std::move(*borrow));
                 sdata.erase(allocator, borrow);
@@ -1010,7 +1011,7 @@ namespace btree::detail
                 {                    
                     auto separator = sdata.begin();
                     pkeys[pkindex] = value_type_traits_type::get_key(*separator);
-                    BTREE_ASSERT(verify_separator(pkeys, tkeys.back(), pkeys[pkindex], skeys.front()));
+                    BTREE_ASSERT(verify_separator(compare, pkeys, tkeys.back(), pkeys[pkindex], skeys.front()));
                 }
                 else
                 {
@@ -1026,7 +1027,7 @@ namespace btree::detail
             return false;
         }
 
-        template < typename AllocatorT > bool share_keys(AllocatorT&& allocator, direction dir, size_type depth, node_descriptor< internal_node* > target, node_descriptor< internal_node* > source, node_size_type pkindex)
+        template < typename AllocatorT > bool share_keys(AllocatorT&& allocator, const Compare& compare, direction dir, size_type depth, node_descriptor< internal_node* > target, node_descriptor< internal_node* > source, node_size_type pkindex)
         {
             if (!source)
             {
@@ -1050,7 +1051,7 @@ namespace btree::detail
 
                 if (dir == direction::right)
                 {
-                    BTREE_ASSERT(find_key_index(pkeys, skeys.back()) == pkindex);
+                    BTREE_ASSERT(find_key_index(compare, pkeys, skeys.back()) == pkindex);
                     
                     tchildren.emplace(allocator, tchildren.begin(), schildren[skeys.size()]);
                     set_parent(depth_ == depth + 1, schildren[skeys.size()], target);
@@ -1060,11 +1061,11 @@ namespace btree::detail
                     pkeys[pkindex] = std::move(*(skeys.end() - 1));
                     skeys.erase(allocator, skeys.end() - 1);
 
-                    BTREE_ASSERT(verify_separator(pkeys, skeys.back(), pkeys[pkindex], tkeys.front()));
+                    BTREE_ASSERT(verify_separator(compare, pkeys, skeys.back(), pkeys[pkindex], tkeys.front()));
                 }
                 else
                 {
-                    BTREE_ASSERT(find_key_index(pkeys, tkeys.back()) == pkindex);
+                    BTREE_ASSERT(find_key_index(compare, pkeys, tkeys.back()) == pkindex);
                     
                     tkeys.emplace(allocator, tkeys.end(), std::move(pkeys[pkindex]));
                     auto child = schildren[0];
@@ -1076,7 +1077,7 @@ namespace btree::detail
                     pkeys[pkindex] = std::move(*skeys.begin());
                     skeys.erase(allocator, skeys.begin());
 
-                    BTREE_ASSERT(verify_separator(pkeys, tkeys.back(), pkeys[pkindex], skeys.front()));
+                    BTREE_ASSERT(verify_separator(compare, pkeys, tkeys.back(), pkeys[pkindex], skeys.front()));
                 }
                         
                 BTREE_ASSERT(tkeys.size() > tkeys.capacity() / 2);
@@ -1087,7 +1088,7 @@ namespace btree::detail
             return false;
         }
 
-        template < typename AllocatorT > bool merge_keys(AllocatorT&& allocator, direction dir, size_type depth, node_descriptor< value_node* > target, node_descriptor< value_node* > source, node_size_type)
+        template < typename AllocatorT > bool merge_keys(AllocatorT&& allocator, const Compare&, direction dir, size_type depth, node_descriptor< value_node* > target, node_descriptor< value_node* > source, node_size_type)
         {
             if (!target)
             {
@@ -1129,7 +1130,7 @@ namespace btree::detail
             return false;
         }
 
-        template < typename AllocatorT > bool merge_keys(AllocatorT&& allocator, direction dir, size_type depth, node_descriptor< internal_node* > target, node_descriptor< internal_node* > source, node_size_type pkindex)
+        template < typename AllocatorT > bool merge_keys(AllocatorT&& allocator, const Compare& compare, direction dir, size_type depth, node_descriptor< internal_node* > target, node_descriptor< internal_node* > source, node_size_type pkindex)
         {
             if (!target)
             {
@@ -1153,7 +1154,7 @@ namespace btree::detail
 
                 if (dir == direction::left)
                 {                 
-                    BTREE_ASSERT(find_key_index(pkeys, tkeys.back()) == pkindex);
+                    BTREE_ASSERT(find_key_index(compare, pkeys, tkeys.back()) == pkindex);
 
                     tchildren.insert(allocator, tchildren.end(), schildren.begin(), schildren.end());
                     std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { set_parent(depth_ == depth + 1, n, target); });
@@ -1163,7 +1164,7 @@ namespace btree::detail
                 }
                 else
                 {                  
-                    BTREE_ASSERT(find_key_index(pkeys, skeys.back()) == pkindex);
+                    BTREE_ASSERT(find_key_index(compare, pkeys, skeys.back()) == pkindex);
 
                     tchildren.insert(allocator, tchildren.begin(), schildren.begin(), schildren.end());
                     std::for_each(schildren.begin(), schildren.end(), [&](auto& n) { set_parent(depth_ == depth + 1, n, target); });
@@ -1202,7 +1203,7 @@ namespace btree::detail
                 if (p.node()->size) 
                 {
             #endif
-                    BTREE_ASSERT(verify_separator(root.get_keys(), n.get_keys().back(), splitkey, p.get_keys().front()));
+                    BTREE_ASSERT(verify_separator(compare, root.get_keys(), n.get_keys().back(), splitkey, p.get_keys().front()));
             #if defined(BTREE_VALUE_NODE_APPEND)
                 }
             #endif
@@ -1218,8 +1219,8 @@ namespace btree::detail
                 root_ = root;
                 ++depth_;
             
-                BTREE_ASSERT(verify_node(n));
-                BTREE_ASSERT(verify_node(p));
+                BTREE_ASSERT(verify_node(compare, n));
+                BTREE_ASSERT(verify_node(compare, p));
 
                 return cmp ? p : n;
             }
@@ -1254,7 +1255,7 @@ namespace btree::detail
             if (p.node()->size)
             {
             #endif
-                BTREE_ASSERT(verify_separator(pkeys, n.get_keys().back(), splitkey, p.get_keys().front()));
+                BTREE_ASSERT(verify_separator(compare, pkeys, n.get_keys().back(), splitkey, p.get_keys().front()));
         #if defined(BTREE_VALUE_NODE_APPEND)
             }
         #endif
@@ -1273,7 +1274,7 @@ namespace btree::detail
             return cmp ? p : n;
         }
 
-        template < typename AllocatorT, typename Node > node_descriptor< Node* > rebalance_erase(AllocatorT&& allocator, size_type depth, node_descriptor< Node* > n)
+        template < typename AllocatorT, typename Node > node_descriptor< Node* > rebalance_erase(AllocatorT&& allocator, const Compare& compare, size_type depth, node_descriptor< Node* > n)
         {            
             if (n.get_parent())
             {              
@@ -1283,20 +1284,20 @@ namespace btree::detail
                 if (pkeys.size() <= pkeys.capacity() / 2)
                 {
                     depth_check< false > dc(depth_, depth);
-                    rebalance_erase(allocator, depth - 1, n.get_parent());    
+                    rebalance_erase(allocator, compare, depth - 1, n.get_parent());    
                 }
                                 
                 auto nindex = get_index(n);
                 auto [left, lindex] = get_left(n, nindex, false);
-                if (left && share_keys(allocator, direction::right, depth, n, left, lindex))
+                if (left && share_keys(allocator, compare, direction::right, depth, n, left, lindex))
                 {             
-                    BTREE_ASSERT(verify_node(left));
-                    BTREE_ASSERT(verify_node(n));
+                    BTREE_ASSERT(verify_node(compare, left));
+                    BTREE_ASSERT(verify_node(compare, n));
                     return n;
                 }
  
                 auto [right, rindex] = get_right(n, nindex, false);
-                if (right && share_keys(allocator, direction::left, depth, n, right, nindex))
+                if (right && share_keys(allocator, compare, direction::left, depth, n, right, nindex))
                 {
                 #if defined(BTREE_VALUE_NODE_APPEND)
                     if (right.get_keys().empty())
@@ -1310,32 +1311,32 @@ namespace btree::detail
                         #endif
                         }                                      
                         
-                        remove_node(allocator, depth, right, rindex, nindex);
+                        remove_node(allocator, compare, depth, right, rindex, nindex);
                         deallocate_node(allocator, right);
                     }
                     else
                     {
-                        BTREE_ASSERT(verify_node(right));
+                        BTREE_ASSERT(verify_node(compare, right));
                     }
                 #endif
-                    BTREE_ASSERT(verify_node(n));
+                    BTREE_ASSERT(verify_node(compare, n));
                     return n;
                 }
                 
-                if (merge_keys(allocator, direction::left, depth, left, n, nindex - 1))
+                if (merge_keys(allocator, compare, direction::left, depth, left, n, nindex - 1))
                 {       
-                    remove_node(allocator, depth, n, nindex, nindex - 1);
+                    remove_node(allocator, compare, depth, n, nindex, nindex - 1);
                     deallocate_node(allocator, n);
-                    BTREE_ASSERT(verify_node(left));
+                    BTREE_ASSERT(verify_node(compare, left));
                     return left;
                 }
             
                 std::tie(right, rindex) = get_right(n, nindex, false);
-                if (merge_keys(allocator, direction::right, depth, right, n, nindex))
+                if (merge_keys(allocator, compare, direction::right, depth, right, n, nindex))
                 {
-                    remove_node(allocator, depth, n, nindex, nindex);
+                    remove_node(allocator, compare, depth, n, nindex, nindex);
                     deallocate_node(allocator, n);
-                    BTREE_ASSERT(verify_node(right));
+                    BTREE_ASSERT(verify_node(compare, right));
                     return right;
                 }
             
@@ -1580,7 +1581,7 @@ namespace btree::detail
             }
         }
 
-        template < typename Node > void verify_keys(node_descriptor< Node* > n)
+        template < typename Node > void verify_keys(const Compare& compare, node_descriptor< Node* > n)
         {
             auto nkeys = n.get_keys();
             auto parent = n.get_parent();
@@ -1600,7 +1601,7 @@ namespace btree::detail
 
                     if ((uintptr_t)n.node() != (uintptr_t)last_node_)
                     {
-                        auto lsep = find_key_index(pkeys, lkeys.back());
+                        auto lsep = find_key_index(compare, pkeys, lkeys.back());
                         BTREE_ASSERT(pkeys[lsep] > lkeys.back());
                         BTREE_ASSERT(pkeys[lsep] <= nkeys.front());
                         BTREE_ASSERT(lkeys.back() < nkeys.front());
@@ -1623,7 +1624,7 @@ namespace btree::detail
 
                     if ((uintptr_t)rnode.node() != (uintptr_t)last_node_)
                     {
-                        auto rsep = find_key_index(pkeys, nkeys.back());
+                        auto rsep = find_key_index(compare, pkeys, nkeys.back());
                         BTREE_ASSERT(pkeys[rsep] > nkeys.back());
                         BTREE_ASSERT(pkeys[rsep] <= rkeys.front());
                         BTREE_ASSERT(nkeys.back() < rkeys.front());
@@ -1642,7 +1643,7 @@ namespace btree::detail
             BTREE_ASSERT(std::is_sorted(nkeys.begin(), nkeys.end()));
         }
 
-        void verify_children(node_descriptor< internal_node* > n)
+        void verify_children(const Compare& compare, node_descriptor< internal_node* > n)
         {
             auto nlevel = get_level(n);
             auto nkeys = n.get_keys();
@@ -1653,20 +1654,20 @@ namespace btree::detail
                 {
                     auto child = n.template get_children< node* >()[i];
                     auto childkeys = desc(node_cast<value_node*>(child)).get_keys();
-                    BTREE_ASSERT(std::is_sorted(childkeys.begin(), childkeys.end()));
-                    BTREE_ASSERT(childkeys.back() < nkeys[i]);
+                    BTREE_ASSERT(std::is_sorted(childkeys.begin(), childkeys.end(), compare));
+                    BTREE_ASSERT(compare(childkeys.back(), nkeys[i]));
                 }
                 else
                 {
                     auto child = n.template get_children< node* >()[i];
                     auto childkeys = desc(node_cast<internal_node*>(child)).get_keys();
-                    BTREE_ASSERT(std::is_sorted(childkeys.begin(), childkeys.end()));
-                    BTREE_ASSERT(childkeys.back() < nkeys[i]);
+                    BTREE_ASSERT(std::is_sorted(childkeys.begin(), childkeys.end(), compare));
+                    BTREE_ASSERT(compare(childkeys.back(), nkeys[i]));
                 }
             }
         }
 
-        bool verify_node(node_descriptor< value_node* > n)
+        bool verify_node(const Compare& compare, node_descriptor< value_node* > n)
         {
             if (n.node() != root_
             #if defined(BTREE_VALUE_NODE_APPEND)
@@ -1677,27 +1678,27 @@ namespace btree::detail
                 BTREE_ASSERT(value_node::N <= n.node()->size && n.node()->size <= 2 * value_node::N);
             }
 
-            verify_keys(n);
+            verify_keys(compare, n);
             return true;
         }
 
-        bool verify_node(node_descriptor< internal_node* > n)
+        bool verify_node(const Compare& compare, node_descriptor< internal_node* > n)
         {
             if (n.node() != root_)
             {
                 BTREE_ASSERT(internal_node::N - 1 <= n.node()->size && n.node()->size <= 2 * internal_node::N - 1);
             }
 
-            verify_keys(n);
-            verify_children(n);
+            verify_keys(compare, n);
+            verify_children(compare, n);
             return true;
         }
 
-        template< typename Keys > bool verify_separator(const Keys& keys, const key_type& left, const key_type& separator, const key_type& right)
+        template< typename Keys > bool verify_separator(const Compare& compare, const Keys& keys, const key_type& left, const key_type& separator, const key_type& right)
         {
-            BTREE_ASSERT(std::is_sorted(keys.begin(), keys.end()));
-            BTREE_ASSERT(left < separator);
-            BTREE_ASSERT(separator <= right);
+            BTREE_ASSERT(std::is_sorted(keys.begin(), keys.end(), compare));
+            BTREE_ASSERT(compare(left, right));
+            BTREE_ASSERT(!compare(right, separator));
             return true;
         }
 

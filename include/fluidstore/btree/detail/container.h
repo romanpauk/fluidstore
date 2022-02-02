@@ -134,7 +134,8 @@ namespace btree::detail
 
     template< typename SizeType, typename Key > struct node_dimension
     {
-        static constexpr const auto value = std::max(std::size_t(8), std::size_t(64 / sizeof(Key))) / 2;
+        // Note: node count will be 2*value
+        static constexpr const auto value = std::max(std::size_t(8), std::size_t(64 / sizeof(Key)));
         static_assert((1ull << sizeof(SizeType) * 8) > 2 * value);
     };
 

@@ -113,19 +113,19 @@ BOOST_AUTO_TEST_CASE(btree_set_node_dimension)
     // Note: Total number of elements in node is N * 2
 
     typedef btree::detail::node_dimension< uint8_t, uint8_t > node_dimension_uint8_t;
-    BOOST_TEST(node_dimension_uint8_t::value == 32);
+    BOOST_TEST(node_dimension_uint8_t::value == 64);
 
     typedef btree::detail::node_dimension< uint8_t, uint16_t > node_dimension_uint16_t;
-    BOOST_TEST(node_dimension_uint16_t::value == 16);
+    BOOST_TEST(node_dimension_uint16_t::value == 32);
 
     typedef btree::detail::node_dimension< uint8_t, uint32_t > node_dimension_uint32_t;
-    BOOST_TEST(node_dimension_uint32_t::value == 8);
+    BOOST_TEST(node_dimension_uint32_t::value == 16);
 
     typedef btree::detail::node_dimension< uint8_t, uint64_t > node_dimension_uint64_t;
-    BOOST_TEST(node_dimension_uint64_t::value == 4);
+    BOOST_TEST(node_dimension_uint64_t::value == 8);
 
     typedef btree::detail::node_dimension< uint8_t, std::string > node_dimension_string_t;
-    BOOST_TEST(node_dimension_string_t::value == 4);
+    BOOST_TEST(node_dimension_string_t::value == 8);
 }
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_move, T, test_types)

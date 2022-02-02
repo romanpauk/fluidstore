@@ -115,7 +115,7 @@ BOOST_AUTO_TEST_CASE(btree_set_node_dimension)
     typedef btree::detail::node_dimension< uint8_t, uint8_t > node_dimension_uint8_t;
     BOOST_TEST(node_dimension_uint8_t::value == 32);
 
-    typedef btree::detail::node_dimension< uint8_t, uint8_t > node_dimension_uint16_t;
+    typedef btree::detail::node_dimension< uint8_t, uint16_t > node_dimension_uint16_t;
     BOOST_TEST(node_dimension_uint16_t::value == 16);
 
     typedef btree::detail::node_dimension< uint8_t, uint32_t > node_dimension_uint32_t;

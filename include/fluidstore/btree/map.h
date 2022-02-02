@@ -94,19 +94,23 @@ namespace btree
         typename ValueNodeType = detail::value_node< Key, Value, NodeSizeType, N, InternalNodeType >
     > class map
         : public map_base< Key, Value, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >
+        , private detail::compressed_base< Allocator >
+        , private detail::compressed_base< Compare >
     {
         using base_type = map_base< Key, Value, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >;
 
     public:
         using allocator_type = Allocator;
         using value_type = typename base_type::value_type;
+        using key_type = typename base_type::key_type;
         using iterator = typename base_type::iterator;
+        using const_iterator = typename base_type::const_iterator;
         using size_type = typename base_type::size_type;
 
         map() = default;
 
         template < typename AllocatorT > map(AllocatorT&& allocator)
-            : allocator_(std::forward< AllocatorT >(allocator))
+            : detail::compressed_base< Allocator >(std::forward< AllocatorT >(allocator))
         {}
 
         map(map< Key, Value, Compare, Allocator, NodeSizeType, N, InternalNodeType, ValueNodeType >&& other) = default;
@@ -116,35 +120,69 @@ namespace btree
             clear();
         }
 
+        iterator find(const key_type& key) { return base_type::find(this->key_comp(), key); }
+        const_iterator find(const key_type& key) const { return base_type::find(this->key_comp(), key); }
+
         std::pair< iterator, bool > insert(const value_type& value)
         {
-            BTREE_CHECK_RETURN(base_type::emplace(allocator_, value));
+            BTREE_CHECK_RETURN(base_type::emplace(this->get_allocator(), this->key_comp(), value));
+        }
+
+        std::pair< iterator, bool > insert(value_type&& value)
+        {
+            BTREE_CHECK_RETURN(base_type::emplace(this->get_allocator(), this->key_comp(), std::move(value)));
+        }
+
+        std::pair< iterator, bool > insert(iterator hint, const value_type& value)
+        {
+            BTREE_CHECK_RETURN(base_type::emplace_hint(this->get_allocator(), this->key_comp(), hint, value));
+        }
+
+        std::pair< iterator, bool > insert(iterator hint, value_type&& value)
+        {
+            BTREE_CHECK_RETURN(base_type::emplace_hint(this->get_allocator(), this->key_comp(), hint, std::move(value)));
         }
 
         template < typename It > void insert(It begin, It end)
         {
-            BTREE_CHECK(base_type::insert(allocator_, begin, end));
+            BTREE_CHECK(base_type::insert(this->get_allocator(), this->key_comp(), begin, end));
         }
+
+        // TODO
+        // void insert(initializer_list<value_type> il);
 
         size_type erase(const typename value_type::first_type& key)
         {
-            BTREE_CHECK_RETURN(base_type::erase(allocator_, key));
+            BTREE_CHECK_RETURN(base_type::erase(this->get_allocator(), this->key_comp(), key));
         }
 
-        void clear()
+        iterator erase(const_iterator it)
+        {
+            BTREE_CHECK_RETURN(base_type::erase(this->get_allocator(), this->key_comp(), it));
+        }
+
+        void clear() noexcept
         {
             // TODO: missing test
-            BTREE_CHECK(base_type::clear(allocator_));
+            BTREE_CHECK(base_type::clear(this->get_allocator()));
         }
 
         Value& operator[](const Key& key)
         {
             // TODO: missing test
             // TODO: missing BTREE_CHECK_RETURN as it requires move
-            return (*base_type::emplace(allocator_, key, Value()).first).second;
+            return (*base_type::emplace(this->get_allocator(), this->key_comp(), key, Value()).first).second;
+        }
+
+        Value& operator[](Key&& key)
+        {
+            // TODO: missing test
+            // TODO: missing BTREE_CHECK_RETURN as it requires move
+            return (*base_type::emplace(this->get_allocator(), this->key_comp(), std::move(key), Value()).first).second;
         }
 
     private:
-        allocator_type allocator_;
+        auto get_allocator() const { return detail::compressed_base< Allocator >::get(); }
+        auto key_comp() const { return detail::compressed_base< Compare >::get(); }
     };
 }

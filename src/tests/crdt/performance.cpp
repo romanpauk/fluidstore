@@ -214,7 +214,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_insert, T, crdt_set_insert_types)
 {
     std::cout.imbue(std::locale(""));
 
-    const int N = 1000000;
+    const int N = 100000;
     const int preallocated = 1 << 30;
 
     {

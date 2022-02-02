@@ -7,48 +7,48 @@
 #include <memory>
 
 namespace memory
-{
-    template < typename Allocator > struct is_stateless_allocator : std::false_type {};
-    template < typename T > struct is_stateless_allocator< std::allocator < T > > : std::true_type {};
+{    
+    template < typename T, bool = std::is_empty_v< T > > class compressed_base;
 
-    template < typename Allocator, bool = is_stateless_allocator< Allocator >::value > class allocator_storage;
-
-    template < typename Allocator > class allocator_storage < Allocator, true >
+    template < typename T > class compressed_base < T, true >
     {
     public:
-        allocator_storage() {}
-        template < typename AllocatorT > allocator_storage(AllocatorT&&) {}
+        compressed_base() {}
+        template < typename Ty > compressed_base(Ty&&) {}
 
-        Allocator get_allocator() { return Allocator(); }
+        T get() const { return T(); }
 
-        allocator_storage< Allocator, true >& operator = (const allocator_storage< Allocator, true >&) { return *this; }
-        bool operator == (const allocator_storage< Allocator, true >&) const { return true; }
+        compressed_base< T, true >& operator = (const compressed_base< T, true >&) { return *this; }
+        bool operator == (const compressed_base< T, true >&) const { return true; }
     };
 
-    template < typename Allocator > class allocator_storage < Allocator, false >
+    template < typename T > class compressed_base < T, false >
     {
     public:
-        template < typename AllocatorT > allocator_storage(AllocatorT&& allocator)
-            : allocator_(typename std::allocator_traits< Allocator >::template rebind_alloc< typename Allocator::value_type >(std::forward< AllocatorT >(allocator)))
+        template < typename Ty > compressed_base(Ty&& value)
+            : value_(std::forward< Ty >(value))
         {}
 
-        Allocator& get_allocator() { return allocator_; }
+        T& get() const { return value_; }
 
-        allocator_storage< Allocator, true >& operator = (const allocator_storage< Allocator, true >& other)
+        compressed_base< T, true >& operator = (const compressed_base< T, true >& other)
         {
-            allocator_ = other.allocator_;
+            value_ = other.value_;
             return *this;
         }
 
-        bool operator == (const allocator_storage< Allocator, true >& other) const { return allocator_ == other.allocator_; }
+        bool operator == (const compressed_base< T, true >& other) const { return value_ == other.value_; }
 
     private:
-        Allocator allocator_;
+        mutable T value_;
     };
-
+        
     // TODO: This should be lazy for some usecases. 
-    template< typename Allocator = std::allocator< void > > class dynamic_buffer
-        : allocator_storage< Allocator >
+    template< 
+        typename Allocator = std::allocator< void >, 
+        typename AllocatorType = typename std::allocator_traits< Allocator >::template rebind_alloc< uint8_t > 
+    > class dynamic_buffer
+        : private compressed_base< AllocatorType >
     {
         dynamic_buffer(const dynamic_buffer< Allocator >&) = delete;
         dynamic_buffer< Allocator >& operator = (const dynamic_buffer< Allocator >&) = delete;
@@ -63,22 +63,22 @@ namespace memory
             , allocated_()
             , size_(size)
         {
-            base_ = current_ = typename std::allocator_traits< Allocator >::template rebind_alloc< uint8_t >(this->get_allocator()).allocate(size_);
+            base_ = current_ = this->get_allocator().allocate(size_);
         }
 
         dynamic_buffer(size_t size, Allocator& allocator)
-            : allocator_storage< typename std::allocator_traits< Allocator >::template rebind_alloc< uint8_t > >(allocator)
+            : compressed_base< AllocatorType >(allocator)
             , base_()
             , current_()
             , allocated_()
             , size_(size)
         {
-            base_ = current_ = typename std::allocator_traits< Allocator >::template rebind_alloc< uint8_t >(this->get_allocator()).allocate(size_);
+            base_ = current_ = this->get_allocator().allocate(size_);
         }
 
         ~dynamic_buffer()
         {
-            typename std::allocator_traits< Allocator >::template rebind_alloc< uint8_t >(this->get_allocator()).deallocate(base_, size_);
+            this->get_allocator().deallocate(base_, size_);
         }
 
         template < typename T > T* allocate(std::size_t n)
@@ -116,6 +116,8 @@ namespace memory
         }
 
         std::size_t get_allocated() const { return allocated_; }
+
+        auto get_allocator() { return compressed_base< AllocatorType >::get(); }
 
     private:
         uint8_t* base_;
@@ -185,8 +187,9 @@ namespace memory
         std::size_t allocated_;
     };
 
+    // TODO: tests
     template< typename Allocator = std::allocator< uint8_t > > class stats_buffer
-        : allocator_storage< Allocator >
+        : private compressed_base< Allocator >
     {
         stats_buffer(const stats_buffer< Allocator >&) = delete;
         stats_buffer< Allocator >& operator = (const stats_buffer< Allocator >&) = delete;
@@ -200,7 +203,7 @@ namespace memory
         {}
 
         template< typename AllocatorT > stats_buffer(AllocatorT&& allocator)
-            : allocator_storage< Allocator >(std::forward< AllocatorT >(allocator))
+            : compressed_base< Allocator >(std::forward< AllocatorT >(allocator))
             , allocated_()
         {}
 
@@ -222,6 +225,8 @@ namespace memory
 
         std::size_t get_allocated() const { return allocated_; }
 
+        auto get_allocator() { return compressed_base< Allocator >::get(); }
+
     private:
         std::size_t allocated_;
     };
@@ -239,40 +244,38 @@ namespace memory
 
         template < typename U > bool operator == (const buffer_allocator_throw< U >&) const { return true; }
     };
-
-    template < typename T > struct is_stateless_allocator< buffer_allocator_throw< T > > : std::true_type {};
         
-    template < typename T, typename Buffer, typename FallbackAllocator = buffer_allocator_throw< T > > class buffer_allocator
-        : allocator_storage< FallbackAllocator >
+    template < typename T, typename Buffer, typename Allocator = buffer_allocator_throw< T > > class buffer_allocator
+        : private compressed_base< Allocator >
     {
-        template < typename U, typename BufferU, typename FallbackAllocatorU > friend class buffer_allocator;
+        template < typename U, typename BufferU, typename kAllocatorU > friend class buffer_allocator;
                 
     public:
         using value_type = T;
 
         template< typename U > struct rebind
         {
-            using other = buffer_allocator < U, Buffer, typename std::allocator_traits< FallbackAllocator >::template rebind_alloc< U > > ;
+            using other = buffer_allocator < U, Buffer, typename std::allocator_traits< Allocator >::template rebind_alloc< U > > ;
         };
 
         buffer_allocator(Buffer& buffer) noexcept
             : buffer_(&buffer)
         {}
         
-        template < typename FallbackAlloc > buffer_allocator(Buffer& buffer, FallbackAlloc&& fallback) noexcept
-            : allocator_storage< FallbackAllocator >(fallback)
+        template < typename AllocatorT > buffer_allocator(Buffer& buffer, AllocatorT&& allocator) noexcept
+            : compressed_base< Allocator >(std::forward< AllocatorT >(allocator))
             , buffer_(&buffer)
         {}
 
-        template < typename U, typename FallbackAllocatorU > buffer_allocator(const buffer_allocator< U, Buffer, FallbackAllocatorU >& other) noexcept
-            : allocator_storage< FallbackAllocator >(other)
+        template < typename U, typename AllocatorU > buffer_allocator(const buffer_allocator< U, Buffer, AllocatorU >& other) noexcept
+            : compressed_base< Allocator >(other)
             , buffer_(other.buffer_)
         {}
                                 
         buffer_allocator< T, Buffer >& operator = (const buffer_allocator< T, Buffer >& other)
         {
             buffer_ = other.buffer_;
-            static_cast<allocator_storage< FallbackAllocator >&>(*this) = other;
+            static_cast< compressed_base< Allocator >& >(*this) = other;
             return *this;
         }
 
@@ -296,10 +299,11 @@ namespace memory
         
         template < typename U, typename FallbackU > bool operator == (const buffer_allocator< U, Buffer, FallbackU >& other) const
         {
-            return buffer_ == other.buffer_ && 
-                static_cast< const allocator_storage< FallbackAllocator >& >(*this) == other;
+            return buffer_ == other.buffer_ && static_cast< const compressed_base< Allocator >& >(*this) == other;
         }
                 
+        auto get_allocator() { return compressed_base< Allocator >::get(); }
+
     private:
         Buffer* buffer_;
     };

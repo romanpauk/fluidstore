@@ -112,40 +112,20 @@ BOOST_AUTO_TEST_CASE(btree_set_node_dimension)
 {
     // Note: Total number of elements in node is N * 2
 
-    typedef btree::set< uint8_t > set_uint8_t;
-    BOOST_TEST(set_uint8_t::value_node::N == 32);
+    typedef btree::detail::node_dimension< uint8_t, uint8_t > node_dimension_uint8_t;
+    BOOST_TEST(node_dimension_uint8_t::value == 64);
 
-    typedef btree::set< uint16_t > set_uint16_t;
-    BOOST_TEST(set_uint16_t::value_node::N == 16);
+    typedef btree::detail::node_dimension< uint8_t, uint16_t > node_dimension_uint16_t;
+    BOOST_TEST(node_dimension_uint16_t::value == 32);
 
-    typedef btree::set< uint32_t > set_uint32_t;
-    BOOST_TEST(set_uint32_t::value_node::N == 8);
+    typedef btree::detail::node_dimension< uint8_t, uint32_t > node_dimension_uint32_t;
+    BOOST_TEST(node_dimension_uint32_t::value == 16);
 
-    typedef btree::set< uint64_t > set_uint64_t;
-    BOOST_TEST(set_uint64_t::value_node::N == 4);
+    typedef btree::detail::node_dimension< uint8_t, uint64_t > node_dimension_uint64_t;
+    BOOST_TEST(node_dimension_uint64_t::value == 8);
 
-    typedef btree::set< std::string > set_string;
-    BOOST_TEST(set_string::value_node::N == 4);
-}
-
-BOOST_AUTO_TEST_CASE(btree_map_node_dimension)
-{
-    // Note: Total number of elements in node is N * 2
-
-    typedef btree::map< uint8_t, int > map_uint8_t;
-    BOOST_TEST(map_uint8_t::value_node::N == 32);
-
-    typedef btree::map< uint16_t, int > map_uint16_t;
-    BOOST_TEST(map_uint16_t::value_node::N == 16);
-
-    typedef btree::map< uint32_t, int > map_uint32_t;
-    BOOST_TEST(map_uint32_t::value_node::N == 8);
-
-    typedef btree::map< uint64_t, int > map_uint64_t;
-    BOOST_TEST(map_uint64_t::value_node::N == 4);
-
-    typedef btree::map< std::string, int > map_string;
-    BOOST_TEST(map_string::value_node::N == 4);
+    typedef btree::detail::node_dimension< uint8_t, std::string > node_dimension_string_t;
+    BOOST_TEST(node_dimension_string_t::value == 8);
 }
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(btree_set_move, T, test_types)

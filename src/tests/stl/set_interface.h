@@ -4,6 +4,35 @@
 template < typename Container > class set_interface
 {
 public:
+	// TODO: this is quite poor test
+	static void typedefs()
+	{
+		static_assert(!std::is_same_v< typename Container::key_type, void >);
+		static_assert(std::is_same_v< typename Container::value_type, typename Container::key_type >);
+		static_assert(std::is_unsigned_v< typename Container::size_type >);
+
+		// TODO
+		// static_assert(std::is_signed_v< typename Container::difference_type >);
+
+		static_assert(!std::is_same_v< typename Container::key_compare, void >);
+		static_assert(std::is_same_v< typename Container::value_compare, typename Container::key_compare >);
+
+		static_assert(!std::is_same_v< typename Container::allocator_type, void >);
+				
+		//Container::reference;
+		//Container::const_reference;
+		//Container::pointer;
+		//Container::const_pointer;
+		//Container::iterator;
+		//Container::const_iterator;
+		//Container::reverse_iterator;
+		//Container::const_reverse_iterator
+
+		// TODO
+		//Container::node_type;
+		//Container::insert_node_type;
+	}
+
 	static void constructor_default()
 	{
 		Container container;

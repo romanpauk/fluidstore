@@ -92,6 +92,8 @@ namespace btree
         using size_type = typename base_type::size_type;
         using iterator = typename base_type::iterator;
         using const_iterator = typename base_type::const_iterator;
+        using key_compare = Compare;
+        using value_compare = Compare;
 
         // TODO: constructors 
         

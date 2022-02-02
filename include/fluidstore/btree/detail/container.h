@@ -182,18 +182,20 @@ namespace btree::detail
             right
         };
         
-    public:
         using node_size_type = NodeSizeType;
-        using size_type = size_t;
-        using key_type = Key;
-        using value_type = typename value_type_traits< Key, Value >::value_type;
-        using reference = typename value_type_traits< Key, Value >::reference;
-        using allocator_type = Allocator;
         using container_type = container_base< Key, Value, Compare, Allocator, NodeSizeType, InternalNode, ValueNode >;
         using internal_node = InternalNode;
         using value_node = ValueNode;
         using value_type_traits_type = value_type_traits< Key, Value >;
 
+    public:
+        using size_type = size_t;
+        using key_type = Key;
+        using value_type = typename value_type_traits< Key, Value >::value_type;
+        using reference = typename value_type_traits< Key, Value >::reference;
+        using const_reference = const reference;
+        using allocator_type = Allocator;
+               
         template < bool Inc > struct depth_check
         {
             depth_check(size_type& gdepth, size_type& ldepth)
@@ -316,7 +318,7 @@ namespace btree::detail
         };
 
         using const_iterator = iterator;
-
+             
         container_base()
             : root_()
             , first_node_()

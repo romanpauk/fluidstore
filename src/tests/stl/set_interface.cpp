@@ -9,6 +9,11 @@ typedef boost::mpl::list <
 	btree::set< int >
 > container_types;
 
+BOOST_AUTO_TEST_CASE_TEMPLATE(set_typedefs, ContainerType, container_types)
+{
+	set_interface< ContainerType >::typedefs();
+}
+
 BOOST_AUTO_TEST_CASE_TEMPLATE(set_constructors, ContainerType, container_types)
 {
 	set_interface< ContainerType >::constructor_default();

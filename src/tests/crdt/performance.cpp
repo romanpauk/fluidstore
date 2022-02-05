@@ -23,7 +23,16 @@ void tlx::die_with_message(char const*, char const*, unsigned __int64) {}
 #include <absl/container/btree_set.h>
 #endif
 
-#if !defined(_DEBUG)
+#if defined(ART_ENABLED)
+#if defined(_WIN32
+#define __builtin_ctz(a) _tzcnt_u32(a)
+#define __builtin_ctzl(a) _tzcnt_u64(a)
+#define __builtin_unreachable(...)
+#define __SSE2__
+#include <nmmintrin.h>
+#endif
+#include <art/set.h>
+#endif
 
 static int Max = 8192;
 static int Iters = 20;
@@ -67,6 +76,8 @@ template < typename Container, typename TestData > void insertion_test_end(Conta
 }
 
 typedef boost::mpl::list < uint32_t > crdt_set_insert_types;
+
+#if !defined(_DEBUG)
 BOOST_AUTO_TEST_CASE_TEMPLATE(crdt_set_insert, T, crdt_set_insert_types)
 {
     const int preallocated = 1 << 24;
@@ -210,11 +221,17 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(crdt_set_insert, T, crdt_set_insert_types)
     }
 }
 
+#endif
+
 BOOST_AUTO_TEST_CASE_TEMPLATE(set_insert, T, crdt_set_insert_types)
 {
     std::cout.imbue(std::locale(""));
 
+#if defined(_DEBUG)
+    const int N = 10;
+#else
     const int N = 100000;
+#endif
     const int preallocated = 1 << 30;
 
     {
@@ -314,6 +331,31 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_insert, T, crdt_set_insert_types)
                 });
 
             std::cout << "absl::btree_set<" << get_type_name<T>() << ">" << " [random,linear] insertions per second: " << int(N / t) << std::endl;
+        }
+    #endif
+
+    #if defined(ART_ENABLED)
+        {
+            auto t = measure(Iters, [&]
+                {
+                    art::set< T > c;
+                    insertion_test(c, data, N);
+                });
+
+            std::cout << "art::set<" << get_type_name<T>() << ">" << " [random,new] insertions per second: " << int(N / t) << std::endl;
+        }
+
+        {
+            memory::dynamic_buffer< std::allocator< uint8_t > > buffer(preallocated);
+            memory::buffer_allocator< T, decltype(buffer) > alloc(buffer);
+
+            auto t = measure(Iters, [&, alloc]
+                {
+                    art::set< T, std::less< T >, decltype(alloc) > c(alloc);
+                    insertion_test(c, data, N);
+                });
+
+            std::cout << "art::set<" << get_type_name<T>() << ">" << " [random,linear] insertions per second: " << int(N / t) << std::endl;
         }
     #endif
     }
@@ -446,6 +488,31 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_insert, T, crdt_set_insert_types)
             std::cout << "absl::btree_set<" << get_type_name<T>() << ">" << " [append,linear] insertions per second: " << int(N / t) << std::endl;
         }
     #endif
+
+    #if defined(ART_ENABLED)
+        {
+            auto t = measure(Iters, [&]
+                {
+                    art::set< T > c;
+                    insertion_test_end(c, data, N);
+                });
+
+            std::cout << "art::set<" << get_type_name<T>() << ">" << " [append,new] insertions per second: " << int(N / t) << std::endl;
+        }
+
+        {
+            memory::dynamic_buffer< std::allocator< uint8_t > > buffer(preallocated);
+            memory::buffer_allocator< T, decltype(buffer) > alloc(buffer);
+
+            auto t = measure(Iters, [&, alloc]
+                {
+                    art::set< T, std::less< T >, decltype(alloc) > c(alloc);
+                    insertion_test_end(c, data, N);
+                });
+
+            std::cout << "art::set<" << get_type_name<T>() << ">" << " [append,linear] insertions per second: " << int(N / t) << std::endl;
+        }
+    #endif
     }
 }
 
@@ -537,5 +604,3 @@ BOOST_AUTO_TEST_CASE(crdt_set_memory_overhead)
         print_results(results, base);
     }
 }
-
-#endif

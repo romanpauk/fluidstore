@@ -91,7 +91,12 @@ if(Boost_FOUND)
         target_include_directories(fluidstoretest PRIVATE ${ABSL_INCLUDE})
         target_compile_definitions(fluidstoretest PRIVATE ABSL_ENABLED)
     endif()
-        
+    
+    if(ART_INCLUDE)
+        target_include_directories(fluidstoretest PRIVATE ${ART_INCLUDE})
+        target_compile_definitions(fluidstoretest PRIVATE ART_ENABLED)
+    endif()
+    
     if(WIN32)
         group_sources(src)
         group_sources(include)

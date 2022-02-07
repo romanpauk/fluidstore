@@ -30,9 +30,6 @@ namespace btreeng
 	}
 
 
-
-
-
 	template < typename T > struct is_trivial
 	{
 		static constexpr bool value =
@@ -81,63 +78,63 @@ namespace btreeng
 	};
 	*/
 
-	template < typename T, size_t N > struct array_traits;
-	
-	template <> struct array_traits< uint32_t, 8 >
+	template < typename T, size_t N, size_t TypeSize = sizeof(T) > struct array_traits;
+
+	template < typename T > struct array_traits< T, 8, 4 >
 	{
-		static std::pair< uint8_t, bool > count_lt(const uint32_t* keys, uint64_t size, uint32_t key)
-		{			
+		static std::pair< uint8_t, bool > count_lt(const T* keys, uint64_t size, T key)
+		{
 			auto sizemask = (1u << size) - 1;
-			
+
 			__m256i keyv = _mm256_set1_epi32(key);
-			__m256i keysv = _mm256_loadu_si256((__m256i*)keys);		
+			__m256i keysv = _mm256_loadu_si256((__m256i*)keys);
+
+			int maskgt = 0;
 						
-			// signed case
-			__m256i maskgtv = _mm256_cmpgt_epi32(keyv, keysv);
-			int maskgt = _mm256_movemask_ps(_mm256_castsi256_ps(maskgtv));
+			if constexpr (std::is_signed_v< T >)
+			{
+				__m256i maskgtv = _mm256_cmpgt_epi32(keyv, keysv);
+				maskgt = _mm256_movemask_ps(_mm256_castsi256_ps(maskgtv));
+			}
+			else
+			{
+				__m256i maskgtv = _mm256_cmpeq_epi32(_mm256_max_epi32(keysv, keyv), keysv);
+				maskgt = _mm256_movemask_ps(_mm256_castsi256_ps(maskgtv));
+				maskgt = ~maskgt;
+			}
+
 			maskgt &= sizemask;
-			
+
 			__m256i maskeqv = _mm256_cmpeq_epi32(keyv, keysv);
 			int maskeq = _mm256_movemask_ps(_mm256_castsi256_ps(maskeqv));
 			maskeq &= sizemask;
 
-			return { _mm_popcnt_u32(maskgt), maskeq};
-
-			/*
-				// TODO: the template needs to be signed/unsigned aware
-				// unsigned case
-
-			__m256i maskgtv = _mm256_cmpeq_epi32(_mm256_max_epi32(keysv, keyv), keysv);			
-			int maskgt = _mm256_movemask_ps(_mm256_castsi256_ps(maskgtv));
-			maskgt = ~maskgt;			
-			maskgt &= sizemask;
-			return _mm_popcnt_u32(maskgt);
-			*/
+			return { _mm_popcnt_u32(maskgt), maskeq };
 		}
 
-		static void move(uint32_t* keys, uint8_t target, uint8_t source)
+		static void move(T* keys, uint8_t target, uint8_t source)
 		{
 			static const int permindex[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7 };
 
-			__m256i keysv = _mm256_loadu_si256((__m256i*)keys);			
+			__m256i keysv = _mm256_loadu_si256((__m256i*)keys);
 			__m256i permindexv = _mm256_loadu_si256((__m256i*)(permindex + 8 - (target - source)));
 			__m256i keysv2 = _mm256_permutevar8x32_epi32(keysv, permindexv);
-			
+
 			// TODO: mask and store?
 			uint32_t last = keys[7];
 			_mm256_storeu_si256((__m256i*)keys, keysv2);
 			keys[7] = last;
 		}
 
-		static void copy(const uint32_t* source, uint32_t* target)
-		{			
+		static void copy(const T* source, T* target)
+		{
 			_mm256_storeu_si256((__m256i*)target, _mm256_loadu_si256((__m256i*)source));
 		}
 	};
 
-	template <> struct array_traits< uint32_t, 16 >
+	template < typename T > struct array_traits< T, 16, 4 >
 	{
-		static std::pair< uint8_t, bool > count_lt(const uint32_t* keys, uint64_t size, uint32_t key)
+		static std::pair< uint8_t, bool > count_lt(const T* keys, uint64_t size, uint32_t key)
 		{
 			auto sizemask = (1u << size) - 1;
 
@@ -146,16 +143,28 @@ namespace btreeng
 			__m256i keysv1 = _mm256_loadu_si256((__m256i*)keys);
 			__m256i keysv2 = _mm256_loadu_si256((__m256i*)keys + 8);
 
-			// signed case
-			__m256i maskgtv1 = _mm256_cmpgt_epi32(keyv, keysv1);
-			__m256i maskgtv2 = _mm256_cmpgt_epi32(keyv, keysv2);
+			int maskgt1 = 0, maskgt2 = 0;
+			if constexpr (std::is_signed_v< T >)
+			{
+				__m256i maskgtv1 = _mm256_cmpgt_epi32(keyv, keysv1);
+				__m256i maskgtv2 = _mm256_cmpgt_epi32(keyv, keysv2);
+				maskgt1 = _mm256_movemask_ps(_mm256_castsi256_ps(maskgtv1));
+				maskgt2 = _mm256_movemask_ps(_mm256_castsi256_ps(maskgtv2));
 
-			int maskgt1 = _mm256_movemask_ps(_mm256_castsi256_ps(maskgtv1));
+			}
+			else
+			{
+				__m256i maskgtv1 = _mm256_cmpeq_epi32(_mm256_max_epi32(keysv1, keyv), keysv1);
+				__m256i maskgtv2 = _mm256_cmpeq_epi32(_mm256_max_epi32(keysv2, keyv), keysv2);
+				maskgt1 = _mm256_movemask_ps(_mm256_castsi256_ps(maskgtv1));
+				maskgt2 = _mm256_movemask_ps(_mm256_castsi256_ps(maskgtv2));
+				maskgt1 = ~maskgt1;
+				maskgt2 = ~maskgt2;
+			}
+
 			maskgt1 &= sizemask;
-			
-			int maskgt2 = _mm256_movemask_ps(_mm256_castsi256_ps(maskgtv2));
 			maskgt2 &= (sizemask >> 8);
-			
+						
 			__m256i maskeqv1 = _mm256_cmpeq_epi32(keyv, keysv1);
 			int maskeq1 = _mm256_movemask_ps(_mm256_castsi256_ps(maskeqv1));
 			maskeq1 &= sizemask;
@@ -165,23 +174,12 @@ namespace btreeng
 			maskeq2 &= (sizemask >> 8);			
 
 			return { _mm_popcnt_u32(maskgt2 << 8 | maskgt1), maskeq2 | maskeq1 };
-
-			/*
-				// TODO: the template needs to be signed/unsigned aware
-				// unsigned case
-
-			__m256i maskv1 = _mm256_cmpeq_epi32(_mm256_max_epi32(keysv, keyv), keysv);
-			int cmpmask1 = _mm256_movemask_ps(_mm256_castsi256_ps(maskv1));
-			cmpmask1 = ~cmpmask1;
-			cmpmask1 &= sizemask;
-			return _mm_popcnt_u32(cmpmask);
-			*/
 		}
 
-		static void move(uint32_t* keys, uint8_t target, uint8_t source)
+		static void move(T* keys, uint8_t target, uint8_t source)
 		{}
 
-		static void copy(const uint32_t* source, uint32_t* target)
+		static void copy(const T* source, T* target)
 		{
 			_mm256_storeu_si256((__m256i*)target, _mm256_loadu_si256((__m256i*)source));
 			_mm256_storeu_si256((__m256i*)target + 8, _mm256_loadu_si256((__m256i*)source + 8));
@@ -202,6 +200,7 @@ namespace btreeng
 		alignas(64) uint32_t keys_size;
 		uint32_t keys[13];
 				
+		// Where to put info about node type? keys_size seems underused.
 		union {
 			index_node_group< uint32_t, 14 >* index_group;
 			value_node_group< uint32_t, 14 >* value_group;
@@ -377,8 +376,8 @@ namespace btreeng
 				return { iterator(), inserted };
 			}
 
-			// TODO: allocate internal node
-			// allocate value group
+			// allocate internal_node
+			// allocate value_group
 			// add data to value_nodes
 
 			return { iterator(), true };

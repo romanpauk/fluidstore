@@ -85,7 +85,7 @@ namespace btreeng
 	
 	template <> struct array_traits< uint32_t, 8 >
 	{
-		static std::pair< uint8_t, bool > count_lt(const uint32_t* keys, uint8_t size, uint32_t key)
+		static std::pair< uint8_t, bool > count_lt(const uint32_t* keys, uint64_t size, uint32_t key)
 		{			
 			auto sizemask = (1u << size) - 1;
 			
@@ -137,7 +137,7 @@ namespace btreeng
 
 	template <> struct array_traits< uint32_t, 16 >
 	{
-		static std::pair< uint8_t, bool > count_lt(const uint32_t* keys, uint8_t size, uint32_t key)
+		static std::pair< uint8_t, bool > count_lt(const uint32_t* keys, uint64_t size, uint32_t key)
 		{
 			auto sizemask = (1u << size) - 1;
 
@@ -233,7 +233,7 @@ namespace btreeng
 	{
 		using node_type = Node;
 		
-		static std::pair< uint8_t, bool > insert(Node& node, uint8_t size, typename Node::value_type key)
+		static std::pair< uint8_t, bool > insert(Node& node, uint64_t size, typename Node::value_type key)
 		{
 			using traits = array_traits< Node::value_type, Node::capacity >;
 
@@ -284,16 +284,16 @@ namespace btreeng
 	{
 		using node_type = Node;
 
-		static std::pair< uint8_t, bool > insert(Node& node, typename Node::value_type key)
+		static std::pair< uint8_t, bool > insert(Node& node, uint64_t size, typename Node::value_type key)
 		{
 			using traits = array_traits< Node::value_type, Node::capacity + 1 >;
 			
-			if (node.size > 0)
+			if (size > 0)
 			{
-				if (node.size < Node::capacity)
+				if (size < Node::capacity)
 				{									
 					auto [index, duplicate] = traits::count_lt(node.keys, node.size, key);
-					if (index < node.size)
+					if (index < size)
 					{			
 						if (duplicate)
 						{
@@ -304,7 +304,6 @@ namespace btreeng
 					}
 
 					node.keys[index] = key;
-					node.size += 1;
 					return { index, true };
 				}
 
@@ -313,7 +312,6 @@ namespace btreeng
 			else
 			{
 				node.keys[0] = key;
-				node.size = 1;
 				return { 0, true };
 			}
 		}
@@ -335,67 +333,100 @@ namespace btreeng
 
 	template< typename T, typename Allocator = std::allocator< T > > struct btree
 	{
+		enum class node_type: uint8_t
+		{
+			static_node = 0,
+			value_node = 1,
+			index_node = 2,
+		};
+
 		struct iterator {};
 
 		std::pair< iterator, bool > insert(T key)
 		{
-			if (is_static())
+			switch (get_root_type())
 			{
-				using static_traits = btree_static_node_traits< btree_static_node< T > >;
-				auto [index, inserted] = static_traits::insert(static_, key);
-				if (index < static_traits::node_type::capacity)
-				{
-					static_.size += 1;
-					return { iterator(), inserted };
-				}
-								
-				auto node = get_allocator< value_node< T, 8 > >().allocate(1);
-				static_traits::move(static_.keys, node->keys);
-				node->keys[static_traits::node_type::capacity] = key;
-
-				dynamic_.metadata |= 1;
-				dynamic_.root = node;		
-				dynamic_.size = static_traits::node_type::capacity + 1;
-
-				return { iterator(), true };
+			case node_type::static_node:
+				return insert(static_, key);
+			case node_type::value_node:
+				return insert(*reinterpret_cast<value_node< T, 8 >*>(dynamic_.root), key);
+			case node_type::index_node:
+				// TODO
+				std::abort();
 			}
-			else
-			{
-				// decode dynamic_.root type
-				// can be internal_node or value_node.
-				// first bit - 1: dynamic
-				// second bit - 1: internal_node (otherwise value_node)
 
-				auto node = reinterpret_cast< value_node< T, 8 >* >(dynamic_.root);
-								
-				using value_node_traits = btree_value_node_traits< value_node< T, 8 > >;
-
-				uint64_t size = dynamic_.size;
-				auto [index, inserted] = value_node_traits::insert(*node, size, key);
-				if(index < value_node_traits::node_type::capacity)
-				{
-					if (inserted)
-					{						
-						dynamic_.size += 1;
-					}
-
-				    return { iterator(), inserted };
-				}
-				// 
-				// grow node to internal_node
-			}
-						
 			return { iterator(), false };
 		}
-						
-		bool is_static() const
+
+		size_t size() const 
 		{
-			return (static_.metadata & 1) == 0;
+			// TODO: it would be cool to have size aligned in a way that we do not have to branch here.
+			switch (get_root_type())
+			{
+			case node_type::static_node:
+				return static_.size;
+			default:
+				return dynamic_.size;
+			}
 		}
 
+	private:
+		std::pair< iterator, bool > insert(btree_static_node< T >& node, T key)
+		{
+			using static_traits = btree_static_node_traits< btree_static_node< T > >;
+			auto [index, inserted] = static_traits::insert(node, node.size, key);
+			if (index < static_traits::node_type::capacity)
+			{
+				if (inserted)
+				{
+					static_.size += 1;
+				}
+
+				return { iterator(), inserted };
+			}
+
+			auto vnode = get_allocator< value_node< T, 8 > >().allocate(1);
+			static_traits::move(node.keys, vnode->keys);
+			vnode->keys[static_traits::node_type::capacity] = key;
+
+			dynamic_.metadata = static_cast< uint8_t >(node_type::value_node);
+			dynamic_.root = vnode;
+			dynamic_.size = static_traits::node_type::capacity + 1;
+
+			return { iterator(), true };
+		}
+
+		std::pair< iterator, bool > insert(value_node< T, 8 >& node, T key)
+		{
+			using value_node_traits = btree_value_node_traits< value_node< T, 8 > >;
+
+			uint64_t size = dynamic_.size;
+			auto [index, inserted] = value_node_traits::insert(node, size, key);
+			if (index < value_node_traits::node_type::capacity)
+			{
+				if (inserted)
+				{
+					dynamic_.size += 1;
+				}
+
+				return { iterator(), inserted };
+			}
+
+			// TODO: allocate internal node
+			// allocate value group
+			// add data to value_nodes
+
+			return { iterator(), true };
+		}
+		
 		template < typename Node > auto get_allocator()
 		{
 			return std::allocator_traits< Allocator >::rebind_alloc< Node >();
+		}
+
+		node_type get_root_type() const
+		{
+			return static_cast< node_type >(static_.metadata);
 		}
 
 		union

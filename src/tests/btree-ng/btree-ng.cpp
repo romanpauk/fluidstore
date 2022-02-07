@@ -79,20 +79,27 @@ BOOST_AUTO_TEST_CASE(btreeng_btree)
 	static_assert(sizeof(btreeng::btree< uint32_t >) == 32);
 
 	btreeng::btree< uint32_t > c{};
-	assert(c.is_static());
-
+	
 	static_assert(sizeof(btreeng::btree_static_node< uint32_t >) == 32);
 	static_assert(sizeof(btreeng::btree_dynamic_node) == 32);
-
+	
+	assert(c.size() == 0);
 	c.insert(1);
+	assert(c.size() == 1);
 	c.insert(3);
+	assert(c.size() == 2);
 	c.insert(2);
+	assert(c.size() == 3);
+	c.insert(2);
+	assert(c.size() == 3);
+
 	c.insert(4);
 	c.insert(5);
 	c.insert(6);
 	c.insert(7);
 	// value_node
 	c.insert(8);
-
+	assert(c.size() == 8);
 	c.insert(9);
+	assert(c.size() == 9);
 }

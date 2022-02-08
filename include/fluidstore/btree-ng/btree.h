@@ -38,46 +38,6 @@ namespace btreeng
 			std::is_trivially_destructible<T>::value;
 	};
 
-
-	// if key is trivial, use Key[]
-	// if key is trivial and SSE, align array to 32
-	// so we have sort of selector...
-	// and we can have trivial/sse key and non-trivial value
-	//
-
-	/*
-	template < typename T > struct array_descriptor
-	{
-		static constexpr uint8_t capacity = std::max(std::size_t(8), std::size_t(64 / sizeof(T))) / 2;
-		static constexpr uint8_t alignment = alignof(T);
-		using type = uint8_t[sizeof(uint8_t) * sizeof(T) * capacity];
-
-		static_assert((1ull << sizeof(uint8_t) * 8) > 2 * capacity);
-	};
-
-	template <> struct array_descriptor< uint32_t >
-	{
-		static constexpr uint8_t capacity = 8;
-		static constexpr uint8_t alignment = 32;
-		using type = uint32_t[capacity];
-	};
-
-	template < typename T, size_t N > struct array
-	{
-		// alignas(array_descriptor< T >::alignment) typename array_descriptor< T >::type data_;
-	};
-
-	template <> struct array< uint32_t, 16 >
-	{
-		uint32_t data[16];
-	};
-
-	template <> struct array< uint32_t, 8 >
-	{
-		uint32_t data[8];
-	};
-	*/
-
 	template < typename T, size_t N, size_t TypeSize = sizeof(T) > struct array_traits;
 
 	template < typename T > struct array_traits< T, 8, 4 >
@@ -118,12 +78,10 @@ namespace btreeng
 
 			__m256i keysv = _mm256_loadu_si256((__m256i*)keys);
 			__m256i permindexv = _mm256_loadu_si256((__m256i*)(permindex + 8 - (target - source)));
-			__m256i keysv2 = _mm256_permutevar8x32_epi32(keysv, permindexv);
-
-			// TODO: mask and store?
-			uint32_t last = keys[7];
-			_mm256_storeu_si256((__m256i*)keys, keysv2);
-			keys[7] = last;
+			__m256i keysv2 = _mm256_permutevar8x32_epi32(keysv, permindexv);		
+				
+			static const __m256i storemask = _mm256_set_epi32(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0);
+			_mm256_maskstore_epi32((int32_t*)keys, storemask, keysv2);
 		}
 
 		static void copy(const T* source, T* target)
@@ -177,7 +135,9 @@ namespace btreeng
 		}
 
 		static void move(T* keys, uint8_t target, uint8_t source)
-		{}
+		{
+			
+		}
 
 		static void copy(const T* source, T* target)
 		{

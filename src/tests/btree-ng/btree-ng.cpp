@@ -13,19 +13,6 @@ BOOST_AUTO_TEST_CASE(btreeng_tagged_ptr)
 	assert(btreeng::get_ptr(p) == &val);
 }
 
-BOOST_AUTO_TEST_CASE(btreeng_index_node)
-{
-	btreeng::index_node< uint32_t, 7 > node;
-	static_assert(sizeof(node) == 64);
-}
-
-BOOST_AUTO_TEST_CASE(btreeng_value_node)
-{
-	btreeng::value_node< uint32_t, 8 > node;
-	static_assert(sizeof(node) == 64);
-}
-
-
 BOOST_AUTO_TEST_CASE(btreeng_btree_array_traits_uint32_t_8_find_key_index)
 {
 	uint32_t key = 12;
@@ -86,9 +73,15 @@ BOOST_AUTO_TEST_CASE(btreeng_btree)
 	assert(c.size() == 0);
 	assert(c.find(0) == false);
 
+	volatile bool inserted;
+
 	for (size_t i = 1; i < 20; ++i)
 	{
-		if (i == 8)
+		if (i == 2)
+		{
+			inserted = true;
+		} 
+		else if (i == 8)
 		{
 			// static_node -> value_node
 		}
@@ -99,7 +92,7 @@ BOOST_AUTO_TEST_CASE(btreeng_btree)
 		}
 
 		auto pb = c.insert(i);
-		volatile bool inserted = pb.second;
+		inserted = pb.second;
 		
 		volatile auto size = c.size();
 		assert(size == i);

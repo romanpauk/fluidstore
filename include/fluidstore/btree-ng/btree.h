@@ -42,7 +42,7 @@ namespace btreeng
 
 	template < typename T > struct array_traits< T, 8, 4 >
 	{
-		static std::pair< uint8_t, bool > count_lt(const T* keys, uint64_t size, T key)
+		static uint8_t count_lt(const T* keys, uint64_t size, T key)
 		{
 			auto sizemask = (1u << size) - 1;
 
@@ -64,12 +64,7 @@ namespace btreeng
 			}
 
 			maskgt &= sizemask;
-
-			__m256i maskeqv = _mm256_cmpeq_epi32(keyv, keysv);
-			int maskeq = _mm256_movemask_ps(_mm256_castsi256_ps(maskeqv));
-			maskeq &= sizemask;
-
-			return { _mm_popcnt_u32(maskgt), maskeq };
+			return _mm_popcnt_u32(maskgt);
 		}
 
 		static uint8_t equal(const T* keys, uint64_t size, T key)
@@ -105,7 +100,7 @@ namespace btreeng
 
 	template < typename T > struct array_traits< T, 16, 4 >
 	{
-		static std::pair< uint8_t, bool > count_lt(const T* keys, uint64_t size, uint32_t key)
+		static uint8_t count_lt(const T* keys, uint64_t size, uint32_t key)
 		{
 			auto sizemask = (1u << size) - 1;
 
@@ -136,15 +131,7 @@ namespace btreeng
 			maskgt1 &= sizemask;
 			maskgt2 &= (sizemask >> 8);
 						
-			__m256i maskeqv1 = _mm256_cmpeq_epi32(keyv, keysv1);
-			int maskeq1 = _mm256_movemask_ps(_mm256_castsi256_ps(maskeqv1));
-			maskeq1 &= sizemask;
-
-			__m256i maskeqv2 = _mm256_cmpeq_epi32(keyv, keysv2);
-			int maskeq2 = _mm256_movemask_ps(_mm256_castsi256_ps(maskeqv2));
-			maskeq2 &= (sizemask >> 8);			
-
-			return { _mm_popcnt_u32(maskgt2 << 8 | maskgt1), maskeq2 | maskeq1 };
+			return _mm_popcnt_u32(maskgt2 << 8 | maskgt1);
 		}
 
 		static uint8_t equal(const T* keys, uint64_t size, uint32_t key)
@@ -184,45 +171,53 @@ namespace btreeng
 		}
 	};
 
-	template < typename T, size_t N > struct value_node_group;
-	template < typename T, size_t N > struct index_node_group;
+	template < typename T, size_t N, size_t NodeN > struct value_node_group;
+	template < typename T, size_t N, size_t NodeN > struct index_node_group;
 		
-	template < typename T, size_t N > struct index_node;
+	template < typename T, size_t N, size_t NodeN > struct index_node;
 
-	template <> struct index_node< uint32_t, 7 >
+	template < size_t NodeN > struct index_node< uint32_t, 7, NodeN >
 	{
+		enum { capacity = 2 * 7 - 1 };
+
 		using traits_type = array_traits< uint32_t, 16 >;
 
-		uint32_t keys[13];
+		uint32_t keys[capacity];
 		uint16_t size;
 		uint16_t metadata;
 
 		// Where to put info about node type? keys_size seems underused.
 		union {
-			index_node_group< uint32_t, 14 >* index_group;
-			value_node_group< uint32_t, 14 >* value_group;
+			index_node_group< uint32_t, 7, NodeN >* index_group;
+			value_node_group< uint32_t, 7, NodeN >* value_group;
 		};
 	};
 
 	template < typename T, size_t N > struct value_node;
 
-	template < typename T, size_t N > struct value_node_group
+	template < typename T, size_t N, size_t ValueNodeN > struct value_node_group
 	{
-		uint8_t size[N];
-		value_node_group< T, N >* left;
-		value_node_group< T, N >* right;
-		alignas(64) value_node< T, 8 > node[N];
+		enum { capacity = 2 * N };
+
+		uint8_t size[capacity];
+
+		value_node_group< T, N, ValueNodeN >* left;
+		value_node_group< T, N, ValueNodeN >* right;
+		alignas(64) value_node< T, ValueNodeN > node[capacity];
 	};
 
-	template < typename T, size_t N > struct index_node_group
+	template < typename T, size_t N, size_t IndexNodeN > struct index_node_group
 	{
-		uint8_t size[2*N];
-		alignas(64) index_node< T, 7 > node[2*N];
+		enum { capacity = 2 * N };
+
+		uint8_t size[capacity];
+		alignas(64) index_node< T, N, IndexNodeN > node[capacity];
 	};
 
 	template < size_t N > struct value_node< uint32_t, N >
 	{
 		enum { capacity = 2*N };
+
 		using value_type = uint32_t;
 		using traits_type = array_traits< uint32_t, capacity >;
 
@@ -262,14 +257,15 @@ namespace btreeng
 			{
 				if (size < Node::capacity)
 				{
-					auto [index, duplicate] = Traits::count_lt(node.keys, size, key);
+					auto index = Traits::equal(node.keys, size, key);
 					if (index < size)
 					{
-						if (duplicate)
-						{
-							return { index, false };
-						}
+						return { index, false };
+					}
 
+					index = Traits::count_lt(node.keys, size, key);
+					if (index < size)
+					{
 						Traits::move(node.keys, index + 1, index);
 					}
 
@@ -297,7 +293,22 @@ namespace btreeng
 		}
 	};
 
-	template< typename T, typename Allocator = std::allocator< T > > struct btree
+	template< typename T > struct btree_traits;
+
+	template<> struct btree_traits< uint32_t >
+	{
+		enum {
+			static_node_size = 7,
+			value_node_size = 8,
+			index_node_size = 7,			
+		};
+
+		static_assert(sizeof(btree_static_node< uint32_t >) == 32);
+		static_assert(sizeof(value_node< uint32_t, value_node_size >) == 64);
+		static_assert(sizeof(index_node< uint32_t, index_node_size, value_node_size >) == 64);
+	};
+
+	template< typename T, typename Allocator = std::allocator< T >, typename Traits = btree_traits< T > > struct btree
 	{
 		enum class node_type : uint8_t
 		{
@@ -305,6 +316,12 @@ namespace btreeng
 			value_node = 1,
 			index_node = 2,
 		};
+
+		using value_node_type = value_node< T, Traits::value_node_size >;
+		using value_node_group_type = value_node_group< T, Traits::index_node_size, Traits::value_node_size >;
+
+		using index_node_type = index_node< T, Traits::index_node_size, Traits::value_node_size >;
+		using index_node_group_type = index_node< T, Traits::index_node_size, Traits::value_node_size >;
 
 		struct iterator {};
 
@@ -315,9 +332,9 @@ namespace btreeng
 			case node_type::static_node:
 				return insert(static_, key);
 			case node_type::value_node:
-				return insert(*reinterpret_cast<value_node< T, 8 >*>(dynamic_.root), key);
+				return insert(*reinterpret_cast<value_node_type*>(dynamic_.root), key);
 			case node_type::index_node:
-				return insert(*reinterpret_cast<index_node< T, 7 >*>(dynamic_.root), key);
+				return insert(*reinterpret_cast<index_node_type*>(dynamic_.root), key);
 			default:
 				std::abort();
 			}
@@ -342,9 +359,9 @@ namespace btreeng
 			case node_type::static_node:
 				return find(static_, key);
 			case node_type::value_node:
-				return find(*reinterpret_cast<value_node< T, 8 >*>(dynamic_.root), key);
+				return find(*reinterpret_cast<value_node_type*>(dynamic_.root), key);
 			case node_type::index_node:
-				return find(*reinterpret_cast<index_node< T, 7 >*>(dynamic_.root), key);
+				return find(*reinterpret_cast<index_node_type*>(dynamic_.root), key);
 			default:
 				std::abort();
 			}
@@ -365,7 +382,7 @@ namespace btreeng
 				return { iterator(), inserted };
 			}
 
-			auto vnode = get_allocator< value_node< T, 8 > >().allocate(1);
+			auto vnode = get_allocator< value_node_type >().allocate(1);
 			traits::move(node.keys, vnode->keys);
 			vnode->keys[traits::node_type::capacity] = key;
 
@@ -382,9 +399,9 @@ namespace btreeng
 			return traits::find(node, node.size, key);
 		}
 
-		std::pair< iterator, bool > insert(value_node< T, 8 >& node, T key)
+		std::pair< iterator, bool > insert(value_node_type& node, T key)
 		{
-			using traits = btree_node_traits< value_node< T, 8 > >;
+			using traits = btree_node_traits< value_node_type >;
 
 			uint64_t size = dynamic_.size;
 			auto [index, inserted] = traits::insert(node, size, key);
@@ -398,8 +415,8 @@ namespace btreeng
 				return { iterator(), inserted };
 			}
 
-			auto inode = get_allocator< index_node< T, 7 > >().allocate(1);
-			auto vgroup = get_allocator< value_node_group< T, 14 > >().allocate(1);
+			auto inode = get_allocator< index_node_type >().allocate(1);
+			auto vgroup = get_allocator< value_node_group_type >().allocate(1);
 
 			inode->size = 1;
 			inode->metadata = static_cast<uint8_t>(node_type::value_node);
@@ -421,21 +438,24 @@ namespace btreeng
 			return { iterator(), inserted };
 		}
 
-		bool find(const value_node< T, 8 >& node, T key)
+		bool find(const value_node_type& node, T key)
 		{
-			using traits = btree_node_traits< value_node< T, 8 > >;
+			using traits = btree_node_traits< value_node_type >;
 			return traits::find(node, dynamic_.size, key);
 		}
 
-		std::pair< iterator, bool > insert(index_node< T, 7 >& node, T key)
+		std::pair< iterator, bool > insert(index_node_type& node, T key)
 		{
-			using traits = typename index_node< T, 7 >::traits_type;
-			
-			// TODO: equal not needed
-			auto [index, equals] = traits::count_lt(node.keys, node.size, key);
+			using traits = typename index_node_type::traits_type;
+						
+			auto index = traits::count_lt(node.keys, node.size, key);
 
 			// TODO: this is calling method that does the split from value_node to index node.
 			// In this case we should not grow the node, but rather split elements between the nodes.
+
+			// For this we need parent stack, too, or remember parents.
+			// We can split forward or backward.
+			
 			switch (get_node_type(node.metadata))
 			{
 			case node_type::value_node:
@@ -447,19 +467,21 @@ namespace btreeng
 			}			
 		}
 
-		bool find(const index_node< T, 7 >& node, T key)
+		bool find(const index_node_type& node, T key)
 		{
-			using traits = typename index_node< T, 7 >::traits_type;
-
-			// TODO: equal not needed
-			auto [index, equals] = traits::count_lt(node.keys, node.size, key);
+			using traits = typename index_node_type::traits_type;
+						
+			auto index = traits::count_lt(node.keys, node.size, key);
 			return find(node.value_group->node[index], key);
 		}
 
-		T split(value_node< T, 8 >& node, value_node_group< T, 14 >& group)
+		T split(value_node_type& node, value_node_group_type& group)
 		{
+			// TODO
+			static_assert(value_node_type::capacity == 16);
+
 			// split node into empty group
-			using traits = typename value_node< T, 8 >::traits_type;
+			using traits = typename value_node_type::traits_type;
 
 			traits::copy_lane(node.keys, group.node[0].keys);
 			group.size[0] = 8;

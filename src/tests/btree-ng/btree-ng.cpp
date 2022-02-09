@@ -84,22 +84,27 @@ BOOST_AUTO_TEST_CASE(btreeng_btree)
 	static_assert(sizeof(btreeng::btree_dynamic_node) == 32);
 	
 	assert(c.size() == 0);
-	c.insert(1);
-	assert(c.size() == 1);
-	c.insert(3);
-	assert(c.size() == 2);
-	c.insert(2);
-	assert(c.size() == 3);
-	c.insert(2);
-	assert(c.size() == 3);
+	assert(c.find(0) == false);
 
-	c.insert(4);
-	c.insert(5);
-	c.insert(6);
-	c.insert(7);
-	// value_node
-	c.insert(8);
-	assert(c.size() == 8);
-	c.insert(9);
-	assert(c.size() == 9);
+	for (size_t i = 1; i < 20; ++i)
+	{
+		if (i == 8)
+		{
+			// static_node -> value_node
+		}
+		else if (i == 17)
+		{
+			// value_node -> index_node
+			volatile int a(1);
+		}
+
+		auto pb = c.insert(i);
+		volatile bool inserted = pb.second;
+		
+		volatile auto size = c.size();
+		assert(size == i);
+
+		inserted = c.find(i);
+		assert(inserted == true);
+	}
 }

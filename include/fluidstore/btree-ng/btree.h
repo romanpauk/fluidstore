@@ -50,7 +50,7 @@ namespace btreeng
 			__m256i keysv = _mm256_loadu_si256((__m256i*)keys);
 
 			int maskgt = 0;
-						
+
 			if constexpr (std::is_signed_v< T >)
 			{
 				__m256i maskgtv = _mm256_cmpgt_epi32(keyv, keysv);
@@ -72,7 +72,7 @@ namespace btreeng
 			auto sizemask = (1u << size) - 1;
 
 			__m256i keyv = _mm256_set1_epi32(key);
-			__m256i keysv = _mm256_loadu_si256((__m256i*)keys);			
+			__m256i keysv = _mm256_loadu_si256((__m256i*)keys);
 			__m256i maskeqv = _mm256_cmpeq_epi32(keyv, keysv);
 			int maskeq = _mm256_movemask_ps(_mm256_castsi256_ps(maskeqv));
 			maskeq &= sizemask;
@@ -86,8 +86,8 @@ namespace btreeng
 
 			__m256i keysv = _mm256_loadu_si256((__m256i*)keys);
 			__m256i permindexv = _mm256_loadu_si256((__m256i*)(permindex + 8 - (target - source)));
-			__m256i keysv2 = _mm256_permutevar8x32_epi32(keysv, permindexv);		
-				
+			__m256i keysv2 = _mm256_permutevar8x32_epi32(keysv, permindexv);
+
 			static const __m256i storemask = _mm256_set_epi32(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0);
 			_mm256_maskstore_epi32((int32_t*)keys, storemask, keysv2);
 		}
@@ -130,7 +130,7 @@ namespace btreeng
 
 			maskgt1 &= sizemask;
 			maskgt2 &= (sizemask >> 8);
-						
+
 			return _mm_popcnt_u32(maskgt2 << 8 | maskgt1);
 		}
 
@@ -173,7 +173,7 @@ namespace btreeng
 
 	template < typename T, size_t N, size_t NodeN > struct value_node_group;
 	template < typename T, size_t N, size_t NodeN > struct index_node_group;
-		
+
 	template < typename T, size_t N, size_t NodeN > struct index_node;
 
 	template < size_t NodeN > struct index_node< uint32_t, 7, NodeN >
@@ -181,15 +181,16 @@ namespace btreeng
 		enum { capacity = 2 * 7 - 1 };
 
 		using traits_type = array_traits< uint32_t, 16 >;
+		using value_node_group_type = value_node_group< uint32_t, 7, NodeN >;
+		using index_node_group_type = index_node_group< uint32_t, 7, NodeN >;
 
 		uint32_t keys[capacity];
 		uint16_t size;
 		uint16_t metadata;
-
-		// Where to put info about node type? keys_size seems underused.
+				
 		union {
-			index_node_group< uint32_t, 7, NodeN >* index_group;
-			value_node_group< uint32_t, 7, NodeN >* value_group;
+			index_node_group_type* index_group;
+			value_node_group_type* value_group;
 		};
 	};
 
@@ -216,7 +217,7 @@ namespace btreeng
 
 	template < size_t N > struct value_node< uint32_t, N >
 	{
-		enum { capacity = 2*N };
+		enum { capacity = 2 * N };
 
 		using value_type = uint32_t;
 		using traits_type = array_traits< uint32_t, capacity >;
@@ -226,9 +227,9 @@ namespace btreeng
 
 	template < typename T > struct btree_static_node;
 
-	// root and meta needs to overlap
+	// metadata needs to overlap between static and dynamic node
 	template<> struct btree_static_node< uint32_t >
-	{	
+	{
 		enum { capacity = 7 };
 		using value_type = uint32_t;
 		using traits_type = array_traits< uint32_t, capacity + 1 >;
@@ -239,10 +240,10 @@ namespace btreeng
 	};
 
 	struct btree_dynamic_node
-	{		
+	{
 		void* first; // value_node_group< T, 14 >* first;
 		void* last;  // value_node_group< T, 14 >* last;
-		void* root; 
+		void* root;
 		uint64_t size : 48;
 		uint64_t metadata : 16;
 	};
@@ -257,6 +258,18 @@ namespace btreeng
 			{
 				if (size < Node::capacity)
 				{
+					/*
+					
+					// This is not needed, we will either have hint, or not.
+					// Check for an append.
+					
+					if (node.keys[size - 1] < key)
+					{
+						node.keys[size] = key;
+						return { size, true };
+					}
+					*/
+
 					auto index = Traits::equal(node.keys, size, key);
 					if (index < size)
 					{
@@ -293,6 +306,29 @@ namespace btreeng
 		}
 	};
 
+	template < typename IndexNode > struct btree_node_group_traits
+	{
+		template < typename Node > static void move(IndexNode& inode, Node* node, uint8_t target, uint8_t source)
+		{
+			using traits = Node::traits_type;
+
+			assert(inode.size > 0);
+
+			if (target > source)
+			{
+				uint8_t diff = target - source;
+				uint8_t count = inode.size + 1 - source;
+
+				Node* end = node + inode.size;
+				while (count--)
+				{
+					traits::copy(end->keys, (end + diff)->keys);
+					--end;
+				}			
+			}
+		}
+	};
+
 	template< typename T > struct btree_traits;
 
 	template<> struct btree_traits< uint32_t >
@@ -321,7 +357,7 @@ namespace btreeng
 		using value_node_group_type = value_node_group< T, Traits::index_node_size, Traits::value_node_size >;
 
 		using index_node_type = index_node< T, Traits::index_node_size, Traits::value_node_size >;
-		using index_node_group_type = index_node< T, Traits::index_node_size, Traits::value_node_size >;
+		using index_node_group_type = index_node_group< T, Traits::index_node_size, Traits::value_node_size >;
 
 		struct iterator {};
 
@@ -331,7 +367,7 @@ namespace btreeng
 			{
 			case node_type::static_node:
 			{
-				if (full(static_, static_.size))
+				if (full(static_))
 				{
 					return promote(static_, key);
 				}
@@ -345,8 +381,9 @@ namespace btreeng
 				auto node = reinterpret_cast<value_node_type*>(dynamic_.root);
 				if (full(*node, dynamic_.size))
 				{
-					return promote(*node, key);
-					// TODO: delete node
+					auto pb = promote(*node, key);
+					get_allocator< value_node_type >().deallocate(node, 1);
+					return pb;
 				}
 				else
 				{
@@ -354,7 +391,7 @@ namespace btreeng
 				}
 			}
 			case node_type::index_node:
-				return insert(*reinterpret_cast<index_node_type*>(dynamic_.root), key);
+				return insert(*reinterpret_cast<index_node_type*>(dynamic_.root), key, nullptr);
 			default:
 				std::abort();
 			}
@@ -388,9 +425,9 @@ namespace btreeng
 		}
 
 	private:
-		bool full(const btree_static_node< T >&, uint64_t size) const 
+		bool full(const btree_static_node< T >& node) const 
 		{ 
-			return size == btree_static_node< T >::capacity;
+			return node.size == btree_static_node< T >::capacity;
 		}
 
 		std::pair< iterator, bool > insert(btree_static_node< T >& node, T key)
@@ -451,6 +488,24 @@ namespace btreeng
 			return { iterator(), inserted };
 		}
 
+		// TODO: duplicate of above
+		std::pair< iterator, bool > insert(value_node_type& node, uint8_t& size, T key)
+		{
+			using traits = btree_node_traits< value_node_type >;
+						
+			auto [index, inserted] = traits::insert(node, size, key);
+			if (index < traits::node_type::capacity)
+			{
+				if (inserted)
+				{
+					size += 1;
+					dynamic_.size += 1;
+				}
+			}
+
+			return { iterator(), inserted };
+		}
+
 		std::pair< iterator, bool > promote(value_node_type& node, T key)
 		{
 			using traits = btree_node_traits< value_node_type >;
@@ -483,32 +538,109 @@ namespace btreeng
 			return traits::find(node, dynamic_.size, key);
 		}
 
-		std::pair< iterator, bool > insert(index_node_type& node, T key)
+		void split(index_node_type& lnode, index_node_group_type& lnodegroup, index_node_type& rnode, index_node_group_type& rnodegroup)
+		{
+			// first half: <0, index_node_type::capacity / 2)
+			// separator: index_node_type::capacity / 2
+			// second half: <index_node_type::capacity / 2 + 1, index_node_type::capacity >
+
+			// and the groups...
+		}
+
+		void rebalance(index_node_type& lnode, index_node_type* parent)
+		{			
+			if (full(lnode))
+			{
+				auto rnode = get_allocator< index_node_type >().allocate(1);
+				rnode->metadata = lnode.metadata;
+				rnode->size = 0;
+
+				switch (get_node_type(lnode.metadata))
+				{
+				case node_type::index_node:
+				{
+					auto rgroup = get_allocator< index_node_group_type >().allocate(1);
+					rnode->index_group = rgroup;				
+					split(lnode, *lnode.index_group, *rnode, *rnode->index_group);
+					break;
+				}
+				case node_type::value_node:
+				{
+					auto rgroup = get_allocator< value_node_group_type >().allocate(1);
+					rnode->value_group = rgroup;
+					// split(lnode, *lnode->value_group, rnode, *rnode->value_group);
+					break;
+				}
+				default:
+					std::abort();
+				}
+
+				if (parent)
+				{
+
+				}
+				else
+				{
+					// grow tree
+				}
+			}
+		}
+
+		std::pair< iterator, bool > insert(index_node_type& node, T key, index_node_type* parent)
 		{
 			using traits = typename index_node_type::traits_type;
-						
-			auto index = traits::count_lt(node.keys, node.size, key);
-
-			// TODO: this is calling method that does the split from value_node to index node.
-			// In this case we should not grow the node, but rather split elements between the nodes.
-
-			// For this we need parent stack, too, or remember parents.
-			// We can split forward or backward.
+					
+			// Rebalance node on a way down.
+			rebalance(node, parent);
+			
+			auto index = traits::count_lt(node.keys, node.size, key);		
 			
 			switch (get_node_type(node.metadata))
 			{
-			case node_type::value_node:
-			{
-				auto pb = insert(node.value_group->node[index], key);
-				assert(pb.second);
-				return pb;
-			}
 			case node_type::index_node:
 			{
-				auto pb = insert(node.index_group->node[index], key);
-				assert(pb.second);
-				return pb;
+				auto& n = node.index_group->node[index];
+				return insert(n, key, &node);
 			}
+			case node_type::value_node:
+			{				
+				auto& n = node.value_group->node[index];
+				auto& nsize = node.value_group->size[index];
+				
+				if (full(n, nsize))
+				{
+					// rebalance_insert(node);
+
+					if (!full(node))
+					{
+						// Test for a simple append into last node
+						if (n.keys[nsize - 1] < key && index == node.size)
+						{
+							node.keys[index] = key;
+							node.size += 1;
+
+							node.value_group->size[index + 1] = 1;
+							node.value_group->node[index + 1].keys[0] = key;
+
+							dynamic_.size += 1;
+
+							return { iterator(), true };
+						}
+						else
+						{
+							// Not an append, need to move data around
+							
+							// copy half of the node to index + 1
+							// btree_node_group_traits< index_node_type >::move(node, n, index + 1, index);
+						}
+					}
+				}
+				else
+				{
+					return insert(n, nsize, key);
+				}
+			}
+			
 			default:
 				std::abort();
 			}			
@@ -519,7 +651,16 @@ namespace btreeng
 			using traits = typename index_node_type::traits_type;
 						
 			auto index = traits::count_lt(node.keys, node.size, key);
-			return find(node.value_group->node[index], key);
+
+			// TODO: we want count_lte
+			bool cmp = node.keys[index] == key;
+
+			return find(node.value_group->node[index + cmp], key);
+		}
+
+		bool full(const index_node_type& node) const
+		{
+			return node.size == index_node_type::capacity;
 		}
 
 		T split(value_node_type& node, value_node_group_type& group)

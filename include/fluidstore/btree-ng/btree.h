@@ -330,9 +330,29 @@ namespace btreeng
 			switch (get_root_type())
 			{
 			case node_type::static_node:
-				return insert(static_, key);
+			{
+				if (full(static_, static_.size))
+				{
+					return promote(static_, key);
+				}
+				else
+				{
+					return insert(static_, key);
+				}
+			}
 			case node_type::value_node:
-				return insert(*reinterpret_cast<value_node_type*>(dynamic_.root), key);
+			{
+				auto node = reinterpret_cast<value_node_type*>(dynamic_.root);
+				if (full(*node, dynamic_.size))
+				{
+					return promote(*node, key);
+					// TODO: delete node
+				}
+				else
+				{
+					return insert(*node, key);
+				}
+			}
 			case node_type::index_node:
 				return insert(*reinterpret_cast<index_node_type*>(dynamic_.root), key);
 			default:
@@ -368,6 +388,11 @@ namespace btreeng
 		}
 
 	private:
+		bool full(const btree_static_node< T >&, uint64_t size) const 
+		{ 
+			return size == btree_static_node< T >::capacity;
+		}
+
 		std::pair< iterator, bool > insert(btree_static_node< T >& node, T key)
 		{
 			using traits = btree_node_traits< btree_static_node< T > >;
@@ -378,9 +403,14 @@ namespace btreeng
 				{
 					static_.size += 1;
 				}
-
-				return { iterator(), inserted };
 			}
+				
+			return { iterator(), inserted };
+		}
+
+		std::pair< iterator, bool > promote(btree_static_node< T >& node, T key)
+		{
+			using traits = btree_node_traits< btree_static_node< T > >;
 
 			auto vnode = get_allocator< value_node_type >().allocate(1);
 			traits::move(node.keys, vnode->keys);
@@ -399,6 +429,11 @@ namespace btreeng
 			return traits::find(node, node.size, key);
 		}
 
+		bool full(const value_node_type&, uint64_t size) const
+		{
+			return size == value_node_type::capacity;
+		}
+
 		std::pair< iterator, bool > insert(value_node_type& node, T key)
 		{
 			using traits = btree_node_traits< value_node_type >;
@@ -411,9 +446,14 @@ namespace btreeng
 				{
 					dynamic_.size += 1;
 				}
-
-				return { iterator(), inserted };
 			}
+					
+			return { iterator(), inserted };
+		}
+
+		std::pair< iterator, bool > promote(value_node_type& node, T key)
+		{
+			using traits = btree_node_traits< value_node_type >;
 
 			auto inode = get_allocator< index_node_type >().allocate(1);
 			auto vgroup = get_allocator< value_node_group_type >().allocate(1);
@@ -427,15 +467,14 @@ namespace btreeng
 			dynamic_.root = inode;
 
 			auto n = key < inode->keys[0] ? 0 : 1;
-			std::tie(index, inserted) = traits::insert(vgroup->node[n], vgroup->size[n], key);
+			auto [index, inserted] = traits::insert(vgroup->node[n], vgroup->size[n], key);
 			if (inserted)
 			{
 				vgroup->size[n] += 1;
 				dynamic_.size += 1;
 			}
 
-			// TODO: delete node
-			return { iterator(), inserted };
+			return { iterator(), true };
 		}
 
 		bool find(const value_node_type& node, T key)
@@ -459,9 +498,17 @@ namespace btreeng
 			switch (get_node_type(node.metadata))
 			{
 			case node_type::value_node:
-				return insert(node.value_group->node[index], key);
+			{
+				auto pb = insert(node.value_group->node[index], key);
+				assert(pb.second);
+				return pb;
+			}
 			case node_type::index_node:
-				return insert(node.index_group->node[index], key);
+			{
+				auto pb = insert(node.index_group->node[index], key);
+				assert(pb.second);
+				return pb;
+			}
 			default:
 				std::abort();
 			}			

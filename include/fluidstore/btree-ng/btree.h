@@ -60,7 +60,7 @@ namespace btreeng
 			{
 				__m256i maskgtv = _mm256_cmpeq_epi32(_mm256_max_epi32(keysv, keyv), keysv);
 				maskgt = _mm256_movemask_ps(_mm256_castsi256_ps(maskgtv));
-				maskgt = ~maskgt;
+				maskgt = ~maskgt & 0xFF;
 			}
 
 			maskgt &= sizemask;
@@ -88,7 +88,7 @@ namespace btreeng
 			__m256i permindexv = _mm256_loadu_si256((__m256i*)(permindex + 8 - (target - source)));
 			__m256i keysv2 = _mm256_permutevar8x32_epi32(keysv, permindexv);
 
-			static const __m256i storemask = _mm256_set_epi32(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0);
+			static const __m256i storemask = _mm256_setr_epi32(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x0);
 			_mm256_maskstore_epi32((int32_t*)keys, storemask, keysv2);
 		}
 
@@ -109,28 +109,29 @@ namespace btreeng
 			__m256i keysv1 = _mm256_loadu_si256((__m256i*)keys);
 			__m256i keysv2 = _mm256_loadu_si256((__m256i*)(keys + 8));
 
-			int maskgt1 = 0, maskgt2 = 0;
+			unsigned maskgt1 = 0, maskgt2 = 0;
 			if constexpr (std::is_signed_v< T >)
 			{
 				__m256i maskgtv1 = _mm256_cmpgt_epi32(keyv, keysv1);
 				__m256i maskgtv2 = _mm256_cmpgt_epi32(keyv, keysv2);
 				maskgt1 = _mm256_movemask_ps(_mm256_castsi256_ps(maskgtv1));
 				maskgt2 = _mm256_movemask_ps(_mm256_castsi256_ps(maskgtv2));
-
+				maskgt1 &= sizemask;
+				maskgt2 &= (sizemask >> 8);
 			}
 			else
-			{
+			{				
 				__m256i maskgtv1 = _mm256_cmpeq_epi32(_mm256_max_epi32(keysv1, keyv), keysv1);
 				__m256i maskgtv2 = _mm256_cmpeq_epi32(_mm256_max_epi32(keysv2, keyv), keysv2);
 				maskgt1 = _mm256_movemask_ps(_mm256_castsi256_ps(maskgtv1));
 				maskgt2 = _mm256_movemask_ps(_mm256_castsi256_ps(maskgtv2));
-				maskgt1 = ~maskgt1;
-				maskgt2 = ~maskgt2;
+				maskgt1 = ~maskgt1 & 0xFF;
+				maskgt2 = ~maskgt2 & 0xFF;
 			}
 
 			maskgt1 &= sizemask;
 			maskgt2 &= (sizemask >> 8);
-
+			
 			return _mm_popcnt_u32(maskgt2 << 8 | maskgt1);
 		}
 
@@ -175,12 +176,13 @@ namespace btreeng
 	{
 		enum {
 			static_node = 0,
-			value_node = 1,
-			index_node = 2,
+			index_node = 1,
+			value_node = 2,
 		};
 
 		static uint8_t get_node_type(uint8_t metadata)
 		{
+			assert(metadata <= value_node);
 			return metadata;
 		}
 	};
@@ -226,20 +228,22 @@ namespace btreeng
 	template < typename T, size_t N, size_t IndexNodeN > struct index_node_group
 	{
 		enum { capacity = 2 * N };
+		using node_type = index_node< T, N, IndexNodeN >;
 
 		uint8_t size[capacity];
-		alignas(64) index_node< T, N, IndexNodeN > node[capacity];
+		alignas(64) node_type node[capacity];
 	};
 
 	template < typename T, size_t N, size_t ValueNodeN > struct value_node_group
 	{
 		enum { capacity = 2 * N };
+		using node_type = value_node< T, ValueNodeN >;
 
 		uint8_t size[capacity];
 
 		value_node_group< T, N, ValueNodeN >* left;
 		value_node_group< T, N, ValueNodeN >* right;
-		alignas(64) value_node< T, ValueNodeN > node[capacity];
+		alignas(64) node_type node[capacity];
 	};
 	
 	template < typename T > struct btree_static_node;
@@ -371,10 +375,16 @@ namespace btreeng
 				std::abort();
 			}
 		}
+
+		template< typename Allocator > static void destroy(index_node_type& node, Allocator&& alloc)
+		{
+		
+		}
 	};
 
 	template < typename Node > struct btree_node_group_traits;
 
+	/*
 	template < typename T, size_t IndexNodeSize, size_t ValueNodeSize > struct btree_node_group_traits< index_node_group< T, IndexNodeSize, ValueNodeSize > >
 	{
 		using node_type = index_node_group< T, IndexNodeSize, ValueNodeSize >;
@@ -387,15 +397,20 @@ namespace btreeng
 	{
 		using node_group_type = value_node_group< T, IndexNodeSize, ValueNodeSize >;
 
-		static void split(node_group_type& lgroup, node_group_type& rgroup)
+		static void split(const node_group_type& lgroup, node_group_type& rgroup)
 		{				
 			for (size_t i = 0; i < node_group_type::capacity / 2; ++i)
 			{
-				//rgroup.size[i] = lgroup.size[i + node_group_type::capacity / 2 + 1];
-				//rgroup.node[i] = lgroup.node[i + node_group_type::capacity / 2 + 1];
+				rgroup.size[i] = lgroup.size[i + node_group_type::capacity / 2];
+
+				btree_node_traits< typename btree_traits< T >::value_node_type >::move(
+					lgroup.node[i + node_group_type::capacity / 2].keys,
+					rgroup.node[i].keys
+				);
 			}
 		}
 	};
+	*/
 
 	// template < typename Node, typename Traits = typename Node::traits_type > struct btree_node_traits
 
@@ -452,21 +467,30 @@ namespace btreeng
 
 		struct iterator {};
 
+		btree() = default;
+
+		btree(Allocator allocator)
+			: allocator_(allocator)
+		{}
+
+		~btree()
+		{
+			switch (get_root_type())
+			{
+			case metadata::value_node:
+				get_allocator< value_node_type >().deallocate(reinterpret_cast<value_node_type*>(dynamic_.root), 1);
+				break;
+			case metadata::index_node:
+				break;
+			}
+		}
+
 		std::pair< iterator, bool > insert(T key)
 		{
 			switch (get_root_type())
 			{
 			case metadata::static_node:
-			{
-				if (full(static_))
-				{
-					return promote(static_, key);
-				}
-				else
-				{
-					return insert(static_, key);
-				}
-			}
+				return full(static_) ? promote(static_, key) : insert(static_, key);
 			case metadata::value_node:
 			{
 				auto node = reinterpret_cast<value_node_type*>(dynamic_.root);
@@ -482,9 +506,7 @@ namespace btreeng
 				}
 			}
 			case metadata::index_node:
-				return insert(*reinterpret_cast<index_node_type*>(dynamic_.root), key, nullptr);
-			default:
-				std::abort();
+				return insert(reinterpret_cast<index_node_type*>(dynamic_.root), key, nullptr);
 			}
 		}
 
@@ -641,57 +663,169 @@ namespace btreeng
 				return { iterator(), inserted };
 			}			
 		}
-
-		template < typename NodeGroup > T split(index_node_type& lnode, NodeGroup& lgroup, index_node_type& rnode, NodeGroup& rgroup)
-		{	
-			lnode.size = rnode.size = index_node_type::capacity / 2;
-			std::memcpy(rnode.keys, lnode.keys + index_node_type::capacity / 2 + 1, sizeof(T) * index_node_type::capacity / 2);			
-			btree_node_group_traits< NodeGroup >::split(lgroup, rgroup);
-			return lnode.keys[index_node_type::capacity / 2];
-		}
-
-		void rebalance(index_node_type& lnode, index_node_type* parent)
-		{			
-			if (full(lnode))
-			{
-				auto rnode = get_allocator< index_node_type >().allocate(1);
-				rnode->metadata = lnode.metadata;
-				rnode->size = 0;
 				
-				T separator;
+		template < typename NodeGroup > void split(const NodeGroup& group, NodeGroup& lgroup, NodeGroup& rgroup)
+		{
+			for (size_t i = 0; i < NodeGroup::capacity / 2; ++i)
+			{
+				lgroup.size[i] = group.size[i];
+				rgroup.size[i] = group.size[i + NodeGroup::capacity / 2];							
+				
+				if constexpr (std::is_same_v< NodeGroup, index_node_group_type >)
+				{
+					// TODO: in case it is index_node that is split, group pointer and metadata get copied by traits_type::copy.
 
-				switch (metadata::get_node_type(lnode.metadata))
-				{
-				case metadata::index_node:
-				{
-					auto rgroup = get_allocator< index_node_group_type >().allocate(1);
-					rnode->index_group = rgroup;				
-					separator = split(lnode, *lnode.index_group, *rnode, *rnode->index_group);
-					break;
-				}
-				case metadata::value_node:
-				{
-					auto rgroup = get_allocator< value_node_group_type >().allocate(1);
-					rnode->value_group = rgroup;
-					separator = split(lnode, *lnode.value_group, *rnode, *rnode->value_group);
-					break;
-				}
-				default:
-					std::abort();
+					//lgroup.node[i].metadata = group.node[i].metadata;
+					//lgroup.node[i].index_group = group.node[i].index_group;
+
+					int a(1);
 				}
 
-				if (parent)
-				{
-					// TODO: insert where separator belongs.
-				}
-				else
-				{
-					// TODO: grow tree
-				}
+				NodeGroup::node_type::traits_type::copy(group.node[i].keys, lgroup.node[i].keys);
+				NodeGroup::node_type::traits_type::copy(group.node[i + NodeGroup::capacity / 2].keys, rgroup.node[i].keys);
 			}
 		}
 
-		std::pair< iterator, bool > insert(index_node_type& node, T key, index_node_type* parent)
+		void split(const index_node_group_type& group, index_node_group_type& lgroup, index_node_group_type& rgroup)
+		{
+			for (size_t i = 0; i < index_node_group_type::capacity / 2; ++i)
+			{
+				lgroup.size[i] = group.size[i];
+				rgroup.size[i] = group.size[i + index_node_group_type::capacity / 2];
+
+				index_node_group_type::node_type::traits_type::copy(group.node[i].keys, lgroup.node[i].keys);
+				index_node_group_type::node_type::traits_type::copy(group.node[i + index_node_group_type::capacity / 2].keys, rgroup.node[i].keys);
+			}
+		}
+
+		template < typename NodeGroup > void split(const NodeGroup& lgroup, NodeGroup& rgroup)
+		{
+			for (size_t i = 0; i < NodeGroup::capacity / 2; ++i)
+			{				
+				rgroup.size[i] = lgroup.size[i + NodeGroup::capacity / 2];
+				NodeGroup::node_type::traits_type::copy(lgroup.node[i + NodeGroup::capacity / 2].keys, rgroup.node[i].keys);
+			}
+		}
+
+		T split(const index_node_type& node, index_node_type& lnode, index_node_type& rnode)
+		{
+			std::memcpy(lnode.keys, node.keys, sizeof(T) * index_node_type::capacity / 2);
+			lnode.size = index_node_type::capacity / 2;
+			
+			std::memcpy(rnode.keys, node.keys + index_node_type::capacity / 2 + 1, sizeof(T) * index_node_type::capacity / 2);
+			rnode.size = index_node_type::capacity / 2;
+
+			lnode.metadata = rnode.metadata = node.metadata;
+
+			switch (metadata::get_node_type(node.metadata))
+			{
+			case metadata::value_node:
+				lnode.value_group = get_allocator< value_node_group_type >().allocate(1);
+				rnode.value_group = get_allocator< value_node_group_type >().allocate(1);
+				split(*node.value_group, *lnode.value_group, *rnode.value_group);
+				break;
+			case metadata::index_node:
+				lnode.index_group = get_allocator< index_node_group_type >().allocate(1);
+				rnode.index_group = get_allocator< index_node_group_type >().allocate(1);
+				split(*node.index_group, *lnode.index_group, *rnode.index_group);
+				break;
+			default:
+				std::abort();
+			}
+			
+			return node.keys[index_node_type::capacity / 2];
+		}
+
+		T split(index_node_type& lnode, index_node_type& rnode)
+		{			
+			lnode.size = index_node_type::capacity / 2;
+
+			std::memcpy(rnode.keys, lnode.keys + index_node_type::capacity / 2 + 1, sizeof(T) * index_node_type::capacity / 2);
+			rnode.size = index_node_type::capacity / 2;
+			rnode.metadata = lnode.metadata;
+
+			switch (metadata::get_node_type(lnode.metadata))
+			{
+			case metadata::value_node:
+				rnode.value_group = get_allocator< value_node_group_type >().allocate(1);
+				split(*lnode.value_group, *rnode.value_group);
+				break;
+			case metadata::index_node:
+				rnode.index_group = get_allocator< index_node_group_type >().allocate(1);
+				split(*lnode.index_group, *rnode.index_group);
+				break;
+			default:
+				std::abort();
+			}
+			
+			return lnode.keys[index_node_type::capacity / 2];
+		}
+
+		index_node_type* rebalance(index_node_type* node, T key, index_node_type* parent)
+		{			
+			if (full(*node))
+			{
+				if (parent)
+				{
+					assert(!full(*parent));
+										
+					T splitkey = node->keys[index_node_type::capacity / 2];
+
+					using traits = typename index_node_type::traits_type;
+					auto index = traits::count_lt(parent->keys, parent->size, splitkey);
+					
+					// TODO: move nodes in case it is needed
+					assert(index == parent->size);
+
+					parent->keys[index] = split(*node, parent->index_group->node[index + 1]);
+					parent->size += 1;
+
+					if (key < parent->keys[index])
+					{
+						return node;
+					}
+					else
+					{
+						return &parent->index_group->node[index + 1];
+					}
+				}
+				else
+				{					
+					auto root = get_allocator< index_node_type >().allocate(1);
+					root->metadata = metadata::index_node;
+					root->index_group = get_allocator< index_node_group_type >().allocate(1);
+					root->size = 1;
+
+					root->index_group->size[0] = index_node_type::capacity / 2;
+					root->index_group->size[1] = index_node_type::capacity / 2;
+					root->keys[0] = split(*node, root->index_group->node[0], root->index_group->node[1]);
+
+					dynamic_.root = root;
+
+					// TODO: delete node
+					//btree_node_traits< index_node_type >::destroy(*node, get_allocator< index_node_type >());
+					switch (metadata::get_node_type(node->metadata))
+					{
+					case metadata::index_node:
+						get_allocator< index_node_group_type >().deallocate(node->index_group, 1);
+						break;
+					case metadata::value_node:
+						get_allocator< value_node_group_type >().deallocate(node->value_group, 1);
+						break;
+					default:
+						std::abort();
+					}
+
+					get_allocator< index_node_type >().deallocate(node, 1);
+
+					return root;
+				}
+			}
+
+			return node;
+		}
+
+		std::pair< iterator, bool > insert(index_node_type* node, T key, index_node_type* parent)
 		{
 			using traits = typename index_node_type::traits_type;
 					
@@ -699,34 +833,36 @@ namespace btreeng
 			// 
 			// TODO: For the case when type is value_node and we are appending, this will split even if last value
 			// node has space.
-			rebalance(node, parent);
 			
-			auto index = traits::count_lt(node.keys, node.size, key);		
+			node = rebalance(node, key, parent);
+			assert(!full(*node));
+
+			auto index = traits::count_lt(node->keys, node->size, key);		
 			
-			switch (metadata::get_node_type(node.metadata))
+			switch (metadata::get_node_type(node->metadata))
 			{
 			case metadata::index_node:
 			{
-				auto& n = node.index_group->node[index];
-				return insert(n, key, &node);
+				auto n = &node->index_group->node[index];
+				return insert(n, key, node);
 			}
 			case metadata::value_node:
 			{				
-				auto& n = node.value_group->node[index];
-				auto& nsize = node.value_group->size[index];
+				auto& n = node->value_group->node[index];
+				auto& nsize = node->value_group->size[index];
 				
 				if (full(n, nsize))
 				{
 					// assert(!full(node));
 					
 					// Test for an append
-					if (n.keys[nsize - 1] < key && index == node.size)
+					if (n.keys[nsize - 1] < key && index == node->size)
 					{
-						node.keys[index] = key;
-						node.size += 1;
-
-						node.value_group->size[index + 1] = 1;
-						node.value_group->node[index + 1].keys[0] = key;
+						node->keys[index] = key;
+						node->size += 1;
+						node->metadata = metadata::value_node;
+						node->value_group->size[index + 1] = 1;
+						node->value_group->node[index + 1].keys[0] = key;
 
 						dynamic_.size += 1;
 
@@ -738,6 +874,7 @@ namespace btreeng
 							
 						// copy half of the node to index + 1
 						// btree_node_group_traits< index_node_type >::move(node, n, index + 1, index);
+						std::abort();
 					}
 				}
 				else
@@ -763,7 +900,7 @@ namespace btreeng
 
 		template < typename Node > auto get_allocator()
 		{
-			return std::allocator_traits< Allocator >::rebind_alloc< Node >();
+			return std::allocator_traits< Allocator >::rebind_alloc< Node >(allocator_);
 		}
 				
 		uint8_t get_root_type() const
@@ -776,5 +913,7 @@ namespace btreeng
 			alignas(32) btree_static_node< T > static_;
 			alignas(32) btree_dynamic_node dynamic_{};
 		};
+
+		Allocator allocator_;
 	};
 }

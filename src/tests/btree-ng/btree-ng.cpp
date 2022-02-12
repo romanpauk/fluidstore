@@ -63,41 +63,82 @@ BOOST_AUTO_TEST_CASE(btreeng_btree_array_traits_uint32_t_8_find_key_index)
 
 BOOST_AUTO_TEST_CASE(btreeng_btree)
 {
-	static_assert(sizeof(btreeng::btree< uint32_t >) == 32);
+	static_assert(sizeof(btreeng::btree< uint32_t >) <= 64);
 
-	btreeng::btree< uint32_t > c{};
-	
 	static_assert(sizeof(btreeng::btree_static_node< uint32_t >) == 32);
 	static_assert(sizeof(btreeng::btree_dynamic_node) == 32);
-	
+
+}
+
+const int ElementCount = 10000;
+
+BOOST_AUTO_TEST_CASE(btreeng_btree_insert)
+{
+	volatile bool inserted;
+
+	btreeng::btree< uint32_t > c{};
 	assert(c.size() == 0);
 	assert(c.find(0) == false);
 
-	volatile bool inserted;
-
-	for (size_t i = 1; i < 20; ++i)
+	size_t cnt = 0;
+	for (size_t i = 0; i < ElementCount; ++i)
 	{
-		if (i == 2)
-		{
-			inserted = true;
-		} 
-		else if (i == 8)
-		{
-			// static_node -> value_node
-		}
-		else if (i == 17)
-		{
-			// value_node -> index_node
-			volatile int a(1);
-		}
-
 		auto pb = c.insert(i);
+		++cnt;
 		inserted = pb.second;
-		
+
 		volatile auto size = c.size();
-		assert(size == i);
+		assert(size == cnt);
 
 		inserted = c.find(i);
 		assert(inserted == true);
+
+		//*
+		for (size_t j = 1; j < i; ++j)
+		{
+			inserted = c.find(j);
+			if (!inserted)
+				std::abort();
+			assert(inserted);
+		}
+		//*/
+	}
+}
+
+BOOST_AUTO_TEST_CASE(btreeng_btree_backward)
+{
+	volatile bool inserted;
+
+	btreeng::btree< uint32_t > c{};
+	assert(c.size() == 0);
+	assert(c.find(0) == false);
+
+	size_t cnt = 0;
+	for (size_t i = ElementCount; i >= 1; --i)
+	{
+		auto pb = c.insert(i);
+		++cnt;
+		inserted = pb.second;
+
+		volatile auto size = c.size();
+		assert(size == cnt);
+
+		inserted = c.find(i);
+		assert(inserted == true);
+
+		//*
+		for (size_t j = ElementCount; j >= i; --j)
+		{
+			if (j == 10000)
+			{
+				int a(1);
+			}
+
+			inserted = c.find(j);
+			if (!inserted)
+				std::abort();
+			assert(inserted);
+		}
+		//*/
 	}
 }

@@ -776,6 +776,9 @@ namespace btreeng
 				BTREENG_ABORT("unreachable");
 			}
 			
+			BTREENG_ASSERT(verify_node(lnode));
+			BTREENG_ASSERT(verify_node(rnode));
+
 			return node.keys[index_node_type::capacity / 2];
 		}
 
@@ -834,15 +837,15 @@ namespace btreeng
 				else
 				{
 					parent->keys[index] = split(*node, parent->index_group->node[index + 1]);	
-					// TODO: this is really messy					
 				}
 
-				parent->size += 1;
+				BTREENG_ASSERT(verify_node(parent->index_group->node[index]));
+				BTREENG_ASSERT(verify_node(parent->index_group->node[index + 1]));
 
-				auto newnode = key < parent->keys[index] ? node : &parent->index_group->node[index + 1];
-				BTREENG_ASSERT(verify_node(*newnode));
+				parent->size += 1;
 				BTREENG_ASSERT(verify_node(*parent));
-				return newnode;
+
+				return key < parent->keys[index] ? &parent->index_group->node[index] : &parent->index_group->node[index + 1];
 			}
 			else
 			{					
@@ -851,8 +854,11 @@ namespace btreeng
 				root->index_group = get_allocator< index_node_group_type >().allocate(1);
 				root->size = 1;
 				root->keys[0] = split(*node, root->index_group->node[0], root->index_group->node[1]);
-
+				
+				// Set as root so verify can be relaxed.
 				dynamic_.root = root;
+
+				BTREENG_ASSERT(verify_node(*root));			
 
 				// TODO: delete node
 				//btree_node_traits< index_node_type >::destroy(*node, get_allocator< index_node_type >());
@@ -870,10 +876,7 @@ namespace btreeng
 
 				get_allocator< index_node_type >().deallocate(node, 1);
 
-				auto &newnode = key < root->keys[0] ? root->index_group->node[0] : root->index_group->node[1];
-				BTREENG_ASSERT(verify_node(newnode));
-				BTREENG_ASSERT(verify_node(*root));
-				return &newnode;
+				return key < root->keys[0] ? &root->index_group->node[0] : &root->index_group->node[1];
 			}
 		}
 

@@ -671,22 +671,7 @@ namespace btreeng
 
 			return group.node[1].keys[0];
 		}
-
-		T split(value_node_group_type& group, uint8_t index)
-		{
-			static_assert(value_node_type::capacity == 16);
-
-			BTREENG_ASSERT(group.size[index] == value_node_type::capacity);
-			
-			using traits = typename value_node_type::traits_type;
-			traits::copy_lane(group.node[index].keys + 8, group.node[index + 1].keys);
-
-			group.size[index] = value_node_type::capacity / 2;
-			group.size[index + 1] = value_node_type::capacity / 2;
-
-			return group.node[index + 1].keys[0];
-		}
-
+				
 		std::pair< iterator, bool > promote(value_node_type& node, T key)
 		{
 			BTREENG_ASSERT(dynamic_.size == value_node_type::capacity);
@@ -726,160 +711,6 @@ namespace btreeng
 			}
 		}
 
-		template < typename NodeGroup > void split(const NodeGroup& group, NodeGroup& lgroup, NodeGroup& rgroup)
-		{
-			for (size_t i = 0; i < NodeGroup::capacity / 2; ++i)
-			{
-				move(lgroup, i, group, i);
-				move(rgroup, i, group, i + NodeGroup::capacity / 2);
-
-				if constexpr (std::is_same_v< NodeGroup, value_node_group_type >)
-				{
-					lgroup.size[i] = group.size[i];
-					rgroup.size[i] = group.size[i + NodeGroup::capacity / 2];
-				}
-			}
-		}
-
-		template < typename NodeGroup > void split(const NodeGroup& lgroup, NodeGroup& rgroup)
-		{
-			for (size_t i = 0; i < NodeGroup::capacity / 2; ++i)
-			{				
-				move(rgroup, i, lgroup, i + NodeGroup::capacity / 2);
-			}
-		}
-
-		T split(const index_node_type& node, index_node_type& lnode, index_node_type& rnode)
-		{
-			// TODO: sse
-			std::memcpy(lnode.keys, node.keys, sizeof(T) * index_node_type::capacity / 2);
-			lnode.size = index_node_type::capacity / 2;
-			
-			std::memcpy(rnode.keys, node.keys + index_node_type::capacity / 2 + 1, sizeof(T) * index_node_type::capacity / 2);
-			rnode.size = index_node_type::capacity / 2;
-
-			lnode.metadata = rnode.metadata = node.metadata;
-
-			switch (metadata::get_node_type(node.metadata))
-			{
-			case metadata::value_node:
-				lnode.value_group = get_allocator< value_node_group_type >().allocate(1);
-				rnode.value_group = get_allocator< value_node_group_type >().allocate(1);
-				split(*node.value_group, *lnode.value_group, *rnode.value_group);
-				break;
-			case metadata::index_node:
-				lnode.index_group = get_allocator< index_node_group_type >().allocate(1);
-				rnode.index_group = get_allocator< index_node_group_type >().allocate(1);
-				split(*node.index_group, *lnode.index_group, *rnode.index_group);
-				break;
-			default:
-				BTREENG_ABORT("unreachable");
-			}
-			
-			BTREENG_ASSERT(verify_node(lnode));
-			BTREENG_ASSERT(verify_node(rnode));
-
-			return node.keys[index_node_type::capacity / 2];
-		}
-
-		T split(index_node_type& lnode, index_node_type& rnode)
-		{			
-			lnode.size = index_node_type::capacity / 2;
-
-			std::memcpy(rnode.keys, lnode.keys + index_node_type::capacity / 2 + 1, sizeof(T) * index_node_type::capacity / 2);
-			rnode.size = index_node_type::capacity / 2;
-			rnode.metadata = lnode.metadata;
-
-			switch (metadata::get_node_type(lnode.metadata))
-			{
-			case metadata::value_node:
-				rnode.value_group = get_allocator< value_node_group_type >().allocate(1);
-				split(*lnode.value_group, *rnode.value_group);
-				break;
-			case metadata::index_node:
-				rnode.index_group = get_allocator< index_node_group_type >().allocate(1);
-				split(*lnode.index_group, *rnode.index_group);
-				break;
-			default:
-				BTREENG_ABORT("unreachable");
-			}
-			
-			return lnode.keys[index_node_type::capacity / 2];
-		}
-
-		index_node_type* rebalance(index_node_type* node, T key, index_node_type* parent)
-		{			
-			BTREENG_ASSERT(full(*node));
-			
-			if (metadata::get_node_type(node->metadata) == metadata::value_node)
-			{
-				auto last = index_node_type::capacity - 1;
-				if (node->value_group->node[last].keys[node->value_group->size[last]] < key)
-				{
-					int append(1);
-				}
-			}
-
-			if (parent)
-			{
-				BTREENG_ASSERT(!full(*parent));
-										
-				T splitkey = node->keys[index_node_type::capacity / 2];
-
-				using traits = typename index_node_type::traits_type;
-				auto index = traits::count_lt(parent->keys, parent->size, splitkey);
-				
-				if (index < parent->size)
-				{
-					btree_node_traits< index_node_type >::insert_separator(*parent, parent->size, splitkey);
-					split(parent, index);
-				}
-				else
-				{
-					parent->keys[index] = split(*node, parent->index_group->node[index + 1]);	
-				}
-
-				BTREENG_ASSERT(verify_node(parent->index_group->node[index]));
-				BTREENG_ASSERT(verify_node(parent->index_group->node[index + 1]));
-
-				parent->size += 1;
-				BTREENG_ASSERT(verify_node(*parent));
-
-				return key < parent->keys[index] ? &parent->index_group->node[index] : &parent->index_group->node[index + 1];
-			}
-			else
-			{					
-				auto root = get_allocator< index_node_type >().allocate(1);
-				root->metadata = metadata::index_node;
-				root->index_group = get_allocator< index_node_group_type >().allocate(1);
-				root->size = 1;
-				root->keys[0] = split(*node, root->index_group->node[0], root->index_group->node[1]);
-				
-				// Set as root so verify can be relaxed.
-				dynamic_.root = root;
-
-				BTREENG_ASSERT(verify_node(*root));			
-
-				// TODO: delete node
-				//btree_node_traits< index_node_type >::destroy(*node, get_allocator< index_node_type >());
-				switch (metadata::get_node_type(node->metadata))
-				{
-				case metadata::index_node:
-					get_allocator< index_node_group_type >().deallocate(node->index_group, 1);
-					break;
-				case metadata::value_node:
-					get_allocator< value_node_group_type >().deallocate(node->value_group, 1);
-					break;
-				default:
-					BTREENG_ABORT("unreachable");
-				}
-
-				get_allocator< index_node_type >().deallocate(node, 1);
-
-				return key < root->keys[0] ? &root->index_group->node[0] : &root->index_group->node[1];
-			}
-		}
-
 		void move(index_node_type* node, uint8_t target, uint8_t source)
 		{
 			BTREENG_ASSERT(!full(*node));
@@ -909,27 +740,104 @@ namespace btreeng
 			}
 		}
 
-		//*
-		T split(index_node_type* node, uint8_t index)
+		template < typename NodeGroup > void split_group(const NodeGroup& group, NodeGroup& lgroup, NodeGroup& rgroup)
 		{
-			BTREENG_ASSERT(!full(*node));
-						
-			if (index < node->size)
+			for (size_t i = 0; i < NodeGroup::capacity / 2; ++i)
 			{
-				move(node, index + 2, index + 1);
-			}
+				move(lgroup, i, group, i);
+				move(rgroup, i, group, i + NodeGroup::capacity / 2);
 
-			switch (metadata::get_node_type(node->metadata))
+				if constexpr (std::is_same_v< NodeGroup, value_node_group_type >)
+				{
+					lgroup.size[i] = group.size[i];
+					rgroup.size[i] = group.size[i + NodeGroup::capacity / 2];
+				}
+			}
+		}
+
+		template < typename NodeGroup > void split_group(const NodeGroup& lgroup, NodeGroup& rgroup)
+		{
+			for (size_t i = 0; i < NodeGroup::capacity / 2; ++i)
+			{				
+				move(rgroup, i, lgroup, i + NodeGroup::capacity / 2);
+			}
+		}
+
+		T split(value_node_group_type& group, uint8_t index)
+		{
+			static_assert(value_node_type::capacity == 16);
+
+			BTREENG_ASSERT(group.size[index] == value_node_type::capacity);
+
+			using traits = typename value_node_type::traits_type;
+			traits::copy_lane(group.node[index].keys + 8, group.node[index + 1].keys);
+
+			group.size[index] = value_node_type::capacity / 2;
+			group.size[index + 1] = value_node_type::capacity / 2;
+
+			return group.node[index + 1].keys[0];
+		}
+
+		T split_node(const index_node_type& node, index_node_type& lnode, index_node_type& rnode)
+		{
+			// TODO: sse
+			std::memcpy(lnode.keys, node.keys, sizeof(T) * index_node_type::capacity / 2);
+			lnode.size = index_node_type::capacity / 2;
+			
+			std::memcpy(rnode.keys, node.keys + index_node_type::capacity / 2 + 1, sizeof(T) * index_node_type::capacity / 2);
+			rnode.size = index_node_type::capacity / 2;
+
+			lnode.metadata = rnode.metadata = node.metadata;
+
+			switch (metadata::get_node_type(node.metadata))
 			{
 			case metadata::value_node:
-				return split(*node->value_group, index);
+				lnode.value_group = get_allocator< value_node_group_type >().allocate(1);
+				rnode.value_group = get_allocator< value_node_group_type >().allocate(1);
+				split_group(*node.value_group, *lnode.value_group, *rnode.value_group);
+				break;
 			case metadata::index_node:
-				return split(node->index_group->node[index], node->index_group->node[index + 1]);
+				lnode.index_group = get_allocator< index_node_group_type >().allocate(1);
+				rnode.index_group = get_allocator< index_node_group_type >().allocate(1);
+				split_group(*node.index_group, *lnode.index_group, *rnode.index_group);
+				break;
 			default:
 				BTREENG_ABORT("unreachable");
 			}
+			
+			BTREENG_ASSERT(verify_node(lnode));
+			BTREENG_ASSERT(verify_node(rnode));
+
+			return node.keys[index_node_type::capacity / 2];
 		}
-		//*/
+
+		T split_node(index_node_type& lnode, index_node_type& rnode)
+		{			
+			lnode.size = index_node_type::capacity / 2;
+
+			std::memcpy(rnode.keys, lnode.keys + index_node_type::capacity / 2 + 1, sizeof(T) * index_node_type::capacity / 2);
+			rnode.size = index_node_type::capacity / 2;
+			rnode.metadata = lnode.metadata;
+
+			switch (metadata::get_node_type(lnode.metadata))
+			{
+			case metadata::value_node:
+				rnode.value_group = get_allocator< value_node_group_type >().allocate(1);
+				split_group(*lnode.value_group, *rnode.value_group);
+				break;
+			case metadata::index_node:
+				rnode.index_group = get_allocator< index_node_group_type >().allocate(1);
+				split_group(*lnode.index_group, *rnode.index_group);
+				break;
+			default:
+				BTREENG_ABORT("unreachable");
+			}
+			
+			BTREENG_ASSERT(verify_node(lnode));
+			BTREENG_ASSERT(verify_node(rnode));
+
+			return lnode.keys[index_node_type::capacity / 2];
+		}
 
 		uint8_t split(index_node_type* node, uint8_t index, T key)
 		{
@@ -972,13 +880,106 @@ namespace btreeng
 					move(node, index + 2, index + 1);
 				}
 
-				T splitkey = split(node->index_group->node[index], node->index_group->node[index + 1]);
+				T splitkey = split_node(node->index_group->node[index], node->index_group->node[index + 1]);
 			}
 			default:
 				BTREENG_ABORT("unreachable");
-			}		
+			}
 		}
 
+		index_node_type* rebalance(index_node_type* node, T key, index_node_type* parent)
+		{			
+			BTREENG_ASSERT(full(*node));
+			
+			if (metadata::get_node_type(node->metadata) == metadata::value_node)
+			{
+				auto last = index_node_type::capacity - 1;
+				if (node->value_group->node[last].keys[node->value_group->size[last]] < key)
+				{
+					int append(1);
+				}
+			}
+
+			if (parent)
+			{
+				BTREENG_ASSERT(!full(*parent));
+										
+				T splitkey = node->keys[index_node_type::capacity / 2];
+
+				using traits = typename index_node_type::traits_type;
+
+				auto index = traits::count_lt(parent->keys, parent->size, splitkey);
+
+				if (index < parent->size)
+				{
+					// Insert at proper place
+					btree_node_traits< index_node_type >::insert_separator(*parent, parent->size, splitkey);
+
+					// Make space for new node
+					move(parent, index + 2, index + 1);
+				}
+				else
+				{
+					// Insert at end
+					parent->keys[index] = splitkey;
+
+					// Nothing to move
+				}
+
+				parent->size += 1;
+
+				switch (metadata::get_node_type(parent->metadata))
+				{
+				case metadata::value_node:
+					// TODO: this case
+					split(*parent->value_group, index);
+					break;
+				case metadata::index_node:
+					split_node(parent->index_group->node[index], parent->index_group->node[index + 1]);
+					break;
+				default:
+					BTREENG_ABORT("unreachable");
+				}
+
+				BTREENG_ASSERT(verify_node(parent->index_group->node[index]));
+				BTREENG_ASSERT(verify_node(parent->index_group->node[index + 1]));				
+				BTREENG_ASSERT(verify_node(*parent));
+
+				return key < parent->keys[index] ? &parent->index_group->node[index] : &parent->index_group->node[index + 1];
+			}
+			else
+			{					
+				auto root = get_allocator< index_node_type >().allocate(1);
+				root->metadata = metadata::index_node;
+				root->index_group = get_allocator< index_node_group_type >().allocate(1);
+				root->size = 1;
+				root->keys[0] = split_node(*node, root->index_group->node[0], root->index_group->node[1]);
+				
+				// Set as root so verify can be relaxed.
+				dynamic_.root = root;
+
+				BTREENG_ASSERT(verify_node(*root));			
+
+				// TODO: delete node
+				//btree_node_traits< index_node_type >::destroy(*node, get_allocator< index_node_type >());
+				switch (metadata::get_node_type(node->metadata))
+				{
+				case metadata::index_node:
+					get_allocator< index_node_group_type >().deallocate(node->index_group, 1);
+					break;
+				case metadata::value_node:
+					get_allocator< value_node_group_type >().deallocate(node->value_group, 1);
+					break;
+				default:
+					BTREENG_ABORT("unreachable");
+				}
+
+				get_allocator< index_node_type >().deallocate(node, 1);
+
+				return key < root->keys[0] ? &root->index_group->node[0] : &root->index_group->node[1];
+			}
+		}
+				
 		std::pair< iterator, bool > insert(index_node_type* node, T key, index_node_type* parent)
 		{
 			using traits = typename index_node_type::traits_type;	

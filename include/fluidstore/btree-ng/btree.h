@@ -108,6 +108,11 @@ namespace btreeng
 		{
 			_mm256_storeu_si256((__m256i*)target, _mm256_loadu_si256((__m256i*)source));
 		}
+
+		static void copy_half(const T* source, T* target)
+		{
+			_mm128_storeu_si128((__m128*)target, _mm128_loadu_si128((__m128i*)source));
+		}
 	};
 
 	template < typename T > struct array_traits< T, 16, 4 >
@@ -182,7 +187,7 @@ namespace btreeng
 			_mm256_storeu_si256((__m256i*)(target + 8), _mm256_loadu_si256((__m256i*)(source + 8)));
 		}
 
-		static void copy_lane(const T* source, T* target)
+		static void copy_half(const T* source, T* target)
 		{
 			_mm256_storeu_si256((__m256i*)target, _mm256_loadu_si256((__m256i*)source));
 		}
@@ -298,9 +303,6 @@ namespace btreeng
 				if (size < Node::capacity)
 				{
 				#if defined(BTREENG_FAST_APPEND)
-					// This is not needed, we will either have hint, or not.
-					// Check for an append.
-
 					if (node.keys[size - 1] < key)
 					{
 						node.keys[size] = key;
@@ -568,10 +570,8 @@ namespace btreeng
 			case metadata::value_node:
 				return btree_node_traits< value_node_type >::find(*reinterpret_cast<value_node_type*>(dynamic_.root), dynamic_.size, key);
 			case metadata::index_node:
-			{
 				BTREENG_ASSERT(verify_node(*reinterpret_cast<index_node_type*>(dynamic_.root)));
 				return btree_node_traits< index_node_type >::find(*reinterpret_cast<index_node_type*>(dynamic_.root), key);
-			}
 			default:
 				BTREENG_ABORT("unreachable");
 			}
@@ -626,7 +626,7 @@ namespace btreeng
 			return { iterator(), inserted };
 		}
 
-		// TODO: duplicate of above
+		// TODO: duplicate of above - should take value_group instead
 		std::pair< iterator, bool > insert(value_node_type& node, uint8_t& size, T key)
 		{
 			using traits = btree_node_traits< value_node_type >;
@@ -642,34 +642,6 @@ namespace btreeng
 			}
 
 			return { iterator(), inserted };
-		}
-
-		T split(const value_node_type& node, value_node_group_type& group, T key)
-		{
-			// TODO
-			static_assert(value_node_type::capacity == 16);
-
-		#if defined(BTREENG_FAST_APPEND)
-			if (node.keys[dynamic_.size - 1] < key)
-			{
-				group.size[0] = value_node_type::capacity;
-				value_node_type::traits_type::copy(node.keys, group.node[0].keys);
-				group.size[1] = 0;
-
-				return key;
-			}
-		#endif
-
-			// split node into empty group
-			using traits = typename value_node_type::traits_type;
-
-			traits::copy_lane(node.keys, group.node[0].keys);
-			group.size[0] = value_node_type::capacity / 2;
-
-			traits::copy_lane(node.keys + 8, group.node[1].keys);
-			group.size[1] = value_node_type::capacity / 2;
-
-			return group.node[1].keys[0];
 		}
 				
 		std::pair< iterator, bool > promote(value_node_type& node, T key)
@@ -688,7 +660,7 @@ namespace btreeng
 			dynamic_.metadata = metadata::index_node;
 			dynamic_.root = inode;
 						
-			inode->keys[0] = split(node, *vgroup, key);
+			inode->keys[0] = split_node(node, *vgroup, key);
 
 			auto n = key < inode->keys[0] ? 0 : 1;
 			auto [index, inserted] = traits::insert(vgroup->node[n], vgroup->size[n], key);
@@ -763,6 +735,34 @@ namespace btreeng
 			}
 		}
 
+		T split_node(const value_node_type& node, value_node_group_type& group, T key)
+		{
+			// TODO
+			static_assert(value_node_type::capacity == 16);
+
+		#if defined(BTREENG_FAST_APPEND)
+			if (node.keys[dynamic_.size - 1] < key)
+			{
+				group.size[0] = value_node_type::capacity;
+				value_node_type::traits_type::copy(node.keys, group.node[0].keys);
+				group.size[1] = 0;
+
+				return key;
+			}
+		#endif
+
+			// split node into empty group
+			using traits = typename value_node_type::traits_type;
+
+			traits::copy_half(node.keys, group.node[0].keys);
+			group.size[0] = value_node_type::capacity / 2;
+
+			traits::copy_half (node.keys + 8, group.node[1].keys);
+			group.size[1] = value_node_type::capacity / 2;
+
+			return group.node[1].keys[0];
+		}
+
 		T split_node(const index_node_type& node, index_node_type& lnode, index_node_type& rnode)
 		{
 			// TODO: sse
@@ -834,7 +834,7 @@ namespace btreeng
 			BTREENG_ASSERT(group.size[index] == value_node_type::capacity);
 
 			using traits = typename value_node_type::traits_type;
-			traits::copy_lane(group.node[index].keys + 8, group.node[index + 1].keys);
+			traits::copy_half(group.node[index].keys + 8, group.node[index + 1].keys);
 
 			group.size[index] = value_node_type::capacity / 2;
 			group.size[index + 1] = value_node_type::capacity / 2;
@@ -859,7 +859,6 @@ namespace btreeng
 					node->value_group->size[index + 1] = 0;
 
 					BTREENG_ASSERT(verify_node(*node));
-
 					return index + 1;
 				}
 			#endif
@@ -884,6 +883,8 @@ namespace btreeng
 				}
 								
 				split_node(*node->index_group, index);
+				
+				// TODO: Not called at all?
 			}
 			default:
 				BTREENG_ABORT("unreachable");
@@ -908,26 +909,15 @@ namespace btreeng
 		index_node_type* rebalance(index_node_type* node, T key, index_node_type* parent)
 		{			
 			BTREENG_ASSERT(full(*node));
-			
-			/*if (metadata::get_node_type(node->metadata) == metadata::value_node)
-			{
-				auto last = index_node_type::capacity - 1;
-				if (node->value_group->node[last].keys[node->value_group->size[last]] < key)
-				{
-					int append(1);
-				}
-			}*/
 
 			if (parent)
 			{
 				BTREENG_ASSERT(!full(*parent));
-										
-				T splitkey = node->keys[index_node_type::capacity / 2];
-
+				
 				using traits = typename index_node_type::traits_type;
 
+				T splitkey = node->keys[index_node_type::capacity / 2];
 				auto index = traits::count_lt(parent->keys, parent->size, splitkey);
-
 				if (index < parent->size)
 				{
 					// Insert at proper place
@@ -948,8 +938,6 @@ namespace btreeng
 
 				split_node(*parent, index);
 
-				BTREENG_ASSERT(verify_node(parent->index_group->node[index]));
-				BTREENG_ASSERT(verify_node(parent->index_group->node[index + 1]));				
 				BTREENG_ASSERT(verify_node(*parent));
 
 				return key < parent->keys[index] ? &parent->index_group->node[index] : &parent->index_group->node[index + 1];
@@ -962,7 +950,7 @@ namespace btreeng
 				root->size = 1;
 				root->keys[0] = split_node(*node, root->index_group->node[0], root->index_group->node[1]);
 				
-				// Set as root so verify can be relaxed.
+				// Set as root so verify_node is fine
 				dynamic_.root = root;
 
 				BTREENG_ASSERT(verify_node(*root));			

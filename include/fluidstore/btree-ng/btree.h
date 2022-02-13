@@ -1,8 +1,18 @@
 #include <type_traits>
 
 #include <immintrin.h>
+#include <iostream>
 
 #define BTREENG_FAST_APPEND
+
+#define BTREENG_ABORT(message) std::cerr << __FILE__ << ":" << __LINE__ << ": " << message << std::endl; std::abort();
+
+#if defined(_DEBUG)
+#undef BTREENG_ASSERT
+#define BTREENG_ASSERT(...) do { if(!(__VA_ARGS__)) { BTREENG_ABORT(#__VA_ARGS__); } } while(0)
+#else
+#define BTREENG_ASSERT(...)
+#endif
 
 namespace btreeng
 {
@@ -188,7 +198,7 @@ namespace btreeng
 
 		static uint8_t get_node_type(uint8_t metadata)
 		{
-			assert(metadata <= value_node);
+			BTREENG_ASSERT(metadata <= value_node);
 			return metadata;
 		}
 	};
@@ -236,7 +246,7 @@ namespace btreeng
 		enum { capacity = 2 * N };
 		using node_type = index_node< T, N, IndexNodeN >;
 
-		uint8_t size[capacity];
+		//uint8_t size[capacity];
 		alignas(64) node_type node[capacity];
 	};
 
@@ -338,7 +348,7 @@ namespace btreeng
 		}
 	
 		static bool find(const Node& node, uint64_t size, typename Node::value_type key)
-		{
+		{			
 			return Traits::equal(node.keys, size, key) < size;
 		}
 
@@ -382,16 +392,22 @@ namespace btreeng
 
 			// TODO: we want count_lte
 			auto index = traits::count_lt(node.keys, node.size, key);
-			bool cmp = node.keys[index] == key;
+			if (index < node.size)
+			{
+				index += node.keys[index] == key;
+			}
+
+			BTREENG_ASSERT(node.size > 0);
+			BTREENG_ASSERT(index <= node.size);
 
 			switch (metadata::get_node_type(node.metadata))
 			{
 			case metadata::value_node:
-				return btree_node_traits< typename btree_traits< T >::value_node_type >::find(node.value_group->node[index + cmp], node.value_group->size[index + cmp], key);
+				return btree_node_traits< typename btree_traits< T >::value_node_type >::find(node.value_group->node[index], node.value_group->size[index], key);
 			case metadata::index_node:
-				return btree_node_traits< typename btree_traits< T >::index_node_type >::find(node.index_group->node[index + cmp], key);
+				return btree_node_traits< typename btree_traits< T >::index_node_type >::find(node.index_group->node[index], key);
 			default:
-				std::abort();
+				BTREENG_ABORT("unreachable");
 			}
 		}
 
@@ -526,6 +542,8 @@ namespace btreeng
 			}
 			case metadata::index_node:
 				return insert(reinterpret_cast<index_node_type*>(dynamic_.root), key, nullptr);
+			default:
+				BTREENG_ABORT("unreachable");
 			}
 		}
 
@@ -550,9 +568,12 @@ namespace btreeng
 			case metadata::value_node:
 				return btree_node_traits< value_node_type >::find(*reinterpret_cast<value_node_type*>(dynamic_.root), dynamic_.size, key);
 			case metadata::index_node:
+			{
+				BTREENG_ASSERT(verify_node(*reinterpret_cast<index_node_type*>(dynamic_.root)));
 				return btree_node_traits< index_node_type >::find(*reinterpret_cast<index_node_type*>(dynamic_.root), key);
+			}
 			default:
-				std::abort();
+				BTREENG_ABORT("unreachable");
 			}
 		}
 
@@ -655,25 +676,6 @@ namespace btreeng
 			return group.node[index + 1].keys[0];
 		}
 
-		/*
-		T split(value_node_type& lnode, value_node_type& rnode)
-		{
-			// TODO
-			static_assert(value_node_type::capacity == 16);
-
-			// split node into empty group
-			using traits = typename value_node_type::traits_type;
-
-			traits::copy_lane(node.keys, group.node[0].keys);
-			group.size[0] = 8;
-
-			traits::copy_lane(node.keys + 8, group.node[1].keys);
-			group.size[1] = 8;
-
-			return group.node[1].keys[0];
-		}
-		*/
-
 		std::pair< iterator, bool > promote(value_node_type& node, T key)
 		{
 			assert(dynamic_.size == value_node_type::capacity);
@@ -689,8 +691,8 @@ namespace btreeng
 
 			dynamic_.metadata = metadata::index_node;
 			dynamic_.root = inode;
-
-			// Test for an append
+						
+		#if defined(BTREENG_FAST_APPEND)
 			if (node.keys[dynamic_.size - 1] < key)
 			{
 				inode->keys[0] = key;
@@ -705,6 +707,7 @@ namespace btreeng
 				return { iterator(), true };
 			}
 			else
+		#endif
 			{
 				inode->keys[0] = split(node, *vgroup);
 				auto n = key < inode->keys[0] ? 0 : 1;
@@ -721,8 +724,12 @@ namespace btreeng
 		template < typename NodeGroup > void move(NodeGroup& target, uint8_t tindex, const NodeGroup& source, uint8_t sindex)
 		{
 			// TODO: in case it is index_node that is moved, group pointer and metadata get copied by traits_type::copy.
-			target.size[tindex] = source.size[sindex];
 			NodeGroup::node_type::traits_type::copy(source.node[sindex].keys, target.node[tindex].keys);
+
+			if constexpr (std::is_same_v< NodeGroup, value_node_group_type >)
+			{
+				target.size[tindex] = source.size[sindex];
+			}
 		}
 
 		template < typename NodeGroup > void split(const NodeGroup& group, NodeGroup& lgroup, NodeGroup& rgroup)
@@ -731,6 +738,12 @@ namespace btreeng
 			{
 				move(lgroup, i, group, i);
 				move(rgroup, i, group, i + NodeGroup::capacity / 2);
+
+				if constexpr (std::is_same_v< NodeGroup, value_node_group_type >)
+				{
+					lgroup.size[i] = group.size[i];
+					rgroup.size[i] = group.size[i + NodeGroup::capacity / 2];
+				}
 			}
 		}
 
@@ -766,7 +779,7 @@ namespace btreeng
 				split(*node.index_group, *lnode.index_group, *rnode.index_group);
 				break;
 			default:
-				std::abort();
+				BTREENG_ABORT("unreachable");
 			}
 			
 			return node.keys[index_node_type::capacity / 2];
@@ -791,7 +804,7 @@ namespace btreeng
 				split(*lnode.index_group, *rnode.index_group);
 				break;
 			default:
-				std::abort();
+				BTREENG_ABORT("unreachable");
 			}
 			
 			return lnode.keys[index_node_type::capacity / 2];
@@ -822,17 +835,20 @@ namespace btreeng
 				if (index < parent->size)
 				{
 					btree_node_traits< index_node_type >::insert_separator(*parent, parent->size, splitkey);
-					//move(parent, index + 1, index);
 					split(parent, index);
 				}
 				else
 				{
 					parent->keys[index] = split(*node, parent->index_group->node[index + 1]);	
+					// TODO: this is really messy					
 				}
 
 				parent->size += 1;
 
-				return key < parent->keys[index] ? node : &parent->index_group->node[index + 1];
+				auto newnode = key < parent->keys[index] ? node : &parent->index_group->node[index + 1];
+				BTREENG_ASSERT(verify_node(*newnode));
+				BTREENG_ASSERT(verify_node(*parent));
+				return newnode;
 			}
 			else
 			{					
@@ -840,9 +856,6 @@ namespace btreeng
 				root->metadata = metadata::index_node;
 				root->index_group = get_allocator< index_node_group_type >().allocate(1);
 				root->size = 1;
-
-				root->index_group->size[0] = index_node_type::capacity / 2;
-				root->index_group->size[1] = index_node_type::capacity / 2;
 				root->keys[0] = split(*node, root->index_group->node[0], root->index_group->node[1]);
 
 				dynamic_.root = root;
@@ -858,12 +871,15 @@ namespace btreeng
 					get_allocator< value_node_group_type >().deallocate(node->value_group, 1);
 					break;
 				default:
-					std::abort();
+					BTREENG_ABORT("unreachable");
 				}
 
 				get_allocator< index_node_type >().deallocate(node, 1);
 
-				return root;
+				auto &newnode = key < root->keys[0] ? root->index_group->node[0] : root->index_group->node[1];
+				BTREENG_ASSERT(verify_node(newnode));
+				BTREENG_ASSERT(verify_node(*root));
+				return &newnode;
 			}
 		}
 
@@ -892,7 +908,7 @@ namespace btreeng
 				}
 				break;
 			default:
-				std::abort();
+				BTREENG_ABORT("unreachable");
 			}
 		}
 
@@ -912,7 +928,7 @@ namespace btreeng
 			case metadata::index_node:
 				return split(node->index_group->node[index], node->index_group->node[index + 1]);
 			default:
-				std::abort();
+				BTREENG_ABORT("unreachable");
 			}
 		}
 
@@ -953,6 +969,8 @@ namespace btreeng
 
 							dynamic_.size += 1;
 
+							BTREENG_ASSERT(verify_node(*node));
+
 							return { iterator(), true };
 						}
 						else
@@ -960,6 +978,8 @@ namespace btreeng
 							T splitkey = split(node, index);
 							btree_node_traits< index_node_type >::insert_separator(*node, node->size, splitkey);
 							node->size += 1;
+							
+							BTREENG_ASSERT(verify_node(*node));
 
 							return insert(node, key, parent);
 						}
@@ -967,30 +987,6 @@ namespace btreeng
 					else
 					{
 						node = rebalance(node, key, parent);
-						return insert(node, key, parent);
-					}
-
-					// assert(!full(node));
-					
-					// Test for an append
-					if (n.keys[nsize - 1] < key && index == node->size)
-					{
-						node->keys[index] = key;
-						node->size += 1;
-						node->metadata = metadata::value_node;
-						node->value_group->size[index + 1] = 1;
-						node->value_group->node[index + 1].keys[0] = key;
-
-						dynamic_.size += 1;
-
-						return { iterator(), true };
-					}
-					else
-					{
-						T splitkey = split(node, index);						
-						btree_node_traits< index_node_type >::insert_separator(*node, node->size, splitkey);
-						node->size += 1;
-
 						return insert(node, key, parent);
 					}
 				}
@@ -1001,7 +997,7 @@ namespace btreeng
 			}
 			
 			default:
-				std::abort();
+				BTREENG_ABORT("unreachable");
 			}			
 		}
 
@@ -1030,6 +1026,46 @@ namespace btreeng
 			alignas(32) btree_static_node< T > static_;
 			alignas(32) btree_dynamic_node dynamic_{};
 		};
+		
+		bool verify_node(const index_node_type& node)
+		{	
+			if (&node != dynamic_.root)
+			{
+				BTREENG_ASSERT(node.size >= index_node_type::capacity / 2);
+				BTREENG_ASSERT(node.size <= index_node_type::capacity);
+			}
+
+			switch (metadata::get_node_type(node.metadata))
+			{
+			case metadata::index_node:
+			{				
+				for (size_t i = 0; i < node.size + 1; ++i)
+				{
+					auto n = node.index_group->node[i];
+					auto n0 = node.index_group->node[0];
+					BTREENG_ASSERT(n.metadata != 0);
+					BTREENG_ASSERT(metadata::get_node_type(n.metadata) == metadata::get_node_type(n0.metadata));		
+					BTREENG_ASSERT(n.size >= index_node_type::capacity / 2);
+					BTREENG_ASSERT(n.size <= index_node_type::capacity);
+				}
+				break;
+			}
+			case metadata::value_node:
+			{				
+				for (size_t i = 0; i < node.size; ++i)
+				{
+					auto size = node.value_group->size[i];
+					BTREENG_ASSERT(size >= value_node_type::capacity / 2);
+					BTREENG_ASSERT(size <= value_node_type::capacity);
+				}
+				break;
+			}
+			default:
+				BTREENG_ABORT("unreachable");
+			}
+
+			return true;
+		}
 
 		Allocator allocator_;
 	};

@@ -129,11 +129,6 @@ BOOST_AUTO_TEST_CASE(btreeng_btree_backward)
 		//*
 		for (size_t j = ElementCount; j >= i; --j)
 		{
-			if (j == 10000)
-			{
-				int a(1);
-			}
-
 			inserted = c.find(j);
 			if (!inserted)
 				std::abort();

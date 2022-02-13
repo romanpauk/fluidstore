@@ -5,7 +5,7 @@
 
 #define BTREENG_FAST_APPEND
 
-#define BTREENG_ABORT(message) std::cerr << __FILE__ << ":" << __LINE__ << ": " << message << std::endl; std::abort();
+#define BTREENG_ABORT(message) do { std::cerr << __FILE__ << ":" << __LINE__ << ": " << message << std::endl; std::abort(); } while(0)
 
 #if defined(_DEBUG)
 #undef BTREENG_ASSERT
@@ -34,7 +34,7 @@ namespace btreeng
 
 	template < typename T > void set_tag(T*& ptr, uint8_t value)
 	{
-		assert((value & get_tag_mask< T >()) == value);
+		BTREENG_ASSERT((value & get_tag_mask< T >()) == value);
 		union { T* ptr; uintptr_t bits; } p;
 		p.ptr = ptr;
 		p.bits = reinterpret_cast<uintptr_t>(get_ptr(ptr)) | static_cast<uintptr_t>(value & get_tag_mask<T>());
@@ -170,7 +170,7 @@ namespace btreeng
 		{
 			// TODO: SSE
 
-			assert(source + 1 == target);
+			BTREENG_ASSERT(source + 1 == target);
 
 			// 13 is here to not overwrite node data.
 			std::memmove(keys + target, keys + source, sizeof(T) * (size - source));
@@ -335,8 +335,8 @@ namespace btreeng
 
 		static void insert_separator(Node & node, uint64_t size, typename Node::value_type key)
 		{
-			assert(size > 0);
-			assert(size < Node::capacity);
+			BTREENG_ASSERT(size > 0);
+			BTREENG_ASSERT(size < Node::capacity);
 
 			auto index = Traits::count_lt(node.keys, size, key);
 			if (index < size)
@@ -456,7 +456,7 @@ namespace btreeng
 		{
 			using traits = Node::traits_type;
 
-			assert(inode.size > 0);
+			BTREENG_ASSERT(inode.size > 0);
 
 			if (target > source)
 			{
@@ -644,19 +644,30 @@ namespace btreeng
 			return { iterator(), inserted };
 		}
 
-		T split(const value_node_type& node, value_node_group_type& group)
+		T split(const value_node_type& node, value_node_group_type& group, T key)
 		{
 			// TODO
 			static_assert(value_node_type::capacity == 16);
+
+		#if defined(BTREENG_FAST_APPEND)
+			if (node.keys[dynamic_.size - 1] < key)
+			{
+				group.size[0] = value_node_type::capacity;
+				value_node_type::traits_type::copy(node.keys, group.node[0].keys);
+				group.size[1] = 0;
+
+				return key;
+			}
+		#endif
 
 			// split node into empty group
 			using traits = typename value_node_type::traits_type;
 
 			traits::copy_lane(node.keys, group.node[0].keys);
-			group.size[0] = 8;
+			group.size[0] = value_node_type::capacity / 2;
 
 			traits::copy_lane(node.keys + 8, group.node[1].keys);
-			group.size[1] = 8;
+			group.size[1] = value_node_type::capacity / 2;
 
 			return group.node[1].keys[0];
 		}
@@ -665,7 +676,7 @@ namespace btreeng
 		{
 			static_assert(value_node_type::capacity == 16);
 
-			assert(group.size[index] == value_node_type::capacity);
+			BTREENG_ASSERT(group.size[index] == value_node_type::capacity);
 			
 			using traits = typename value_node_type::traits_type;
 			traits::copy_lane(group.node[index].keys + 8, group.node[index + 1].keys);
@@ -678,7 +689,7 @@ namespace btreeng
 
 		std::pair< iterator, bool > promote(value_node_type& node, T key)
 		{
-			assert(dynamic_.size == value_node_type::capacity);
+			BTREENG_ASSERT(dynamic_.size == value_node_type::capacity);
 
 			using traits = btree_node_traits< value_node_type >;
 
@@ -692,33 +703,16 @@ namespace btreeng
 			dynamic_.metadata = metadata::index_node;
 			dynamic_.root = inode;
 						
-		#if defined(BTREENG_FAST_APPEND)
-			if (node.keys[dynamic_.size - 1] < key)
-			{
-				inode->keys[0] = key;
-								
-				vgroup->size[0] = value_node_type::capacity;
-				value_node_type::traits_type::copy(node.keys, vgroup->node[0].keys);
-				
-				vgroup->size[1] = 1;
-				vgroup->node[1].keys[0] = key;
+			inode->keys[0] = split(node, *vgroup, key);
 
-				dynamic_.size += 1;				
-				return { iterator(), true };
-			}
-			else
-		#endif
+			auto n = key < inode->keys[0] ? 0 : 1;
+			auto [index, inserted] = traits::insert(vgroup->node[n], vgroup->size[n], key);
+			if (inserted)
 			{
-				inode->keys[0] = split(node, *vgroup);
-				auto n = key < inode->keys[0] ? 0 : 1;
-				auto [index, inserted] = traits::insert(vgroup->node[n], vgroup->size[n], key);
-				if (inserted)
-				{
-					vgroup->size[n] += 1;
-					dynamic_.size += 1;
-				}
-				return { iterator(), inserted };
-			}			
+				vgroup->size[n] += 1;
+				dynamic_.size += 1;
+			}
+			return { iterator(), inserted };
 		}
 				
 		template < typename NodeGroup > void move(NodeGroup& target, uint8_t tindex, const NodeGroup& source, uint8_t sindex)
@@ -812,7 +806,7 @@ namespace btreeng
 
 		index_node_type* rebalance(index_node_type* node, T key, index_node_type* parent)
 		{			
-			assert(full(*node));
+			BTREENG_ASSERT(full(*node));
 			
 			if (metadata::get_node_type(node->metadata) == metadata::value_node)
 			{
@@ -825,7 +819,7 @@ namespace btreeng
 
 			if (parent)
 			{
-				assert(!full(*parent));
+				BTREENG_ASSERT(!full(*parent));
 										
 				T splitkey = node->keys[index_node_type::capacity / 2];
 
@@ -885,9 +879,9 @@ namespace btreeng
 
 		void move(index_node_type* node, uint8_t target, uint8_t source)
 		{
-			assert(!full(*node));
-			assert(source + 1 == target);
-			assert(target <= index_node_type::capacity);
+			BTREENG_ASSERT(!full(*node));
+			BTREENG_ASSERT(source + 1 == target);
+			BTREENG_ASSERT(target <= index_node_type::capacity);
 
 			// TODO: this really should use index vectors to speed up moves.
 
@@ -912,9 +906,10 @@ namespace btreeng
 			}
 		}
 
+		//*
 		T split(index_node_type* node, uint8_t index)
 		{
-			assert(!full(*node));
+			BTREENG_ASSERT(!full(*node));
 						
 			if (index < node->size)
 			{
@@ -931,6 +926,55 @@ namespace btreeng
 				BTREENG_ABORT("unreachable");
 			}
 		}
+		//*/
+
+		uint8_t split(index_node_type* node, uint8_t index, T key)
+		{
+			BTREENG_ASSERT(!full(*node));
+			BTREENG_ASSERT(metadata::get_node_type(node->metadata) == metadata::value_node);
+
+			switch (metadata::get_node_type(node->metadata))
+			{
+			case metadata::value_node:
+			{
+			#if defined(BTREENG_FAST_APPEND)
+				if (index == node->size && node->value_group->node[index].keys[node->value_group->size[index] - 1] < key)
+				{
+					node->keys[index] = key;
+					node->size += 1;
+					node->value_group->size[index + 1] = 0;
+
+					BTREENG_ASSERT(verify_node(*node));
+
+					return index + 1;
+				}
+			#endif
+
+				if (index < node->size)
+				{
+					move(node, index + 2, index + 1);
+				}
+
+				T splitkey = split(*node->value_group, index);
+				btree_node_traits< index_node_type >::insert_separator(*node, node->size, splitkey);
+				node->size += 1;
+
+				BTREENG_ASSERT(verify_node(*node));
+				return key < splitkey ? index : index + 1;
+			}
+			case metadata::index_node:
+			{
+				if (index < node->size)
+				{
+					move(node, index + 2, index + 1);
+				}
+
+				T splitkey = split(node->index_group->node[index], node->index_group->node[index + 1]);
+			}
+			default:
+				BTREENG_ABORT("unreachable");
+			}		
+		}
 
 		std::pair< iterator, bool > insert(index_node_type* node, T key, index_node_type* parent)
 		{
@@ -946,53 +990,27 @@ namespace btreeng
 				}
 
 				auto index = traits::count_lt(node->keys, node->size, key);
-				auto n = &node->index_group->node[index];
-				return insert(n, key, node);
+				return insert(&node->index_group->node[index], key, node);
 			}
 			case metadata::value_node:
 			{				
 				auto index = traits::count_lt(node->keys, node->size, key);
-				auto& n = node->value_group->node[index];
-				auto& nsize = node->value_group->size[index];
-				
-				if (full(n, nsize))
+				if (full(node->value_group, index))
 				{
-					if (!full(*node))
-					{
-						if (n.keys[nsize - 1] < key && index == node->size)
-						{
-							node->keys[index] = key;
-							node->size += 1;
-							node->metadata = metadata::value_node;
-							node->value_group->size[index + 1] = 1;
-							node->value_group->node[index + 1].keys[0] = key;
-
-							dynamic_.size += 1;
-
-							BTREENG_ASSERT(verify_node(*node));
-
-							return { iterator(), true };
-						}
-						else
-						{
-							T splitkey = split(node, index);
-							btree_node_traits< index_node_type >::insert_separator(*node, node->size, splitkey);
-							node->size += 1;
-							
-							BTREENG_ASSERT(verify_node(*node));
-
-							return insert(node, key, parent);
-						}
-					}
-					else
+					if (full(*node))
 					{
 						node = rebalance(node, key, parent);
 						return insert(node, key, parent);
 					}
+					else
+					{
+						index = split(node, index, key);
+						return insert(node->value_group->node[index], node->value_group->size[index], key);
+					}
 				}
 				else
 				{
-					return insert(n, nsize, key);
+					return insert(node->value_group->node[index], node->value_group->size[index], key);
 				}
 			}
 			
@@ -1009,6 +1027,11 @@ namespace btreeng
 		template < typename Node > bool full(const Node&, uint64_t size) const
 		{
 			return btree_node_traits< Node >::full(size);
+		}
+
+		bool full(value_node_group_type* group, uint8_t index)
+		{
+			return full(group->node[index], group->size[index]);
 		}
 
 		template < typename Node > auto get_allocator()
@@ -1052,11 +1075,19 @@ namespace btreeng
 			}
 			case metadata::value_node:
 			{				
-				for (size_t i = 0; i < node.size; ++i)
+				for (size_t i = 0; i < node.size + 1; ++i)
 				{
 					auto size = node.value_group->size[i];
-					BTREENG_ASSERT(size >= value_node_type::capacity / 2);
 					BTREENG_ASSERT(size <= value_node_type::capacity);
+
+				#if defined(BTREENG_FAST_APPEND)
+					// TODO: this is true for 'last last' node only
+					if (i != node.size)	{
+				#endif
+						BTREENG_ASSERT(size >= value_node_type::capacity / 2);
+				#if defined(BTREENG_FAST_APPEND)
+					}
+				#endif
 				}
 				break;
 			}

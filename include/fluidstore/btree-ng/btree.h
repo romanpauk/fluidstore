@@ -262,8 +262,9 @@ namespace btreeng
 
 		uint8_t size[capacity];
 
-		value_node_group< T, N, ValueNodeN >* left;
-		value_node_group< T, N, ValueNodeN >* right;
+		index_node< T, N, ValueNodeN >* left;
+		index_node< T, N, ValueNodeN >* right;
+
 		alignas(64) node_type node[capacity];
 	};
 	
@@ -283,8 +284,8 @@ namespace btreeng
 
 	struct btree_dynamic_node
 	{
-		void* first; // value_node_group< T, 14 >* first;
-		void* last;  // value_node_group< T, 14 >* last;
+		void* first; // first index_node
+		void* last;  // last index_node
 		void* root;
 		uint64_t size : 48;
 		uint64_t metadata : 16;
@@ -502,7 +503,24 @@ namespace btreeng
 		using index_node_group_type = typename Traits::index_node_group_type;
 		using value_node_group_type = typename Traits::value_node_group_type;
 
-		struct iterator {};
+		struct iterator 
+		{
+			//
+			// For static_node, we use container.static_ and node_index;
+			// For value_node, we use container.dynamic_.root and node_index;
+			// For index_node, we use container.dynamic_.root, group, group_index and node_index
+			//		To switch groups, we will have to find parent. So we will need a list of parents here, or a way how to find them from value.
+			//
+			// For perf-test, lets just start with end so we can write a proper append.
+			//
+
+			btree< T, Allocator, Traits >* container;
+			//index_node_type* node;
+			uint8_t group_index;
+			uint8_t node_index;
+		};
+
+		iterator end() { return iterator(); }
 
 		btree() = default;
 
@@ -543,7 +561,39 @@ namespace btreeng
 				}
 			}
 			case metadata::index_node:
-				return insert(reinterpret_cast<index_node_type*>(dynamic_.root), key, nullptr);
+			{
+				auto pb = insert(reinterpret_cast<index_node_type*>(dynamic_.root), nullptr, key, nullptr);
+				BTREENG_ASSERT(dynamic_.last == last_node());
+				return pb;
+			}
+			default:
+				BTREENG_ABORT("unreachable");
+			}
+		}
+
+		// TODO: deduplicate
+		std::pair< iterator, bool > insert(iterator hint, T key)
+		{
+			switch (get_root_type())
+			{
+			case metadata::static_node:
+				return full(static_) ? promote(static_, key) : insert(static_, key);
+			case metadata::value_node:
+			{
+				auto node = reinterpret_cast<value_node_type*>(dynamic_.root);
+				if (full(*node, dynamic_.size))
+				{
+					auto pb = promote(*node, key);
+					destroy(node);
+					return pb;
+				}
+				else
+				{
+					return insert(*node, key);
+				}
+			}
+			case metadata::index_node:
+				return insert(reinterpret_cast<index_node_type*>(dynamic_.root), &hint, key, nullptr);
 			default:
 				BTREENG_ABORT("unreachable");
 			}
@@ -659,7 +709,8 @@ namespace btreeng
 
 			dynamic_.metadata = metadata::index_node;
 			dynamic_.root = inode;
-						
+			dynamic_.first = dynamic_.last = inode;
+
 			inode->keys[0] = split_node(node, *vgroup, key);
 
 			auto n = key < inode->keys[0] ? 0 : 1;
@@ -780,6 +831,18 @@ namespace btreeng
 				lnode.value_group = get_allocator< value_node_group_type >().allocate(1);
 				rnode.value_group = get_allocator< value_node_group_type >().allocate(1);
 				split_group(*node.value_group, *lnode.value_group, *rnode.value_group);
+
+				// TODO: this should not be void*.
+				if (dynamic_.last == &node)
+				{
+					dynamic_.last == &rnode;
+				}
+
+				if (dynamic_.first == &node)
+				{
+					dynamic_.first == &lnode;
+				}
+
 				break;
 			case metadata::index_node:
 				lnode.index_group = get_allocator< index_node_group_type >().allocate(1);
@@ -812,6 +875,12 @@ namespace btreeng
 			case metadata::value_node:
 				rnode.value_group = get_allocator< value_node_group_type >().allocate(1);
 				split_group(*lnode.value_group, *rnode.value_group);
+
+				if (dynamic_.last == &lnode)
+				{
+					dynamic_.last = &rnode;
+				}
+
 				break;
 			case metadata::index_node:
 				rnode.index_group = get_allocator< index_node_group_type >().allocate(1);
@@ -857,7 +926,7 @@ namespace btreeng
 					node->keys[index] = key;
 					node->size += 1;
 					node->value_group->size[index + 1] = 0;
-
+										
 					BTREENG_ASSERT(verify_node(*node));
 					return index + 1;
 				}
@@ -935,8 +1004,10 @@ namespace btreeng
 				}
 
 				parent->size += 1;
-
+								
 				split_node(*parent, index);
+				
+				dynamic_.last = last_node();
 
 				BTREENG_ASSERT(verify_node(*parent));
 
@@ -952,19 +1023,42 @@ namespace btreeng
 				
 				// Set as root so verify_node is fine
 				dynamic_.root = root;
-
+				
+				dynamic_.last = last_node();
+				
 				BTREENG_ASSERT(verify_node(*root));			
-
+								
 				destroy(node);
 
 				return key < root->keys[0] ? &root->index_group->node[0] : &root->index_group->node[1];
 			}
 		}
 				
-		std::pair< iterator, bool > insert(index_node_type* node, T key, index_node_type* parent)
+		std::pair< iterator, bool > insert(index_node_type* node, void* hint, T key, index_node_type* parent)
 		{
 			using traits = typename index_node_type::traits_type;	
 						
+			if (hint)
+			{
+				// TODO: for now, assume this is an append.				
+				auto inode = reinterpret_cast<index_node_type*>(dynamic_.last);
+				BTREENG_ASSERT(verify_node(*inode));
+				BTREENG_ASSERT(metadata::get_node_type(inode->metadata) == metadata::value_node);
+
+				if (!full(inode->value_group, inode->size))
+				{
+					auto size = inode->value_group->size[inode->size];
+					if (inode->value_group->node[inode->size].keys[size-1] < key)
+					{						
+						inode->value_group->node[inode->size].keys[size] = key;
+						inode->value_group->size[inode->size] += 1;
+						dynamic_.size += 1;
+
+						return { iterator(), true };
+					}
+				}
+			}
+
 			switch (metadata::get_node_type(node->metadata))
 			{
 			case metadata::index_node:
@@ -974,8 +1068,10 @@ namespace btreeng
 					node = rebalance(node, key, parent);
 				}
 
+				BTREENG_ASSERT(dynamic_.last == last_node());
+
 				auto index = traits::count_lt(node->keys, node->size, key);
-				return insert(&node->index_group->node[index], key, node);
+				return insert(&node->index_group->node[index], nullptr, key, node);
 			}
 			case metadata::value_node:
 			{				
@@ -996,12 +1092,28 @@ namespace btreeng
 
 				// We can't split, have to rebalance
 				node = rebalance(node, key, parent);
-				return insert(node, key, parent);
+				return insert(node, nullptr, key, parent);
 			}
 			
 			default:
 				BTREENG_ABORT("unreachable");
 			}			
+		}
+
+		index_node_type* last_node()
+		{
+			if (get_root_type() == metadata::index_node)
+			{
+				index_node_type* node = reinterpret_cast<index_node_type*>(dynamic_.root);
+				while (metadata::get_node_type(node->metadata) == metadata::index_node)
+				{
+					node = &node->index_group->node[node->size];
+				}
+								
+				return node;
+			}
+
+			return nullptr;
 		}
 
 		void destroy(value_node_type* node)
@@ -1100,6 +1212,11 @@ namespace btreeng
 			}
 			default:
 				BTREENG_ABORT("unreachable");
+			}
+
+			if (last_node() == &node)
+			{
+				BTREENG_ASSERT(dynamic_.last == &node);
 			}
 
 			return true;

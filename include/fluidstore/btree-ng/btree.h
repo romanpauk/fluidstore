@@ -732,6 +732,13 @@ namespace btreeng
 			{
 				target.size[tindex] = source.size[sindex];
 			}
+			else
+			{
+				if (dynamic_.last == &source.node[sindex])
+				{
+					dynamic_.last = &target.node[tindex];
+				}
+			}
 		}
 
 		void move_node(index_node_type* node, uint8_t target, uint8_t source)
@@ -835,12 +842,12 @@ namespace btreeng
 				// TODO: this should not be void*.
 				if (dynamic_.last == &node)
 				{
-					dynamic_.last == &rnode;
+					dynamic_.last = &rnode;
 				}
 
 				if (dynamic_.first == &node)
 				{
-					dynamic_.first == &lnode;
+					dynamic_.first = &lnode;
 				}
 
 				break;
@@ -848,6 +855,7 @@ namespace btreeng
 				lnode.index_group = get_allocator< index_node_group_type >().allocate(1);
 				rnode.index_group = get_allocator< index_node_group_type >().allocate(1);
 				split_group(*node.index_group, *lnode.index_group, *rnode.index_group);
+				
 				break;
 			default:
 				BTREENG_ABORT("unreachable");
@@ -1002,13 +1010,9 @@ namespace btreeng
 
 					// Nothing to move
 				}
-
-				parent->size += 1;
 								
-				split_node(*parent, index);
-				
-				dynamic_.last = last_node();
-
+				parent->size += 1;
+				split_node(*parent, index);				
 				BTREENG_ASSERT(verify_node(*parent));
 
 				return key < parent->keys[index] ? &parent->index_group->node[index] : &parent->index_group->node[index + 1];
@@ -1019,13 +1023,13 @@ namespace btreeng
 				root->metadata = metadata::index_node;
 				root->index_group = get_allocator< index_node_group_type >().allocate(1);
 				root->size = 1;
-				root->keys[0] = split_node(*node, root->index_group->node[0], root->index_group->node[1]);
 				
-				// Set as root so verify_node is fine
+				// TODO
+				// Set as root so verify_node (in split_node) is fine
 				dynamic_.root = root;
-				
-				dynamic_.last = last_node();
-				
+
+				root->keys[0] = split_node(*node, root->index_group->node[0], root->index_group->node[1]);
+												
 				BTREENG_ASSERT(verify_node(*root));			
 								
 				destroy(node);
@@ -1214,10 +1218,7 @@ namespace btreeng
 				BTREENG_ABORT("unreachable");
 			}
 
-			if (last_node() == &node)
-			{
-				BTREENG_ASSERT(dynamic_.last == &node);
-			}
+			BTREENG_ASSERT(last_node() == dynamic_.last);
 
 			return true;
 		}

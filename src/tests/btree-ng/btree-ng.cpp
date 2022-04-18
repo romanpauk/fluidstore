@@ -137,3 +137,36 @@ BOOST_AUTO_TEST_CASE(btreeng_btree_backward)
 		//*/
 	}
 }
+
+BOOST_AUTO_TEST_CASE(btreeng_btree_insert_hint)
+{
+	volatile bool inserted;
+
+	btreeng::btree< uint32_t > c{};
+	assert(c.size() == 0);
+	assert(c.find(0) == false);
+
+	size_t cnt = 0;
+	for (size_t i = 0; i < ElementCount; ++i)
+	{
+		auto pb = c.insert(btreeng::btree< uint32_t >::iterator(), i);
+		++cnt;
+		inserted = pb.second;
+
+		volatile auto size = c.size();
+		assert(size == cnt);
+
+		inserted = c.find(i);
+		assert(inserted == true);
+
+		//*
+		for (size_t j = 1; j < i; ++j)
+		{
+			inserted = c.find(j);
+			if (!inserted)
+				std::abort();
+			assert(inserted);
+		}
+		//*/
+	}
+}

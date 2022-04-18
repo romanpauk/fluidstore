@@ -8,6 +8,7 @@
 #include <fluidstore/memory/buffer_allocator.h>
 
 #include <boost/test/unit_test.hpp>
+#include <unordered_set>
 
 #include <iomanip>
 
@@ -271,7 +272,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_insert, T, crdt_set_insert_types)
             memory::dynamic_buffer< std::allocator< uint8_t > > buffer(preallocated);
             memory::buffer_allocator< T, decltype(buffer) > alloc(buffer);
             
-            // auto data = get_vector_data< T >(N);
+            //auto data = get_vector_data< T >(N);
 
             auto t = measure(Iters, [&, alloc]
                 {
@@ -286,7 +287,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_insert, T, crdt_set_insert_types)
             memory::dynamic_buffer< std::allocator< uint8_t > > buffer(preallocated);
             memory::buffer_allocator< T, decltype(buffer) > alloc(buffer);
                     
-            // auto data = get_vector_data< T >(N);
+            //auto data = get_vector_data< T >(N);
 
             auto t = measure(Iters, [&, alloc]
                 {
@@ -396,6 +397,29 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(set_insert, T, crdt_set_insert_types)
                 });
 
             std::cout << "btree::set<" << get_type_name<T>() << ">" << " [append,linear] insertions per second: " << int(N / t) << std::endl;
+        }
+
+        {
+            auto t = measure(Iters, [&]
+                {
+                    btreeng::btree< T > c;
+                    insertion_test_end(c, data, N);
+                });
+
+            std::cout << "btreeng::btree<" << get_type_name<T>() << ">" << " [append,new] insertions per second: " << int(N / t) << std::endl;
+        }
+
+        {
+            memory::dynamic_buffer< std::allocator< uint8_t > > buffer(preallocated);
+            memory::buffer_allocator< T, decltype(buffer) > alloc(buffer);
+
+            auto t = measure(Iters, [&, alloc]
+                {
+                    btreeng::btree< T, decltype(alloc) > c(alloc);
+                    insertion_test_end(c, data, N);
+                });
+
+            std::cout << "btreeng::btree<" << get_type_name<T>() << ">" << " [append,linear] insertions per second: " << int(N / t) << std::endl;
         }
 
         /*
@@ -728,6 +752,36 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(crdt_set_find, T, crdt_set_insert_types)
         }
 
         std::cout << "btreeng::btree find" << std::endl;
+        print_results(results, base);
+    }
+
+     {
+        std::map< size_t, double > results;
+        for (int i = 1; i < Max; i *= 2)
+        {
+            auto data = get_vector_data< uint32_t >(i);
+            auto shuffled_data = get_vector_data< uint32_t >(i);
+            shuffle(shuffled_data);
+
+            std::unordered_set< uint32_t > s;
+            for (auto& value : data)
+            {
+                s.insert(value);
+            }
+
+            volatile bool found;
+
+            results[i] = measure(Iters, [&]()
+                {
+                    for (auto& value : shuffled_data)
+                    {
+                        found = s.find(value) != s.end();
+                    }
+                });
+
+        }
+
+        std::cout << "std::unordered_set find" << std::endl;
         print_results(results, base);
     }
 }

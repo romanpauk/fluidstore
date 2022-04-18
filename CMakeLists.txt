@@ -67,7 +67,7 @@ if(Boost_FOUND)
         #src/tests/btree/fixed_vector.cpp
         src/tests/btree-ng/btree-ng.cpp
         #src/tests/crdt/map.cpp
-        #src/tests/crdt/performance.cpp
+        src/tests/crdt/performance.cpp
         #src/tests/crdt/set.cpp
         #src/tests/crdt/value_mv.cpp
         #src/tests/flat/flat.cpp

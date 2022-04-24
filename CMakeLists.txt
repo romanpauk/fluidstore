@@ -18,6 +18,7 @@ target_sources(fluidstore INTERFACE
     include/fluidstore/btree/detail/fixed_vector.h
     include/fluidstore/btree/map.h
     include/fluidstore/btree/set.h
+    include/fluidstore/column/column.h
     include/fluidstore/crdt/allocator.h
     include/fluidstore/crdt/detail/allocator_ptr.h
     include/fluidstore/crdt/detail/dot.h
@@ -60,17 +61,18 @@ endmacro()
 find_package(Boost)
 if(Boost_FOUND)
     add_executable(fluidstoretest
-        src/tests/btree/btree.cpp
-        src/tests/btree/btree_set_interface.cpp
-        src/tests/btree/fixed_vector.cpp
-        src/tests/crdt/map.cpp
-        src/tests/crdt/performance.cpp
-        src/tests/crdt/set.cpp
-        src/tests/crdt/value_mv.cpp
-        src/tests/flat/flat.cpp
-        src/tests/memory/buffer_allocator.cpp
-        src/tests/stl/set_interface.cpp
-        src/tests/stl/set_interface.h        
+        #src/tests/btree/btree.cpp
+        #src/tests/btree/btree_set_interface.cpp
+        #src/tests/btree/fixed_vector.cpp
+        src/tests/column/column.cpp
+        #src/tests/crdt/map.cpp
+        #src/tests/crdt/performance.cpp
+        #src/tests/crdt/set.cpp
+        #src/tests/crdt/value_mv.cpp
+        #src/tests/flat/flat.cpp
+        #src/tests/memory/buffer_allocator.cpp
+        #src/tests/stl/set_interface.cpp
+        #src/tests/stl/set_interface.h        
         src/tests/testmodule.cpp
         src/tests/pch.h
         src/tests/bench.h

@@ -12,6 +12,14 @@ BOOST_AUTO_TEST_CASE(test_index_1)
     *t.begin();
 }
 
+
+BOOST_AUTO_TEST_CASE(test_get_tuple)
+{
+    std::tuple< int > t1 = column::value_type_tuple(1);
+    std::tuple< int, int > t2 = column::value_type_tuple(std::make_pair(1, 1));
+    std::tuple< int, int, int > t3 = column::value_type_tuple(std::make_pair(1, std::make_tuple(1, 1)));
+}
+
 BOOST_AUTO_TEST_CASE(test_prefix)
 {
     column::tree< int, int, int > t;
@@ -51,6 +59,40 @@ BOOST_AUTO_TEST_CASE(test_column_iterator)
 {
     column::tree< int, int, int > t;
     t.emplace(1, 1, 1);
-    auto it = t.begin();
-    // *it;
+    t.emplace(1, 1, 2);
+    t.emplace(1, 2, 1);
+
+    {
+        auto it = t.begin();
+        BOOST_REQUIRE(((*it) == std::make_pair(1, std::make_tuple(1, 1))));
+    }
+
+    {
+        auto it = t.prefix(1)->begin();
+        BOOST_REQUIRE(((*it) == std::make_pair(1, std::make_tuple(1))));
+    }
+
+    {
+        auto it = t.prefix(1, 1)->begin();
+        BOOST_REQUIRE((*it) == 1);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(test_column_iterator2)
+{
+    column::tree< int, int, int > t;
+    BOOST_REQUIRE(t.begin() == t.end());
+    BOOST_REQUIRE(std::distance(t.begin(), t.end()) == 0);
+
+    t.emplace(1, 1, 1);
+    BOOST_REQUIRE(++t.begin() == t.end());
+    BOOST_REQUIRE(std::distance(t.begin(), t.end()) == 1);
+    
+    t.emplace(1, 1, 2);
+    BOOST_REQUIRE(std::distance(t.begin(), t.end()) == 2);
+    BOOST_REQUIRE(std::distance(t.prefix(1, 1)->begin(), t.prefix(1, 1)->end()) == 2);
+
+    t.emplace(1, 2, 1);
+    BOOST_REQUIRE(std::distance(t.begin(), t.end()) == 3);
+    BOOST_REQUIRE(std::distance(t.prefix(1, 2)->begin(), t.prefix(1, 2)->end()) == 1);
 }

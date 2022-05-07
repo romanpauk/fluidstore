@@ -3,66 +3,138 @@
 #include <map>
 #include <optional>
 
-//
-// Container takes a tuple< Key1, ..., KeyN, Value1, ..., ValueN > and provides interface to access data 
-// sharing common prefix in a form of new container < KeyN, Value1, ..., ValueN >.
-//
-
 namespace column
 {    
+    template < typename Head > auto value_type_tuple(Head p)
+    {
+        return std::make_tuple(p);
+    }
+
+    template < typename Head, typename Tail > auto value_type_tuple(const std::pair< Head, Tail >& p)
+    {
+        return std::make_tuple(p.first, p.second);
+    }
+
+    template < typename Head, typename... Tail > auto value_type_tuple(const std::pair< Head, std::tuple< Tail... > >& p)
+    {
+        return std::tuple_cat(std::make_tuple(p.first), p.second);
+    }
+
     template < typename Container, size_t N > class tree_index_iterator;
 
     template < typename Container > class tree_index_iterator< Container, 1 >
     {
     public:
-        tree_index_iterator() {}
+        using iterator_category = std::forward_iterator_tag;
+        using difference_type = std::ptrdiff_t;
+        using value_type = typename Container::value_type;
+        using pointer = value_type*;
+        using reference = value_type&;
 
-        tree_index_iterator(Container* container, typename Container::container_iterator it)
-            : container_(container)
-            , it_(it)
+        tree_index_iterator(typename Container::container_iterator it)
+            : it_(it)
         {}
 
         const typename Container::value_type& operator* () const { return *it_; }
         const typename Container::value_type& operator* ()       { return *it_; }
 
+        tree_index_iterator< Container, 1 >& operator++() { ++it_; return *this; }
+        tree_index_iterator< Container, 1 >  operator++(int) { auto it = *this; operator ++(); return it; }
+
+        bool operator == (tree_index_iterator< Container, 1 > it) const { return it_ == it.it_; }
+        bool operator != (tree_index_iterator< Container, 1 > it) const { return it_ != it.it_; }
+
+        tree_index_iterator< Container, 1 >& operator = (tree_index_iterator< Container, 1 > it) { it_ = it.it_; return *this; }
+
     private:
-        Container* container_;
         typename Container::container_iterator it_;
     };
 
     template < typename Container, size_t N > class tree_index_iterator
-        : public tree_index_iterator< typename Container::nested_tree_type, N - 1 >
     {        
-    public:
-        tree_index_iterator()
-        {}
+        using nested_iterator_type = tree_index_iterator< typename Container::nested_tree_type, N - 1 >;
 
-        tree_index_iterator(Container* container)
-            : tree_index_iterator< typename Container::nested_tree_type, N - 1 >()                
-            , container_(container)
-        {}
-        
-        tree_index_iterator(Container* container, typename Container::container_iterator it)
-            : tree_index_iterator< typename Container::nested_tree_type, N - 1 >()
-            , container_(container)
-            , it_(it)
+    public:
+        using iterator_category = std::forward_iterator_tag;
+        using difference_type = std::ptrdiff_t;
+        using value_type = typename Container::value_type;
+        using pointer = value_type*;
+        using reference = value_type;
+
+        tree_index_iterator(
+            typename Container::container_type* container, 
+            typename Container::container_iterator it
+        )
+            : container_(container)
+            , it_(it, std::nullopt)
         {}
 
         tree_index_iterator< Container, N >& operator++()
         {
+            ++get(it_.second);
+            if (get(it_.second) == it_.first->second.end())
+            {
+                if(++it_.first == container_->end())
+                {
+                    it_.second = std::nullopt;
+                }
+                else
+                {
+                    it_.second = it_.first->second.begin();
+                }
+            }
+            
             return *this;
         }
 
-        const typename Container::value_type operator*() const
+        tree_index_iterator< Container, N > operator++(int)
         {
-            //                                  This is pair< Head, std::tuple< Tail... > > but should be std::tuple< Head, Tail... >
-            //return std::make_pair(it_->first, tree_index_iterator< typename Container::nested_tree_type, N - 1 >::operator*());
-            return typename Container::value_type();
+            auto it = *this;
+            operator++();
+            return it;
+        }
+
+        const typename value_type operator*() const
+        {           
+            return std::make_pair(it_.first->first, value_type_tuple(get(it_.second).operator *()));
+        }
+
+        bool operator == (tree_index_iterator< Container, N > it) const 
+        {            
+            assert(it.container_ == container_);
+            return it_ == it.it_;
+        }
+
+        bool operator != (tree_index_iterator< Container, N > it) const 
+        {
+            assert(it.container_ == container_);
+            return it_ != it.it_;
+        }
+
+        tree_index_iterator< Container, N >& operator = (tree_index_iterator< Container, N > it) 
+        {
+            container_ = it.container_;
+            it_ = it.it_; 
+            return *this;
         }
 
     private:
-        Container* container_;
-        typename Container::container_iterator it_;
+        nested_iterator_type& get(std::optional< nested_iterator_type >& it) const
+        {
+            if (!it.has_value())
+            {
+                it = it_.first->second.begin();
+            }
+
+            return *it;
+        }
+
+        typename Container::container_type* container_;
+
+        mutable std::pair< 
+            typename Container::container_iterator, 
+            std::optional< nested_iterator_type > 
+        > it_;
     };
 
     template < size_t N, typename Head, typename... Tail > class tree_index;
@@ -94,8 +166,8 @@ namespace column
             return values_.emplace(std::forward< T >(value));
         }
 
-        auto begin() { return iterator(this, values_.begin()); }
-        auto end() { return iterator(this, values_.end()); }
+        auto begin() { return iterator(values_.begin()); }
+        auto end() { return iterator(values_.end()); }
         
         size_t size() const { return values_.size(); }
 
@@ -111,8 +183,8 @@ namespace column
         using container_iterator = typename container_type::iterator;
 
         using key_type = Head;
-        using mapped_type = std::tuple< Tail&... >;
-        using value_type = std::pair< const key_type&, mapped_type >;
+        using mapped_type = std::tuple< Tail... >;
+        using value_type = std::pair< /*const*/ key_type, mapped_type >;
         using iterator = tree_index_iterator< tree_index< N, Head, Tail... >, N >;
 
         tree_index()
@@ -152,7 +224,7 @@ namespace column
                 } 
                 else
                 {
-                    // TODO: this is nullptr...
+                    // This is type-safe nullptr
                     return std::add_pointer_t< decltype(it->second) >();
                 }
             }                
@@ -165,19 +237,14 @@ namespace column
                 }
                 else
                 {
-                    // TODO: this is nullptr...
+                    // This is type-safe nullptr
                     return std::add_pointer_t< decltype(*it->second.prefix(std::forward< TailT >(tail)...)) >();
                 }
             }                
         }
 
-        auto prefix(typename container_type::iterator it)
-        {
-            return it != values_.end() ? &it->second : nullptr;
-        }
-
-        auto begin() { return iterator(this, values_.begin()); }
-        auto end() { return iterator(this, values_.end()); }
+        auto begin() { return iterator(&values_, values_.begin()); }
+        auto end() { return iterator(&values_, values_.end()); }
         
         size_t size() const { return size_; }
 

@@ -1,48 +1,68 @@
 #pragma once
 
 #include <map>
+#include <optional>
 
 //
-// Container takes a tuple< Arg1, ... ArgN > and provides interface to access data that shares common prefix.
-// So given prefix tuple< Arg1, ... ArgK >, we return map< ArgK + 1, std::tuple< ArgK + 2, ... ArgN > >.
+// Container takes a tuple< Key1, ..., KeyN, Value1, ..., ValueN > and provides interface to access data 
+// sharing common prefix in a form of new container < KeyN, Value1, ..., ValueN >.
 //
 
 namespace column
 {    
-    template < typename Container, typename Iterator, size_t N, typename Head, typename... Tail > class tree_index_iterator;
+    template < typename Container, size_t N > class tree_index_iterator;
 
-    template < typename Container, typename Iterator, typename Head > class tree_index_iterator< Container, Iterator, 1, Head >
+    template < typename Container > class tree_index_iterator< Container, 1 >
     {
     public:
-        tree_index_iterator(Container* container, Iterator it);
+        tree_index_iterator() {}
 
-        const Head* operator* () const;
-        //tree_index_iterator< 1, Head > operator ++(int);
+        tree_index_iterator(Container* container, typename Container::container_iterator it)
+            : container_(container)
+            , it_(it)
+        {}
+
+        const typename Container::value_type& operator* () const { return *it_; }
+        const typename Container::value_type& operator* ()       { return *it_; }
+
+    private:
+        Container* container_;
+        typename Container::container_iterator it_;
     };
 
-    template < typename Container, typename Iterator, size_t N, typename Head, typename... Tail > class tree_index_iterator
-        : public tree_index_iterator< typename Container::nested_tree_type, typename Container::nested_tree_type::container_type::iterator, N - 1, Tail... >
-    {
-        using base_type = tree_index_iterator< Container, Iterator, N, Tail... >;
-
+    template < typename Container, size_t N > class tree_index_iterator
+        : public tree_index_iterator< typename Container::nested_tree_type, N - 1 >
+    {        
     public:
-        tree_index_iterator(Container* container, Iterator it)
-            : tree_index_iterator< typename Container::nested_tree_type, typename Container::nested_tree_type::container_type::iterator, N - 1, Tail... >(
-                container ? container->prefix(it) : nullptr
-                , typename Container::nested_tree_type::container_type::iterator()
-            )
+        tree_index_iterator()
+        {}
+
+        tree_index_iterator(Container* container)
+            : tree_index_iterator< typename Container::nested_tree_type, N - 1 >()                
+            , container_(container)
+        {}
+        
+        tree_index_iterator(Container* container, typename Container::container_iterator it)
+            : tree_index_iterator< typename Container::nested_tree_type, N - 1 >()
             , container_(container)
             , it_(it)
         {}
-        
-        tree_index_iterator< Container, Iterator, N, Head, Tail... >& operator++()
+
+        tree_index_iterator< Container, N >& operator++()
         {
             return *this;
         }
 
+        const typename Container::value_type operator*() const
+        {
+            //                                  This is pair< Head, std::tuple< Tail... > > but should be std::tuple< Head, Tail... >
+            //return std::make_pair(it_->first, tree_index_iterator< typename Container::nested_tree_type, N - 1 >::operator*());
+            return typename Container::value_type();
+        }
+
     private:
         Container* container_;
-        Iterator it_;
+        typename Container::container_iterator it_;
     };
 
     template < size_t N, typename Head, typename... Tail > class tree_index;
@@ -50,10 +70,12 @@ namespace column
     template < typename Head > class tree_index< 1, Head > 
     {
     public:
+        using container_type = std::set< Head >;
+        using container_iterator = typename container_type::iterator;
+
         using key_type = Head;
         using value_type = Head;
-        using container_type = std::set< Head >;
-        using iterator = tree_index_iterator< tree_index < 1, Head >, typename container_type::iterator, 1, Head >;
+        using iterator = tree_index_iterator< tree_index < 1, Head >, 1 >;
 
         template < typename T > auto& prefix(T&&) 
         {
@@ -73,7 +95,7 @@ namespace column
         }
 
         auto begin() { return iterator(this, values_.begin()); }
-        auto end() { return iterator(this, values_.end());; }
+        auto end() { return iterator(this, values_.end()); }
         
         size_t size() const { return values_.size(); }
 
@@ -84,14 +106,14 @@ namespace column
     template < size_t N, typename Head, typename... Tail > class tree_index
     {
     public:
-        using key_type = Head;
-
         using nested_tree_type = tree_index< N - 1, Tail... >;
-        using container_type = std::map< key_type, tree_index< N - 1, Tail... > >;
-    
+        using container_type = std::map< Head, nested_tree_type >;
+        using container_iterator = typename container_type::iterator;
+
+        using key_type = Head;
         using mapped_type = std::tuple< Tail&... >;
         using value_type = std::pair< const key_type&, mapped_type >;
-        using iterator = tree_index_iterator< tree_index< N, Head, Tail... >, typename container_type::iterator, N, Head, Tail... >;
+        using iterator = tree_index_iterator< tree_index< N, Head, Tail... >, N >;
 
         tree_index()
             : size_()
@@ -121,11 +143,32 @@ namespace column
      
         template< typename HeadT, typename... TailT > auto prefix(HeadT&& head, TailT&&... tail)
         {
-            // TODO: this does 'hidden insert', it should not modify the struct in case there is nothing.
-            if constexpr(sizeof... (tail) == 0)
-                return &values_[std::forward< HeadT >(head)];
+            if constexpr (sizeof... (tail) == 0)
+            {
+                auto it = values_.find(head);
+                if (it != values_.end()) 
+                {
+                    return &it->second;
+                } 
+                else
+                {
+                    // TODO: this is nullptr...
+                    return std::add_pointer_t< decltype(it->second) >();
+                }
+            }                
             else
-                return values_[std::forward< HeadT >(head)].prefix(std::forward< TailT >(tail)...);
+            {
+                auto it = values_.find(head);
+                if (it != values_.end())
+                {
+                    return it->second.prefix(std::forward< TailT >(tail)...);
+                }
+                else
+                {
+                    // TODO: this is nullptr...
+                    return std::add_pointer_t< decltype(*it->second.prefix(std::forward< TailT >(tail)...)) >();
+                }
+            }                
         }
 
         auto prefix(typename container_type::iterator it)

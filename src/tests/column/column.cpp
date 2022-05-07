@@ -5,7 +5,14 @@
 
 #include <tuple>
 
-BOOST_AUTO_TEST_CASE(test_column_size)
+BOOST_AUTO_TEST_CASE(test_index_1)
+{
+    column::tree_index< 1, int > t;
+    t.emplace(1);
+    *t.begin();
+}
+
+BOOST_AUTO_TEST_CASE(test_prefix)
 {
     column::tree< int, int, int > t;
     BOOST_REQUIRE(t.size() == 0);
@@ -43,4 +50,7 @@ BOOST_AUTO_TEST_CASE(test_column_size)
 BOOST_AUTO_TEST_CASE(test_column_iterator)
 {
     column::tree< int, int, int > t;
+    t.emplace(1, 1, 1);
+    auto it = t.begin();
+    // *it;
 }

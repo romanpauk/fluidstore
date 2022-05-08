@@ -55,7 +55,7 @@ BOOST_AUTO_TEST_CASE(test_prefix)
     BOOST_REQUIRE(t00_1 == t00_2);
 }
 
-BOOST_AUTO_TEST_CASE(test_column_iterator)
+BOOST_AUTO_TEST_CASE(test_iterator_dereference)
 {
     column::tree< int, int, int > t;
     t.emplace(1, 1, 1);
@@ -78,7 +78,7 @@ BOOST_AUTO_TEST_CASE(test_column_iterator)
     }
 }
 
-BOOST_AUTO_TEST_CASE(test_column_iterator2)
+BOOST_AUTO_TEST_CASE(test_iterator_distance)
 {
     column::tree< int, int, int > t;
     BOOST_REQUIRE(t.begin() == t.end());

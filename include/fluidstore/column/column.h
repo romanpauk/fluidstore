@@ -1,11 +1,10 @@
 #pragma once
 
 #include <map>
-#include <optional>
 
 namespace column
 {    
-    template < typename Head > auto value_type_tuple(Head p)
+    template < typename Head > auto value_type_tuple(const Head& p)
     {
         return std::make_tuple(p);
     }
@@ -30,6 +29,10 @@ namespace column
         using value_type = typename Container::value_type;
         using pointer = value_type*;
         using reference = value_type&;
+
+        tree_index_iterator()
+            : it_()
+        {}
 
         tree_index_iterator(typename Container::container_iterator it)
             : it_(it)
@@ -61,22 +64,26 @@ namespace column
         using pointer = value_type*;
         using reference = value_type;
 
+        tree_index_iterator()
+            : container_()
+            , it_()
+        {}
+
         tree_index_iterator(
             typename Container::container_type* container, 
             typename Container::container_iterator it
         )
             : container_(container)
-            , it_(it, std::nullopt)
+            , it_(it, it != container->end() ? it->second.begin() : nested_iterator_type())
         {}
 
         tree_index_iterator< Container, N >& operator++()
-        {
-            ++get(it_.second);
-            if (get(it_.second) == it_.first->second.end())
+        {            
+            if (++it_.second == it_.first->second.end())
             {
                 if(++it_.first == container_->end())
                 {
-                    it_.second = std::nullopt;
+                    it_.second = nested_iterator_type(); 
                 }
                 else
                 {
@@ -96,7 +103,7 @@ namespace column
 
         const typename value_type operator*() const
         {           
-            return std::make_pair(it_.first->first, value_type_tuple(get(it_.second).operator *()));
+            return std::make_pair(it_.first->first, value_type_tuple(it_.second.operator *()));
         }
 
         bool operator == (tree_index_iterator< Container, N > it) const 
@@ -119,21 +126,11 @@ namespace column
         }
 
     private:
-        nested_iterator_type& get(std::optional< nested_iterator_type >& it) const
-        {
-            if (!it.has_value())
-            {
-                it = it_.first->second.begin();
-            }
-
-            return *it;
-        }
-
         typename Container::container_type* container_;
 
         mutable std::pair< 
             typename Container::container_iterator, 
-            std::optional< nested_iterator_type > 
+            nested_iterator_type
         > it_;
     };
 

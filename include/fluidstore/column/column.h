@@ -11,12 +11,12 @@ namespace column
             return std::make_tuple(p);
         }
 
-        template < typename Head, typename Tail > auto value_type_tuple(const std::pair< Head, Tail >& p)
+        template < typename Head, typename Tail > auto value_type_tuple(const std::pair< const Head&, Tail& >& p)
         {
             return std::make_tuple(p.first, p.second);
         }
 
-        template < typename Head, typename... Tail > auto value_type_tuple(const std::pair< Head, std::tuple< Tail... > >& p)
+        template < typename Head, typename... Tail > auto value_type_tuple(const std::pair< const Head&, std::tuple< Tail... > >& p)
         {
             return std::tuple_cat(std::make_tuple(p.first), p.second);
         }
@@ -104,8 +104,8 @@ namespace column
             }
 
             const typename value_type operator*() const
-            {           
-                return std::make_pair(it_.first->first, value_type_tuple(it_.second.operator *()));
+            {                   
+                return std::make_pair< typename value_type::first_type, typename value_type::second_type >(it_.first->first, value_type_tuple(it_.second.operator *()));
             }
 
             bool operator == (set_iterator< Container, N > it) const 

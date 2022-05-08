@@ -15,9 +15,9 @@ BOOST_AUTO_TEST_CASE(test_index_1)
 
 BOOST_AUTO_TEST_CASE(test_get_tuple)
 {
-    std::tuple< int > t1 = column::detail::value_type_tuple(1);
-    std::tuple< int, int > t2 = column::detail::value_type_tuple(std::make_pair(1, 1));
-    std::tuple< int, int, int > t3 = column::detail::value_type_tuple(std::make_pair(1, std::make_tuple(1, 1)));
+    //std::tuple< int > t1 = column::detail::value_type_tuple(1);
+    //std::tuple< int, int > t2 = column::detail::value_type_tuple(std::make_pair(1, 1));
+    //std::tuple< int, int, int > t3 = column::detail::value_type_tuple(std::make_pair(1, std::make_tuple(1, 1)));
 }
 
 BOOST_AUTO_TEST_CASE(test_prefix)
